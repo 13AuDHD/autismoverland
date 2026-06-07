@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AutismOverland | Explore the Outdoors at Your Pace</title>
+  <meta name="description" content="Quiet campsites, scenic trails, and safe stops for neurodivergent overlanders." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- includes="header.html" -->
+  <div data-include="header.html"></div>
+
+  <main>
+    <section class="hero">
+      <div class="hero__content container">
+        <div class="hero__text">
+          <p class="eyebrow"><i class="fa-solid fa-mountain-sun"></i> Neurodivergent-friendly overlanding</p>
+          <h1>Explore the Outdoors at Your Pace</h1>
+          <p>Find quiet campsites, scenic trails, and safe stops for neurodivergent adventurers. Travel at your own speed, in a way that works for you.</p>
+          <a class="button button--primary" href="#map"><i class="fa-solid fa-map-location-dot"></i> Explore the Map</a>
+        </div>
+        <div class="hero__art" aria-label="Mountain campsite with black Suburban near a lake"></div>
+      </div>
+    </section>
+
+    <section id="map" class="map-section container section-card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow"><i class="fa-solid fa-location-dot"></i> Interactive Map</p>
+          <h2>Find places that match your needs</h2>
+        </div>
+        <a href="map.html" class="text-link">View full map <i class="fa-solid fa-arrow-right"></i></a>
+      </div>
+
+      <div class="filter-bar" aria-label="Map filters">
+        <label class="filter-field filter-field--search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="search" id="siteSearch" placeholder="Search places" />
+        </label>
+        <label class="filter-field">
+          <i class="fa-solid fa-campground"></i>
+          <select id="siteType">
+            <option value="all">All types</option>
+            <option value="campground">Campgrounds</option>
+            <option value="dispersed">Dispersed camping</option>
+            <option value="trailhead">Trailheads</option>
+            <option value="viewpoint">Viewpoints</option>
+          </select>
+        </label>
+        <label class="filter-field">
+          <i class="fa-solid fa-signal"></i>
+          <select id="cellFilter">
+            <option value="all">Any cell service</option>
+            <option value="yes">Cell service</option>
+            <option value="no">No cell service</option>
+          </select>
+        </label>
+        <label class="filter-field">
+          <i class="fa-solid fa-universal-access"></i>
+          <select id="accessFilter">
+            <option value="all">Any access</option>
+            <option value="easy">Easy access</option>
+            <option value="high-clearance">High clearance</option>
+            <option value="4x4">4x4 recommended</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="map-layout">
+        <aside class="map-sidebar" aria-label="Map filter checklist">
+          <details open>
+            <summary>Type of Site</summary>
+            <label><input type="checkbox" checked data-check-type="campground"> <i class="fa-solid fa-campground"></i> Campgrounds</label>
+            <label><input type="checkbox" checked data-check-type="dispersed"> <i class="fa-solid fa-tent"></i> Dispersed Camping</label>
+            <label><input type="checkbox" checked data-check-type="trailhead"> <i class="fa-solid fa-person-hiking"></i> Trailheads</label>
+            <label><input type="checkbox" checked data-check-type="viewpoint"> <i class="fa-solid fa-binoculars"></i> Viewpoints</label>
+          </details>
+          <details open>
+            <summary>Needs</summary>
+            <label><input type="checkbox" data-tag-filter="quiet"> Quiet</label>
+            <label><input type="checkbox" data-tag-filter="shade"> Shade</label>
+            <label><input type="checkbox" data-tag-filter="water"> Near water</label>
+            <label><input type="checkbox" data-tag-filter="low-sensory"> Low sensory</label>
+          </details>
+        </aside>
+
+        <div class="map-panel" aria-label="Stylized map preview">
+          <div class="map-water"></div>
+          <button class="map-marker marker-1" data-place="Tomichi Pass Dispersed Camp"><i class="fa-solid fa-campground"></i></button>
+          <button class="map-marker marker-2" data-place="Little Snake Overlook"><i class="fa-solid fa-binoculars"></i></button>
+          <button class="map-marker marker-3" data-place="Clear Creek Reservoir Camp"><i class="fa-solid fa-tent"></i></button>
+          <button class="map-marker marker-4" data-place="Pine Ridge Trailhead"><i class="fa-solid fa-person-hiking"></i></button>
+          <button class="map-marker marker-5" data-place="River Bend Rest Stop"><i class="fa-solid fa-location-dot"></i></button>
+          <div class="map-toast" id="mapToast">Select a marker</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="container listings-section">
+      <div class="section-heading">
+        <h2>Featured Locations</h2>
+        <a href="places.html" class="text-link">View All Spots <i class="fa-solid fa-arrow-right"></i></a>
+      </div>
+      <div class="card-grid" id="locationGrid"></div>
+    </section>
+
+    <section class="container blog-section">
+      <div class="section-heading">
+        <h2>Latest Blog Posts</h2>
+        <a href="blog.html" class="text-link">View All Posts <i class="fa-solid fa-arrow-right"></i></a>
+      </div>
+      <div class="card-grid blog-grid">
+        <article class="post-card">
+          <div class="card-image image-river"></div>
+          <div class="card-body">
+            <p class="card-kicker"><i class="fa-solid fa-shield-heart"></i> Safety</p>
+            <h3>10 Essential Safety Tips for Neurodivergent Overlanders</h3>
+            <p>Simple prep for calmer, safer trips without turning the whole thing into a spreadsheet from hell.</p>
+            <a href="blog.html" class="button button--small">Read post</a>
+          </div>
+        </article>
+        <article class="post-card">
+          <div class="card-image image-road"></div>
+          <div class="card-body">
+            <p class="card-kicker"><i class="fa-solid fa-ear-listen"></i> Sensory</p>
+            <h3>Managing Sensory Overload on the Road</h3>
+            <p>Practical ways to build quiet, recovery, and predictability into outdoor travel.</p>
+            <a href="blog.html" class="button button--small">Read post</a>
+          </div>
+        </article>
+        <article class="post-card">
+          <div class="card-image image-forest"></div>
+          <div class="card-body">
+            <p class="card-kicker"><i class="fa-solid fa-shower"></i> Gear</p>
+            <h3>Best Portable Showers for Camping</h3>
+            <p>What matters for privacy, water use, setup time, and not hating every second of it.</p>
+            <a href="blog.html" class="button button--small">Read post</a>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <!-- includes="footer.html" -->
+  <div data-include="footer.html"></div>
+
+  <script src="main.js"></script>
+</body>
+</html>
