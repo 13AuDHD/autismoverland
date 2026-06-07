@@ -51,18 +51,7 @@ img { max-width: 100%; display: block; }
   backdrop-filter: blur(10px);
 }
 .nav-wrap { min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.brand { display: inline-flex; align-items: center; gap: 14px; font-weight: 800; letter-spacing: .02em; }
-.brand-mark {
-  width: 60px;
-  height: 60px;
-  border: 2px solid rgba(255,255,255,.78);
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(circle at 50% 30%, #f8f4ea 0 24%, #2f83a0 25% 38%, #17332f 39% 100%);
-  color: var(--cream);
-  box-shadow: 0 6px 16px rgba(0,0,0,.22);
-}
+
 .logo {
     display: flex;
     align-items: center;
