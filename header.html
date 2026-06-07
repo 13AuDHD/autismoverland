@@ -1,25 +1,29 @@
-<header class="site-header">
-    <div class="container header-container">
+<header class="site-header" data-site-header>
+  <div class="header-inner">
+    <a class="brand" href="index.html" aria-label="AutismOverland home">
+      <img src="images/ao_logo.jpg" alt="AutismOverland logo" class="brand-logo">
+      <span class="brand-text"><span>Autism</span><span>Overland</span></span>
+    </a>
 
-        <a href="index.html" class="logo">
-            <img src="images/ao_logo.jpg" alt="Autism Overland Logo">
-            <span>Autism<span class="accent">Overland</span></span>
-        </a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="map.html">Map</a>
+      <a href="places.html">Places</a>
+      <a href="blog.html">Blog</a>
+      <a href="about.html">About</a>
+    </nav>
 
-        <nav class="desktop-nav">
-            <a href="map.html">Map</a>
-            <a href="places.html">Places</a>
-            <a href="blog.html">Blog</a>
-            <a href="about.html">About</a>
-        </nav>
+    <a class="submit-place" href="submit.html">Submit a Place</a>
 
-        <a href="submit.html" class="btn submit-btn">
-            Submit a Place
-        </a>
+    <button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+  </div>
 
-        <button id="mobile-menu-btn">
-            <i class="fas fa-bars"></i>
-        </button>
-
-    </div>
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <a href="map.html">Map</a>
+    <a href="places.html">Places</a>
+    <a href="blog.html">Blog</a>
+    <a href="about.html">About</a>
+    <a href="submit.html">Submit a Place</a>
+  </nav>
 </header>
