@@ -63,6 +63,29 @@ img { max-width: 100%; display: block; }
   color: var(--cream);
   box-shadow: 0 6px 16px rgba(0,0,0,.22);
 }
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+}
+
+.logo img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.logo span {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #222;
+}
+
+.logo .accent {
+    color: #4a83a8;
+}
 .brand-mark .fa-road { margin-left: -9px; transform: translateY(10px); }
 .brand-text { font-size: clamp(1.1rem, 2vw, 1.55rem); }
 .brand-text span { color: #7db6c9; }
