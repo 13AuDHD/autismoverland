@@ -424,7 +424,6 @@ img { display: block; max-width: 100%; }
 .footer-brand img {
   width: auto;
   height: 69px;
-  border-radius: 999px;
   object-fit: cover;
 }
 
