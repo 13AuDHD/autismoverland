@@ -422,8 +422,8 @@ img { display: block; max-width: 100%; }
 }
 
 .footer-brand img {
-  width: 52px;
-  height: 52px;
+  width: auto;
+  height: 69px;
   border-radius: 999px;
   object-fit: cover;
 }
