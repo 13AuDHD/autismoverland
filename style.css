@@ -395,7 +395,7 @@ img { display: block; max-width: 100%; }
 
 .site-footer {
   color: #f7f1e8;
-  background: linear-gradient(180deg, rgba(29,52,46,.94), #172822);
+  background: linear-gradient(180deg, rgba(00,00,00,.94), #172822);
   padding: 42px 0 20px;
 }
 
