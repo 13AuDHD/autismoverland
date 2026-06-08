@@ -72,11 +72,9 @@ img { display: block; max-width: 100%; }
 }
 
 .brand-logo {
-  width: 70px;
-  height: 70px;
-  border-radius: 999px;
+  width: 384px;
+  height: 138px;
   object-fit: cover;
-  border: 2px solid rgba(255,255,255,.72);
   box-shadow: 0 2px 0 rgba(0,0,0,.2);
 }
 
