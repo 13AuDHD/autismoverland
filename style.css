@@ -48,7 +48,7 @@ img { display: block; max-width: 100%; }
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(29,52,46,.97);
+  background: rgba(00,00,00,.97);
   color: #f7f1e8;
   border-bottom: 1px solid rgba(255,255,255,.08);
 }
