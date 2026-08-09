@@ -1,5 +1,266 @@
 [
   {
+  "id": "first-fork-last-camp",
+  "name": "First Fork Last Camp",
+  "slug": "first-fork-last-camp",
+  "type": "dispersed-camping",
+  "status": "active",
+  "featured": true,
+  "location": {
+    "latitude": 37.35238,
+    "longitude": -107.32608,
+    "elevationFeet": 7096,
+    "road": "First Fork Rd / FS 622",
+    "city": "Pagosa Springs",
+    "county": "Archuleta",
+    "state": "Colorado",
+    "region": "Pagosa Ranger District",
+    "landManager": "U.S. Forest Service",
+    "landType": "San Juan National Forest"
+  },
+  "site": {
+    "vehicleCapacity": 2,
+    "maxVehicleLengthFeet": 35,
+    "tentCampingSuitable": true,
+    "rvSuitable": false,
+    "trailerSuitable": true,
+    "parkingSurface": "grass",
+    "levelness": 4,
+    "levelingRequired": false,
+    "turnaroundSpace": false,
+    "pullThrough": false,
+    "openSky": 4,
+    "treeCover": 3,
+    "shade": 3,
+    "groundCondition": "grassy-dirt"
+  },
+  "access": {
+    "siteAccessDifficulty": 1,
+    "roadOverallDifficulty": 1,
+    "roadDifficulty": 1,
+    "roadStress": 2,
+    "sedanAccessible": true,
+    "highClearanceRecommended": false,
+    "fourWheelDriveRecommended": false,
+    "roadSurface": "Dirt",
+    "roadWidth": "One lane",
+    "rocks": 2,
+    "washboards": 2,
+    "potholes": 1,
+    "mudRisk": 2,
+    "steepGrades": 1,
+    "dropOffExposure": 3,
+    "waterCrossings": null,
+    "downedTreeRisk": true,
+    "seasonalClosure": null
+  },
+  "sensory": {
+    "daytime": {
+      "noise": 2,
+      "traffic": 3,
+      "crowds": 3,
+      "privacy": 2,
+      "lightPollution": null,
+      "sensoryComfort": 3,
+      "socialInteractionLikelihood": 2
+    },
+    "nighttime": {
+      "noise": 1,
+      "traffic": 1,
+      "crowds": 2,
+      "privacy": 5,
+      "lightPollution": 1,
+      "sensoryComfort": 5,
+      "socialInteractionLikelihood": null
+    },
+    "dustFromTraffic": 2,
+    "generatorNoise": 1,
+    "aircraftNoise": 2,
+    "roadNoise": 1,
+    "humanActivity": 3,
+    "wildlifeNoise": 1,
+    "windNoise": null,
+    "smokeRisk": null,
+    "strongOdors": null,
+    "visualExposure": 3,
+    "predictability": 4
+  },
+  "connectivity": {
+    "overall": 1,
+    "tMobile": 1,
+    "verizon": 1,
+    "att": 1,
+    "other": null,
+    "starlink": 4,
+    "starlinkTested": true,
+    "starlinkNote": "Tested with Starlink Mini V1"
+  },
+  "amenities": {
+    "toilets": true,
+    "potableWater": true,
+    "trash": false,
+    "fireRing": false,
+    "picnicTable": false,
+    "bearBox": false,
+    "showers": false,
+    "electricity": false,
+    "dumpStation": false,
+    "foodStorageRequired": null
+  },
+  "environment": {
+    "forest": null,
+    "mountains": null,
+    "waterNearby": null,
+    "waterView": null,
+    "mountainView": true,
+    "forestView": true,
+    "wildlife": null,
+    "bugs": null,
+    "windExposure": null,
+    "sunExposure": null,
+    "shade": 3,
+    "openSky": 4
+  },
+  "experience": {
+    "sunriseView": null,
+    "sunsetView": null,
+    "mountainView": 1,
+    "forestView": 4,
+    "nightSky": 4,
+    "stargazing": 4,
+    "quietEvening": 5,
+    "overnightComfort": 5,
+    "extendedStayComfort": 5,
+    "sensoryRetreat": 4,
+    "remoteWork": 4,
+    "overallScenery": 4
+  },
+  "accessibility": {
+    "wheelchairFriendly": null,
+    "mobilityDeviceFriendly": null,
+    "flatWalkingSurface": null,
+    "walkingDistanceFromVehicle": null,
+    "stepFreeAccess": null,
+    "accessibleToilet": null,
+    "accessiblePicnicTable": null
+  },
+  "safety": {
+    "feltSafeDaytime": null,
+    "feltSafeNighttime": null,
+    "flashFloodRisk": null,
+    "wildfireRisk": null,
+    "fallHazard": null,
+    "cliffExposure": null,
+    "rockfallRisk": null,
+    "wildlifeRisk": null,
+    "trafficHazard": null,
+    "emergencyAccess": null
+  },
+  "warnings": {
+    "exposedToRoad": false,
+    "zeroPrivacy": false,
+    "passingVehicleDust": false,
+    "possibleDownedTrees": true,
+    "noTentCamping": false,
+    "limitedVehicleLength": false,
+    "levelingMayBeRequired": true,
+    "noAmenities": false,
+    "motorizedRecreationTraffic": true,
+    "blindTurnTrafficNearby": false
+  },
+  "recommendedFor": {
+    "overnightStop": 5,
+    "quietEvening": 5,
+    "extendedStay": 5,
+    "sensoryRetreat": 4,
+    "stargazing": 4,
+    "remoteWork": 4,
+    "soloTravel": null,
+    "families": null,
+    "largeGroups": null
+  },
+  "notRecommendedFor": [],
+  "season": {
+    "bestMonths": null,
+    "winterAccess": null,
+    "snowRisk": null,
+    "mudSeasonRisk": null,
+    "monsoonRisk": null,
+    "recommendedTravelSeason": null,
+    "seasonalAccessNote": null
+  },
+  "regulations": {
+    "overnightCampingAllowed": true
+    "dispersedCampingAllowed": true,
+    "stayLimitDays": 14,
+    "maximumDaysPer60DayPeriod": 14,
+    "moveDistanceAfterStayMiles": null,
+    "permitRequired": false,
+    "fee": false,
+    "campfireAllowed": true,
+    "currentFireRestrictionsUrl": null
+  },
+  "landUseRules": {
+    "vehicleDistanceFromRoadMaxFeet": null,
+    "minimumDistanceFromWaterFeet": null,
+    "existingSitesEncouraged": true,
+    "packItInPackItOut": true,
+    "residentialUseProhibited": true
+  },
+  "nearby": {
+    "nearestTown": Pagosa Springs,
+    "nearestFuel": null,
+    "nearestGrocery": null,
+    "nearestWater": null,
+    "nearestToilet": null,
+    "nearestHospital": null
+  },
+  "description": "This is the final campsite at the end of First Fork Road, tucked beside the river in a quiet, remote section of the camping area. The site is best suited to one or two vehicles, though there is another larger site just up the road that can comfortably handle a group of roughly three to four vehicles and/or a small trailer. The ground is fairly level, but some minor leveling may still be needed depending on where and how you park. The site sits close to the water with limited direct sunlight because of the surrounding terrain, although solar still works well enough to maintain a modest battery setup. An outdoor wheelchair should handle the site reasonably well. Pit toilets are available at the opposite end of the camping area near the trail parking, and there is also a small hidden hose along the road that is fed by a natural spring.",
+  "sensorySummary": "This is a very peaceful site overall. The river is the dominant sound, which helps mask most other noise and makes the area feel calm and predictable. The main interruption comes from fly fishers and hikers using the small trail behind the campsite, so people may occasionally pass directly through or near the site during the day. If that level of interaction is manageable, this can be a very good place for sensory recovery. The moving water is especially calming, and depending on river depth, there are larger rocks where you can sit out near the water while staying dry. Privacy is better than a roadside pullout, but it is not completely isolated because of the trail traffic.",
+  "accessSummary": "The site is located at the end of First Fork Road and is suitable for standard vehicle camping. The ground is mostly level, though small adjustments or leveling blocks may be useful depending on where you park. The site itself is better for one vehicle, while the larger nearby site has enough room for several vehicles and a small trailer with a limited turnaround area. Outdoor wheelchair access is reasonable around the campsite itself, although conditions may vary depending on weather and ground moisture. Pit toilets are located elsewhere in the camping area near the trail parking rather than directly at the site.",
+  "notes": [
+    "Final campsite at the end of First Fork Road.",
+    "One nearby site is much larger and can comfortably fit approximately 5 to 6 vehicles.",
+    "The larger nearby site can accommodate a small trailer and has a small turnaround area.",
+    "River noise is the dominant sound and makes the site very peaceful.",
+    "Fly fishers regularly use the area and may pass through the campsite on the trail behind it.",
+    "Social interaction is possible during the day because of fishing and trail traffic.",
+    "The site is fairly level, but minor leveling may be required depending on parking position.",
+    "Outdoor wheelchair access around the campsite is generally good.",
+    "Pit toilets are available at the opposite end of the camping area near the trail parking.",
+    "A small hose fed by a natural spring is located along the road nearby.",
+    "Direct sunlight is limited because of the surrounding terrain and mountain position.",
+    "Solar exposure was still sufficient to maintain vehicle batteries during the stay.",
+    "The site can work well for sensory overload recovery if occasional fishermen and hikers are not a problem.",
+    "Large rocks in the river may provide dry places to sit near the water when river levels allow.",
+    "Maximum stay 14 days."
+  ],
+  "images": [
+    {
+      "src": "images/places/first-fork-last-site-1.jpeg",
+      "alt": "First Fork Last Camp photo 1",
+      "featured": true
+    },
+    {
+      "src": "images/places/first-fork-last-site-2.jpeg",
+      "alt": "First Fork Last Camp photo 2",
+      "featured": false
+    },
+    {
+      "src": "images/places/first-fork-last-site-3.jpeg",
+      "alt": "First Fork Last Camp photo 3",
+      "featured": false
+    }
+  ],
+  "verification": {
+    "status": "field-verified",
+    "visited": "2026-05-31",
+    "lastVerified": "2026-05-31",
+    "source": "AutismOverland field observation",
+    "publicDataVerified": false
+  }
+}
+  {
     "id": "chimney-rock-pulloff",
     "name": "Chimney Rock Pulloff",
     "slug": "chimney-rock-pulloff",
