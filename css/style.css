@@ -1159,6 +1159,38 @@ img { display: block; max-width: 100%; }
   overflow: hidden;
 }
 
+/* =========================================================
+   HOMEPAGE LIVE MAP FILTERS
+   ========================================================= */
+
+.homepage-map-controls label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.homepage-map-controls select {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  outline: 0;
+}
+
+.homepage-map-controls select,
+.homepage-map-controls input {
+  min-width: 0;
+}
+
+.homepage-map-sidebar .small-btn {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+.homepage-map-sidebar input[type="checkbox"] {
+  accent-color: currentColor;
+}
+
 /* Mobile */
 
 @media (max-width: 850px) {
