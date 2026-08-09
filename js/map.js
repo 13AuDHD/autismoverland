@@ -28,9 +28,17 @@ async function initMap() {
 
     const places = await response.json();
 
-    places.forEach((place) => {
-      addPlaceMarker(map, place);
-    });
+const markers = new Map();
+
+places.forEach((place) => {
+  const marker = addPlaceMarker(map, place);
+
+  if (marker) {
+    markers.set(place.slug || place.id, marker);
+  }
+});
+
+handleRequestedPlace(map, places, markers);
 
   } catch (error) {
     console.error("AutismOverland map error:", error);
@@ -51,7 +59,59 @@ function addPlaceMarker(map, place) {
     longitude
   ]).addTo(map);
 
-  marker.bindPopup(buildPopup(place));
+marker.bindPopup(buildPopup(place));
+
+return marker;
+}
+
+
+function handleRequestedPlace(map, places, markers) {
+  const params = new URLSearchParams(window.location.search);
+  const requestedPlace = params.get("place");
+
+  if (!requestedPlace) {
+    if (places.length > 1) {
+      const bounds = places
+        .filter(
+          (place) =>
+            place.location?.latitude != null &&
+            place.location?.longitude != null
+        )
+        .map((place) => [
+          place.location.latitude,
+          place.location.longitude
+        ]);
+
+      if (bounds.length) {
+        map.fitBounds(bounds, {
+          padding: [50, 50],
+          maxZoom: 11
+        });
+      }
+    }
+
+    return;
+  }
+
+  const place = places.find(
+    (item) =>
+      item.slug === requestedPlace ||
+      item.id === requestedPlace
+  );
+
+  const marker = markers.get(requestedPlace);
+
+  if (!place || !marker) return;
+
+  map.setView(
+    [
+      place.location.latitude,
+      place.location.longitude
+    ],
+    15
+  );
+
+  marker.openPopup();
 }
 
 
