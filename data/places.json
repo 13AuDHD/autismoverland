@@ -1,1 +1,273 @@
+[
+  {
+    "id": "chimney-rock-pulloff",
+    "name": "Chimney Rock Pulloff",
+    "slug": "chimney-rock-pulloff",
+    "type": "vehicle-pulloff",
+    "status": "active",
+    "featured": false,
 
+    "location": {
+      "latitude": 37.25222,
+      "longitude": -107.2192,
+      "elevationFeet": 7486,
+      "road": "Snow Ranch Rd / FS 628",
+      "city": null,
+      "county": null,
+      "state": "Colorado",
+      "region": null,
+      "landManager": null,
+      "landType": null
+    },
+
+    "site": {
+      "vehicleCapacity": 1,
+      "maxVehicleLengthFeet": 25,
+      "tentCampingSuitable": false,
+      "rvSuitable": false,
+      "trailerSuitable": false,
+      "parkingSurface": "dirt",
+      "levelness": 3,
+      "levelingRequired": true,
+      "turnaroundSpace": null,
+      "pullThrough": false,
+      "backIn": true,
+      "openSky": 5,
+      "treeCover": 2,
+      "shade": 2,
+      "groundCondition": "rocky-dirt"
+    },
+
+    "access": {
+      "roadDifficulty": 1,
+      "roadStress": 1,
+      "sedanAccessible": true,
+      "highClearanceRecommended": false,
+      "fourWheelDriveRecommended": false,
+      "roadSurface": "dirt",
+      "roadWidth": null,
+      "rocks": 1,
+      "washboards": null,
+      "potholes": null,
+      "mudRisk": null,
+      "steepGrades": 1,
+      "dropOffExposure": null,
+      "waterCrossings": 1,
+      "downedTreeRisk": true,
+      "seasonalClosure": null
+    },
+
+    "sensory": {
+      "daytime": {
+        "noise": 3,
+        "traffic": 3,
+        "crowds": 1,
+        "privacy": 1,
+        "lightPollution": 1,
+        "sensoryComfort": 2,
+        "socialInteractionLikelihood": 1
+      },
+      "nighttime": {
+        "noise": 1,
+        "traffic": 1,
+        "crowds": 1,
+        "privacy": 2,
+        "lightPollution": 1,
+        "sensoryComfort": 4,
+        "socialInteractionLikelihood": 1
+      },
+      "dustFromTraffic": 2,
+      "generatorNoise": 1,
+      "aircraftNoise": 1,
+      "roadNoise": 3,
+      "humanActivity": 3,
+      "wildlifeNoise": null,
+      "windNoise": null,
+      "smokeRisk": null,
+      "strongOdors": 1,
+      "visualExposure": 5,
+      "predictability": 3
+    },
+
+    "connectivity": {
+      "overall": 5,
+      "tMobile": 5,
+      "verizon": 5,
+      "att": null,
+      "other": null,
+      "starlink": 5,
+      "starlinkTested": false,
+      "starlinkNote": "Excellent unobstructed sky view. Starlink rating is based on site geometry and clear sky exposure, not an actual Starlink test."
+    },
+
+    "amenities": {
+      "toilets": false,
+      "potableWater": false,
+      "trash": false,
+      "fireRing": false,
+      "picnicTable": false,
+      "bearBox": false,
+      "showers": false,
+      "electricity": false,
+      "dumpStation": false,
+      "foodStorageRequired": null
+    },
+
+    "environment": {
+      "forest": true,
+      "mountains": true,
+      "waterNearby": false,
+      "waterView": false,
+      "mountainView": true,
+      "forestView": true,
+      "wildlife": null,
+      "bugs": null,
+      "windExposure": null,
+      "sunExposure": 4,
+      "shade": 2,
+      "openSky": 5
+    },
+
+    "experience": {
+      "sunriseView": null,
+      "sunsetView": 4,
+      "mountainView": 5,
+      "forestView": 4,
+      "nightSky": 5,
+      "stargazing": 5,
+      "quietEvening": 4,
+      "overnightComfort": 4,
+      "extendedStayComfort": 1,
+      "sensoryRetreat": 1,
+      "remoteWork": 5,
+      "overallScenery": 4
+    },
+
+    "accessibility": {
+      "wheelchairFriendly": false,
+      "mobilityDeviceFriendly": false,
+      "flatWalkingSurface": 2,
+      "walkingDistanceFromVehicle": 1,
+      "stepFreeAccess": true,
+      "accessibleToilet": false,
+      "accessiblePicnicTable": false
+    },
+
+    "safety": {
+      "feltSafeDaytime": true,
+      "feltSafeNighttime": true,
+      "flashFloodRisk": null,
+      "wildfireRisk": null,
+      "fallHazard": null,
+      "cliffExposure": null,
+      "rockfallRisk": null,
+      "wildlifeRisk": null,
+      "trafficHazard": 2,
+      "emergencyAccess": null
+    },
+
+    "warnings": {
+      "exposedToRoad": true,
+      "zeroPrivacy": true,
+      "passingVehicleDust": true,
+      "possibleDownedTrees": true,
+      "noTentCamping": true,
+      "limitedVehicleLength": true,
+      "levelingMayBeRequired": true,
+      "noAmenities": true
+    },
+
+    "recommendedFor": {
+      "overnightStop": 5,
+      "quietEvening": 4,
+      "extendedStay": 1,
+      "sensoryRetreat": 1,
+      "stargazing": 5,
+      "remoteWork": 5,
+      "soloTravel": 4,
+      "families": 2,
+      "largeGroups": 1
+    },
+
+    "notRecommendedFor": [
+      "tent camping",
+      "large RVs",
+      "trailers",
+      "groups",
+      "daytime sensory retreat",
+      "travelers needing privacy"
+    ],
+
+    "season": {
+      "bestMonths": null,
+      "winterAccess": null,
+      "snowRisk": null,
+      "mudSeasonRisk": null,
+      "monsoonRisk": null
+    },
+
+    "regulations": {
+      "overnightCampingAllowed": null,
+      "dispersedCampingAllowed": null,
+      "stayLimitDays": null,
+      "permitRequired": null,
+      "fee": null,
+      "campfireAllowed": null,
+      "currentFireRestrictionsUrl": null
+    },
+
+    "nearby": {
+      "nearestTown": null,
+      "nearestFuel": null,
+      "nearestGrocery": null,
+      "nearestWater": null,
+      "nearestToilet": null,
+      "nearestHospital": null
+    },
+
+    "description": "A small roadside vehicle pullout along Snow Ranch Road / FS 628 near Chimney Rock. The site fits one vehicle up to roughly 25 feet and offers excellent mountain and night-sky views. It is easy to access in a sedan and has strong cellular service, but it is highly exposed to passing traffic and provides essentially no daytime privacy. Traffic drops off substantially at night, making it much better suited to a quiet evening or overnight stop than an extended campsite.",
+
+    "sensorySummary": "Daytime activity and exposure make this a poor choice for someone seeking a secluded sensory retreat. Passing vehicles and pedestrians are noticeable and the site has virtually no visual privacy. At night, conditions become significantly quieter and darker, with very little traffic and excellent stargazing.",
+
+    "accessSummary": "Easy dirt-road access suitable for normal passenger cars. Some rocks are present and downed trees are always possible. No high clearance or four-wheel drive is normally required.",
+
+    "notes": [
+      "Sedans regularly use the road.",
+      "A rock or two may be needed to level the vehicle.",
+      "Maximum practical vehicle length is approximately 25 feet.",
+      "The site accommodates one vehicle.",
+      "No suitable tent camping area.",
+      "Passing vehicles may create occasional dust.",
+      "Nearby house lights are faintly visible at night.",
+      "Traffic was essentially absent overnight during the observed stay.",
+      "Excellent T-Mobile and Verizon service during the visit.",
+      "Large unobstructed sky area should provide excellent Starlink visibility."
+    ],
+
+    "images": [
+      {
+        "src": "images/places/chimney-rock-pulloff-1.jpg",
+        "alt": "Vehicle parked at Chimney Rock Pulloff along Snow Ranch Road with mountain and forest views.",
+        "featured": true
+      },
+      {
+        "src": "images/places/chimney-rock-pulloff-2.jpg",
+        "alt": "Wide dirt pullout at Chimney Rock showing the single-vehicle camping area and surrounding forest.",
+        "featured": false
+      },
+      {
+        "src": "images/places/chimney-rock-pulloff-3.jpg",
+        "alt": "Evening mountain view from inside a vehicle parked at Chimney Rock Pulloff.",
+        "featured": false
+      }
+    ],
+
+    "verification": {
+      "status": "field-verified",
+      "visited": "2025-10-08",
+      "lastVerified": "2025-10-08",
+      "source": "AutismOverland field observation",
+      "publicDataVerified": false
+    }
+  }
+]
