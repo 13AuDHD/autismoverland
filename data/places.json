@@ -7,18 +7,18 @@
     "status": "active",
     "featured": false,
 
-    "location": {
-      "latitude": 37.25222,
-      "longitude": -107.2192,
-      "elevationFeet": 7486,
-      "road": "Snow Ranch Rd / FS 628",
-      "city": null,
-      "county": null,
-      "state": "Colorado",
-      "region": null,
-      "landManager": null,
-      "landType": null
-    },
+"location": {
+  "latitude": 37.25222,
+  "longitude": -107.2192,
+  "elevationFeet": 7486,
+  "road": "Snow Ranch Rd / FS 628",
+  "city": "Pagosa Springs",
+  "county": "Archuleta",
+  "state": "Colorado",
+  "region": "Pagosa Ranger District",
+  "landManager": "U.S. Forest Service",
+  "landType": "San Juan National Forest"
+},
 
     "site": {
       "vehicleCapacity": 1,
@@ -38,24 +38,26 @@
       "groundCondition": "rocky-dirt"
     },
 
-    "access": {
-      "roadDifficulty": 1,
-      "roadStress": 1,
-      "sedanAccessible": true,
-      "highClearanceRecommended": false,
-      "fourWheelDriveRecommended": false,
-      "roadSurface": "dirt",
-      "roadWidth": null,
-      "rocks": 1,
-      "washboards": null,
-      "potholes": null,
-      "mudRisk": null,
-      "steepGrades": 1,
-      "dropOffExposure": null,
-      "waterCrossings": 1,
-      "downedTreeRisk": true,
-      "seasonalClosure": null
-    },
+"access": {
+  "siteAccessDifficulty": 1,
+  "roadOverallDifficulty": 2
+  "roadDifficulty": 2,
+  "roadStress": 1,
+  "sedanAccessible": true,
+  "highClearanceRecommended": false,
+  "fourWheelDriveRecommended": false,
+  "roadSurface": "dirt",
+  "roadWidth": null,
+  "rocks": 2,
+  "washboards": null,
+  "potholes": null,
+  "mudRisk": 2,
+  "steepGrades": 1,
+  "dropOffExposure": 1,
+  "waterCrossings": 1,
+  "downedTreeRisk": true,
+  "seasonalClosure": null
+},
 
     "sensory": {
       "daytime": {
@@ -169,12 +171,14 @@
     "warnings": {
       "exposedToRoad": true,
       "zeroPrivacy": true,
-      "passingVehicleDust": true,
-      "possibleDownedTrees": true,
       "noTentCamping": true,
       "limitedVehicleLength": true,
       "levelingMayBeRequired": true,
-      "noAmenities": true
+      "passingVehicleDust": true,
+      "possibleDownedTrees": true,
+      "noAmenities": true,
+      "motorizedRecreationTraffic": true,
+      "blindTurnTrafficNearby": true
     },
 
     "recommendedFor": {
@@ -198,23 +202,35 @@
       "travelers needing privacy"
     ],
 
-    "season": {
-      "bestMonths": null,
-      "winterAccess": null,
-      "snowRisk": null,
-      "mudSeasonRisk": null,
-      "monsoonRisk": null
-    },
+"season": {
+  "bestMonths": ["May", "June", "July", "August", "September", "October"],
+  "winterAccess": null,
+  "snowRisk": 3,
+  "mudSeasonRisk": 3,
+  "monsoonRisk": 2,
+  "recommendedTravelSeason": "Spring through fall",
+  "seasonalAccessNote": "Access can change with snow, mud, fallen trees, and temporary Forest Service closures."
+},
 
-    "regulations": {
-      "overnightCampingAllowed": null,
-      "dispersedCampingAllowed": null,
-      "stayLimitDays": null,
-      "permitRequired": null,
-      "fee": null,
-      "campfireAllowed": null,
-      "currentFireRestrictionsUrl": null
-    },
+"regulations": {
+  "overnightCampingAllowed": true,
+  "dispersedCampingAllowed": true,
+  "stayLimitDays": 14,
+  "maximumDaysPer60DayPeriod": 28,
+  "moveDistanceAfterStayMiles": 3,
+  "permitRequired": false,
+  "fee": 0,
+  "campfireAllowed": null,
+  "currentFireRestrictionsUrl": "https://www.fs.usda.gov/alerts/sanjuan/alerts-notices"
+}
+
+ "landUseRules": {
+  "vehicleDistanceFromRoadMaxFeet": 300,
+  "minimumDistanceFromWaterFeet": 100,
+  "existingSitesEncouraged": true,
+  "packItInPackItOut": true,
+  "residentialUseProhibited": true
+}
 
     "nearby": {
       "nearestTown": null,
