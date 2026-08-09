@@ -246,17 +246,17 @@
 
     "images": [
       {
-        "src": "images/places/chimney-rock-pulloff-1.jpg",
+        "src": "images/places/chimney-rock-pulloff-1.jpeg",
         "alt": "Vehicle parked at Chimney Rock Pulloff along Snow Ranch Road with mountain and forest views.",
         "featured": true
       },
       {
-        "src": "images/places/chimney-rock-pulloff-2.jpg",
+        "src": "images/places/chimney-rock-pulloff-2.jpeg",
         "alt": "Wide dirt pullout at Chimney Rock showing the single-vehicle camping area and surrounding forest.",
         "featured": false
       },
       {
-        "src": "images/places/chimney-rock-pulloff-3.jpg",
+        "src": "images/places/chimney-rock-pulloff-3.jpeg",
         "alt": "Evening mountain view from inside a vehicle parked at Chimney Rock Pulloff.",
         "featured": false
       }
