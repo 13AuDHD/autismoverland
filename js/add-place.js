@@ -1,10 +1,42 @@
+/* =========================================================
+   AUTISMOVERLAND PLACE EDITOR
+   js/add-place.js
+
+   Converts add-place.html into a complete places.json object.
+
+   Important data rules:
+
+   1. Ratings:
+      1 through 5, or null if unanswered.
+
+   2. Three-state questions:
+      true  = Yes
+      false = No
+      null  = Unknown
+
+   3. Empty text / number fields:
+      null
+
+   4. Arrays:
+      [] when nothing is entered.
+
+   ========================================================= */
+
+
 document.addEventListener(
   "DOMContentLoaded",
   initPlaceEditor
 );
 
 
+
+/* =========================================================
+   RATING DEFINITIONS
+   ========================================================= */
+
 const ratingDefinitions = {
+
+  /* Site */
 
   levelness: {
     label: "Levelness",
@@ -29,6 +61,9 @@ const ratingDefinitions = {
     low: "None",
     high: "Heavy"
   },
+
+
+  /* Road */
 
   siteAccessDifficulty: {
     label: "Site Access Difficulty",
@@ -79,10 +114,13 @@ const ratingDefinitions = {
   },
 
   dropOffExposure: {
-    label: "Drop-off Exposure",
+    label: "Drop-Off Exposure",
     low: "None",
     high: "Severe"
   },
+
+
+  /* Day sensory */
 
   dayNoise: {
     label: "Day Noise",
@@ -108,6 +146,12 @@ const ratingDefinitions = {
     high: "Private"
   },
 
+  dayLightPollution: {
+    label: "Day Artificial Light",
+    low: "None",
+    high: "Heavy"
+  },
+
   daySensoryComfort: {
     label: "Day Sensory Comfort",
     low: "Difficult",
@@ -115,10 +159,13 @@ const ratingDefinitions = {
   },
 
   daySocial: {
-    label: "Social Interaction Likelihood",
-    low: "Very low",
-    high: "Very high"
+    label: "Day Social Interaction",
+    low: "Very unlikely",
+    high: "Very likely"
   },
+
+
+  /* Night sensory */
 
   nightNoise: {
     label: "Night Noise",
@@ -145,9 +192,9 @@ const ratingDefinitions = {
   },
 
   nightLightPollution: {
-    label: "Light Pollution",
-    low: "Dark",
-    high: "Bright"
+    label: "Night Light Pollution",
+    low: "Very dark",
+    high: "Very bright"
   },
 
   nightSensoryComfort: {
@@ -155,6 +202,15 @@ const ratingDefinitions = {
     low: "Difficult",
     high: "Comfortable"
   },
+
+  nightSocial: {
+    label: "Night Social Interaction",
+    low: "Very unlikely",
+    high: "Very likely"
+  },
+
+
+  /* Other sensory */
 
   dustFromTraffic: {
     label: "Traffic Dust",
@@ -186,6 +242,30 @@ const ratingDefinitions = {
     high: "Constant"
   },
 
+  wildlifeNoise: {
+    label: "Wildlife Noise",
+    low: "Minimal",
+    high: "Very active"
+  },
+
+  windNoise: {
+    label: "Wind Noise",
+    low: "Minimal",
+    high: "Constant / loud"
+  },
+
+  smokeRisk: {
+    label: "Smoke Risk",
+    low: "Very low",
+    high: "Very high"
+  },
+
+  strongOdors: {
+    label: "Strong Odors",
+    low: "None",
+    high: "Strong"
+  },
+
   visualExposure: {
     label: "Visual Exposure",
     low: "Hidden",
@@ -195,8 +275,11 @@ const ratingDefinitions = {
   predictability: {
     label: "Environmental Predictability",
     low: "Unpredictable",
-    high: "Predictable"
+    high: "Very predictable"
   },
+
+
+  /* Connectivity */
 
   overallCell: {
     label: "Overall Cell Service",
@@ -222,8 +305,56 @@ const ratingDefinitions = {
     high: "Excellent"
   },
 
+  otherCell: {
+    label: "Other Cell Carrier",
+    low: "None",
+    high: "Excellent"
+  },
+
   starlink: {
-    label: "Starlink View",
+    label: "Starlink",
+    low: "Poor",
+    high: "Excellent"
+  },
+
+
+  /* Environment */
+
+  environmentWindExposure: {
+    label: "Wind Exposure",
+    low: "Protected",
+    high: "Very exposed"
+  },
+
+  environmentSunExposure: {
+    label: "Sun Exposure",
+    low: "Very little",
+    high: "Full sun"
+  },
+
+  environmentShade: {
+    label: "Environmental Shade",
+    low: "None",
+    high: "Heavy"
+  },
+
+  environmentOpenSky: {
+    label: "Environmental Open Sky",
+    low: "Blocked",
+    high: "Fully open"
+  },
+
+
+  /* Experience */
+
+  sunriseView: {
+    label: "Sunrise View",
+    low: "Poor",
+    high: "Excellent"
+  },
+
+  sunsetView: {
+    label: "Sunset View",
     low: "Poor",
     high: "Excellent"
   },
@@ -286,10 +417,75 @@ const ratingDefinitions = {
     label: "Overall Scenery",
     low: "Poor",
     high: "Excellent"
+  },
+
+
+  /* Recommended for */
+
+  recommendedOvernightStop: {
+    label: "Overnight Stop",
+    low: "Poor choice",
+    high: "Excellent"
+  },
+
+  recommendedQuietEvening: {
+    label: "Quiet Evening",
+    low: "Poor choice",
+    high: "Excellent"
+  },
+
+  recommendedExtendedStay: {
+    label: "Extended Stay",
+    low: "Poor choice",
+    high: "Excellent"
+  },
+
+  recommendedSensoryRetreat: {
+    label: "Sensory Retreat",
+    low: "Poor choice",
+    high: "Excellent"
+  },
+
+  recommendedStargazing: {
+    label: "Stargazing",
+    low: "Poor choice",
+    high: "Excellent"
+  },
+
+  recommendedRemoteWork: {
+    label: "Remote Work",
+    low: "Poor choice",
+    high: "Excellent"
+  },
+
+
+  /* Season */
+
+  snowRisk: {
+    label: "Snow Risk",
+    low: "Very low",
+    high: "Very high"
+  },
+
+  mudSeasonRisk: {
+    label: "Mud Season Risk",
+    low: "Very low",
+    high: "Very high"
+  },
+
+  monsoonRisk: {
+    label: "Monsoon / Heavy Rain Risk",
+    low: "Very low",
+    high: "Very high"
   }
 
 };
 
+
+
+/* =========================================================
+   INITIALIZATION
+   ========================================================= */
 
 function initPlaceEditor() {
 
@@ -313,36 +509,27 @@ function initPlaceEditor() {
 
 
   document
+    .getElementById("visit-date")
+    ?.addEventListener(
+      "change",
+      syncVerificationDate
+    );
+
+
+  document
     .getElementById("place-editor-form")
     ?.addEventListener(
       "reset",
-      () => {
-
-        setTimeout(() => {
-
-          document
-            .querySelectorAll(
-              ".editor-rating input"
-            )
-            .forEach(
-              (input) =>
-                input.checked = false
-            );
-
-
-          document.getElementById(
-            "place-json-output"
-          ).textContent =
-            "Fill out the form, then choose Generate JSON.";
-
-        }, 0);
-
-      }
+      handleFormReset
     );
 
 }
 
 
+
+/* =========================================================
+   RATING CONTROLS
+   ========================================================= */
 
 function buildRatingControls() {
 
@@ -350,115 +537,132 @@ function buildRatingControls() {
     .querySelectorAll(
       ".editor-rating[data-rating]"
     )
-    .forEach(
-      (container) => {
+    .forEach((container) => {
 
-        const key =
-          container.dataset.rating;
+      const key =
+        container.dataset.rating;
 
-        const definition =
-          ratingDefinitions[key];
+      const definition =
+        ratingDefinitions[key];
 
 
-        if (!definition) {
-          return;
-        }
+      if (!definition) {
 
+        console.warn(
+          `No rating definition found for: ${key}`
+        );
 
         container.innerHTML = `
-
-          <div class="editor-rating-header">
-
-            <strong>
-              ${definition.label}
-            </strong>
-
-            <button
-              class="rating-clear"
-              type="button"
-              data-clear-rating="${key}"
-            >
-              Clear
-            </button>
-
-          </div>
-
-          <div class="editor-rating-options">
-
-            ${[1, 2, 3, 4, 5]
-              .map(
-                (value) => `
-
-                  <label>
-
-                    <input
-                      type="radio"
-                      name="rating-${key}"
-                      value="${value}"
-                    >
-
-                    <span>
-                      ${value}
-                    </span>
-
-                  </label>
-
-                `
-              )
-              .join("")}
-
-          </div>
-
-          <div class="editor-rating-scale">
-
-            <span>
-              ${definition.low}
-            </span>
-
-            <span>
-              ${definition.high}
-            </span>
-
-          </div>
-
+          <p>
+            Rating configuration missing:
+            ${key}
+          </p>
         `;
 
+        return;
+
       }
-    );
+
+
+      container.innerHTML = `
+
+        <div class="editor-rating-header">
+
+          <strong>
+            ${definition.label}
+          </strong>
+
+          <button
+            class="rating-clear"
+            type="button"
+            data-clear-rating="${key}"
+          >
+            Clear
+          </button>
+
+        </div>
+
+
+        <div class="editor-rating-options">
+
+          ${[1, 2, 3, 4, 5]
+            .map(
+              (value) => `
+
+                <label>
+
+                  <input
+                    type="radio"
+                    name="rating-${key}"
+                    value="${value}"
+                  >
+
+                  <span>
+                    ${value}
+                  </span>
+
+                </label>
+
+              `
+            )
+            .join("")}
+
+        </div>
+
+
+        <div class="editor-rating-scale">
+
+          <span>
+            ${definition.low}
+          </span>
+
+          <span>
+            ${definition.high}
+          </span>
+
+        </div>
+
+      `;
+
+    });
 
 
   document
     .querySelectorAll(
       "[data-clear-rating]"
     )
-    .forEach(
-      (button) => {
+    .forEach((button) => {
 
-        button.addEventListener(
-          "click",
-          () => {
+      button.addEventListener(
+        "click",
+        () => {
 
-            const key =
-              button.dataset.clearRating;
+          const key =
+            button.dataset.clearRating;
 
-            document
-              .querySelectorAll(
-                `input[name="rating-${key}"]`
-              )
-              .forEach(
-                (input) =>
-                  input.checked = false
-              );
 
-          }
-        );
+          document
+            .querySelectorAll(
+              `input[name="rating-${key}"]`
+            )
+            .forEach((input) => {
 
-      }
-    );
+              input.checked = false;
+
+            });
+
+        }
+      );
+
+    });
 
 }
 
 
+
+/* =========================================================
+   GENERATE PLACE JSON
+   ========================================================= */
 
 function generatePlaceJSON() {
 
@@ -470,6 +674,53 @@ function generatePlaceJSON() {
 
     showEditorMessage(
       "Enter a place name first.",
+      "error"
+    );
+
+    document
+      .getElementById("place-name")
+      ?.focus();
+
+    return;
+
+  }
+
+
+  const latitude =
+    numberValue("latitude");
+
+  const longitude =
+    numberValue("longitude");
+
+
+  if (
+    latitude != null &&
+    (
+      latitude < -90 ||
+      latitude > 90
+    )
+  ) {
+
+    showEditorMessage(
+      "Latitude must be between -90 and 90.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    longitude != null &&
+    (
+      longitude < -180 ||
+      longitude > 180
+    )
+  ) {
+
+    showEditorMessage(
+      "Longitude must be between -180 and 180.",
       "error"
     );
 
@@ -486,31 +737,69 @@ function generatePlaceJSON() {
     textValue("visit-date");
 
 
+  const lastVerified =
+    textValue("last-verified") ||
+    visitDate;
+
+
+  const verificationStatus =
+    textValue("verification-status");
+
+
+  const source =
+    textValue("verification-source") ||
+    (
+      verificationStatus ===
+      "field-verified"
+        ? "AutismOverland field observation"
+        : null
+    );
+
+
+  const mountainViewRating =
+    ratingValue("mountainView");
+
+
+  const forestViewRating =
+    ratingValue("forestView");
+
+
   const place = {
+
+    /* =====================================================
+       CORE
+       ===================================================== */
 
     id: slug,
 
-    name: name,
+    name,
 
-    slug: slug,
+    slug,
 
     type:
       textValue("place-type") ||
       "other",
 
-    status: "active",
+    status:
+      textValue("place-status") ||
+      "active",
 
     featured:
-      checked("place-featured"),
+      checkboxValue(
+        "place-featured"
+      ),
 
+
+
+    /* =====================================================
+       LOCATION
+       ===================================================== */
 
     location: {
 
-      latitude:
-        numberValue("latitude"),
+      latitude,
 
-      longitude:
-        numberValue("longitude"),
+      longitude,
 
       elevationFeet:
         numberValue("elevation"),
@@ -531,13 +820,22 @@ function generatePlaceJSON() {
         textValue("region"),
 
       landManager:
-        textValue("land-manager"),
+        textValue(
+          "land-manager"
+        ),
 
       landType:
-        textValue("land-type")
+        textValue(
+          "land-type"
+        )
 
     },
 
+
+
+    /* =====================================================
+       SITE
+       ===================================================== */
 
     site: {
 
@@ -552,13 +850,19 @@ function generatePlaceJSON() {
         ),
 
       tentCampingSuitable:
-        checked("tent-suitable"),
+        triStateValue(
+          "tent-suitable"
+        ),
 
       rvSuitable:
-        checked("rv-suitable"),
+        triStateValue(
+          "rv-suitable"
+        ),
 
       trailerSuitable:
-        checked("trailer-suitable"),
+        triStateValue(
+          "trailer-suitable"
+        ),
 
       parkingSurface:
         textValue(
@@ -566,31 +870,44 @@ function generatePlaceJSON() {
         ),
 
       levelness:
-        ratingValue("levelness"),
+        ratingValue(
+          "levelness"
+        ),
 
       levelingRequired:
-        checked(
+        triStateValue(
           "leveling-required"
         ),
 
       turnaroundSpace:
-        checked(
+        triStateValue(
           "turnaround-space"
         ),
 
       pullThrough:
-        checked(
+        triStateValue(
           "pull-through"
         ),
 
+      backIn:
+        triStateValue(
+          "back-in"
+        ),
+
       openSky:
-        ratingValue("openSky"),
+        ratingValue(
+          "openSky"
+        ),
 
       treeCover:
-        ratingValue("treeCover"),
+        ratingValue(
+          "treeCover"
+        ),
 
       shade:
-        ratingValue("shade"),
+        ratingValue(
+          "shade"
+        ),
 
       groundCondition:
         textValue(
@@ -599,6 +916,11 @@ function generatePlaceJSON() {
 
     },
 
+
+
+    /* =====================================================
+       ACCESS
+       ===================================================== */
 
     access: {
 
@@ -612,6 +934,11 @@ function generatePlaceJSON() {
           "roadOverallDifficulty"
         ),
 
+      /*
+       * Kept for compatibility with existing
+       * map / filter code.
+       */
+
       roadDifficulty:
         ratingValue(
           "roadOverallDifficulty"
@@ -623,17 +950,17 @@ function generatePlaceJSON() {
         ),
 
       sedanAccessible:
-        checked(
+        triStateValue(
           "sedan-accessible"
         ),
 
       highClearanceRecommended:
-        checked(
+        triStateValue(
           "high-clearance"
         ),
 
       fourWheelDriveRecommended:
-        checked(
+        triStateValue(
           "four-wheel-drive"
         ),
 
@@ -648,7 +975,9 @@ function generatePlaceJSON() {
         ),
 
       rocks:
-        ratingValue("rocks"),
+        ratingValue(
+          "rocks"
+        ),
 
       washboards:
         ratingValue(
@@ -661,7 +990,9 @@ function generatePlaceJSON() {
         ),
 
       mudRisk:
-        ratingValue("mudRisk"),
+        ratingValue(
+          "mudRisk"
+        ),
 
       steepGrades:
         ratingValue(
@@ -673,17 +1004,28 @@ function generatePlaceJSON() {
           "dropOffExposure"
         ),
 
-      waterCrossings: null,
+      waterCrossings:
+        triStateValue(
+          "water-crossings"
+        ),
 
       downedTreeRisk:
-        checked(
+        triStateValue(
           "downed-tree-risk"
         ),
 
-      seasonalClosure: null
+      seasonalClosure:
+        triStateValue(
+          "seasonal-closure"
+        )
 
     },
 
+
+
+    /* =====================================================
+       SENSORY
+       ===================================================== */
 
     sensory: {
 
@@ -709,7 +1051,10 @@ function generatePlaceJSON() {
             "dayPrivacy"
           ),
 
-        lightPollution: null,
+        lightPollution:
+          ratingValue(
+            "dayLightPollution"
+          ),
 
         sensoryComfort:
           ratingValue(
@@ -757,7 +1102,9 @@ function generatePlaceJSON() {
           ),
 
         socialInteractionLikelihood:
-          null
+          ratingValue(
+            "nightSocial"
+          )
 
       },
 
@@ -787,13 +1134,25 @@ function generatePlaceJSON() {
           "humanActivity"
         ),
 
-      wildlifeNoise: null,
+      wildlifeNoise:
+        ratingValue(
+          "wildlifeNoise"
+        ),
 
-      windNoise: null,
+      windNoise:
+        ratingValue(
+          "windNoise"
+        ),
 
-      smokeRisk: null,
+      smokeRisk:
+        ratingValue(
+          "smokeRisk"
+        ),
 
-      strongOdors: null,
+      strongOdors:
+        ratingValue(
+          "strongOdors"
+        ),
 
       visualExposure:
         ratingValue(
@@ -807,6 +1166,11 @@ function generatePlaceJSON() {
 
     },
 
+
+
+    /* =====================================================
+       CONNECTIVITY
+       ===================================================== */
 
     connectivity: {
 
@@ -830,7 +1194,10 @@ function generatePlaceJSON() {
           "att"
         ),
 
-      other: null,
+      other:
+        ratingValue(
+          "otherCell"
+        ),
 
       starlink:
         ratingValue(
@@ -838,7 +1205,7 @@ function generatePlaceJSON() {
         ),
 
       starlinkTested:
-        checked(
+        triStateValue(
           "starlink-tested"
         ),
 
@@ -850,101 +1217,169 @@ function generatePlaceJSON() {
     },
 
 
+
+    /* =====================================================
+       AMENITIES
+       ===================================================== */
+
     amenities: {
 
       toilets:
-        checked("toilets"),
+        triStateValue(
+          "toilets"
+        ),
 
       potableWater:
-        checked(
+        triStateValue(
           "potable-water"
         ),
 
       trash:
-        checked("trash"),
+        triStateValue(
+          "trash"
+        ),
 
       fireRing:
-        checked("fire-ring"),
+        triStateValue(
+          "fire-ring"
+        ),
 
       picnicTable:
-        checked(
+        triStateValue(
           "picnic-table"
         ),
 
       bearBox:
-        checked("bear-box"),
+        triStateValue(
+          "bear-box"
+        ),
 
       showers:
-        checked("showers"),
+        triStateValue(
+          "showers"
+        ),
 
       electricity:
-        checked(
+        triStateValue(
           "electricity"
         ),
 
       dumpStation:
-        checked(
+        triStateValue(
           "dump-station"
         ),
 
       foodStorageRequired:
-        null
+        triStateValue(
+          "food-storage-required"
+        )
 
     },
 
+
+
+    /* =====================================================
+       ENVIRONMENT
+       ===================================================== */
 
     environment: {
 
-      forest: null,
+      forest:
+        triStateValue(
+          "environment-forest"
+        ),
 
-      mountains: null,
+      mountains:
+        triStateValue(
+          "environment-mountains"
+        ),
 
-      waterNearby: null,
+      waterNearby:
+        triStateValue(
+          "environment-water-nearby"
+        ),
 
-      waterView: null,
+      waterView:
+        triStateValue(
+          "environment-water-view"
+        ),
+
+      /*
+       * These two existed as booleans in the
+       * original schema but duplicate the
+       * corresponding experience ratings.
+       *
+       * We derive them automatically:
+       *
+       * rating entered = true
+       * no rating       = null
+       */
 
       mountainView:
-        ratingValue(
-          "mountainView"
-        ) != null,
+        ratingPresenceBoolean(
+          mountainViewRating
+        ),
 
       forestView:
+        ratingPresenceBoolean(
+          forestViewRating
+        ),
+
+      wildlife:
+        triStateValue(
+          "environment-wildlife"
+        ),
+
+      bugs:
+        triStateValue(
+          "environment-bugs"
+        ),
+
+      windExposure:
         ratingValue(
-          "forestView"
-        ) != null,
+          "environmentWindExposure"
+        ),
 
-      wildlife: null,
-
-      bugs: null,
-
-      windExposure: null,
-
-      sunExposure: null,
+      sunExposure:
+        ratingValue(
+          "environmentSunExposure"
+        ),
 
       shade:
-        ratingValue("shade"),
+        ratingValue(
+          "environmentShade"
+        ),
 
       openSky:
-        ratingValue("openSky")
+        ratingValue(
+          "environmentOpenSky"
+        )
 
     },
 
 
+
+    /* =====================================================
+       EXPERIENCE
+       ===================================================== */
+
     experience: {
 
-      sunriseView: null,
+      sunriseView:
+        ratingValue(
+          "sunriseView"
+        ),
 
-      sunsetView: null,
+      sunsetView:
+        ratingValue(
+          "sunsetView"
+        ),
 
       mountainView:
-        ratingValue(
-          "mountainView"
-        ),
+        mountainViewRating,
 
       forestView:
-        ratingValue(
-          "forestView"
-        ),
+        forestViewRating,
 
       nightSky:
         ratingValue(
@@ -989,279 +1424,433 @@ function generatePlaceJSON() {
     },
 
 
+
+    /* =====================================================
+       ACCESSIBILITY
+       ===================================================== */
+
     accessibility: {
 
       wheelchairFriendly:
-        null,
+        triStateValue(
+          "wheelchair-friendly"
+        ),
 
       mobilityDeviceFriendly:
-        null,
+        triStateValue(
+          "mobility-device-friendly"
+        ),
 
       flatWalkingSurface:
-        null,
+        triStateValue(
+          "flat-walking-surface"
+        ),
 
       walkingDistanceFromVehicle:
-        null,
+        textValue(
+          "walking-distance-from-vehicle"
+        ),
 
       stepFreeAccess:
-        null,
+        triStateValue(
+          "step-free-access"
+        ),
 
       accessibleToilet:
-        null,
+        triStateValue(
+          "accessible-toilet"
+        ),
 
       accessiblePicnicTable:
-        null
+        triStateValue(
+          "accessible-picnic-table"
+        )
 
     },
 
+
+
+    /* =====================================================
+       SAFETY
+       ===================================================== */
 
     safety: {
 
       feltSafeDaytime:
-        null,
+        triStateValue(
+          "felt-safe-daytime"
+        ),
 
       feltSafeNighttime:
-        null,
+        triStateValue(
+          "felt-safe-nighttime"
+        ),
 
       flashFloodRisk:
-        null,
+        triStateValue(
+          "flash-flood-risk"
+        ),
 
       wildfireRisk:
-        null,
+        triStateValue(
+          "wildfire-risk"
+        ),
 
       fallHazard:
-        null,
+        triStateValue(
+          "fall-hazard"
+        ),
 
       cliffExposure:
-        null,
+        triStateValue(
+          "cliff-exposure"
+        ),
 
       rockfallRisk:
-        null,
+        triStateValue(
+          "rockfall-risk"
+        ),
 
       wildlifeRisk:
-        null,
+        triStateValue(
+          "wildlife-risk"
+        ),
 
       trafficHazard:
-        null,
+        triStateValue(
+          "traffic-hazard"
+        ),
 
       emergencyAccess:
-        null
+        triStateValue(
+          "emergency-access"
+        )
 
     },
 
 
+
+    /* =====================================================
+       WARNINGS
+       ===================================================== */
+
     warnings: {
 
       exposedToRoad:
-        checked(
+        triStateValue(
           "warning-road-exposed"
         ),
 
       zeroPrivacy:
-        checked(
+        triStateValue(
           "warning-zero-privacy"
         ),
 
       passingVehicleDust:
-        checked(
+        triStateValue(
           "warning-dust"
         ),
 
       possibleDownedTrees:
-        checked(
+        triStateValue(
           "warning-trees"
         ),
 
       noTentCamping:
-        checked(
+        triStateValue(
           "warning-no-tent"
         ),
 
       limitedVehicleLength:
-        checked(
+        triStateValue(
           "warning-length"
         ),
 
       levelingMayBeRequired:
-        checked(
+        triStateValue(
           "warning-leveling"
         ),
 
       noAmenities:
-        checked(
+        triStateValue(
           "warning-no-amenities"
         ),
 
       motorizedRecreationTraffic:
-        checked(
+        triStateValue(
           "warning-motorized"
         ),
 
       blindTurnTrafficNearby:
-        checked(
+        triStateValue(
           "warning-blind-turns"
         )
 
     },
 
 
+
+    /* =====================================================
+       RECOMMENDED FOR
+       ===================================================== */
+
     recommendedFor: {
 
       overnightStop:
         ratingValue(
-          "overnightComfort"
+          "recommendedOvernightStop"
         ),
 
       quietEvening:
         ratingValue(
-          "quietEvening"
+          "recommendedQuietEvening"
         ),
 
       extendedStay:
         ratingValue(
-          "extendedStayComfort"
+          "recommendedExtendedStay"
         ),
 
       sensoryRetreat:
         ratingValue(
-          "sensoryRetreat"
+          "recommendedSensoryRetreat"
         ),
 
       stargazing:
         ratingValue(
-          "stargazing"
+          "recommendedStargazing"
         ),
 
       remoteWork:
         ratingValue(
-          "remoteWork"
+          "recommendedRemoteWork"
         ),
 
-      soloTravel: null,
+      soloTravel:
+        triStateValue(
+          "recommended-solo"
+        ),
 
-      families: null,
+      families:
+        triStateValue(
+          "recommended-families"
+        ),
 
-      largeGroups: null
+      largeGroups:
+        triStateValue(
+          "recommended-large-groups"
+        )
 
     },
 
 
-    notRecommendedFor: [],
+    notRecommendedFor:
+      multilineValues(
+        "not-recommended-for"
+      ),
 
+
+
+    /* =====================================================
+       SEASON
+       ===================================================== */
 
     season: {
 
-      bestMonths: null,
+      bestMonths:
+        commaSeparatedValues(
+          "best-months"
+        ),
 
-      winterAccess: null,
+      winterAccess:
+        triStateValue(
+          "winter-access"
+        ),
 
-      snowRisk: null,
+      snowRisk:
+        ratingValue(
+          "snowRisk"
+        ),
 
-      mudSeasonRisk: null,
+      mudSeasonRisk:
+        ratingValue(
+          "mudSeasonRisk"
+        ),
 
-      monsoonRisk: null,
+      monsoonRisk:
+        ratingValue(
+          "monsoonRisk"
+        ),
 
       recommendedTravelSeason:
-        null,
+        textValue(
+          "recommended-travel-season"
+        ),
 
       seasonalAccessNote:
-        null
+        textValue(
+          "seasonal-access-note"
+        )
 
     },
 
+
+
+    /* =====================================================
+       REGULATIONS
+       ===================================================== */
 
     regulations: {
 
       overnightCampingAllowed:
-        null,
+        triStateValue(
+          "overnight-camping-allowed"
+        ),
 
       dispersedCampingAllowed:
-        null,
+        triStateValue(
+          "dispersed-camping-allowed"
+        ),
 
       stayLimitDays:
-        null,
+        numberValue(
+          "stay-limit-days"
+        ),
 
       maximumDaysPer60DayPeriod:
-        null,
+        numberValue(
+          "maximum-days-60"
+        ),
 
       moveDistanceAfterStayMiles:
-        null,
+        numberValue(
+          "move-distance-after-stay"
+        ),
 
       permitRequired:
-        null,
+        triStateValue(
+          "permit-required"
+        ),
+
+      /*
+       * Fees are numbers now.
+       *
+       * Free = 0
+       * Unknown = null
+       */
 
       fee:
-        null,
+        numberValue(
+          "fee"
+        ),
 
       campfireAllowed:
-        null,
+        triStateValue(
+          "campfire-allowed"
+        ),
 
       currentFireRestrictionsUrl:
-        null
+        textValue(
+          "fire-restrictions-url"
+        )
 
     },
 
+
+
+    /* =====================================================
+       LAND USE RULES
+       ===================================================== */
 
     landUseRules: {
 
       vehicleDistanceFromRoadMaxFeet:
-        null,
+        numberValue(
+          "vehicle-distance-road"
+        ),
 
       minimumDistanceFromWaterFeet:
-        null,
+        numberValue(
+          "minimum-water-distance"
+        ),
 
       existingSitesEncouraged:
-        null,
+        triStateValue(
+          "existing-sites-encouraged"
+        ),
 
       packItInPackItOut:
-        null,
+        triStateValue(
+          "pack-it-out"
+        ),
 
       residentialUseProhibited:
-        null
+        triStateValue(
+          "residential-use-prohibited"
+        )
 
     },
 
+
+
+    /* =====================================================
+       NEARBY
+       ===================================================== */
 
     nearby: {
 
       nearestTown:
-        null,
+        textValue(
+          "nearest-town"
+        ),
 
       nearestFuel:
-        null,
+        textValue(
+          "nearest-fuel"
+        ),
 
       nearestGrocery:
-        null,
+        textValue(
+          "nearest-grocery"
+        ),
 
       nearestWater:
-        null,
+        textValue(
+          "nearest-water"
+        ),
 
       nearestToilet:
-        null,
+        textValue(
+          "nearest-toilet"
+        ),
 
       nearestHospital:
-        null
+        textValue(
+          "nearest-hospital"
+        )
 
     },
 
+
+
+    /* =====================================================
+       HUMAN-READABLE CONTENT
+       ===================================================== */
 
     description:
       textValue(
         "description"
       ),
 
-
     sensorySummary:
       textValue(
         "sensory-summary"
       ),
 
-
     accessSummary:
       textValue(
         "access-summary"
       ),
-
 
     notes:
       multilineValues(
@@ -1269,36 +1858,38 @@ function generatePlaceJSON() {
       ),
 
 
+
+    /* =====================================================
+       PHOTOS
+       ===================================================== */
+
     images:
       buildImages(
-        slug,
         name
       ),
 
 
+
+    /* =====================================================
+       VERIFICATION
+       ===================================================== */
+
     verification: {
 
       status:
-        textValue(
-          "verification-status"
-        ),
+        verificationStatus,
 
       visited:
         visitDate,
 
-      lastVerified:
-        visitDate,
+      lastVerified,
 
-      source:
-        textValue(
-          "verification-status"
-        ) ===
-        "field-verified"
-          ? "AutismOverland field observation"
-          : null,
+      source,
 
       publicDataVerified:
-        false
+        triStateValue(
+          "public-data-verified"
+        )
 
     }
 
@@ -1306,27 +1897,43 @@ function generatePlaceJSON() {
 
 
   /*
-   * Blank text inputs become null,
-   * while known false checkboxes
-   * remain false.
+   * This deliberately KEEPS null values.
+   *
+   * null means:
+   * "We don't know yet."
+   *
+   * That is useful information and is
+   * fundamentally different from false.
    */
 
-  const cleaned =
-    normalizeEmptyValues(place);
+  const output =
+    normalizeValues(place);
 
 
-  document.getElementById(
-    "place-json-output"
-  ).textContent =
+  const json =
     JSON.stringify(
-      cleaned,
+      output,
       null,
       2
     );
 
 
+  document
+    .getElementById(
+      "place-json-output"
+    )
+    .textContent =
+      json;
+
+
+  const stats =
+    countKnownAndUnknown(
+      output
+    );
+
+
   showEditorMessage(
-    "JSON generated.",
+    `JSON generated. ${stats.known} answered values, ${stats.unknown} unknown values.`,
     "success"
   );
 
@@ -1334,49 +1941,69 @@ function generatePlaceJSON() {
 
 
 
-function buildImages(
-  slug,
-  placeName
-) {
+/* =========================================================
+   IMAGES
+   ========================================================= */
+
+function buildImages(placeName) {
 
   const filenames = [
 
     textValue("image-1"),
+
     textValue("image-2"),
-    textValue("image-3")
+
+    textValue("image-3"),
+
+    textValue("image-4"),
+
+    textValue("image-5")
 
   ].filter(Boolean);
 
 
   return filenames.map(
-    (filename, index) => ({
+    (filename, index) => {
 
-      src:
+      const src =
         filename.startsWith(
           "images/"
         )
           ? filename
-          : `images/places/${filename}`,
+          : `images/places/${filename}`;
 
-      alt:
-        `${placeName} photo ${index + 1}`,
 
-      featured:
-        index === 0
+      return {
 
-    })
+        src,
+
+        alt:
+          `${placeName} photo ${index + 1}`,
+
+        featured:
+          index === 0
+
+      };
+
+    }
   );
 
 }
 
 
 
+/* =========================================================
+   COPY JSON
+   ========================================================= */
+
 async function copyPlaceJSON() {
 
   const output =
-    document.getElementById(
-      "place-json-output"
-    )?.textContent;
+    document
+      .getElementById(
+        "place-json-output"
+      )
+      ?.textContent;
 
 
   if (
@@ -1396,6 +2023,29 @@ async function copyPlaceJSON() {
   }
 
 
+  /*
+   * Make sure what we're copying
+   * is actually valid JSON.
+   */
+
+  try {
+
+    JSON.parse(output);
+
+  } catch (error) {
+
+    showEditorMessage(
+      "The generated output is not valid JSON.",
+      "error"
+    );
+
+    console.error(error);
+
+    return;
+
+  }
+
+
   try {
 
     await navigator.clipboard.writeText(
@@ -1408,19 +2058,84 @@ async function copyPlaceJSON() {
       "success"
     );
 
-
   } catch (error) {
 
-    showEditorMessage(
-      "Could not copy automatically. Select the JSON manually.",
-      "error"
-    );
+    console.error(error);
+
+
+    /*
+     * Older-browser fallback.
+     */
+
+    try {
+
+      const temporary =
+        document.createElement(
+          "textarea"
+        );
+
+
+      temporary.value =
+        output;
+
+
+      temporary.style.position =
+        "fixed";
+
+
+      temporary.style.opacity =
+        "0";
+
+
+      document.body.appendChild(
+        temporary
+      );
+
+
+      temporary.select();
+
+
+      document.execCommand(
+        "copy"
+      );
+
+
+      temporary.remove();
+
+
+      showEditorMessage(
+        "JSON copied to clipboard.",
+        "success"
+      );
+
+    } catch (fallbackError) {
+
+      console.error(
+        fallbackError
+      );
+
+
+      showEditorMessage(
+        "Automatic copy failed. Select the JSON manually.",
+        "error"
+      );
+
+    }
 
   }
 
 }
 
 
+
+/* =========================================================
+   VALUE HELPERS
+   ========================================================= */
+
+
+/*
+ * 1 to 5 rating.
+ */
 
 function ratingValue(key) {
 
@@ -1431,32 +2146,57 @@ function ratingValue(key) {
 
 
   if (!selected) {
+
     return null;
+
   }
 
 
-  return Number(
-    selected.value
-  );
+  const value =
+    Number(
+      selected.value
+    );
+
+
+  if (
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > 5
+  ) {
+
+    return null;
+
+  }
+
+
+  return value;
 
 }
 
 
 
+/*
+ * Normal text field.
+ */
+
 function textValue(id) {
 
   const element =
-    document.getElementById(id);
+    document.getElementById(
+      id
+    );
 
 
   if (!element) {
+
     return null;
+
   }
 
 
   const value =
     String(
-      element.value || ""
+      element.value ?? ""
     ).trim();
 
 
@@ -1466,22 +2206,35 @@ function textValue(id) {
 
 
 
+/*
+ * Numeric input.
+ *
+ * Important:
+ * zero remains zero.
+ */
+
 function numberValue(id) {
 
   const element =
-    document.getElementById(id);
+    document.getElementById(
+      id
+    );
 
 
   if (
     !element ||
     element.value === ""
   ) {
+
     return null;
+
   }
 
 
   const value =
-    Number(element.value);
+    Number(
+      element.value
+    );
 
 
   return Number.isFinite(value)
@@ -1492,17 +2245,87 @@ function numberValue(id) {
 
 
 
-function checked(id) {
+/*
+ * Normal two-state checkbox.
+ *
+ * Only used where unchecked really
+ * does mean false, such as "featured".
+ */
 
-  return Boolean(
+function checkboxValue(id) {
+
+  const element =
     document.getElementById(
       id
-    )?.checked
+    );
+
+
+  if (!element) {
+
+    return false;
+
+  }
+
+
+  return Boolean(
+    element.checked
   );
 
 }
 
 
+
+/*
+ * Three-state select:
+ *
+ * "true"  -> true
+ * "false" -> false
+ * ""      -> null
+ */
+
+function triStateValue(id) {
+
+  const element =
+    document.getElementById(
+      id
+    );
+
+
+  if (!element) {
+
+    return null;
+
+  }
+
+
+  if (
+    element.value === "true"
+  ) {
+
+    return true;
+
+  }
+
+
+  if (
+    element.value === "false"
+  ) {
+
+    return false;
+
+  }
+
+
+  return null;
+
+}
+
+
+
+/*
+ * Textarea where each line becomes
+ * a separate array entry.
+ */
 
 function multilineValues(id) {
 
@@ -1511,7 +2334,9 @@ function multilineValues(id) {
 
 
   if (!value) {
+
     return [];
+
   }
 
 
@@ -1526,6 +2351,73 @@ function multilineValues(id) {
 }
 
 
+
+/*
+ * Comma-separated input.
+ *
+ * Example:
+ *
+ * May, June, July
+ *
+ * becomes:
+ *
+ * [
+ *   "May",
+ *   "June",
+ *   "July"
+ * ]
+ */
+
+function commaSeparatedValues(id) {
+
+  const value =
+    textValue(id);
+
+
+  if (!value) {
+
+    return [];
+
+  }
+
+
+  return value
+    .split(",")
+    .map(
+      (item) =>
+        item.trim()
+    )
+    .filter(Boolean);
+
+}
+
+
+
+/*
+ * Used for duplicate environment
+ * booleans such as mountainView.
+ */
+
+function ratingPresenceBoolean(
+  value
+) {
+
+  if (value == null) {
+
+    return null;
+
+  }
+
+
+  return value >= 1;
+
+}
+
+
+
+/* =========================================================
+   SLUG
+   ========================================================= */
 
 function makeSlug(value) {
 
@@ -1555,14 +2447,27 @@ function makeSlug(value) {
 
 
 
-function normalizeEmptyValues(value) {
+/* =========================================================
+   NORMALIZE OUTPUT
+   ========================================================= */
+
+/*
+ * Recursively normalizes blank strings.
+ *
+ * It intentionally does NOT delete nulls.
+ *
+ * null is meaningful in the
+ * AutismOverland schema.
+ */
+
+function normalizeValues(value) {
 
   if (
     Array.isArray(value)
   ) {
 
     return value.map(
-      normalizeEmptyValues
+      normalizeValues
     );
 
   }
@@ -1581,7 +2486,7 @@ function normalizeEmptyValues(value) {
         ([key, item]) => {
 
           output[key] =
-            normalizeEmptyValues(
+            normalizeValues(
               item
             );
 
@@ -1597,7 +2502,9 @@ function normalizeEmptyValues(value) {
   if (
     value === ""
   ) {
+
     return null;
+
   }
 
 
@@ -1606,6 +2513,208 @@ function normalizeEmptyValues(value) {
 }
 
 
+
+/* =========================================================
+   ANSWER STATISTICS
+   ========================================================= */
+
+/*
+ * Counts actual answered values
+ * versus explicit nulls.
+ *
+ * Useful while entering a place because
+ * you can immediately see whether a
+ * record is mostly complete or still
+ * contains lots of unknown information.
+ */
+
+function countKnownAndUnknown(
+  value
+) {
+
+  let known = 0;
+
+  let unknown = 0;
+
+
+  function walk(item) {
+
+    if (item === null) {
+
+      unknown += 1;
+
+      return;
+
+    }
+
+
+    if (
+      Array.isArray(item)
+    ) {
+
+      item.forEach(
+        walk
+      );
+
+      return;
+
+    }
+
+
+    if (
+      item &&
+      typeof item === "object"
+    ) {
+
+      Object.values(item)
+        .forEach(
+          walk
+        );
+
+      return;
+
+    }
+
+
+    known += 1;
+
+  }
+
+
+  walk(value);
+
+
+  return {
+    known,
+    unknown
+  };
+
+}
+
+
+
+/* =========================================================
+   VERIFICATION DATE SYNC
+   ========================================================= */
+
+/*
+ * When the user enters a visit date,
+ * automatically use it as Last Verified
+ * unless Last Verified already contains
+ * something.
+ */
+
+function syncVerificationDate() {
+
+  const visit =
+    document.getElementById(
+      "visit-date"
+    );
+
+
+  const lastVerified =
+    document.getElementById(
+      "last-verified"
+    );
+
+
+  if (
+    !visit ||
+    !lastVerified
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    visit.value &&
+    !lastVerified.value
+  ) {
+
+    lastVerified.value =
+      visit.value;
+
+  }
+
+}
+
+
+
+/* =========================================================
+   RESET
+   ========================================================= */
+
+function handleFormReset() {
+
+  setTimeout(
+    () => {
+
+      document
+        .querySelectorAll(
+          ".editor-rating input[type='radio']"
+        )
+        .forEach(
+          (input) => {
+
+            input.checked = false;
+
+          }
+        );
+
+
+      const output =
+        document.getElementById(
+          "place-json-output"
+        );
+
+
+      if (output) {
+
+        output.textContent =
+          "Fill out the form, then choose Generate JSON.";
+
+      }
+
+
+      /*
+       * Collapse everything except
+       * the first section.
+       */
+
+      const sections =
+        document.querySelectorAll(
+          ".editor-collapsible"
+        );
+
+
+      sections.forEach(
+        (section, index) => {
+
+          section.open =
+            index === 0;
+
+        }
+      );
+
+
+      showEditorMessage(
+        "Form reset.",
+        "success"
+      );
+
+    },
+    0
+  );
+
+}
+
+
+
+/* =========================================================
+   EDITOR MESSAGE
+   ========================================================= */
 
 function showEditorMessage(
   message,
@@ -1618,7 +2727,11 @@ function showEditorMessage(
     );
 
 
-  if (!target) return;
+  if (!target) {
+
+    return;
+
+  }
 
 
   target.textContent =
@@ -1638,13 +2751,14 @@ function showEditorMessage(
     setTimeout(
       () => {
 
-        target.textContent = "";
+        target.textContent =
+          "";
 
         target.className =
           "place-editor-message";
 
       },
-      4000
+      5000
     );
 
 }
