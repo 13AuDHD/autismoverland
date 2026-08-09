@@ -700,8 +700,9 @@ img { display: block; max-width: 100%; }
 .places-grid {
   display: grid;
   grid-template-columns:
-    repeat(auto-fit, minmax(300px, 1fr));
+    repeat(auto-fill, minmax(300px, 360px));
   gap: 1.5rem;
+  justify-content: start;
 }
 
 
@@ -716,7 +717,7 @@ img { display: block; max-width: 100%; }
 
 .place-card-image-wrap {
   position: relative;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
 }
 
