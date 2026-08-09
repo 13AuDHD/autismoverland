@@ -1,1 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <title>Map | AutismOverland</title>
+
+  <link rel="stylesheet" href="css/style.css">
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
+</head>
+
+<body>
+
+  <div id="site-header"></div>
+
+  <main class="map-page">
+
+    <section class="map-intro">
+      <div class="container">
+        <p class="eyebrow">Explore AutismOverland</p>
+        <h1>Find a place that works for you.</h1>
+        <p>
+          Explore field-verified campsites, pullouts, scenic stops,
+          and other places with sensory, access, connectivity,
+          and vehicle information.
+        </p>
+      </div>
+    </section>
+
+    <section class="map-section">
+      <div id="autismoverland-map"></div>
+    </section>
+
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  ></script>
+
+  <script src="js/main.js"></script>
+  <script src="js/map.js"></script>
+
+</body>
+</html>
