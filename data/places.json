@@ -40,7 +40,7 @@
 
 "access": {
   "siteAccessDifficulty": 1,
-  "roadOverallDifficulty": 2
+  "roadOverallDifficulty": 2,
   "roadDifficulty": 2,
   "roadStress": 1,
   "sedanAccessible": true,
