@@ -1472,6 +1472,255 @@ img { display: block; max-width: 100%; }
 }
 
 
+/* =========================================================
+   ABOUT PAGE
+   ========================================================= */
+
+.about-page {
+  background: #f6f3ec;
+}
+
+.about-page .container {
+  width: min(1200px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+
+/* Hero */
+
+.about-hero {
+  padding: 4rem 0;
+}
+
+.about-hero-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(320px, 0.9fr);
+  gap: 3rem;
+  align-items: center;
+}
+
+.about-hero-copy h1 {
+  max-width: 760px;
+  margin: 0 0 1.5rem;
+  font-size: clamp(2.7rem, 7vw, 5.4rem);
+  line-height: 0.98;
+}
+
+.about-hero-lede {
+  max-width: 700px;
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.about-hero-image {
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.about-hero-image img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+}
+
+
+/* Standard sections */
+
+.about-section {
+  padding: 5rem 0;
+}
+
+.about-section-soft {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.about-two-column {
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 0.8fr)
+    minmax(0, 1.2fr);
+  gap: 4rem;
+}
+
+.about-two-column h2,
+.about-section-heading h2,
+.about-philosophy-grid h2 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1.05;
+}
+
+.about-copy {
+  max-width: 760px;
+}
+
+.about-copy p,
+.about-philosophy-grid p {
+  margin-top: 0;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.about-copy p + p,
+.about-philosophy-grid p + p {
+  margin-top: 1.25rem;
+}
+
+.about-section-heading {
+  max-width: 800px;
+  margin-bottom: 2.5rem;
+}
+
+
+/* Image breaks */
+
+.about-image-break {
+  padding: 1rem 0;
+}
+
+.about-image-break img {
+  display: block;
+  width: 100%;
+  max-height: 620px;
+  object-fit: cover;
+  border-radius: 14px;
+}
+
+.about-image-break-small img {
+  max-height: 480px;
+}
+
+
+/* Mission cards */
+
+.about-mission-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.about-mission-card {
+  padding: 1.5rem;
+  border:
+    1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.about-mission-card i {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+}
+
+.about-mission-card h3 {
+  margin: 0 0 0.75rem;
+}
+
+.about-mission-card p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+
+/* Differences */
+
+.about-difference-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 2.5rem 3rem;
+}
+
+.about-difference-grid article {
+  padding-top: 1rem;
+  border-top:
+    1px solid rgba(0, 0, 0, 0.14);
+}
+
+.about-number {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  opacity: 0.55;
+}
+
+.about-difference-grid h3 {
+  margin: 0 0 0.75rem;
+}
+
+.about-difference-grid p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+
+/* Dark section */
+
+.about-section-dark {
+  background: #21352f;
+  color: #f6f3ec;
+}
+
+.about-philosophy-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 0.8fr)
+    minmax(0, 1.2fr);
+  gap: 4rem;
+}
+
+
+/* Actions */
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+
+/* Mobile */
+
+@media (max-width: 800px) {
+
+  .about-hero-grid,
+  .about-two-column,
+  .about-philosophy-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .about-hero {
+    padding: 2.5rem 0;
+  }
+
+  .about-section {
+    padding: 3.5rem 0;
+  }
+
+  .about-hero-image img {
+    aspect-ratio: 16 / 10;
+  }
+
+}
+
+
+@media (max-width: 650px) {
+
+  .about-mission-grid,
+  .about-difference-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
 /* =====================================================
 Mobile
 ====================================================== */
