@@ -36,31 +36,142 @@
       </div>
 
       <div class="map-card">
-        <div class="filter-bar">
-          <button><i class="fa-solid fa-location-dot"></i> Campgrounds <i class="fa-solid fa-chevron-down"></i></button>
-          <button><i class="fa-solid fa-map-pin"></i> Type <i class="fa-solid fa-chevron-down"></i></button>
-          <button><i class="fa-solid fa-signs-post"></i> Trailhead <i class="fa-solid fa-chevron-down"></i></button>
-          <button class="desktop-only"><i class="fa-solid fa-route"></i> Pet friendly <i class="fa-solid fa-chevron-down"></i></button>
-          <button class="desktop-only"><i class="fa-solid fa-universal-access"></i> Accessible <i class="fa-solid fa-chevron-down"></i></button>
-          <label class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input type="search" placeholder="Search"></label>
-        </div>
+<div class="filter-bar homepage-map-controls">
+
+  <label>
+    <i class="fa-solid fa-map-pin"></i>
+    <select id="homepage-type-filter">
+      <option value="all">All place types</option>
+    </select>
+  </label>
+
+  <label>
+    <i class="fa-solid fa-road"></i>
+    <select id="homepage-road-filter">
+      <option value="all">Any road difficulty</option>
+      <option value="1">Road 1/5 max</option>
+      <option value="2">Road 2/5 max</option>
+      <option value="3">Road 3/5 max</option>
+      <option value="4">Road 4/5 max</option>
+      <option value="5">Road 5/5 max</option>
+    </select>
+  </label>
+
+  <label>
+    <i class="fa-solid fa-volume-low"></i>
+    <select id="homepage-noise-filter">
+      <option value="all">Any night noise</option>
+      <option value="1">Noise 1/5 max</option>
+      <option value="2">Noise 2/5 max</option>
+      <option value="3">Noise 3/5 max</option>
+      <option value="4">Noise 4/5 max</option>
+      <option value="5">Noise 5/5 max</option>
+    </select>
+  </label>
+
+  <label class="search-box">
+    <i class="fa-solid fa-magnifying-glass"></i>
+
+    <input
+      id="homepage-map-search"
+      type="search"
+      placeholder="Search places"
+      autocomplete="off"
+    >
+  </label>
+
+</div>
 
         <div class="map-layout">
-          <aside class="map-filters">
-            <div class="filter-group">
-              <h3><i class="fa-solid fa-tents"></i> Type of Site <i class="fa-solid fa-chevron-down"></i></h3>
-              <label><input type="checkbox"> <i class="fa-solid fa-campground"></i> Campgrounds</label>
-              <label><input type="checkbox"> <i class="fa-solid fa-van-shuttle"></i> Dispersed Camping</label>
-              <label><input type="checkbox"> <i class="fa-solid fa-mountain-sun"></i> Trailheads</label>
-              <label><input type="checkbox"> <i class="fa-solid fa-binoculars"></i> Viewpoints</label>
-            </div>
+<aside class="map-filters homepage-map-sidebar">
 
-            <div class="filter-group">
-              <h3><i class="fa-solid fa-signal"></i> Cell Service <i class="fa-solid fa-chevron-down"></i></h3>
-              <label><input type="checkbox"> Crowded</label>
-              <label><input type="checkbox"> Roadship <span class="pill">Calls</span></label>
-            </div>
-          </aside>
+  <div class="filter-group">
+
+    <h3>
+      <i class="fa-solid fa-brain"></i>
+      Sensory
+    </h3>
+
+    <label>
+      <input
+        id="homepage-quiet-filter"
+        type="checkbox"
+      >
+      Quiet at night
+    </label>
+
+    <label>
+      <input
+        id="homepage-private-filter"
+        type="checkbox"
+      >
+      Privacy 4/5+
+    </label>
+
+    <label>
+      <input
+        id="homepage-sensory-filter"
+        type="checkbox"
+      >
+      Sensory comfort 4/5+
+    </label>
+
+  </div>
+
+
+  <div class="filter-group">
+
+    <h3>
+      <i class="fa-solid fa-signal"></i>
+      Connectivity
+    </h3>
+
+    <label>
+      <input
+        id="homepage-cell-filter"
+        type="checkbox"
+      >
+      Good cell service
+    </label>
+
+    <label>
+      <input
+        id="homepage-starlink-filter"
+        type="checkbox"
+      >
+      Good Starlink view
+    </label>
+
+  </div>
+
+
+  <div class="filter-group">
+
+    <h3>
+      <i class="fa-solid fa-car-side"></i>
+      Access
+    </h3>
+
+    <label>
+      <input
+        id="homepage-sedan-filter"
+        type="checkbox"
+      >
+      Sedan accessible
+    </label>
+
+  </div>
+
+
+  <button
+    id="homepage-filter-reset"
+    class="small-btn"
+    type="button"
+  >
+    Clear Filters
+  </button>
+
+</aside>
 
 <div class="map-image-wrap">
   <div id="homepage-map"></div>
