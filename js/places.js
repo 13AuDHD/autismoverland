@@ -251,10 +251,10 @@ function buildPlaceCard(place) {
 
         <a
           class="btn place-map-button"
-          href="map.html?place=${encodeURIComponent(place.slug)}"
+          href="place.html?place=${encodeURIComponent(place.slug)}"
         >
-          <i class="fa-solid fa-map-location-dot"></i>
-          View on Map
+          <i class="fa-solid fa-arrow-right"></i>
+          View Details
         </a>
 
       </div>
