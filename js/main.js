@@ -229,4 +229,103 @@ document.addEventListener(
   initFeaturedLocations
 );
 
+async function initHomepageMap() {
+  const mapElement =
+    document.getElementById("homepage-map");
+
+  if (!mapElement || typeof L === "undefined") {
+    return;
+  }
+
+  try {
+    const response =
+      await fetch("data/places.json");
+
+    if (!response.ok) {
+      throw new Error(
+        "Could not load homepage map places"
+      );
+    }
+
+    const places =
+      await response.json();
+
+    const validPlaces =
+      places.filter(
+        (place) =>
+          place.status === "active" &&
+          place.location?.latitude != null &&
+          place.location?.longitude != null
+      );
+
+    if (!validPlaces.length) return;
+
+    const firstPlace =
+      validPlaces[0];
+
+    const map =
+      L.map("homepage-map", {
+        zoomControl: false,
+        scrollWheelZoom: false
+      }).setView(
+        [
+          firstPlace.location.latitude,
+          firstPlace.location.longitude
+        ],
+        10
+      );
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }
+    ).addTo(map);
+
+    const bounds = [];
+
+    validPlaces.forEach((place) => {
+      const lat =
+        place.location.latitude;
+
+      const lng =
+        place.location.longitude;
+
+      const marker =
+        L.marker([lat, lng])
+          .addTo(map);
+
+      marker.bindPopup(`
+        <strong>${place.name}</strong><br>
+        <a href="place.html?place=${encodeURIComponent(place.slug)}">
+          View Details
+        </a>
+      `);
+
+      bounds.push([lat, lng]);
+    });
+
+    if (bounds.length > 1) {
+      map.fitBounds(bounds, {
+        padding: [30, 30],
+        maxZoom: 10
+      });
+    }
+
+  } catch (error) {
+    console.error(
+      "AutismOverland homepage map error:",
+      error
+    );
+  }
+}
+
+
+document.addEventListener(
+  "DOMContentLoaded",
+  initHomepageMap
+);
+
 document.addEventListener('DOMContentLoaded', initIncludes);
