@@ -195,19 +195,26 @@ function buildPopup(place) {
 
         </div>
 
-        ${
-          place.verification?.status === "field-verified"
-            ? `
-              <p class="verified-place">
-                <i class="fa-solid fa-circle-check"></i>
-                Field verified
-              </p>
-            `
-            : ""
-        }
+${
+  place.verification?.status === "field-verified"
+    ? `
+      <p class="verified-place">
+        <i class="fa-solid fa-circle-check"></i>
+        Field verified
+      </p>
+    `
+    : ""
+}
 
-      </div>
+<a
+  class="map-popup-details"
+  href="place.html?place=${encodeURIComponent(place.slug)}"
+>
+  View Details
+  <i class="fa-solid fa-arrow-right"></i>
+</a>
 
+</div>
     </article>
   `;
 }
