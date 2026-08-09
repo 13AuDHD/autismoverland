@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -61,12 +62,9 @@
             </div>
           </aside>
 
-          <div class="map-image-wrap">
-            <img src="images/map-preview.jpg" alt="Preview map with campsite and trailhead markers">
-            <div class="map-marker marker-a">A</div>
-            <div class="map-marker marker-b"><i class="fa-solid fa-person-hiking"></i></div>
-            <div class="map-marker marker-c"><i class="fa-solid fa-campground"></i></div>
-          </div>
+<div class="map-image-wrap">
+  <div id="homepage-map"></div>
+</div>
         </div>
       </div>
     </section>
@@ -119,6 +117,7 @@
   <!-- include="footer.html" -->
   <div id="site-footer"></div>
 
-  <script src="js/main.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
