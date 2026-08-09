@@ -1817,6 +1817,144 @@ word-break: break-word;
   font-weight: 700;
 }
 
+/* =========================================================
+   PLACE FACT LAYOUT
+   Keep labels and answers visually connected
+   ========================================================= */
+
+
+/*
+ * Two compact fact columns on larger screens.
+ */
+
+.place-main .place-facts {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  column-gap: 2.5rem;
+  row-gap: 0;
+}
+
+.place-main .place-fact {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 170px)
+    minmax(0, 1fr);
+
+  align-items: baseline;
+
+  gap: 0.8rem;
+
+  min-width: 0;
+
+  padding:
+    0.8rem
+    0;
+
+  border-bottom:
+    1px solid
+    rgba(0, 0, 0, 0.10);
+}
+
+
+/*
+ * Labels
+ */
+
+.place-main .place-fact > span {
+  min-width: 0;
+
+  color: var(--muted);
+
+  line-height: 1.4;
+}
+
+
+/*
+ * Answers
+ */
+
+.place-main .place-fact > strong {
+  min-width: 0;
+
+  text-align: left;
+
+  line-height: 1.4;
+
+  overflow-wrap: anywhere;
+}
+
+
+/*
+ * Don't let an inherited flex rule
+ * spread the contents apart.
+ */
+
+.place-main .place-fact {
+  justify-content: initial;
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 1000px) {
+
+  .place-main .place-facts {
+    column-gap: 1.75rem;
+  }
+
+
+  .place-main .place-fact {
+    grid-template-columns:
+      minmax(0, 145px)
+      minmax(0, 1fr);
+  }
+
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+  /*
+   * One question per row on phones.
+   */
+
+  .place-main .place-facts {
+    grid-template-columns: 1fr;
+  }
+
+
+  .place-main .place-fact {
+    grid-template-columns:
+      minmax(0, 44%)
+      minmax(0, 56%);
+
+    gap: 0.75rem;
+  }
+
+}
+
+
+/* Very narrow phones */
+
+@media (max-width: 430px) {
+
+  .place-main .place-fact {
+    grid-template-columns:
+      minmax(0, 1fr)
+      auto;
+  }
+
+}
 
 /* Mobile */
 
