@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Add Place | AutismOverland</title>
+
+  <link rel="stylesheet" href="css/style.css">
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
+</head>
+
+<body>
+
+  <div id="site-header"></div>
+
+  <main class="place-editor-page">
+
+    <section class="place-editor-intro">
+      <div class="container">
+
+        <p class="eyebrow">AutismOverland Admin</p>
+
+        <h1>Add a Place</h1>
+
+        <p>
+          Build a complete AutismOverland place record without editing
+          raw JSON by hand. Leave anything you don't know blank.
+        </p>
+
+      </div>
+    </section>
+
+
+    <section class="place-editor-content">
+
+      <div class="container place-editor-layout">
+
+        <form
+          id="place-editor-form"
+          class="place-editor-form"
+        >
+
+          <!-- ==========================================
+               BASIC INFO
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-location-dot"></i>
+              Basic Info
+            </legend>
+
+            <div class="editor-grid">
+
+              <label class="editor-field editor-field-wide">
+                <span>Place Name</span>
+                <input
+                  id="place-name"
+                  type="text"
+                  placeholder="Chimney Rock Pulloff"
+                  required
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Type</span>
+
+                <select id="place-type">
+
+                  <option value="vehicle-pulloff">
+                    Vehicle Pulloff
+                  </option>
+
+                  <option value="dispersed-camping">
+                    Dispersed Camping
+                  </option>
+
+                  <option value="campground">
+                    Campground
+                  </option>
+
+                  <option value="trailhead">
+                    Trailhead
+                  </option>
+
+                  <option value="viewpoint">
+                    Viewpoint
+                  </option>
+
+                  <option value="scenic-stop">
+                    Scenic Stop
+                  </option>
+
+                  <option value="rest-area">
+                    Rest Area
+                  </option>
+
+                  <option value="other">
+                    Other
+                  </option>
+
+                </select>
+              </label>
+
+              <label class="editor-checkbox">
+
+                <input
+                  id="place-featured"
+                  type="checkbox"
+                >
+
+                <span>Featured on homepage</span>
+
+              </label>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               LOCATION
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-map"></i>
+              Location
+            </legend>
+
+            <div class="editor-grid">
+
+              <label class="editor-field">
+                <span>Latitude</span>
+                <input
+                  id="latitude"
+                  type="number"
+                  step="any"
+                  placeholder="37.25222"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Longitude</span>
+                <input
+                  id="longitude"
+                  type="number"
+                  step="any"
+                  placeholder="-107.2192"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Elevation, feet</span>
+                <input
+                  id="elevation"
+                  type="number"
+                  placeholder="7486"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Road</span>
+                <input
+                  id="road"
+                  type="text"
+                  placeholder="Snow Ranch Rd / FS 628"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Nearest City / Locality</span>
+                <input
+                  id="city"
+                  type="text"
+                  placeholder="Pagosa Springs"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>County</span>
+                <input
+                  id="county"
+                  type="text"
+                  placeholder="Archuleta"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>State</span>
+                <input
+                  id="state"
+                  type="text"
+                  value="Colorado"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Region</span>
+                <input
+                  id="region"
+                  type="text"
+                  placeholder="Pagosa Ranger District"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Land Manager</span>
+                <input
+                  id="land-manager"
+                  type="text"
+                  placeholder="U.S. Forest Service"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Land Type</span>
+                <input
+                  id="land-type"
+                  type="text"
+                  placeholder="San Juan National Forest"
+                >
+              </label>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               SITE + VEHICLE
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-car-side"></i>
+              Site & Vehicle
+            </legend>
+
+            <div class="editor-grid">
+
+              <label class="editor-field">
+                <span>Vehicle Capacity</span>
+                <input
+                  id="vehicle-capacity"
+                  type="number"
+                  min="1"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Max Vehicle Length, feet</span>
+                <input
+                  id="max-vehicle-length"
+                  type="number"
+                  min="1"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Parking Surface</span>
+
+                <select id="parking-surface">
+                  <option value="">Unknown</option>
+                  <option value="dirt">Dirt</option>
+                  <option value="gravel">Gravel</option>
+                  <option value="rock">Rock</option>
+                  <option value="pavement">Pavement</option>
+                  <option value="grass">Grass</option>
+                  <option value="sand">Sand</option>
+                  <option value="mixed">Mixed</option>
+                </select>
+
+              </label>
+
+              <label class="editor-field">
+                <span>Ground Condition</span>
+                <input
+                  id="ground-condition"
+                  type="text"
+                  placeholder="rocky-dirt"
+                >
+              </label>
+
+            </div>
+
+
+            <div class="editor-checkbox-grid">
+
+              <label class="editor-checkbox">
+                <input id="tent-suitable" type="checkbox">
+                <span>Tent camping suitable</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="rv-suitable" type="checkbox">
+                <span>RV suitable</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="trailer-suitable" type="checkbox">
+                <span>Trailer suitable</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="leveling-required" type="checkbox">
+                <span>Leveling required</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="turnaround-space" type="checkbox">
+                <span>Turnaround space</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="pull-through" type="checkbox">
+                <span>Pull-through</span>
+              </label>
+
+            </div>
+
+
+            <div class="editor-rating-grid">
+
+              <div
+                class="editor-rating"
+                data-rating="levelness"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="openSky"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="treeCover"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="shade"
+              ></div>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               ROAD ACCESS
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-road"></i>
+              Road Access
+            </legend>
+
+            <div class="editor-rating-grid">
+
+              <div
+                class="editor-rating"
+                data-rating="siteAccessDifficulty"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="roadOverallDifficulty"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="roadStress"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="rocks"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="washboards"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="potholes"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="mudRisk"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="steepGrades"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="dropOffExposure"
+              ></div>
+
+            </div>
+
+
+            <div class="editor-grid">
+
+              <label class="editor-field">
+                <span>Road Surface</span>
+                <input
+                  id="road-surface"
+                  type="text"
+                  placeholder="dirt"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Road Width</span>
+                <input
+                  id="road-width"
+                  type="text"
+                  placeholder="one lane / two lane"
+                >
+              </label>
+
+            </div>
+
+
+            <div class="editor-checkbox-grid">
+
+              <label class="editor-checkbox">
+                <input id="sedan-accessible" type="checkbox">
+                <span>Sedan accessible</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="high-clearance" type="checkbox">
+                <span>High clearance recommended</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="four-wheel-drive" type="checkbox">
+                <span>4WD recommended</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="downed-tree-risk" type="checkbox">
+                <span>Downed tree risk</span>
+              </label>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               SENSORY
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-brain"></i>
+              Sensory Profile
+            </legend>
+
+            <h3 class="editor-subheading">
+              Daytime
+            </h3>
+
+            <div class="editor-rating-grid">
+
+              <div
+                class="editor-rating"
+                data-rating="dayNoise"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="dayTraffic"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="dayCrowds"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="dayPrivacy"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="daySensoryComfort"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="daySocial"
+              ></div>
+
+            </div>
+
+
+            <h3 class="editor-subheading">
+              Nighttime
+            </h3>
+
+            <div class="editor-rating-grid">
+
+              <div
+                class="editor-rating"
+                data-rating="nightNoise"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="nightTraffic"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="nightCrowds"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="nightPrivacy"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="nightLightPollution"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="nightSensoryComfort"
+              ></div>
+
+            </div>
+
+
+            <h3 class="editor-subheading">
+              Other Sensory Conditions
+            </h3>
+
+            <div class="editor-rating-grid">
+
+              <div
+                class="editor-rating"
+                data-rating="dustFromTraffic"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="generatorNoise"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="aircraftNoise"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="roadNoise"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="humanActivity"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="visualExposure"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="predictability"
+              ></div>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               CONNECTIVITY
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-signal"></i>
+              Connectivity
+            </legend>
+
+            <div class="editor-rating-grid">
+
+              <div
+                class="editor-rating"
+                data-rating="overallCell"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="tMobile"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="verizon"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="att"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="starlink"
+              ></div>
+
+            </div>
+
+            <label class="editor-checkbox">
+              <input
+                id="starlink-tested"
+                type="checkbox"
+              >
+              <span>Starlink actually tested here</span>
+            </label>
+
+            <label class="editor-field editor-field-wide">
+              <span>Starlink Notes</span>
+              <textarea
+                id="starlink-note"
+                rows="3"
+              ></textarea>
+            </label>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               AMENITIES
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-circle-info"></i>
+              Amenities
+            </legend>
+
+            <div class="editor-checkbox-grid">
+
+              <label class="editor-checkbox">
+                <input id="toilets" type="checkbox">
+                <span>Toilets</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="potable-water" type="checkbox">
+                <span>Potable water</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="trash" type="checkbox">
+                <span>Trash</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="fire-ring" type="checkbox">
+                <span>Fire ring</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="picnic-table" type="checkbox">
+                <span>Picnic table</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="bear-box" type="checkbox">
+                <span>Bear box</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="showers" type="checkbox">
+                <span>Showers</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="electricity" type="checkbox">
+                <span>Electricity</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="dump-station" type="checkbox">
+                <span>Dump station</span>
+              </label>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               EXPERIENCE
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-star"></i>
+              Experience
+            </legend>
+
+            <div class="editor-rating-grid">
+
+              <div
+                class="editor-rating"
+                data-rating="mountainView"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="forestView"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="nightSky"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="stargazing"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="quietEvening"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="overnightComfort"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="extendedStayComfort"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="sensoryRetreat"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="remoteWork"
+              ></div>
+
+              <div
+                class="editor-rating"
+                data-rating="overallScenery"
+              ></div>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               WARNINGS
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              Warnings
+            </legend>
+
+            <div class="editor-checkbox-grid">
+
+              <label class="editor-checkbox">
+                <input id="warning-road-exposed" type="checkbox">
+                <span>Exposed to road</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="warning-zero-privacy" type="checkbox">
+                <span>Zero privacy</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="warning-dust" type="checkbox">
+                <span>Passing vehicle dust</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="warning-trees" type="checkbox">
+                <span>Possible downed trees</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="warning-no-tent" type="checkbox">
+                <span>No tent camping</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="warning-length" type="checkbox">
+                <span>Limited vehicle length</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="warning-leveling" type="checkbox">
+                <span>Leveling may be required</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="warning-no-amenities" type="checkbox">
+                <span>No amenities</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="warning-motorized" type="checkbox">
+                <span>Motorized recreation traffic</span>
+              </label>
+
+              <label class="editor-checkbox">
+                <input id="warning-blind-turns" type="checkbox">
+                <span>Blind-turn traffic nearby</span>
+              </label>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               DESCRIPTION
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-pen"></i>
+              Description & Notes
+            </legend>
+
+            <label class="editor-field editor-field-wide">
+              <span>Description</span>
+
+              <textarea
+                id="description"
+                rows="5"
+                placeholder="Describe the place..."
+              ></textarea>
+            </label>
+
+            <label class="editor-field editor-field-wide">
+              <span>Sensory Summary</span>
+
+              <textarea
+                id="sensory-summary"
+                rows="4"
+              ></textarea>
+            </label>
+
+            <label class="editor-field editor-field-wide">
+              <span>Access Summary</span>
+
+              <textarea
+                id="access-summary"
+                rows="4"
+              ></textarea>
+            </label>
+
+            <label class="editor-field editor-field-wide">
+              <span>Field Notes</span>
+
+              <textarea
+                id="notes"
+                rows="6"
+                placeholder="One note per line"
+              ></textarea>
+
+              <small>
+                Enter one note per line.
+              </small>
+            </label>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               PHOTOS
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-camera"></i>
+              Photos
+            </legend>
+
+            <p class="editor-help">
+              Enter filenames only. They will automatically be
+              placed inside <code>images/places/</code>.
+            </p>
+
+            <div class="editor-grid">
+
+              <label class="editor-field">
+                <span>Featured Photo</span>
+                <input
+                  id="image-1"
+                  type="text"
+                  placeholder="chimney-rock-pulloff-1.jpeg"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Photo 2</span>
+                <input
+                  id="image-2"
+                  type="text"
+                  placeholder="chimney-rock-pulloff-2.jpeg"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Photo 3</span>
+                <input
+                  id="image-3"
+                  type="text"
+                  placeholder="chimney-rock-pulloff-3.jpeg"
+                >
+              </label>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               VERIFICATION
+               ========================================== -->
+
+          <fieldset class="editor-section">
+
+            <legend>
+              <i class="fa-solid fa-circle-check"></i>
+              Verification
+            </legend>
+
+            <div class="editor-grid">
+
+              <label class="editor-field">
+                <span>Visit Date</span>
+                <input
+                  id="visit-date"
+                  type="date"
+                >
+              </label>
+
+              <label class="editor-field">
+                <span>Verification Status</span>
+
+                <select id="verification-status">
+                  <option value="field-verified">
+                    Field Verified
+                  </option>
+
+                  <option value="community-submitted">
+                    Community Submitted
+                  </option>
+
+                  <option value="public-data">
+                    Public Data
+                  </option>
+
+                  <option value="unverified">
+                    Unverified
+                  </option>
+                </select>
+
+              </label>
+
+            </div>
+
+          </fieldset>
+
+
+          <!-- ==========================================
+               ACTIONS
+               ========================================== -->
+
+          <div class="place-editor-actions">
+
+            <button
+              class="primary-btn"
+              type="button"
+              id="generate-place"
+            >
+              <i class="fa-solid fa-code"></i>
+              Generate JSON
+            </button>
+
+            <button
+              class="small-btn"
+              type="button"
+              id="copy-place"
+            >
+              <i class="fa-solid fa-copy"></i>
+              Copy JSON
+            </button>
+
+            <button
+              class="small-btn"
+              type="reset"
+              id="reset-place"
+            >
+              <i class="fa-solid fa-rotate-left"></i>
+              Reset
+            </button>
+
+          </div>
+
+        </form>
+
+
+        <!-- ==========================================
+             OUTPUT
+             ========================================== -->
+
+        <aside class="place-editor-output">
+
+          <div class="place-editor-output-card">
+
+            <h2>Generated Place</h2>
+
+            <p>
+              This is the object that goes inside
+              <code>data/places.json</code>.
+            </p>
+
+            <pre><code id="place-json-output">Fill out the form, then choose Generate JSON.</code></pre>
+
+          </div>
+
+
+          <div
+            id="place-editor-message"
+            class="place-editor-message"
+            aria-live="polite"
+          ></div>
+
+        </aside>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/main.js"></script>
+  <script src="js/add-place.js"></script>
+
+</body>
+</html>
