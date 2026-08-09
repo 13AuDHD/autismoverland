@@ -208,7 +208,7 @@
     "residentialUseProhibited": true
   },
   "nearby": {
-    "nearestTown": Pagosa Springs,
+    "nearestTown": null,
     "nearestFuel": null,
     "nearestGrocery": null,
     "nearestWater": null,
