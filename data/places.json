@@ -5,7 +5,7 @@
     "slug": "chimney-rock-pulloff",
     "type": "vehicle-pulloff",
     "status": "active",
-    "featured": false,
+    "featured": true,
 
 "location": {
   "latitude": 37.25222,
