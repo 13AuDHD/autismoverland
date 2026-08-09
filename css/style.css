@@ -1191,6 +1191,318 @@ img { display: block; max-width: 100%; }
   accent-color: currentColor;
 }
 
+
+/* =========================================================
+   PLACE EDITOR
+   ========================================================= */
+
+.place-editor-page {
+  min-height: 100vh;
+  background: #f6f3ec;
+}
+
+.place-editor-intro {
+  padding: 3.5rem 1rem 2rem;
+}
+
+.place-editor-intro .container,
+.place-editor-content > .container {
+  width: min(1300px, 100%);
+  margin: 0 auto;
+}
+
+.place-editor-intro h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  line-height: 0.95;
+}
+
+.place-editor-intro p {
+  max-width: 700px;
+  line-height: 1.7;
+}
+
+.place-editor-content {
+  padding: 1rem 1rem 6rem;
+}
+
+.place-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 2rem;
+  align-items: start;
+}
+
+.place-editor-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.editor-section {
+  margin: 0;
+  padding: 1.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.editor-section legend {
+  padding: 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.editor-section legend i {
+  margin-right: 0.4rem;
+}
+
+.editor-subheading {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.editor-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.editor-field-wide {
+  grid-column: 1 / -1;
+}
+
+.editor-field > span {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.editor-field input,
+.editor-field select,
+.editor-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 7px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+
+.editor-field textarea {
+  resize: vertical;
+}
+
+.editor-field small,
+.editor-help {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  opacity: 0.65;
+}
+
+.editor-checkbox-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1rem;
+  margin-top: 1rem;
+}
+
+.editor-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.editor-checkbox input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.editor-rating-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.editor-rating {
+  padding: 0.9rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.editor-rating-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.editor-rating-header strong {
+  font-size: 0.82rem;
+}
+
+.rating-clear {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 0.7rem;
+  text-decoration: underline;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.editor-rating-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+}
+
+.editor-rating-options label {
+  position: relative;
+  cursor: pointer;
+}
+
+.editor-rating-options input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.editor-rating-options span {
+  display: grid;
+  place-items: center;
+  min-height: 34px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.78rem;
+}
+
+.editor-rating-options input:checked + span {
+  background: #21352f;
+  color: #fff;
+  border-color: #21352f;
+}
+
+.editor-rating-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.4rem;
+  font-size: 0.62rem;
+  opacity: 0.55;
+}
+
+.place-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.place-editor-actions button {
+  border: 0;
+  cursor: pointer;
+}
+
+.place-editor-output {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.place-editor-output-card {
+  overflow: hidden;
+  padding: 1.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.place-editor-output-card h2 {
+  margin-top: 0;
+}
+
+.place-editor-output-card > p {
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.place-editor-output pre {
+  max-height: 70vh;
+  overflow: auto;
+  padding: 1rem;
+  border-radius: 8px;
+  background: #18231f;
+  color: #f4f1e9;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.place-editor-message {
+  min-height: 1.5rem;
+  padding: 0.75rem;
+  font-size: 0.8rem;
+  border-radius: 7px;
+}
+
+.place-editor-message.success {
+  background: rgba(30, 100, 55, 0.12);
+}
+
+.place-editor-message.error {
+  background: rgba(160, 40, 40, 0.12);
+}
+
+
+/* =====================================================
+Mobile
+====================================================== */
+
+@media (max-width: 950px) {
+
+  .place-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .place-editor-output {
+    position: static;
+  }
+
+}
+
+
+@media (max-width: 650px) {
+
+  .editor-grid,
+  .editor-rating-grid,
+  .editor-checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .place-editor-intro {
+    padding-top: 2.25rem;
+  }
+
+}
+
 /* Mobile */
 
 @media (max-width: 850px) {
