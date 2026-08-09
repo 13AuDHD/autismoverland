@@ -190,7 +190,7 @@
     "seasonalAccessNote": null
   },
   "regulations": {
-    "overnightCampingAllowed": true
+    "overnightCampingAllowed": true,
     "dispersedCampingAllowed": true,
     "stayLimitDays": 14,
     "maximumDaysPer60DayPeriod": 14,
@@ -259,7 +259,7 @@
     "source": "AutismOverland field observation",
     "publicDataVerified": false
   }
-}
+},
   {
     "id": "chimney-rock-pulloff",
     "name": "Chimney Rock Pulloff",
