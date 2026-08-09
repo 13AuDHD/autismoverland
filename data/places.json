@@ -222,7 +222,7 @@
   "fee": 0,
   "campfireAllowed": null,
   "currentFireRestrictionsUrl": "https://www.fs.usda.gov/alerts/sanjuan/alerts-notices"
-}
+},
 
  "landUseRules": {
   "vehicleDistanceFromRoadMaxFeet": 300,
@@ -230,7 +230,7 @@
   "existingSitesEncouraged": true,
   "packItInPackItOut": true,
   "residentialUseProhibited": true
-}
+},
 
     "nearby": {
       "nearestTown": null,
