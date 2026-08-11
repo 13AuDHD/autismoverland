@@ -2370,7 +2370,23 @@ span {
     var(--shadow);
 }
 
+/* =========================================================
+   HIGH PRIORITY PLACE WARNINGS
+   ========================================================= */
 
+.place-tag--high {
+  font-weight: 800;
+
+  border-color:
+    rgba(120, 35, 25, 0.35);
+
+  background:
+    rgba(150, 45, 30, 0.08);
+}
+
+.place-tag--high i {
+  font-size: 1.05em;
+}
 
 
 
