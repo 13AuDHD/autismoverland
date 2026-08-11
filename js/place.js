@@ -184,63 +184,44 @@ function renderPlace(
 
         <div class="place-main">
 
-
           ${renderAbout(place)}
-
-
-          ${renderSensory(place)}
-
-
-          ${renderSiteAndVehicle(place)}
-
-
-          ${renderRoadAccess(place)}
-
-
-          ${renderConnectivity(place)}
-
-
-          ${renderAmenities(place)}
-
-
-          ${renderEnvironment(place)}
-
-
-          ${renderAccessibility(place)}
-
-
-          ${renderSafety(place)}
-
-
-          ${renderExperience(place)}
-
-
-          ${renderRecommendedFor(place)}
-
-
-          ${renderSeason(place)}
-
-
-          ${renderRegulations(place)}
-
-
-          ${renderLandUseRules(place)}
-
-
-          ${renderNearby(place)}
-
 
           ${renderWarnings(place)}
 
+          ${renderSensory(place)}
+
+          ${renderSiteAndVehicle(place)}
+
+          ${renderRoadAccess(place)}
+
+          ${renderConnectivity(place)}
+
+          ${renderAmenities(place)}
+
+          ${renderEnvironment(place)}
+
+          ${renderAccessibility(place)}
+
+          ${renderSafety(place)}
+
+          ${renderExperience(place)}
+
+          ${renderRecommendedFor(place)}
+
+          ${renderSeason(place)}
+
+          ${renderRegulations(place)}
+
+          ${renderLandUseRules(place)}
+
+          ${renderNearby(place)}
 
           ${renderFieldNotes(place)}
-
 
           ${renderGallery(
             place,
             remainingImages
           )}
-
 
         </div>
 
@@ -387,6 +368,499 @@ function renderAbout(place) {
 
     `
   );
+
+}
+
+
+
+/* =========================================================
+   WARNINGS
+   ========================================================= */
+
+function renderWarnings(place) {
+
+  const warnings =
+    buildAutomaticWarnings(place);
+
+
+  if (!warnings.length) {
+
+    return "";
+
+  }
+
+
+  return placeSection(
+    "Things to Know",
+    `
+
+      <div class="place-tags">
+
+        ${warnings
+          .map(
+            (warning) => `
+
+              <span
+                class="place-tag ${
+                  warning.priority === "high"
+                    ? "place-tag--high"
+                    : ""
+                }"
+              >
+
+                <i class="fa-solid ${
+                  warning.priority === "high"
+                    ? "fa-circle-exclamation"
+                    : "fa-triangle-exclamation"
+                }"></i>
+
+                ${escapeHTML(
+                  warning.label
+                )}
+
+              </span>
+
+            `
+          )
+          .join("")}
+
+      </div>
+
+    `
+  );
+
+}
+
+
+
+/* =========================================================
+   AUTOMATIC WARNINGS
+   ========================================================= */
+
+function buildAutomaticWarnings(place) {
+
+  const warnings = [];
+
+
+  function addWarning(
+    label,
+    priority = "normal"
+  ) {
+
+    if (!label) return;
+
+
+    const exists =
+      warnings.some(
+        (warning) =>
+          warning.label
+            .toLowerCase() ===
+          label.toLowerCase()
+      );
+
+
+    if (!exists) {
+
+      warnings.push({
+        label,
+        priority
+      });
+
+    }
+
+  }
+
+
+
+  /* =======================================================
+     MANUAL WARNINGS
+     ======================================================= */
+
+  const manualWarnings =
+    place.warnings || {};
+
+
+  Object.entries(
+    manualWarnings
+  )
+    .filter(
+      ([, value]) =>
+        value === true
+    )
+    .forEach(
+      ([key]) => {
+
+        addWarning(
+          formatLabel(key)
+        );
+
+      }
+    );
+
+
+
+  /* =======================================================
+     CONNECTIVITY
+     ======================================================= */
+
+  if (
+    place.connectivity?.overall === 1
+  ) {
+
+    addWarning(
+      "No Cell Phone Reception",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.connectivity?.starlink != null &&
+    place.connectivity.starlink <= 2
+  ) {
+
+    addWarning(
+      "Poor Starlink Visibility"
+    );
+
+  }
+
+
+
+  /* =======================================================
+     SITE / VEHICLE
+     ======================================================= */
+
+  if (
+    place.site?.tentCampingSuitable === false
+  ) {
+
+    addWarning(
+      "No Tent Camping",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.site?.levelingRequired === true
+  ) {
+
+    addWarning(
+      "Leveling May Be Required"
+    );
+
+  }
+
+
+  if (
+    place.site?.turnaroundSpace === false
+  ) {
+
+    addWarning(
+      "No Turnaround",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.site?.maxVehicleLengthFeet != null &&
+    place.site.maxVehicleLengthFeet <= 25
+  ) {
+
+    addWarning(
+      `Limited Vehicle Length: ${place.site.maxVehicleLengthFeet} ft`
+    );
+
+  }
+
+
+
+  /* =======================================================
+     ROAD ACCESS
+     ======================================================= */
+
+  if (
+    place.access?.sedanAccessible === false
+  ) {
+
+    addWarning(
+      "Not Sedan Accessible"
+    );
+
+  }
+
+
+  if (
+    place.access?.highClearanceRecommended === true
+  ) {
+
+    addWarning(
+      "High Clearance Recommended"
+    );
+
+  }
+
+
+  if (
+    place.access?.fourWheelDriveRecommended === true
+  ) {
+
+    addWarning(
+      "4WD Recommended"
+    );
+
+  }
+
+
+  if (
+    place.access?.dropOffExposure != null &&
+    place.access.dropOffExposure >= 4
+  ) {
+
+    addWarning(
+      "Significant Drop-Off Exposure",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.access?.mudRisk != null &&
+    place.access.mudRisk >= 4
+  ) {
+
+    addWarning(
+      "High Mud Risk"
+    );
+
+  }
+
+
+  if (
+    place.access?.seasonalClosure === true
+  ) {
+
+    addWarning(
+      "Seasonal Access"
+    );
+
+  }
+
+
+  if (
+    place.access?.downedTreeRisk === true
+  ) {
+
+    addWarning(
+      "Possible Downed Trees"
+    );
+
+  }
+
+
+
+  /* =======================================================
+     SENSORY
+     ======================================================= */
+
+  if (
+    place.sensory?.daytime?.privacy === 1
+  ) {
+
+    addWarning(
+      "No Daytime Privacy",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.sensory?.daytime?.traffic != null &&
+    place.sensory.daytime.traffic >= 4
+  ) {
+
+    addWarning(
+      "Frequent Passing Traffic"
+    );
+
+  }
+
+
+  if (
+    place.sensory?.nighttime?.noise != null &&
+    place.sensory.nighttime.noise >= 4
+  ) {
+
+    addWarning(
+      "High Nighttime Noise",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.sensory?.humanActivity != null &&
+    place.sensory.humanActivity >= 4
+  ) {
+
+    addWarning(
+      "High Human Activity"
+    );
+
+  }
+
+
+  if (
+    place.sensory?.visualExposure != null &&
+    place.sensory.visualExposure >= 5
+  ) {
+
+    addWarning(
+      "Highly Exposed Site"
+    );
+
+  }
+
+
+
+  /* =======================================================
+     AMENITIES
+     ======================================================= */
+
+  if (
+    place.amenities?.toilets === false
+  ) {
+
+    addWarning(
+      "No Toilets"
+    );
+
+  }
+
+
+  if (
+    place.amenities?.potableWater === false
+  ) {
+
+    addWarning(
+      "No Potable Water"
+    );
+
+  }
+
+
+  if (
+    place.amenities?.trash === false
+  ) {
+
+    addWarning(
+      "Pack Out Your Trash"
+    );
+
+  }
+
+
+
+  /* =======================================================
+     SAFETY
+     ======================================================= */
+
+  if (
+    place.safety?.cliffExposure === true
+  ) {
+
+    addWarning(
+      "Cliff Exposure",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.safety?.trafficHazard === true
+  ) {
+
+    addWarning(
+      "Traffic Hazard",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.safety?.flashFloodRisk === true
+  ) {
+
+    addWarning(
+      "Flash Flood Risk",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.safety?.rockfallRisk === true
+  ) {
+
+    addWarning(
+      "Rockfall Risk",
+      "high"
+    );
+
+  }
+
+
+  if (
+    place.safety?.fallHazard === true
+  ) {
+
+    addWarning(
+      "Fall Hazard",
+      "high"
+    );
+
+  }
+
+
+
+  /* =======================================================
+     SORT HIGH PRIORITY FIRST
+     ======================================================= */
+
+  warnings.sort(
+    (a, b) => {
+
+      if (
+        a.priority === b.priority
+      ) {
+
+        return 0;
+
+      }
+
+
+      return (
+        a.priority === "high"
+          ? -1
+          : 1
+      );
+
+    }
+  );
+
+
+  return warnings;
 
 }
 
@@ -2172,45 +2646,6 @@ function renderNearby(place) {
 
 
 /* =========================================================
-   WARNINGS
-   ========================================================= */
-
-function renderWarnings(place) {
-
-  const warnings =
-    place.warnings;
-
-
-  if (
-    !warnings ||
-    !hasTrueValue(warnings)
-  ) {
-
-    return "";
-
-  }
-
-
-  return placeSection(
-    "Things to Know",
-    `
-
-      <div class="place-tags">
-
-        ${buildBooleanTags(
-          warnings
-        )}
-
-      </div>
-
-    `
-  );
-
-}
-
-
-
-/* =========================================================
    FIELD NOTES
    ========================================================= */
 
@@ -2714,42 +3149,6 @@ function makeDots(value) {
 
 
 /* =========================================================
-   BOOLEAN TAGS
-   ========================================================= */
-
-function buildBooleanTags(
-  object
-) {
-
-  return Object.entries(
-    object
-  )
-    .filter(
-      ([, value]) =>
-        value === true
-    )
-    .map(
-      ([key]) => `
-
-        <span class="place-tag">
-
-          <i class="fa-solid fa-triangle-exclamation"></i>
-
-          ${escapeHTML(
-            formatLabel(key)
-          )}
-
-        </span>
-
-      `
-    )
-    .join("");
-
-}
-
-
-
-/* =========================================================
    FORMATTING HELPERS
    ========================================================= */
 
@@ -2874,11 +3273,6 @@ function formatFee(value) {
   }
 
 
-  /*
-   * Compatibility with old records
-   * where false was used for free.
-   */
-
   if (
     value === false ||
     Number(value) === 0
@@ -2993,19 +3387,6 @@ function hasValue(value) {
     value === null ||
     value === undefined ||
     value === ""
-  );
-
-}
-
-
-
-function hasTrueValue(object) {
-
-  return Object.values(
-    object
-  ).some(
-    (value) =>
-      value === true
   );
 
 }
