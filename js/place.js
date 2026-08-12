@@ -92,7 +92,7 @@ async function initPlacePage() {
   } catch (error) {
 
     console.error(
-      "AutismOverland place error:",
+      "Llama Scout place error:",
       error
     );
 
@@ -129,7 +129,7 @@ function renderPlace(
 ) {
 
   document.title =
-    `${place.name} | AutismOverland`;
+    `${place.name} | Llama Scout`;
 
 
   const images =
@@ -324,7 +324,7 @@ function renderHero(
 
                   <i class="fa-solid fa-circle-check"></i>
 
-                  Field verified
+                  Personally Scouted
 
                 </span>
               `
@@ -2892,7 +2892,7 @@ function renderVerification(
 
               <i class="fa-solid fa-circle-check"></i>
 
-              Personally field verified
+              Personally Scouted
 
             </p>
           `
