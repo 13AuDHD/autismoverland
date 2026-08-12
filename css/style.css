@@ -2926,7 +2926,7 @@ Mobile
     max-width: 64vw;
     object-fit: contain;
     object-position: left bottom;
-    transform: translateY(10px);
+    transform: translateY(2px);
     position: relative;
     z-index: 2;
   }
