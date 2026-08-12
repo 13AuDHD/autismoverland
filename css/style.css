@@ -2444,6 +2444,91 @@ img {
 }
 
 /* =========================================================
+   404 PAGE
+   ========================================================= */
+
+.error-page {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--paper);
+}
+
+.error-404 {
+  width: min(680px, calc(100% - 40px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 70px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.error-404-logo {
+  display: block;
+  width: min(430px, 90%);
+  height: auto;
+  margin: 0 auto 35px;
+}
+
+.error-404-code {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.error-404 h1 {
+  margin: 0 0 20px;
+  font-family: "Libre Baskerville", serif;
+  font-size: clamp(2.3rem, 7vw, 4.5rem);
+  line-height: 1.05;
+}
+
+.error-404-message {
+  max-width: 570px;
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+.error-404-scout {
+  max-width: 570px;
+  margin: 12px 0 30px;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  font-weight: 600;
+}
+
+.error-404-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.error-404-map-link {
+  font-weight: 700;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+.error-404-map-link:hover {
+  opacity: 0.7;
+}
+
+
+
+
+
+
+
+/* =========================================================
    RESPONSIVE
    ========================================================= */
 
@@ -2814,6 +2899,30 @@ img {
 
   .card-body span {
     margin-left: 6px;
+  }
+   
+  .error-404 {
+    width: calc(100% - 36px);
+    padding: 45px 0;
+  }
+
+  .error-404-logo {
+    width: min(360px, 95%);
+    margin-bottom: 30px;
+  }
+
+  .error-404 h1 {
+    font-size: 2.6rem;
+  }
+
+  .error-404-message,
+  .error-404-scout {
+    font-size: 1rem;
+  }
+
+  .error-404-actions {
+    flex-direction: column;
+    gap: 18px;
   }
 }
 
