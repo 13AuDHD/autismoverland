@@ -18,7 +18,7 @@ async function initPlaces() {
     bindPlaceControls();
 
   } catch (error) {
-    console.error("AutismOverland places error:", error);
+    console.error("Llama Scout places error:", error);
   }
 }
 
@@ -195,7 +195,7 @@ function buildPlaceCard(place) {
                 ? `
                   <span class="place-card-verified">
                     <i class="fa-solid fa-circle-check"></i>
-                    Field verified
+                    Personally Scouted
                   </span>
                 `
                 : ""
@@ -254,7 +254,7 @@ function buildPlaceCard(place) {
           href="place.html?place=${encodeURIComponent(place.slug)}"
         >
           <i class="fa-solid fa-arrow-right"></i>
-          View Details
+          View Scout Report
         </a>
 
       </div>
