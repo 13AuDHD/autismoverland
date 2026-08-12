@@ -2789,7 +2789,7 @@ Mobile
   .footer-brand img {
     width: 230px;
     height: auto;
-    max-width: 70vw;
+    max-width: 80vw;
     object-fit: contain;
   }
 }
