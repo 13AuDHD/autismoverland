@@ -73,7 +73,7 @@ img { display: block; max-width: 100%; }
 
 .brand-logo {
   width: 384px;
-  height: 138px;
+  height: auto;
   object-fit: cover;
   box-shadow: 0 2px 0 rgba(0,0,0,.2);
 }
