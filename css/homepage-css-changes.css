@@ -1,0 +1,136 @@
+/* =========================================================
+   LLAMA SCOUT HOMEPAGE + MOBILE HEADER UPDATE
+   Add this at the VERY END of css/style.css
+   ========================================================= */
+
+.site-header {
+  overflow: visible;
+}
+
+.header-inner {
+  position: relative;
+}
+
+/* Search on its own row, filters underneath */
+.homepage-map-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.homepage-map-controls .homepage-search-box {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255,255,255,.82);
+}
+
+.homepage-map-controls .homepage-filter-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255,255,255,.75);
+  overflow: hidden;
+}
+
+.homepage-map-controls .homepage-filter-select select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-overflow: ellipsis;
+}
+
+.homepage-map-controls .homepage-filter-select i {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .homepage-map-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .homepage-map-controls .search-box,
+  .homepage-map-controls label {
+    grid-row: auto;
+    grid-column: auto;
+  }
+
+  .homepage-map-controls .homepage-search-box {
+    grid-column: 1 / -1;
+    border-radius: 6px;
+  }
+
+  .homepage-map-controls .homepage-filter-select {
+    min-width: 0;
+    border-radius: 6px;
+  }
+}
+
+@media (max-width: 520px) {
+  .homepage-map-controls {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    font-size: .76rem;
+  }
+
+  .homepage-map-controls .homepage-search-box {
+    min-height: 46px;
+    padding: 0 12px;
+    font-size: .92rem;
+  }
+
+  .homepage-map-controls .homepage-filter-select {
+    min-height: 42px;
+    gap: 5px;
+    padding: 0 6px;
+  }
+
+  .homepage-map-controls .homepage-filter-select i {
+    font-size: .78rem;
+  }
+
+  /* Bigger logo, lower in the bar, slightly hanging off the bottom */
+  .header-inner {
+    min-height: 96px;
+    width: calc(100% - 24px);
+  }
+
+  .brand {
+    align-self: stretch;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .brand-logo {
+    width: 215px;
+    height: auto;
+    max-width: 64vw;
+    object-fit: contain;
+    object-position: left bottom;
+    transform: translateY(10px);
+    position: relative;
+    z-index: 2;
+  }
+
+  .menu-toggle {
+    align-self: center;
+  }
+}
