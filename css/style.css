@@ -550,18 +550,14 @@ img {
 }
 
 .footer-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .02em;
+  display: block;
+  width: 100%;
 }
 
 .footer-brand img {
-  width: 250px;
-  height: 100px;
-  max-width: 100vw;
+  width: min(100%, 520px);
+  height: auto;
+  max-width: none;
   object-fit: contain;
   object-position: left center;
 }
