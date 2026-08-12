@@ -57,7 +57,7 @@ img { display: block; max-width: 100%; }
 
 .header-inner {
   width: min(1120px, calc(100% - 48px));
-  min-height: 90px;
+  min-height: 82px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -72,10 +72,12 @@ img { display: block; max-width: 100%; }
 }
 
 .brand-logo {
-  width: 384px;
-  height: auto;
-  object-fit: cover;
-  box-shadow: 0 2px 0 rgba(0,0,0,.2);
+  width: 330px;
+  height: 82px;
+  object-fit: contain;
+  object-position: left center;
+  transform: translateY(5px);
+  box-shadow: none;
 }
 
 .brand-text {
