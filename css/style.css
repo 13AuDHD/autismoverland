@@ -559,8 +559,8 @@ img {
 }
 
 .footer-brand img {
-  width: 230px;
-  height: 69px;
+  width: 250px;
+  height: 89px;
   max-width: 80vw;
   object-fit: contain;
   object-position: left center;
@@ -2494,7 +2494,7 @@ img {
     max-width: 64vw;
     object-fit: contain;
     object-position: left center;
-    transform: none;
+    transform: translateY(5px);
   }
 
   .brand-text {
