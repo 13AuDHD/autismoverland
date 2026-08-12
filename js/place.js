@@ -2918,7 +2918,7 @@ function renderVerification(
 
 
       ${fact(
-        "Last verified",
+        "Last scouted",
         data.lastVerified
           ? formatDate(
               data.lastVerified
