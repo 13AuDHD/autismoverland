@@ -555,7 +555,7 @@ img {
 }
 
 .footer-brand img {
-  width: min(100%, 320px);
+  width: min(50%, 320px);
   height: auto;
   max-width: none;
   object-fit: contain;
