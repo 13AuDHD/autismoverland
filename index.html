@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Llama Scout | Explore the Outdoors at Your Pace</title>
-  <meta name="description" content="Find quiet campsites, scenic trails, and safe stops for neurodivergent adventurers.">
+  <title>Llama Scout | Know the Place Before You Go</title>
+  <meta name="description" content="Explore campsites, trails, pullouts, and outdoor places with detailed information about road access, noise, privacy, connectivity, sensory conditions, and more.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap" rel="stylesheet">
@@ -20,10 +20,11 @@
     <section class="hero-section">
       <div class="hero-wrap">
         <div class="hero-copy">
-          <h1>Explore the Outdoors<br>at Your Pace</h1>
-          <p>Find quiet campsites, scenic trails, and safe stops for neurodivergent adventurers. Travel at your own speed, in a way that works for you.</p>
+          <h1>Know the Place<br>Before You Go</h1>
+          <p>Explore campsites, trails, pullouts, and outdoor places with the details most apps leave out... road access, noise, privacy, connectivity, sensory conditions, and more.</p>
           <a href="map.html" class="primary-btn">Explore the Map</a>
         </div>
+
         <div class="hero-art">
           <img src="images/hero-art.jpg" alt="Mountain lake campsite with a black overland Suburban">
         </div>
@@ -32,186 +33,157 @@
 
     <section class="map-section" aria-labelledby="map-title">
       <div class="section-heading map-heading-mobile">
-        <h2 id="map-title">Interactive Map</h2>
+        <h2 id="map-title">Explore Scouted Places</h2>
       </div>
 
       <div class="map-card">
-<div class="filter-bar homepage-map-controls">
+        <div class="filter-bar homepage-map-controls">
 
-  <label>
-    <i class="fa-solid fa-map-pin"></i>
-    <select id="homepage-type-filter">
-      <option value="all">All place types</option>
-    </select>
-  </label>
+          <label class="search-box homepage-search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input
+              id="homepage-map-search"
+              type="search"
+              placeholder="Search scouted places"
+              autocomplete="off"
+            >
+          </label>
 
-  <label>
-    <i class="fa-solid fa-road"></i>
-    <select id="homepage-road-filter">
-      <option value="all">Any road difficulty</option>
-      <option value="1">Road 1/5 max</option>
-      <option value="2">Road 2/5 max</option>
-      <option value="3">Road 3/5 max</option>
-      <option value="4">Road 4/5 max</option>
-      <option value="5">Road 5/5 max</option>
-    </select>
-  </label>
+          <label class="homepage-filter-select">
+            <i class="fa-solid fa-map-pin"></i>
+            <select id="homepage-type-filter" aria-label="Place type">
+              <option value="all">All types</option>
+            </select>
+          </label>
 
-  <label>
-    <i class="fa-solid fa-volume-low"></i>
-    <select id="homepage-noise-filter">
-      <option value="all">Any night noise</option>
-      <option value="1">Noise 1/5 max</option>
-      <option value="2">Noise 2/5 max</option>
-      <option value="3">Noise 3/5 max</option>
-      <option value="4">Noise 4/5 max</option>
-      <option value="5">Noise 5/5 max</option>
-    </select>
-  </label>
+          <label class="homepage-filter-select">
+            <i class="fa-solid fa-road"></i>
+            <select id="homepage-road-filter" aria-label="Maximum road difficulty">
+              <option value="all">Any road</option>
+              <option value="1">Road ≤ 1/5</option>
+              <option value="2">Road ≤ 2/5</option>
+              <option value="3">Road ≤ 3/5</option>
+              <option value="4">Road ≤ 4/5</option>
+              <option value="5">Road ≤ 5/5</option>
+            </select>
+          </label>
 
-  <label class="search-box">
-    <i class="fa-solid fa-magnifying-glass"></i>
+          <label class="homepage-filter-select">
+            <i class="fa-solid fa-volume-low"></i>
+            <select id="homepage-noise-filter" aria-label="Maximum nighttime noise">
+              <option value="all">Any night noise</option>
+              <option value="1">Noise ≤ 1/5</option>
+              <option value="2">Noise ≤ 2/5</option>
+              <option value="3">Noise ≤ 3/5</option>
+              <option value="4">Noise ≤ 4/5</option>
+              <option value="5">Noise ≤ 5/5</option>
+            </select>
+          </label>
 
-    <input
-      id="homepage-map-search"
-      type="search"
-      placeholder="Search places"
-      autocomplete="off"
-    >
-  </label>
-
-</div>
+        </div>
 
         <div class="map-layout">
-<aside class="map-filters homepage-map-sidebar">
+          <aside class="map-filters homepage-map-sidebar">
 
-  <div class="filter-group">
+            <div class="filter-group">
+              <h3>
+                <i class="fa-solid fa-brain"></i>
+                Sensory
+              </h3>
 
-    <h3>
-      <i class="fa-solid fa-brain"></i>
-      Sensory
-    </h3>
+              <label>
+                <input id="homepage-quiet-filter" type="checkbox">
+                Quiet at night
+              </label>
 
-    <label>
-      <input
-        id="homepage-quiet-filter"
-        type="checkbox"
-      >
-      Quiet at night
-    </label>
+              <label>
+                <input id="homepage-private-filter" type="checkbox">
+                Privacy 4/5+
+              </label>
 
-    <label>
-      <input
-        id="homepage-private-filter"
-        type="checkbox"
-      >
-      Privacy 4/5+
-    </label>
+              <label>
+                <input id="homepage-sensory-filter" type="checkbox">
+                Sensory comfort 4/5+
+              </label>
+            </div>
 
-    <label>
-      <input
-        id="homepage-sensory-filter"
-        type="checkbox"
-      >
-      Sensory comfort 4/5+
-    </label>
+            <div class="filter-group">
+              <h3>
+                <i class="fa-solid fa-signal"></i>
+                Connectivity
+              </h3>
 
-  </div>
+              <label>
+                <input id="homepage-cell-filter" type="checkbox">
+                Good cell service
+              </label>
 
+              <label>
+                <input id="homepage-starlink-filter" type="checkbox">
+                Good Starlink view
+              </label>
+            </div>
 
-  <div class="filter-group">
+            <div class="filter-group">
+              <h3>
+                <i class="fa-solid fa-car-side"></i>
+                Access
+              </h3>
 
-    <h3>
-      <i class="fa-solid fa-signal"></i>
-      Connectivity
-    </h3>
+              <label>
+                <input id="homepage-sedan-filter" type="checkbox">
+                Sedan accessible
+              </label>
+            </div>
 
-    <label>
-      <input
-        id="homepage-cell-filter"
-        type="checkbox"
-      >
-      Good cell service
-    </label>
+            <button
+              id="homepage-filter-reset"
+              class="small-btn"
+              type="button"
+            >
+              Clear Filters
+            </button>
+          </aside>
 
-    <label>
-      <input
-        id="homepage-starlink-filter"
-        type="checkbox"
-      >
-      Good Starlink view
-    </label>
-
-  </div>
-
-
-  <div class="filter-group">
-
-    <h3>
-      <i class="fa-solid fa-car-side"></i>
-      Access
-    </h3>
-
-    <label>
-      <input
-        id="homepage-sedan-filter"
-        type="checkbox"
-      >
-      Sedan accessible
-    </label>
-
-  </div>
-
-
-  <button
-    id="homepage-filter-reset"
-    class="small-btn"
-    type="button"
-  >
-    Clear Filters
-  </button>
-
-</aside>
-
-<div class="map-image-wrap">
-  <div id="homepage-map"></div>
-</div>
+          <div class="map-image-wrap">
+            <div id="homepage-map"></div>
+          </div>
         </div>
       </div>
     </section>
 
     <section class="content-section" aria-labelledby="featured-title">
       <div class="section-heading">
-        <h2 id="featured-title">Featured Locations</h2>
-        <a href="places.html">View All Spots <i class="fa-solid fa-arrow-right"></i></a>
+        <h2 id="featured-title">Recently Scouted</h2>
+        <a href="places.html">Browse All Places <i class="fa-solid fa-arrow-right"></i></a>
       </div>
 
       <div id="featured-locations-grid" class="location-grid" aria-live="polite"></div>
     </section>
 
-<section class="content-section blog-section" aria-labelledby="blog-title">
-  <div class="section-heading">
-    <h2 id="blog-title">Latest Field Guides</h2>
+    <section class="content-section blog-section" aria-labelledby="blog-title">
+      <div class="section-heading">
+        <h2 id="blog-title">Latest Field Guides</h2>
 
-    <a href="blog.html">
-      View All Guides
-      <i class="fa-solid fa-arrow-right"></i>
-    </a>
-  </div>
+        <a href="blog.html">
+          View All Guides
+          <i class="fa-solid fa-arrow-right"></i>
+        </a>
+      </div>
 
-  <div
-    id="homepage-blog-grid"
-    class="blog-grid"
-    aria-live="polite"
-  ></div>
-</section>
+      <div
+        id="homepage-blog-grid"
+        class="blog-grid"
+        aria-live="polite"
+      ></div>
+    </section>
   </main>
 
   <!-- include="footer.html" -->
   <div id="site-footer"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="js/main.js"></script>
-<script src="js/blog-home.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/blog-home.js"></script>
 </body>
 </html>
