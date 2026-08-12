@@ -157,13 +157,13 @@
     ]
   },
   {
-    "slug": "how-autismoverland-rates-campsites",
-    "title": "How AutismOverland Rates Campsites",
+    "slug": "how-llama-scout-rates-campsites",
+    "title": "How Llama Scout Rates Campsites",
     "category": "About the Ratings",
     "published": "2026-08-09",
     "updated": "2026-08-09",
     "readTime": "6 min read",
-    "excerpt": "Why AutismOverland uses separate 1 to 5 ratings for roads, noise, privacy, connectivity, sensory comfort, and other conditions instead of one generic star score.",
+    "excerpt": "Why Llama Scout uses separate 1 to 5 ratings for roads, noise, privacy, connectivity, sensory comfort, and other conditions instead of one generic star score.",
     "keywords": [
       "campground ratings",
       "sensory ratings camping",
@@ -202,7 +202,7 @@
       {
         "heading": "Unknown means unknown",
         "paragraphs": [
-          "When information has not been verified, AutismOverland uses an unknown value rather than pretending a condition is good or bad. Missing information should never silently become a zero."
+          "When information has not been verified, Llama Scout uses an unknown value rather than pretending a condition is good or bad. Missing information should never silently become a zero."
         ]
       },
       {
