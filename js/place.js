@@ -911,7 +911,7 @@ function renderSensory(place) {
     ),
 
     ratingCard(
-      "Artificial light",
+      "Natural light",
       daytime.lightPollution,
       "fa-sun"
     ),
