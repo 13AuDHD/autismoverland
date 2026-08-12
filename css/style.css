@@ -2748,18 +2748,6 @@ Mobile
     min-height: 92px;
   }
 
-  .brand {
-    gap: 10px;
-  }
-
-  .brand-logo {
-    width: 150px;
-    height: auto;
-    max-width: 48vw;
-    object-fit: contain;
-    transform: translateY(2px);
-  }
-
   .brand-text {
     font-size: 1.12rem;
   }
