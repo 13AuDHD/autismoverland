@@ -543,6 +543,26 @@ img {
    LLAMA SCOUT FOOTER
    ========================================================= */
 
+
+.site-footer {
+  color: #f7f1e8;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(0,0,0,.96),
+      #172822
+    );
+  padding: 42px 0 20px;
+}
+
+.site-footer p {
+  color: rgba(247,241,232,.78);
+}
+
+.site-footer a {
+  color: #f7f1e8;
+}
+
 .footer-inner {
   width: min(1120px, calc(100% - 48px));
   margin: 0 auto;
