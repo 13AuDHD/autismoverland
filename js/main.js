@@ -520,33 +520,135 @@ async function initHomepageMap() {
               .join(", ");
 
 
-          marker.bindPopup(`
+const featuredImage =
+  place.images?.find((image) => image.featured) ||
+  place.images?.[0];
 
-            <strong>
-              ${place.name}
-            </strong>
+const difficulty =
+  place.access?.siteAccessDifficulty ??
+  place.access?.roadDifficulty ??
+  null;
 
-            ${
-              location
-                ? `<br>${location}`
-                : ""
-            }
+const nightNoise =
+  place.sensory?.nighttime?.noise ??
+  null;
 
-            <br>
+const privacy =
+  place.sensory?.daytime?.privacy ??
+  null;
 
-            ${formatHomepageType(
-              place.type
-            )}
+const cell =
+  place.connectivity?.overall ??
+  null;
 
-            <br>
+const verified =
+  place.verification?.status === "field-verified";
 
-            <a
-              href="place.html?place=${encodeURIComponent(place.slug)}"
-            >
-              View Details
-            </a>
+marker.bindPopup(`
+  <article class="map-popup">
 
-          `);
+    ${
+      featuredImage
+        ? `
+          <img
+            class="map-popup-image"
+            src="${featuredImage.src}"
+            alt="${featuredImage.alt || place.name}"
+          >
+        `
+        : ""
+    }
+
+    <div class="map-popup-body">
+
+      <span class="map-popup-type">
+        ${formatHomepageType(place.type)}
+      </span>
+
+      <h2>${place.name}</h2>
+
+      ${
+        location
+          ? `
+            <p class="map-popup-location">
+              <i class="fa-solid fa-location-dot"></i>
+              ${location}
+            </p>
+          `
+          : ""
+      }
+
+      <div class="map-popup-ratings">
+
+        ${
+          difficulty != null
+            ? `
+              <div class="map-rating">
+                <span>Road</span>
+                <strong>${difficulty}/5</strong>
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          nightNoise != null
+            ? `
+              <div class="map-rating">
+                <span>Night noise</span>
+                <strong>${nightNoise}/5</strong>
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          privacy != null
+            ? `
+              <div class="map-rating">
+                <span>Privacy</span>
+                <strong>${privacy}/5</strong>
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          cell != null
+            ? `
+              <div class="map-rating">
+                <span>Cell</span>
+                <strong>${cell}/5</strong>
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+
+      ${
+        verified
+          ? `
+            <p class="verified-place">
+              <i class="fa-solid fa-circle-check"></i>
+              Personally Scouted
+            </p>
+          `
+          : ""
+      }
+
+      <a
+        class="map-popup-details"
+        href="place.html?place=${encodeURIComponent(place.slug)}"
+      >
+        View Scout Report
+        <i class="fa-solid fa-arrow-right"></i>
+      </a>
+
+    </div>
+
+  </article>
+`);
 
 
           bounds.push(
