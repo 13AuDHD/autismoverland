@@ -2851,6 +2851,82 @@ img {
   background: rgba(255,255,255,.95);
 }
 
+/* =========================================================
+   PRIVACY CONSENT BANNER
+   ========================================================= */
+
+.privacy-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  padding: 18px;
+  background: rgba(15, 22, 19, .98);
+  color: #f7f1e8;
+  border-top:
+    1px solid rgba(255,255,255,.15);
+  box-shadow:
+    0 -10px 35px rgba(0,0,0,.25);
+}
+
+.privacy-banner-inner {
+  width:
+    min(
+      1120px,
+      100%
+    );
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto;
+  gap: 30px;
+  align-items: center;
+}
+
+.privacy-banner-copy h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.privacy-banner-copy p {
+  max-width: 720px;
+  margin: 0 0 8px;
+  color:
+    rgba(247,241,232,.8);
+  font-size: .88rem;
+  line-height: 1.55;
+}
+
+.privacy-banner-copy a,
+.privacy-manage-link {
+  color: #f7f1e8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.privacy-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.privacy-banner-actions
+.primary-btn,
+.privacy-banner-actions
+.privacy-secondary-btn {
+  padding: 12px 18px;
+  white-space: nowrap;
+}
+
+.privacy-manage-link {
+  padding: 8px 4px;
+  font-size: .82rem;
+  font-weight: 700;
+}
+
 
 
 
@@ -3105,6 +3181,15 @@ img {
   .about-hero-image img {
     aspect-ratio: 16 / 10;
   }
+   
+  .privacy-banner-inner {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .privacy-banner-actions {
+    justify-content: flex-start;
+  }
 }
 
 /* max-width: 700px */
@@ -3324,6 +3409,29 @@ img {
 
   #homepage-map .map-popup-body {
     padding: 14px;
+  }
+
+  .privacy-banner {
+    padding: 16px;
+  }
+
+  .privacy-banner-actions {
+    display: grid;
+    grid-template-columns:
+      1fr
+      1fr;
+  }
+
+  .privacy-banner-actions
+  .primary-btn,
+  .privacy-banner-actions
+  .privacy-secondary-btn {
+    width: 100%;
+  }
+
+  .privacy-manage-link {
+    grid-column: 1 / -1;
+    text-align: center;
   }
 }
 
