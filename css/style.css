@@ -2692,6 +2692,102 @@ img {
   font-weight: 700;
 }
 
+/* =========================================================
+   LEGAL PAGES
+   ========================================================= */
+
+.legal-page {
+  min-height: 100vh;
+}
+
+.legal-container {
+  width: min(860px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.legal-hero {
+  padding: 72px 0 38px;
+}
+
+.legal-hero .eyebrow {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: .74rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.legal-hero h1 {
+  margin: 0 0 14px;
+  font-family: "Libre Baskerville", Georgia, serif;
+  font-size: clamp(2.6rem, 7vw, 5rem);
+  line-height: 1;
+  color: #203127;
+}
+
+.legal-updated {
+  margin: 0 0 28px;
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.legal-lede {
+  max-width: 740px;
+  margin: 0;
+  font-size: 1.12rem;
+  line-height: 1.75;
+}
+
+.legal-content {
+  padding: 10px 0 80px;
+}
+
+.legal-section {
+  padding: 30px 0;
+  border-top: 1px solid rgba(0,0,0,.1);
+}
+
+.legal-section h2 {
+  margin: 0 0 16px;
+  font-size: 1.45rem;
+  line-height: 1.25;
+}
+
+.legal-section p,
+.legal-section li {
+  line-height: 1.75;
+}
+
+.legal-section p {
+  margin: 0 0 14px;
+}
+
+.legal-section ul {
+  margin: 14px 0 18px;
+  padding-left: 1.35rem;
+}
+
+.legal-section li + li {
+  margin-top: 7px;
+}
+
+.legal-section a,
+.legal-related a {
+  color: var(--blue-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legal-related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(0,0,0,.1);
+  font-weight: 700;
+}
 
 
 
@@ -3048,6 +3144,22 @@ img {
 
   .blog-controls, .blog-index-grid {
     grid-template-columns: 1fr;
+  }
+
+  .legal-container {
+    width: calc(100% - 36px);
+  }
+
+  .legal-hero {
+    padding: 48px 0 28px;
+  }
+
+  .legal-lede {
+    font-size: 1rem;
+  }
+
+  .legal-section {
+    padding: 24px 0;
   }
 }
 
