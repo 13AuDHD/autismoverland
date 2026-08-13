@@ -1,5 +1,5 @@
 /* =========================================================
-   AUTISMOVERLAND
+   Llama Scout
    main.js
    ========================================================= */
 
@@ -189,7 +189,7 @@ async function initFeaturedLocations() {
   } catch (error) {
 
     console.error(
-      "AutismOverland featured locations error:",
+      "Llama Scout featured locations error:",
       error
     );
 
@@ -1197,7 +1197,7 @@ marker.bindPopup(`
   } catch (error) {
 
     console.error(
-      "AutismOverland homepage map error:",
+      "Llama Scout homepage map error:",
       error
     );
 
