@@ -1,5 +1,5 @@
 /* =========================================================
-   AUTISMOVERLAND
+   Llama Scout
    PLACE DETAIL PAGE
    js/place.js
    ========================================================= */
@@ -2892,7 +2892,7 @@ function renderVerification(
 
               <i class="fa-solid fa-circle-check"></i>
 
-              Personally Scouted
+              Llama Scouted
 
             </p>
           `
