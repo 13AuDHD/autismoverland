@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Privacy Choices | Llama Scout</title>
+
+  <meta
+    name="description"
+    content="Manage your privacy and analytics choices on Llama Scout."
+  >
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <div id="site-header"></div>
+
+  <main class="legal-page">
+
+    <section class="legal-hero">
+      <div class="legal-container">
+
+        <p class="eyebrow">Privacy</p>
+
+        <h1>Privacy Choices</h1>
+
+        <p class="legal-lede">
+          You decide whether Llama Scout may use optional analytics
+          technologies to understand how the website is used.
+        </p>
+
+      </div>
+    </section>
+
+
+    <section class="legal-content">
+      <div class="legal-container">
+
+
+        <section class="legal-section">
+
+          <h2>Your Current Choice</h2>
+
+          <div
+            id="privacy-current-status"
+            class="privacy-status"
+            aria-live="polite"
+          >
+            Checking your current privacy preference...
+          </div>
+
+        </section>
+
+
+        <section class="legal-section">
+
+          <h2>Essential Storage</h2>
+
+          <div class="privacy-choice-row">
+
+            <div>
+              <h3>Required</h3>
+
+              <p>
+                Llama Scout uses limited browser storage to remember
+                your privacy preference and support basic website
+                functionality.
+              </p>
+
+              <p>
+                This storage cannot be disabled through this page because
+                the website needs somewhere to remember whether you allowed
+                or rejected optional analytics.
+              </p>
+            </div>
+
+            <span class="privacy-required">
+              Always Active
+            </span>
+
+          </div>
+
+        </section>
+
+
+        <section class="legal-section">
+
+          <h2>Analytics</h2>
+
+          <div class="privacy-choice-row">
+
+            <div>
+
+              <h3>Google Analytics</h3>
+
+              <p>
+                Analytics help Llama Scout understand how visitors use the
+                website, including which pages are visited, how visitors
+                navigate through the site, approximate geographic region,
+                browser and device type, referring sources, and general
+                engagement with content.
+              </p>
+
+              <p>
+                We use this information to improve usability, functionality,
+                performance, content, and security.
+              </p>
+
+              <p>
+                If you reject analytics, Llama Scout will tell supported
+                Google tags that analytics storage is denied.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="privacy-actions">
+
+            <button
+              id="privacy-allow-analytics"
+              class="primary-btn"
+              type="button"
+            >
+              Allow Analytics
+            </button>
+
+            <button
+              id="privacy-reject-analytics"
+              class="privacy-secondary-btn"
+              type="button"
+            >
+              Reject Analytics
+            </button>
+
+          </div>
+
+        </section>
+
+
+        <section class="legal-section">
+
+          <h2>What Happens When You Reject Analytics?</h2>
+
+          <p>
+            Llama Scout will save your preference and configure supported
+            Google analytics storage as denied.
+          </p>
+
+          <p>
+            Google Consent Mode may still allow limited cookieless measurement
+            or modeled reporting depending on how Google Analytics is
+            configured. Rejecting analytics storage prevents Google Analytics
+            from reading or writing first-party analytics cookies, but does not
+            necessarily mean that absolutely no network request is made to
+            Google.  [oai_citation:1‡Google for Developers](https://developers.google.com/tag-platform/security/concepts/consent-mode?hl=en&utm_source=chatgpt.com)
+          </p>
+
+        </section>
+
+
+        <section class="legal-section">
+
+          <h2>Change Your Mind Anytime</h2>
+
+          <p>
+            Your choice is stored in your browser. You can return to this page
+            at any time and change it.
+          </p>
+
+          <p>
+            Clearing your browser cookies or site data may also remove your
+            saved preference, in which case Llama Scout may ask you again.
+          </p>
+
+        </section>
+
+
+        <section class="legal-section">
+
+          <h2>Global Privacy Controls</h2>
+
+          <p>
+            Some browsers and extensions can send privacy preference signals,
+            such as Global Privacy Control.
+          </p>
+
+          <p>
+            Where applicable and technically supported, Llama Scout intends
+            to respect legally recognized privacy preference signals.
+          </p>
+
+        </section>
+
+
+        <div class="legal-related">
+
+          <a href="privacy.html">
+            Privacy Policy
+          </a>
+
+          <a href="terms.html">
+            Terms of Use
+          </a>
+
+          <a href="accessibility.html">
+            Accessibility
+          </a>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/main.js"></script>
+  <script src="js/privacy-choices.js"></script>
+
+</body>
+</html>
