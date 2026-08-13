@@ -1028,11 +1028,11 @@ function renderSensory(place) {
       "fa-smog"
     ),
 
-    ratingCard(
-      "Strong odors",
-      sensory.strongOdors,
-      "fa-nose"
-    ),
+   ratingCard(
+     "Strong odors",
+     sensory.strongOdors,
+     "fa-wind"
+   ),
 
     ratingCard(
       "Visual exposure",
