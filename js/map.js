@@ -1738,7 +1738,7 @@ function buildPopup(place) {
 
                 <i class="fa-solid fa-circle-check"></i>
 
-                Field verified
+                Llama Scouted
 
               </p>
             `
