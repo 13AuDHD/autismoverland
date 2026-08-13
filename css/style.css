@@ -567,8 +567,9 @@ img {
   width: min(1120px, calc(100% - 48px));
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 34px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(420px, .85fr);
+  gap: 80px;
+  align-items: start;
 }
 
 .footer-brand-block {
@@ -614,8 +615,9 @@ img {
 
 .footer-link-columns {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 220px));
-  gap: 60px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 50px;
+  padding-top: 32px;
 }
 
 .footer-link-column {
@@ -2876,10 +2878,6 @@ img {
     font-size: .92rem;
   }
 
-  .footer-inner {
-    grid-template-columns: 1fr;
-  }
-
   .social-links {
     justify-content: flex-start;
   }
@@ -2902,6 +2900,17 @@ img {
 
   .related-guide-grid {
     grid-template-columns: 1fr;
+  }
+
+   .footer-inner {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+
+  .footer-link-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 30px;
+    padding-top: 0;
   }
 }
 
