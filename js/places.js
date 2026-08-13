@@ -195,7 +195,7 @@ function buildPlaceCard(place) {
                 ? `
                   <span class="place-card-verified">
                     <i class="fa-solid fa-circle-check"></i>
-                    Personally Scouted
+                    Llama Scouted
                   </span>
                 `
                 : ""
