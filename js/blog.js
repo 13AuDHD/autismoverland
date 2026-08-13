@@ -94,13 +94,14 @@ function renderPosts(posts) {
         : `${posts.length} field guides`;
   }
 
+  if (empty) {
+    empty.hidden = posts.length > 0;
+  }
+  
   if (!posts.length) {
-    if (empty) empty.hidden = false;
     return;
   }
-
-  if (empty) empty.hidden = true;
-
+  
   posts.forEach((post) => {
     const article = document.createElement("article");
     article.className = "blog-index-card";
