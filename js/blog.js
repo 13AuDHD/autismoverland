@@ -22,7 +22,7 @@ async function initBlog() {
     bindBlogControls();
     renderPosts(allPosts);
   } catch (error) {
-    console.error("AutismOverland blog error:", error);
+    console.error("Llama Scout Blog Error:", error);
     grid.innerHTML = `
       <div class="blog-error">
         <h2>The field guide could not be loaded.</h2>
