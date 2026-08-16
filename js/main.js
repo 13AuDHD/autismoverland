@@ -73,7 +73,7 @@ async function initAccountLinks() {
       } else {
 
         link.textContent =
-          "Log In";
+          "Log In / Sign-up";
 
         link.href =
           "https://account.llamascout.com/login.php";
