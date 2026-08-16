@@ -452,10 +452,13 @@ async function initHomepageMap() {
 
   try {
 
-    const response =
-      await fetch(
-        "data/places.json"
-      );
+const response =
+  await fetch(
+    "/api/places.php",
+    {
+      cache: "no-store"
+    }
+  );
 
 
     if (!response.ok) {
