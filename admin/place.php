@@ -1361,6 +1361,73 @@ body {
   font-size: .8rem;
 }
 
+.report-photo-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fill,
+      minmax(140px, 1fr)
+    );
+
+  gap: 10px;
+
+  margin-top: 14px;
+}
+
+.report-photo {
+  display: block;
+
+  overflow: hidden;
+
+  min-height: 120px;
+
+  border:
+    1px solid
+    rgba(0,0,0,.1);
+
+  border-radius: 8px;
+
+  background: #f3f1ea;
+
+  color: inherit;
+
+  text-decoration: none;
+}
+
+.report-photo img {
+  display: block;
+
+  width: 100%;
+  height: 150px;
+
+  object-fit: cover;
+}
+
+.report-photo-file {
+  height: 150px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 4px;
+
+  padding: 15px;
+
+  text-align: center;
+}
+
+.report-photo-file span {
+  font-size: .8rem;
+  font-weight: 800;
+}
+
+.report-photo-file small {
+  color: #737b76;
+}
+   
 .status-form label {
   display: block;
   margin-bottom: 7px;
