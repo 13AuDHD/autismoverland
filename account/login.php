@@ -12,7 +12,7 @@ if (is_logged_in()) {
 }
 
 $error = '';
-$email = '';
+$login = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -21,20 +21,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $password =
         $_POST['password'] ?? '';
+
     if (
-        !filter_var(
-            $email,
-            FILTER_VALIDATE_EMAIL
-        ) ||
+        $login === '' ||
         $password === ''
     ) {
 
         $error =
-            'Enter your email address and password.';
+            'Enter your email or username and password.';
 
     } elseif (
         attempt_login(
-            $email,
+            $login,
             $password
         )
     ) {
@@ -48,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
 
         $error =
-            'The email address or password is incorrect.';
+            'The email, username, or password is incorrect.';
 
     }
 
@@ -237,6 +235,7 @@ function e(string $value): string
           name="login"
           type="text"
           autocomplete="username"
+          value="<?= e($login) ?>"
           required
         >
         </div>
