@@ -244,8 +244,9 @@ function renderPlace(
 
   `;
 
-}
+  initSavePlaceButton();
 
+}
 
 
 /* =========================================================
@@ -3501,5 +3502,213 @@ function renderNotFound(page) {
     </section>
 
   `;
+
+}
+
+
+/* =========================================================
+   SAVE PLACE
+   ========================================================= */
+
+async function initSavePlaceButton() {
+
+  const button =
+    document.querySelector(
+      "[data-save-place]"
+    );
+
+  if (!button) return;
+
+
+  const placeId =
+    button.dataset.savePlace;
+
+
+  try {
+
+    const response =
+      await fetch(
+        `/save-place.php?place=${encodeURIComponent(
+          placeId
+        )}`,
+        {
+          credentials: "include",
+          cache: "no-store"
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!result.logged_in) {
+
+      button.innerHTML = `
+        <i class="fa-regular fa-bookmark"></i>
+        <span>Log In to Save</span>
+      `;
+
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          window.location.href =
+            "https://account.llamascout.com/login.php";
+
+        }
+      );
+
+      return;
+    }
+
+
+    updateSavePlaceButton(
+      button,
+      result.saved
+    );
+
+
+    button.dataset.csrf =
+      result.csrf_token;
+
+
+    button.addEventListener(
+      "click",
+      toggleSavedPlace
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Llama Scout save-place error:",
+      error
+    );
+
+  }
+
+}
+
+
+async function toggleSavedPlace(event) {
+
+  const button =
+    event.currentTarget;
+
+
+  const placeId =
+    button.dataset.savePlace;
+
+  const csrf =
+    button.dataset.csrf;
+
+
+  if (!placeId || !csrf) {
+    return;
+  }
+
+
+  button.disabled = true;
+
+
+  try {
+
+    const body =
+      new URLSearchParams();
+
+    body.set(
+      "place",
+      placeId
+    );
+
+    body.set(
+      "csrf_token",
+      csrf
+    );
+
+
+    const response =
+      await fetch(
+        "/save-place.php",
+        {
+          method: "POST",
+          credentials: "include",
+
+          headers: {
+            "Content-Type":
+              "application/x-www-form-urlencoded"
+          },
+
+          body
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.message ||
+        "Could not update saved place."
+      );
+
+    }
+
+
+    updateSavePlaceButton(
+      button,
+      result.saved
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Llama Scout save-place error:",
+      error
+    );
+
+  } finally {
+
+    button.disabled = false;
+
+  }
+
+}
+
+
+function updateSavePlaceButton(
+  button,
+  saved
+) {
+
+  if (saved) {
+
+    button.classList.add(
+      "is-saved"
+    );
+
+    button.innerHTML = `
+      <i class="fa-solid fa-bookmark"></i>
+      <span>Saved</span>
+    `;
+
+  } else {
+
+    button.classList.remove(
+      "is-saved"
+    );
+
+    button.innerHTML = `
+      <i class="fa-regular fa-bookmark"></i>
+      <span>Save Place</span>
+    `;
+
+  }
 
 }
