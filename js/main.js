@@ -14,7 +14,12 @@ async function includeHTML(selector, file) {
   if (!target) return;
 
   try {
-    const response = await fetch(file);
+   const response = await fetch(
+     file,
+     {
+       cache: "no-store"
+     }
+   );
 
     if (!response.ok) {
       throw new Error(`${file} could not be loaded`);
