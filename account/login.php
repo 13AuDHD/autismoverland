@@ -231,20 +231,17 @@ function e(string $value): string
 
         <div class="account-field">
 
-          <label for="email">
-            Email address
-          </label>
-
-          <input
-            id="email"
-            name="email"
-            type="email"
-            maxlength="255"
-            autocomplete="email"
-            value="<?= e($email) ?>"
-            required
-          >
-
+        <label for="login">
+          Email or username
+        </label>
+        
+        <input
+          id="login"
+          name="login"
+          type="text"
+          autocomplete="username"
+          required
+        >
         </div>
 
 
