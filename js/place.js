@@ -317,19 +317,32 @@ function renderHero(
           }
 
 
-          ${
-            verified
-              ? `
-                <span class="place-verified">
+          ${verified ? `
+  <span class="place-verified">
+    <i class="fa-solid fa-circle-check"></i>
+    Llama Scouted
+  </span>
+` : ""}
 
-                  <i class="fa-solid fa-circle-check"></i>
+<div class="place-save-area">
 
-                  Llama Scouted
+  <button
+    type="button"
+    class="place-save-button"
+    data-save-place="${escapeHTML(
+      place.slug || place.id
+    )}"
+  >
 
-                </span>
-              `
-              : ""
-          }
+    <i class="fa-regular fa-bookmark"></i>
+
+    <span>
+      Save Place
+    </span>
+
+  </button>
+
+</div>
 
         </div>
 
