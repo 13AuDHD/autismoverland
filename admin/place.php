@@ -824,6 +824,106 @@ $reports =
 
 
 /* =========================================================
+   REPORT PHOTOS
+   ========================================================= */
+
+$reportImages = [];
+
+
+if ($reports) {
+
+    $reportIds =
+        array_map(
+            static fn(array $report): int =>
+                (int) $report['id'],
+            $reports
+        );
+
+
+    $placeholders =
+        implode(
+            ',',
+            array_fill(
+                0,
+                count($reportIds),
+                '?'
+            )
+        );
+
+
+    $reportImageStmt =
+        $db->prepare(
+            "
+            SELECT
+                id,
+                report_id,
+                file_path,
+                original_name,
+                mime_type,
+                file_size,
+                sort_order,
+                created_at
+
+            FROM place_report_images
+
+            WHERE report_id IN (
+                $placeholders
+            )
+
+            ORDER BY
+                report_id ASC,
+                sort_order ASC,
+                id ASC
+            "
+        );
+
+
+    $reportImageStmt->execute(
+        $reportIds
+    );
+
+
+    $reportImageRows =
+        $reportImageStmt->fetchAll(
+            PDO::FETCH_ASSOC
+        );
+
+
+    foreach (
+        $reportImageRows as
+        $reportImage
+    ) {
+
+        $reportId =
+            (int)
+            $reportImage[
+                'report_id'
+            ];
+
+
+        if (
+            !isset(
+                $reportImages[
+                    $reportId
+                ]
+            )
+        ) {
+
+            $reportImages[
+                $reportId
+            ] = [];
+        }
+
+
+        $reportImages[
+            $reportId
+        ][] =
+            $reportImage;
+    }
+}
+
+
+/* =========================================================
    REPORT COUNTS
    ========================================================= */
 
@@ -3471,7 +3571,101 @@ body {
 
             <?php endif; ?>
 
+             <?php
 
+               $photos =
+                   $reportImages[
+                       (int) $report['id']
+                   ]
+                   ?? [];
+               
+               ?>
+               
+               
+               <?php if ($photos): ?>
+               
+                 <div class="report-photo-grid">
+               
+                   <?php foreach (
+                       $photos as $photo
+                   ): ?>
+               
+                     <?php
+               
+                     $photoUrl =
+                         'https://llamascout.com' .
+                         $photo['file_path'];
+               
+                     ?>
+               
+                     <a
+                       class="report-photo"
+                       href="<?= e(
+                           $photoUrl
+                       ) ?>"
+                       target="_blank"
+                       rel="noopener"
+                     >
+               
+                       <?php if (
+                           in_array(
+                               $photo['mime_type'],
+                               [
+                                   'image/jpeg',
+                                   'image/jpeg_r',
+                                   'image/png',
+                                   'image/webp'
+                               ],
+                               true
+                           )
+                       ): ?>
+               
+                         <img
+                           src="<?= e(
+                               $photoUrl
+                           ) ?>"
+                           alt="Report evidence"
+                         >
+               
+                       <?php else: ?>
+               
+                         <div
+                           class="report-photo-file"
+                         >
+               
+                           <strong>
+                             Attached photo
+                           </strong>
+               
+                           <span>
+                             <?= e(
+                                 strtoupper(
+                                     pathinfo(
+                                         $photo[
+                                             'file_path'
+                                         ],
+                                         PATHINFO_EXTENSION
+                                     )
+                                 )
+                             ) ?>
+                           </span>
+               
+                           <small>
+                             Tap to open
+                           </small>
+               
+                         </div>
+               
+                       <?php endif; ?>
+               
+                     </a>
+               
+                   <?php endforeach; ?>
+               
+                 </div>
+               
+               <?php endif; ?>
+             
             <div class="report-meta">
 
               Reported by
