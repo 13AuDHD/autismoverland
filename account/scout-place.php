@@ -22,7 +22,7 @@ $user = current_user();
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Add Place | Llama Scout</title>
+  <title>Scout a Place | Llama Scout</title>
 
   <meta
     name="robots"
@@ -31,24 +31,93 @@ $user = current_user();
 
   <link
     rel="stylesheet"
-    href="css/style.css"
+    href="https://llamascout.com/css/style.css"
   >
 
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
-  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
-  <link rel="icon" href="/icons/favicon.ico" sizes="any">
-  <link rel="manifest" href="/icons/site.webmanifest">
+
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="https://llamascout.com/icons/apple-touch-icon.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="https://llamascout.com/icons/favicon-32x32.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="https://llamascout.com/icons/favicon-16x16.png"
+  >
+
+  <link
+    rel="icon"
+    href="https://llamascout.com/icons/favicon.ico"
+    sizes="any"
+  >
+
+  <link
+    rel="manifest"
+    href="https://llamascout.com/icons/site.webmanifest"
+  >
+
+  <style>
+
+    .member-page-nav {
+      padding-top: 24px;
+      padding-bottom: 4px;
+    }
+
+    .member-page-nav a {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .member-page-nav a:hover {
+      text-decoration: underline;
+    }
+
+    .community-source-note {
+      padding: 16px 18px;
+      border: 1px solid rgba(0, 0, 0, .09);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .7);
+      line-height: 1.6;
+    }
+
+    .community-source-note strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+  </style>
+
 </head>
 
 
 <body>
 
-  <div id="site-header"></div>
+  <div class="container member-page-nav">
+
+    <a href="/">
+      <i class="fa-solid fa-arrow-left"></i>
+      Back to My Account
+    </a>
+
+  </div>
 
 
   <main class="place-editor-page">
@@ -62,18 +131,19 @@ $user = current_user();
       <div class="container">
 
         <p class="eyebrow">
-          Llama Scout Admin
+          Community Scouting
         </p>
 
         <h1>
-          Add a Place
+          Scout a Place
         </h1>
 
         <p>
-          Build a complete Llama Scout place record without
-          editing raw JSON by hand. Work through one section at
-          a time. If you genuinely do not know something, choose
-          Unknown or leave the field blank.
+          Share a place you've personally visited and help other
+          members know what to expect before they go. Work through
+          one section at a time and fill out what you know. If you
+          genuinely do not know something, choose Unknown or leave
+          the field blank.
         </p>
 
       </div>
@@ -117,13 +187,31 @@ $user = current_user();
               </span>
 
               <small>
-                Name, type, status
+                Name and type
               </small>
 
             </summary>
 
 
             <div class="editor-section-content">
+
+              <!--
+                Community submissions always enter the system
+                as drafts and can never mark themselves featured.
+              -->
+
+              <input
+                id="place-status"
+                type="hidden"
+                value="draft"
+              >
+
+              <input
+                id="place-featured"
+                type="checkbox"
+                hidden
+              >
+
 
               <div class="editor-grid">
 
@@ -188,53 +276,6 @@ $user = current_user();
                     </option>
 
                   </select>
-
-                </label>
-
-
-                <label class="editor-field">
-
-                  <span>
-                    Status
-                  </span>
-
-                  <select id="place-status">
-
-                    <option value="active">
-                      Active
-                    </option>
-
-                    <option value="seasonal">
-                      Seasonal
-                    </option>
-
-                    <option value="temporarily-closed">
-                      Temporarily Closed
-                    </option>
-
-                    <option value="closed">
-                      Closed
-                    </option>
-
-                    <option value="draft">
-                      Draft
-                    </option>
-
-                  </select>
-
-                </label>
-
-
-                <label class="editor-checkbox">
-
-                  <input
-                    id="place-featured"
-                    type="checkbox"
-                  >
-
-                  <span>
-                    Featured on homepage
-                  </span>
 
                 </label>
 
@@ -701,28 +742,29 @@ $user = current_user();
 
                 </label>
 
+
                 <label class="editor-field">
 
                   <span>
                     Back-In Site?
                   </span>
-                
+
                   <select id="back-in">
-                
+
                     <option value="">
                       Unknown
                     </option>
-                
+
                     <option value="true">
                       Yes
                     </option>
-                
+
                     <option value="false">
                       No
                     </option>
-                
+
                   </select>
-                
+
                 </label>
 
               </div>
@@ -3061,7 +3103,7 @@ $user = current_user();
 
 
           <!-- ==================================================
-               VERIFICATION
+               COMMUNITY SCOUTING
                ================================================== -->
 
           <details class="editor-section editor-collapsible">
@@ -3070,11 +3112,11 @@ $user = current_user();
 
               <span>
                 <i class="fa-solid fa-circle-check"></i>
-                Verification
+                Community Scouting
               </span>
 
               <small>
-                Visit date and source confidence
+                When you personally visited
               </small>
 
             </summary>
@@ -3097,90 +3139,55 @@ $user = current_user();
 
                 </label>
 
-
-                <label class="editor-field">
-
-                  <span>
-                    Last Verified
-                  </span>
-
-                  <input
-                    id="last-verified"
-                    type="date"
-                  >
-
-                </label>
+              </div>
 
 
-                <label class="editor-field">
+              <div class="community-source-note">
 
-                  <span>
-                    Verification Status
-                  </span>
+                <strong>
+                  Community Scouted
+                </strong>
 
-                  <select id="verification-status">
-
-                    <option value="field-verified">
-                      Field Verified
-                    </option>
-
-                    <option value="community-submitted">
-                      Community Submitted
-                    </option>
-
-                    <option value="public-data">
-                      Public Data
-                    </option>
-
-                    <option value="unverified">
-                      Unverified
-                    </option>
-
-                  </select>
-
-                </label>
-
-
-                <label class="editor-field">
-
-                  <span>
-                    Verification Source
-                  </span>
-
-                  <input
-                    id="verification-source"
-                    type="text"
-                    placeholder="Llama Scout field observation"
-                  >
-
-                </label>
-
-
-                <label class="editor-field">
-
-                  <span>
-                    Public Data Verified?
-                  </span>
-
-                  <select id="public-data-verified">
-
-                    <option value="">
-                      Unknown
-                    </option>
-
-                    <option value="true">
-                      Yes
-                    </option>
-
-                    <option value="false">
-                      No
-                    </option>
-
-                  </select>
-
-                </label>
+                This submission will be identified as Community
+                Scouted. Members cannot mark submissions as Llama
+                Scouted or Public Sources. Those source types are
+                assigned separately by Llama Scout.
 
               </div>
+
+
+              <!--
+                These values are intentionally locked for
+                Community Scouted member submissions.
+
+                They remain in the DOM because add-place.js
+                currently reads these IDs when building the
+                place object.
+              -->
+
+              <input
+                id="last-verified"
+                type="hidden"
+                value=""
+              >
+
+              <input
+                id="verification-status"
+                type="hidden"
+                value="community-scouted"
+              >
+
+              <input
+                id="verification-source"
+                type="hidden"
+                value="Community Scouted member submission"
+              >
+
+              <input
+                id="public-data-verified"
+                type="hidden"
+                value=""
+              >
 
             </div>
 
@@ -3251,8 +3258,8 @@ $user = current_user();
             </h2>
 
             <p>
-              This object is what gets pasted into
-              <code>data/places.json</code>.
+              This is the structured place record created from
+              the information entered above.
             </p>
 
             <pre><code id="place-json-output">Fill out the form, then choose Generate JSON.</code></pre>
@@ -3275,12 +3282,9 @@ $user = current_user();
   </main>
 
 
-  <div id="site-footer"></div>
-
-
-  <script src="js/main.js"></script>
-
-  <script src="js/add-place.js"></script>
+  <script
+    src="https://llamascout.com/js/add-place.js"
+  ></script>
 
 </body>
 
