@@ -400,22 +400,21 @@ function e(string $value): string
       </div>
 
 
-      <div
-        class="admin-card
-               admin-card--disabled"
+      <a
+        class="admin-card"
+        href="submissions.php"
       >
-
+      
         <h2>
           Community Submissions
         </h2>
-
+      
         <p>
-          Review and moderate
-          Community Scouted reports.
-          Coming soon.
+          Review, approve, request changes,
+          or decline Community Scouted submissions.
         </p>
-
-      </div>
+      
+      </a>
 
 
       <div
