@@ -651,20 +651,6 @@ body {
   font-size: .85rem;
 }
 
-.manage-button-disabled {
-  display: inline-block;
-
-  padding: 9px 14px;
-
-  background: #e5e4df;
-  color: #777b77;
-
-  border-radius: 7px;
-
-  font-weight: 800;
-  font-size: .85rem;
-}
-
 .empty {
   padding: 30px;
 
@@ -1337,12 +1323,14 @@ body {
 
       <div class="user-actions">
 
-        <span
-          class="manage-button-disabled"
-          title="Individual user management is the next admin screen."
+        <a
+          class="manage-button"
+          href="user.php?id=<?= (int)
+              $row['id']
+          ?>"
         >
           Manage
-        </span>
+        </a>
 
       </div>
 
