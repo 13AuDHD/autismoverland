@@ -50,6 +50,7 @@ function current_user(): ?array
         SELECT
             id,
             email,
+            username,
             display_name,
             status,
             email_verified_at,
