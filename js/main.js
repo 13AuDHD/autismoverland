@@ -106,6 +106,7 @@ async function initIncludes() {
     "footer.html"
   );
 
+  await initAccountLinks();
 
   const header =
     document.querySelector(
