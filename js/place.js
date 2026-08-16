@@ -255,6 +255,62 @@ function renderPlace(
 
 
 /* =========================================================
+   REPORT A PROBLEM
+   ========================================================= */
+
+function renderReportProblem(place) {
+
+  const slug =
+    place.slug ||
+    place.id;
+
+  if (!slug) {
+    return "";
+  }
+
+  const reportUrl =
+    "https://account.llamascout.com/report-place.php?place=" +
+    encodeURIComponent(slug);
+
+  return `
+    <section class="place-section place-report-problem">
+
+      <div class="place-section-inner">
+
+        <div class="place-report-copy">
+
+          <p class="eyebrow">
+            Help Keep Llama Scout Accurate
+          </p>
+
+          <h2>
+            Something changed?
+          </h2>
+
+          <p>
+            Campsites, roads, access rules, closures,
+            and conditions can change quickly. If something
+            here is no longer accurate, let us know.
+          </p>
+
+        </div>
+
+        <a
+          class="report-place-button"
+          href="${escapeHTML(reportUrl)}"
+        >
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          Mark a Problem With This Place
+        </a>
+
+      </div>
+
+    </section>
+  `;
+}
+
+
+/* =========================================================
    HERO
    ========================================================= */
 
