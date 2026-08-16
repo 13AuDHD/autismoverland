@@ -221,10 +221,12 @@ function renderPlace(
 
           ${renderFieldNotes(place)}
 
-          ${renderGallery(
-            place,
-            remainingImages
-          )}
+         ${renderGallery(
+           place,
+           remainingImages
+         )}
+         
+         ${renderReportProblem(place)}
 
         </div>
 
