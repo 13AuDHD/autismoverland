@@ -10,6 +10,7 @@ $user = current_user();
 
 $isAdmin = user_has_role('admin');
 $isScout = user_has_role('scout');
+$isVerified = !empty($user['email_verified_at']);
 
 ?>
 <!doctype html>
@@ -37,6 +38,25 @@ $isScout = user_has_role('scout');
   <p>
     Your Llama Scout account is working.
   </p>
+  <?php if ($isVerified): ?>
+
+  <p>
+    <strong>Email:</strong>
+    Verified
+  </p>
+
+<?php else: ?>
+
+  <p>
+    <strong>Email:</strong>
+    Pending verification
+  </p>
+
+  <p>
+    Check your email for the verification link.
+  </p>
+
+<?php endif; ?>
 <?php if ($isAdmin): ?>
 
   <p>
