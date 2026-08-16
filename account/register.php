@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/auth.php';
+require_once dirname(__DIR__) . '/app/mail.php';
 
 start_llama_session();
 
@@ -227,8 +228,58 @@ $stmt->execute([
                 $memberRole['id']
             ]);
 
+            $verificationToken =
+                bin2hex(
+                    random_bytes(32)
+                );
+            
+            $verificationHash =
+                hash(
+                    'sha256',
+                    $verificationToken
+                );
+            
+            
+            $verificationStmt =
+                db()->prepare(
+                    '
+                    INSERT INTO email_verifications (
+                        user_id,
+                        token_hash,
+                        expires_at
+                    )
+                    VALUES (
+                        ?,
+                        ?,
+                        DATE_ADD(
+                            CURRENT_TIMESTAMP,
+                            INTERVAL 24 HOUR
+                        )
+                    )
+                    '
+                );
+            
+            
+            $verificationStmt->execute([
+                $userId,
+                $verificationHash
+            ]);
 
             db()->commit();
+
+            send_verification_email(
+                [
+                    'email' =>
+                        $email,
+            
+                    'username' =>
+                        $username,
+            
+                    'display_name' =>
+                        $displayName,
+                ],
+                $verificationToken
+            );
 
 
             start_llama_session();
@@ -243,7 +294,7 @@ $stmt->execute([
 
 
             header(
-                'Location: https://account.llamascout.com/'
+                'Location: https://account.llamascout.com/verify-email.php?sent=1'
             );
 
             exit;
