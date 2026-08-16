@@ -2166,7 +2166,7 @@ body {
   href="places.php"
   class="back-link"
 >
-  â Back to Places
+  &larr; Back to Places
 </a>
 
 
@@ -2186,7 +2186,7 @@ body {
           )
       ) ?>
 
-      Â·
+          &middot;
 
       <?= e(
           human_label(
@@ -2194,7 +2194,7 @@ body {
           )
       ) ?>
 
-      Â· Place #<?= (int) $place['id'] ?>
+          &middot; Place #<?= (int) $place['id'] ?>
 
     </p>
 
@@ -3401,7 +3401,7 @@ body {
                       )
                   ) ?>
 
-                  â
+                  &rarr;
 
                 <?php endif; ?>
 
