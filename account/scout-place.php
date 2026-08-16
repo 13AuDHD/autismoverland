@@ -8,8 +8,245 @@ require_verified_email();
 
 $user = current_user();
 
-?>
+start_llama_session();
 
+
+/* =========================================================
+   CSRF TOKEN
+   ========================================================= */
+
+if (
+    empty($_SESSION['scout_place_csrf'])
+) {
+    $_SESSION['scout_place_csrf'] =
+        bin2hex(
+            random_bytes(32)
+        );
+}
+
+$csrfToken =
+    $_SESSION['scout_place_csrf'];
+
+
+/* =========================================================
+   HANDLE COMMUNITY SUBMISSION
+   ========================================================= */
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+) {
+
+    header(
+        'Content-Type: application/json; charset=utf-8'
+    );
+
+
+    $input =
+        json_decode(
+            file_get_contents('php://input'),
+            true
+        );
+
+
+    if (!is_array($input)) {
+
+        http_response_code(400);
+
+        echo json_encode([
+            'success' => false,
+            'message' =>
+                'The submission could not be read.'
+        ]);
+
+        exit;
+    }
+
+
+    $submittedToken =
+        $input['csrf_token'] ?? '';
+
+
+    if (
+        !is_string($submittedToken) ||
+        !hash_equals(
+            $csrfToken,
+            $submittedToken
+        )
+    ) {
+
+        http_response_code(403);
+
+        echo json_encode([
+            'success' => false,
+            'message' =>
+                'Your session could not be verified. Reload the page and try again.'
+        ]);
+
+        exit;
+    }
+
+
+    $place =
+        $input['place'] ?? null;
+
+
+    if (!is_array($place)) {
+
+        http_response_code(400);
+
+        echo json_encode([
+            'success' => false,
+            'message' =>
+                'No place information was received.'
+        ]);
+
+        exit;
+    }
+
+
+    $placeName =
+        trim(
+            (string) (
+                $place['name']
+                ?? ''
+            )
+        );
+
+
+    if ($placeName === '') {
+
+        http_response_code(422);
+
+        echo json_encode([
+            'success' => false,
+            'message' =>
+                'A place name is required.'
+        ]);
+
+        exit;
+    }
+
+
+    /*
+     * Never trust source/status values from the browser.
+     * Community submissions are enforced here server-side.
+     */
+
+    $place['status'] =
+        'draft';
+
+    $place['featured'] =
+        false;
+
+    $place['verification'] =
+        is_array(
+            $place['verification'] ?? null
+        )
+            ? $place['verification']
+            : [];
+
+
+    $place['verification']['status'] =
+        'community-scouted';
+
+    $place['verification']['source'] =
+        'Community Scouted member submission';
+
+    $place['verification']['publicDataVerified'] =
+        null;
+
+
+    $submissionJson =
+        json_encode(
+            $place,
+            JSON_UNESCAPED_SLASHES |
+            JSON_UNESCAPED_UNICODE
+        );
+
+
+    if ($submissionJson === false) {
+
+        http_response_code(500);
+
+        echo json_encode([
+            'success' => false,
+            'message' =>
+                'The submission could not be prepared.'
+        ]);
+
+        exit;
+    }
+
+
+    try {
+
+        $stmt =
+            db()->prepare(
+                '
+                INSERT INTO place_submissions (
+                    user_id,
+                    place_name,
+                    source_type,
+                    status,
+                    submission_data
+                )
+                VALUES (
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?
+                )
+                '
+            );
+
+
+        $stmt->execute([
+            $user['id'],
+            $placeName,
+            'community-scouted',
+            'pending',
+            $submissionJson
+        ]);
+
+
+        $submissionId =
+            (int) db()->lastInsertId();
+
+
+        echo json_encode([
+            'success' => true,
+            'submission_id' =>
+                $submissionId,
+            'message' =>
+                'Your Community Scouted place has been submitted for review.'
+        ]);
+
+        exit;
+
+
+    } catch (Throwable $exception) {
+
+        error_log(
+            'Llama Scout place submission error: ' .
+            $exception->getMessage()
+        );
+
+
+        http_response_code(500);
+
+        echo json_encode([
+            'success' => false,
+            'message' =>
+                'Something went wrong while saving your submission.'
+        ]);
+
+        exit;
+    }
+}
+
+?>
+  
 <!DOCTYPE html>
 <html lang="en">
 
