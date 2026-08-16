@@ -8,6 +8,9 @@ require_login();
 
 $user = current_user();
 
+$isAdmin = user_has_role('admin');
+$isScout = user_has_role('scout');
+
 ?>
 <!doctype html>
 <html lang="en">
@@ -34,7 +37,15 @@ $user = current_user();
   <p>
     Your Llama Scout account is working.
   </p>
+<?php if ($isAdmin): ?>
 
+  <p>
+    <a href="https://admin.llamascout.com">
+      Admin Basecamp
+    </a>
+  </p>
+
+<?php endif; ?>
   <p>
     <a href="logout.php">
       Log out
