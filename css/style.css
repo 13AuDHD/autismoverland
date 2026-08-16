@@ -2967,6 +2967,85 @@ img {
   cursor: wait;
 }
 
+/* =========================================================
+   REPORT A PLACE PROBLEM
+   ========================================================= */
+
+.place-report-problem {
+  margin-top: 2rem;
+}
+
+.place-report-problem .place-section-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+
+  padding: 1.5rem;
+
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+
+  background: #f7f4ec;
+}
+
+.place-report-copy {
+  max-width: 620px;
+}
+
+.place-report-copy .eyebrow {
+  margin: 0 0 0.4rem;
+
+  font-size: 0.72rem;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+
+  color: #6e756f;
+}
+
+.place-report-copy h2 {
+  margin: 0 0 0.5rem;
+}
+
+.place-report-copy p {
+  margin: 0;
+
+  line-height: 1.6;
+
+  color: #667069;
+}
+
+.report-place-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 0.5rem;
+
+  flex: 0 0 auto;
+
+  padding: 0.8rem 1rem;
+
+  border-radius: 8px;
+
+  background: #172822;
+  color: #fff;
+
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.report-place-button:hover {
+  opacity: 0.9;
+}
+
+
+
+
+
 
 
 
@@ -3282,6 +3361,16 @@ img {
 
   .footer-bottom {
     flex-direction: column;
+  }
+   
+  .place-report-problem .place-section-inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .report-place-button {
+    width: 100%;
+    box-sizing: border-box;
   }
 }
 
