@@ -44,7 +44,6 @@ function location_text(array $place): string
 function source_label(?string $source): string
 {
     return match ($source) {
-
         'llama-scouted' =>
             'Llama Scouted',
 
@@ -61,7 +60,7 @@ function source_label(?string $source): string
                     ' ',
                     (string) $source
                 )
-            )
+            ),
     };
 }
 
@@ -87,6 +86,14 @@ function date_label(?string $date): string
 }
 
 
+/*
+ * Verification age:
+ *
+ * current = less than 6 months
+ * aging = 6 to 12 months
+ * due = more than 12 months
+ * never = no valid verification date
+ */
 function verified_state(
     ?string $date
 ): string {
@@ -102,22 +109,50 @@ function verified_state(
         return 'never';
     }
 
-    /*
-     * Flag anything over 1 year old
-     * as needing verification.
-     */
+    $sixMonthsAgo =
+        strtotime('-6 months');
 
-    $oneYearAgo =
-        strtotime('-1 year');
+    $twelveMonthsAgo =
+        strtotime('-12 months');
 
     if (
-        $oneYearAgo !== false &&
-        $timestamp < $oneYearAgo
+        $twelveMonthsAgo !== false &&
+        $timestamp < $twelveMonthsAgo
     ) {
-        return 'stale';
+        return 'due';
+    }
+
+    if (
+        $sixMonthsAgo !== false &&
+        $timestamp < $sixMonthsAgo
+    ) {
+        return 'aging';
     }
 
     return 'current';
+}
+
+
+function verification_label(
+    string $state
+): string {
+
+    return match ($state) {
+        'current' =>
+            'Current',
+
+        'aging' =>
+            'Aging',
+
+        'due' =>
+            'Verification Due',
+
+        'never' =>
+            'Never Verified',
+
+        default =>
+            'Unknown',
+    };
 }
 
 
@@ -178,31 +213,6 @@ $stmt =
             p.updated_at
 
         ORDER BY
-
-            CASE
-                WHEN COUNT(
-                    CASE
-                        WHEN pr.status IN (
-                            'open',
-                            'investigating'
-                        )
-                        THEN 1
-                    END
-                ) > 0
-                THEN 0
-                ELSE 1
-            END,
-
-            CASE p.status
-                WHEN 'featured' THEN 1
-                WHEN 'active' THEN 2
-                WHEN 'draft' THEN 3
-                WHEN 'unlisted' THEN 4
-                WHEN 'removed' THEN 5
-                WHEN 'archived' THEN 6
-                ELSE 7
-            END,
-
             p.name ASC
         "
     );
@@ -223,13 +233,20 @@ $totalPlaces =
 
 
 $statusCounts = [
-
     'featured' => 0,
     'active' => 0,
     'draft' => 0,
     'unlisted' => 0,
     'removed' => 0,
-    'archived' => 0
+    'archived' => 0,
+];
+
+
+$verificationCounts = [
+    'current' => 0,
+    'aging' => 0,
+    'due' => 0,
+    'never' => 0,
 ];
 
 
@@ -237,7 +254,7 @@ $totalOpenReports = 0;
 
 $placesWithReports = 0;
 
-$needsVerification = 0;
+$verificationDueCount = 0;
 
 
 foreach ($places as &$place) {
@@ -304,20 +321,38 @@ foreach ($places as &$place) {
         );
 
 
+    $verificationState =
+        $place[
+            'verification_state'
+        ];
+
+
+    if (
+        isset(
+            $verificationCounts[
+                $verificationState
+            ]
+        )
+    ) {
+
+        $verificationCounts[
+            $verificationState
+        ]++;
+    }
+
+
     if (
         in_array(
-            $place[
-                'verification_state'
-            ],
+            $verificationState,
             [
+                'due',
                 'never',
-                'stale'
             ],
             true
         )
     ) {
 
-        $needsVerification++;
+        $verificationDueCount++;
     }
 }
 
@@ -355,7 +390,6 @@ unset($place);
 
 body {
   margin: 0;
-
   background: #f4efe6;
   color: #172822;
 }
@@ -363,7 +397,6 @@ body {
 .admin-header {
   background: #101815;
   color: #fff;
-
   padding: 18px 24px;
 }
 
@@ -378,7 +411,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-
   gap: 24px;
 }
 
@@ -416,11 +448,8 @@ body {
 
 .back-link {
   display: inline-block;
-
   margin-bottom: 28px;
-
   color: inherit;
-
   font-weight: 700;
 }
 
@@ -440,7 +469,6 @@ body {
 
 .page-header p {
   margin: 0;
-
   color: #667069;
 }
 
@@ -604,13 +632,11 @@ body {
 
 .place-list {
   display: grid;
-
   gap: 14px;
 }
 
 .place-card {
   padding: 20px;
-
   background: #fff;
 
   border:
@@ -633,10 +659,8 @@ body {
 
 .place-top {
   display: flex;
-
   align-items: flex-start;
   justify-content: space-between;
-
   gap: 18px;
 }
 
@@ -646,22 +670,18 @@ body {
 
 .place-name {
   margin: 0 0 5px;
-
   font-size: 1.2rem;
 }
 
 .place-location {
   margin: 0;
-
   color: #667069;
 }
 
 .place-flags {
   display: flex;
   flex-wrap: wrap;
-
   justify-content: flex-end;
-
   gap: 7px;
 }
 
@@ -670,23 +690,29 @@ body {
    STATUS BADGES
    ========================================================= */
 
-.status {
-  display: inline-block;
+.status,
+.verification-flag,
+.report-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 
   padding: 6px 9px;
 
   border-radius: 999px;
 
-  background: #e8ece8;
-
   font-size: .7rem;
   font-weight: 800;
 
   text-transform: uppercase;
-
-  letter-spacing: .05em;
+  letter-spacing: .04em;
 
   white-space: nowrap;
+}
+
+.status {
+  background: #e8ece8;
+  letter-spacing: .05em;
 }
 
 .status-featured {
@@ -715,33 +741,13 @@ body {
 
 
 /* =========================================================
-   FLAGS
+   REPORT FLAGS
    ========================================================= */
 
 .report-flag {
-  display: inline-flex;
-
-  align-items: center;
-
-  gap: 5px;
-
-  padding: 6px 9px;
-
-  border-radius: 999px;
-
   background: #fff0cf;
   color: #7d4710;
-
-  font-size: .7rem;
-  font-weight: 800;
-
   text-decoration: none;
-
-  text-transform: uppercase;
-
-  letter-spacing: .04em;
-
-  white-space: nowrap;
 }
 
 .report-flag-new {
@@ -749,32 +755,32 @@ body {
   color: #8b342a;
 }
 
+
+/* =========================================================
+   VERIFICATION FLAGS
+   ========================================================= */
+
 .verification-flag {
-  display: inline-block;
-
-  padding: 6px 9px;
-
-  border-radius: 999px;
-
   background: #ece9df;
   color: #666057;
-
-  font-size: .7rem;
-  font-weight: 800;
-
-  text-transform: uppercase;
-
-  letter-spacing: .04em;
-
-  white-space: nowrap;
 }
 
-.verification-flag-stale {
+.verification-current {
+  background: #e6efe5;
+  color: #355443;
+}
+
+.verification-aging {
+  background: #f4eed8;
+  color: #766123;
+}
+
+.verification-due {
   background: #fff0cf;
   color: #7d4710;
 }
 
-.verification-flag-never {
+.verification-never {
   background: #f2dddd;
   color: #873c35;
 }
@@ -802,9 +808,7 @@ body {
 .place-actions {
   display: flex;
   flex-wrap: wrap;
-
   gap: 9px;
-
   margin-top: 18px;
 }
 
@@ -890,9 +894,7 @@ body {
         1fr
       );
   }
-
 }
-
 
 @media (
   max-width: 650px
@@ -905,14 +907,12 @@ body {
 
   .place-top {
     flex-direction: column;
-
     gap: 10px;
   }
 
   .place-flags {
     justify-content: flex-start;
   }
-
 }
 
 </style>
@@ -929,7 +929,6 @@ body {
     <div class="admin-brand">
       Llama Scout Admin
     </div>
-
 
     <div class="admin-user">
 
@@ -959,7 +958,7 @@ body {
   href="/"
   class="back-link"
 >
-  ← Back to Basecamp
+  &larr; Back to Basecamp
 </a>
 
 
@@ -976,10 +975,6 @@ body {
 
 </header>
 
-
-<!-- ======================================================
-     STATS
-     ====================================================== -->
 
 <section class="stats">
 
@@ -1048,14 +1043,22 @@ body {
   </div>
 
 
-  <div class="stat">
+  <div
+    class="
+      stat
+      <?= $verificationDueCount > 0
+          ? 'stat-alert'
+          : ''
+      ?>
+    "
+  >
 
     <span>
-      Needs Verification
+      Verification Due
     </span>
 
     <strong>
-      <?= $needsVerification ?>
+      <?= $verificationDueCount ?>
     </strong>
 
   </div>
@@ -1063,10 +1066,6 @@ body {
 
 </section>
 
-
-<!-- ======================================================
-     FILTERS
-     ====================================================== -->
 
 <section class="place-controls">
 
@@ -1153,8 +1152,12 @@ body {
         Current
       </option>
 
-      <option value="stale">
-        Needs re-verification
+      <option value="aging">
+        Aging
+      </option>
+
+      <option value="due">
+        Verification due
       </option>
 
       <option value="never">
@@ -1213,10 +1216,6 @@ body {
   ?>.
 </p>
 
-
-<!-- ======================================================
-     PLACE LIST
-     ====================================================== -->
 
 <?php if (!$places): ?>
 
@@ -1410,49 +1409,31 @@ body {
               ?>#problem-reports"
             >
 
-              ⚑
+              REPORT
 
               <?= $reportCount ?>
-
-              <?= $reportCount === 1
-                  ? 'report'
-                  : 'reports'
-              ?>
 
             </a>
 
           <?php endif; ?>
 
 
-          <?php if (
-              $verificationState
-              === 'stale'
-          ): ?>
+          <span
+            class="
+              verification-flag
+              verification-<?= e(
+                  $verificationState
+              ) ?>
+            "
+          >
 
-            <span
-              class="
-                verification-flag
-                verification-flag-stale
-              "
-            >
-              Re-verify
-            </span>
+            <?= e(
+                verification_label(
+                    $verificationState
+                )
+            ) ?>
 
-          <?php elseif (
-              $verificationState
-              === 'never'
-          ): ?>
-
-            <span
-              class="
-                verification-flag
-                verification-flag-never
-              "
-            >
-              Unverified
-            </span>
-
-          <?php endif; ?>
+          </span>
 
 
         </div>
@@ -1769,6 +1750,20 @@ body {
   }
 
 
+  function verificationPriority(
+    state
+  ) {
+
+    return {
+      never: 4,
+      due: 3,
+      aging: 2,
+      current: 1
+    }[state] || 0;
+
+  }
+
+
   function applySort() {
 
     const sort =
@@ -1842,6 +1837,7 @@ body {
           return aName.localeCompare(
             bName
           );
+
         }
 
 
@@ -1856,6 +1852,7 @@ body {
           aName.localeCompare(
             bName
           );
+
         }
 
 
@@ -1864,10 +1861,6 @@ body {
           "verified-oldest"
         ) {
 
-          /*
-           * Never verified = oldest.
-           */
-
           return (
             aVerified -
             bVerified
@@ -1875,6 +1868,7 @@ body {
           aName.localeCompare(
             bName
           );
+
         }
 
 
@@ -1889,38 +1883,55 @@ body {
           aName.localeCompare(
             bName
           );
+
         }
 
 
         /*
-         * Priority:
+         * Needs attention first:
          *
-         * reports first,
-         * then verification issues,
-         * then alphabetically.
+         * 1. open/investigating reports
+         * 2. never verified
+         * 3. verification due
+         * 4. aging
+         * 5. current
          */
 
-        const aVerificationIssue =
-          a.dataset.verification ===
-            "current"
-              ? 0
-              : 1;
+        const aVerificationPriority =
+          verificationPriority(
+            a.dataset.verification
+          );
 
 
-        const bVerificationIssue =
-          b.dataset.verification ===
-            "current"
-              ? 0
-              : 1;
+        const bVerificationPriority =
+          verificationPriority(
+            b.dataset.verification
+          );
+
+
+        const aHasReports =
+          aReports > 0
+            ? 1
+            : 0;
+
+
+        const bHasReports =
+          bReports > 0
+            ? 1
+            : 0;
 
 
         return (
+          bHasReports -
+          aHasReports
+        ) ||
+        (
           bReports -
           aReports
         ) ||
         (
-          bVerificationIssue -
-          aVerificationIssue
+          bVerificationPriority -
+          aVerificationPriority
         ) ||
         aName.localeCompare(
           bName
