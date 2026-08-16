@@ -27,6 +27,72 @@ async function includeHTML(selector, file) {
   }
 }
 
+async function initAccountLinks() {
+
+  const links =
+    document.querySelectorAll(
+      "[data-account-link]"
+    );
+
+  if (!links.length) return;
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/auth-status.php",
+        {
+          credentials: "include",
+          cache: "no-store"
+        }
+      );
+
+
+    if (!response.ok) {
+      throw new Error(
+        "Could not check account status"
+      );
+    }
+
+
+    const status =
+      await response.json();
+
+
+    links.forEach((link) => {
+
+      if (status.logged_in) {
+
+        link.textContent =
+          "Account";
+
+        link.href =
+          "https://account.llamascout.com/";
+
+      } else {
+
+        link.textContent =
+          "Log In";
+
+        link.href =
+          "https://account.llamascout.com/login.php";
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.warn(
+      "Llama Scout account status:",
+      error.message
+    );
+
+  }
+
+}
 
 async function initIncludes() {
 
