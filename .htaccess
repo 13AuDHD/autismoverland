@@ -1,0 +1,3 @@
+# Llama Scout custom error pages
+
+ErrorDocument 404 /404.html
