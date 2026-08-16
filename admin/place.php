@@ -2166,7 +2166,7 @@ body {
   href="places.php"
   class="back-link"
 >
-  &larr; Back to Places
+  &larr; Back to Places
 </a>
 
 
