@@ -331,7 +331,37 @@ function e(string $value): string
 
     </section>
 
+    <?php if ($isVerified): ?>
 
+      <section class="account-section">
+    
+        <h2>
+          Community Scouting
+        </h2>
+    
+        <div class="account-dashboard-grid">
+    
+          <a
+            href="scout-place.php"
+            class="account-dashboard-card"
+          >
+    
+            <h3>
+              Scout a Place
+            </h3>
+    
+            <p>
+              Share a place you've personally visited
+              as a Community Scouted submission.
+            </p>
+    
+          </a>
+    
+        </div>
+    
+      </section>
+    
+    <?php endif; ?>
     <?php if ($isScout): ?>
 
       <section class="account-section">
