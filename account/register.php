@@ -13,12 +13,17 @@ if (is_logged_in()) {
 
 $errors = [];
 $values = [
+    'username' => '',
     'display_name' => '',
     'email' => '',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    $username =
+    strtolower(
+        trim($_POST['username'] ?? ''));
+    
     $displayName =
         trim($_POST['display_name'] ?? '');
 
@@ -33,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $passwordConfirm =
         $_POST['password_confirm'] ?? '';
 
+    $values['username'] =
+        $username;
+    
     $values['display_name'] =
         $displayName;
 
@@ -44,6 +52,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
        VALIDATION
        ===================================================== */
 
+    if (
+    !preg_match(
+        '/^[a-z0-9_]{4,16}$/',
+        $username
+    )
+) {
+    $errors[] =
+        'Username must be 4–16 characters and contain only letters, numbers, or underscores.';
+}
+    
     if (
         $displayName === '' ||
         mb_strlen($displayName) < 2
@@ -81,31 +99,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 
-    /* =====================================================
-       CHECK EXISTING ACCOUNT
-       ===================================================== */
+/* =====================================================
+   CHECK EXISTING ACCOUNT
+   ===================================================== */
 
-    if (!$errors) {
+if (!$errors) {
 
-        $stmt = db()->prepare(
-            '
-            SELECT id
-            FROM users
-            WHERE email = ?
-            LIMIT 1
-            '
-        );
+    $stmt = db()->prepare(
+        '
+        SELECT username, email
+        FROM users
+        WHERE LOWER(username) = ?
+           OR LOWER(email) = ?
+        LIMIT 1
+        '
+    );
 
-        $stmt->execute([
+    $stmt->execute([
+        $username,
+        $email
+    ]);
+
+    $existing =
+        $stmt->fetch();
+
+    if ($existing) {
+
+        if (
+            strtolower($existing['username'] ?? '') ===
+            $username
+        ) {
+            $errors[] =
+                'That username is already taken.';
+        }
+
+        if (
+            strtolower($existing['email']) ===
             $email
-        ]);
-
-        if ($stmt->fetch()) {
+        ) {
             $errors[] =
                 'An account already exists with that email address.';
         }
-
     }
+}
 
 
     /* =====================================================
@@ -130,20 +166,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 '
                 INSERT INTO users (
                     email,
+                    username,
                     password_hash,
                     display_name,
                     status
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 '
             );
 
-            $stmt->execute([
-                $email,
-                $passwordHash,
-                $displayName,
-                'active'
-            ]);
+$stmt->execute([
+    $email,
+    $username,
+    $passwordHash,
+    $displayName,
+    'active'
+]);
 
 
             $userId =
@@ -396,6 +434,27 @@ function e(string $value): string
 
 
       <form method="post" novalidate>
+
+          <div class="account-field">
+
+          <label for="username">
+            Username
+          </label>
+        
+          <input
+            id="username"
+            name="username"
+            type="text"
+            minlength="4"
+            maxlength="16"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+            value="<?= e($values['username']) ?>"
+            required
+          >
+        
+        </div>
 
         <div class="account-field">
 
