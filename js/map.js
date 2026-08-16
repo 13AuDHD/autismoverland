@@ -59,9 +59,12 @@ async function initMap() {
   try {
 
     const response =
-      await fetch(
-        "data/places.json"
-      );
+await fetch(
+  "/api/places.php",
+  {
+    cache: "no-store"
+  }
+);
 
 
     if (!response.ok) {
@@ -99,7 +102,7 @@ async function initMap() {
   } catch (error) {
 
     console.error(
-      "AutismOverland map error:",
+      "Llama Scout map error:",
       error
     );
 
