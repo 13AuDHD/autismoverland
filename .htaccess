@@ -17,46 +17,22 @@ ErrorDocument 404 /404.html
 
 # =========================================================
 # CACHE CONTROL
-#
-# Dynamic/data-driven content should stay fresh.
-# Static assets can cache briefly for performance.
 # =========================================================
 
 <IfModule mod_headers.c>
 
-    # -----------------------------------------------------
-    # HTML / PHP / JSON
-    #
-    # Always check with the server before reusing.
-    # -----------------------------------------------------
-
-    <FilesMatch "\.(html?|php|json)$">
-        Header set Cache-Control "no-cache, no-store, must-revalidate"
-        Header set Pragma "no-cache"
-        Header set Expires "0"
+    <FilesMatch "\.(html?|php|json|js|css)$">
+        Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header always set Pragma "no-cache"
+        Header always set Expires "0"
     </FilesMatch>
-
-
-    # -----------------------------------------------------
-    # JAVASCRIPT / CSS
-    #
-    # Short cache only.
-    # Browser must revalidate after 5 minutes.
-    # -----------------------------------------------------
-
-    <FilesMatch "\.(js|css)$">
-        Header set Cache-Control "public, max-age=300, must-revalidate"
-    </FilesMatch>
-
-
-    # -----------------------------------------------------
-    # IMAGES / FONTS / ICONS
-    #
-    # These rarely change, so allow a longer cache.
-    # -----------------------------------------------------
 
     <FilesMatch "\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|otf)$">
-        Header set Cache-Control "public, max-age=86400"
+        Header always set Cache-Control "public, max-age=86400"
     </FilesMatch>
 
+    Header unset ETag
+
 </IfModule>
+
+FileETag None
