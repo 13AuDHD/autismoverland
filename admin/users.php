@@ -651,6 +651,32 @@ body {
   font-size: .85rem;
 }
 
+
+.report-button {
+  display: inline-block;
+
+  padding: 9px 14px;
+
+  background: #fff;
+  color: #172822;
+
+  border:
+    1px solid
+    rgba(
+      0,
+      0,
+      0,
+      .18
+    );
+
+  border-radius: 7px;
+
+  text-decoration: none;
+
+  font-weight: 800;
+  font-size: .85rem;
+}
+
 .empty {
   padding: 30px;
 
@@ -1330,6 +1356,15 @@ body {
           ?>"
         >
           Manage
+        </a>
+
+        <a
+          class="report-button"
+          href="user-account.php?id=<?= (int)
+              $row['id']
+          ?>"
+        >
+          Edit Account
         </a>
 
       </div>
