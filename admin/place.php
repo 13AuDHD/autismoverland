@@ -3401,7 +3401,7 @@ body {
                       )
                   ) ?>
 
-                  &rarr;
+                  &rarr; 
 
                 <?php endif; ?>
 
