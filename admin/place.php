@@ -217,37 +217,83 @@ function enum_values(
     string $column
 ): array {
 
-    $stmt =
-        $db->prepare(
-            "SHOW COLUMNS FROM `$table` LIKE ?"
+    $table =
+        preg_replace(
+            '/[^a-zA-Z0-9_]/',
+            '',
+            $table
         );
 
-    $stmt->execute([
-        $column
-    ]);
-
-    $row =
-        $stmt->fetch(
-            PDO::FETCH_ASSOC
+    $column =
+        preg_replace(
+            '/[^a-zA-Z0-9_]/',
+            '',
+            $column
         );
+
 
     if (
-        !$row ||
-        empty($row['Type']) ||
-        !preg_match(
-            "/^enum\((.*)\)$/i",
-            $row['Type'],
-            $matches
-        )
+        $table === '' ||
+        $column === ''
     ) {
         return [];
     }
 
-    return str_getcsv(
-        $matches[1],
-        ',',
-        "'"
-    );
+
+    try {
+
+        $stmt =
+            $db->query(
+                "SHOW COLUMNS
+                 FROM `$table`
+                 WHERE Field = " .
+                $db->quote($column)
+            );
+
+
+        if (!$stmt) {
+            return [];
+        }
+
+
+        $row =
+            $stmt->fetch(
+                PDO::FETCH_ASSOC
+            );
+
+
+        if (
+            !$row ||
+            empty($row['Type']) ||
+            !preg_match(
+                "/^enum\\((.*)\\)$/i",
+                $row['Type'],
+                $matches
+            )
+        ) {
+
+            return [];
+        }
+
+
+        return str_getcsv(
+            $matches[1],
+            ',',
+            "'"
+        );
+
+
+    } catch (
+        Throwable $exception
+    ) {
+
+        error_log(
+            'Verification enum lookup error: ' .
+            $exception->getMessage()
+        );
+
+        return [];
+    }
 }
 
 function render_rows(array $rows): void
