@@ -11,9 +11,9 @@ use PHPMailer\PHPMailer\SMTP;
    PHPMailer
    ========================================================= */
 
-require_once dirname(__DIR__) . '/private/phpmailer/Exception.php';
-require_once dirname(__DIR__) . '/private/phpmailer/PHPMailer.php';
-require_once dirname(__DIR__) . '/private/phpmailer/SMTP.php';
+require_once dirname(__DIR__, 2) . '/private/phpmailer/Exception.php';
+require_once dirname(__DIR__, 2) . '/private/phpmailer/PHPMailer.php';
+require_once dirname(__DIR__, 2) . '/private/phpmailer/SMTP.php';
 
 
 /* =========================================================
@@ -22,9 +22,9 @@ require_once dirname(__DIR__) . '/private/phpmailer/SMTP.php';
 
 function llama_mail_config(): array
 {
-    $path =
-        dirname(__DIR__) .
-        '/private/mail.php';
+$path =
+    dirname(__DIR__, 2) .
+    '/private/mail.php';
 
     if (!is_file($path)) {
         throw new RuntimeException(
