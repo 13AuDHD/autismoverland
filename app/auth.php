@@ -138,17 +138,33 @@ function attempt_login(
         return false;
     }
 
-    start_llama_session();
+start_llama_session();
 
-    session_regenerate_id(true);
+session_regenerate_id(true);
 
-    $_SESSION['user_id'] =
-        (int) $user['id'];
+$_SESSION['user_id'] =
+    (int) $user['id'];
 
-    $_SESSION['logged_in_at'] =
-        time();
+$_SESSION['logged_in_at'] =
+    time();
 
-    return true;
+
+$loginStmt = db()->prepare(
+    '
+    UPDATE users
+    SET
+        last_login_at = CURRENT_TIMESTAMP,
+        dormancy_notice_sent_at = NULL
+    WHERE id = ?
+    '
+);
+
+$loginStmt->execute([
+    $user['id']
+]);
+
+
+return true;
 }
 
 /* =========================================================
@@ -202,6 +218,43 @@ function require_login(): void
     exit;
 }
 
+
+function is_email_verified(
+    ?array $user = null
+): bool {
+
+    if ($user === null) {
+        $user = current_user();
+    }
+
+    if (!$user) {
+        return false;
+    }
+
+    return !empty(
+        $user['email_verified_at']
+    );
+}
+
+
+function require_verified_email(): void
+{
+    require_login();
+
+    $user = current_user();
+
+    if (
+        is_email_verified($user)
+    ) {
+        return;
+    }
+
+    header(
+        'Location: https://account.llamascout.com/verify-email.php'
+    );
+
+    exit;
+}
 
 /* =========================================================
    USER ROLES
