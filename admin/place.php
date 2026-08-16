@@ -210,6 +210,46 @@ function has_column(
     );
 }
 
+
+function enum_values(
+    PDO $db,
+    string $table,
+    string $column
+): array {
+
+    $stmt =
+        $db->prepare(
+            "SHOW COLUMNS FROM `$table` LIKE ?"
+        );
+
+    $stmt->execute([
+        $column
+    ]);
+
+    $row =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+    if (
+        !$row ||
+        empty($row['Type']) ||
+        !preg_match(
+            "/^enum\((.*)\)$/i",
+            $row['Type'],
+            $matches
+        )
+    ) {
+        return [];
+    }
+
+    return str_getcsv(
+        $matches[1],
+        ',',
+        "'"
+    );
+}
+
 function render_rows(array $rows): void
 {
     echo '<div class="data-grid">';
@@ -462,6 +502,176 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $error =
                         'The report could not be updated.';
+                }
+            }
+
+        } elseif ($action === 'verify_place') {
+
+            $verificationType =
+                trim(
+                    (string) (
+                        $_POST['verification_type']
+                        ?? ''
+                    )
+                );
+
+            $visitedAt =
+                trim(
+                    (string) (
+                        $_POST['visited_at']
+                        ?? ''
+                    )
+                );
+
+            $verificationSource =
+                trim(
+                    (string) (
+                        $_POST['verification_source']
+                        ?? ''
+                    )
+                );
+
+            $verificationNotes =
+                trim(
+                    (string) (
+                        $_POST['verification_notes']
+                        ?? ''
+                    )
+                );
+
+            $availableVerificationTypes =
+                enum_values(
+                    $db,
+                    'place_verifications',
+                    'verification_type'
+                );
+
+            if (!$availableVerificationTypes) {
+                $availableVerificationTypes = [
+                    'on-site',
+                    'remote',
+                    'community',
+                    'admin-review',
+                ];
+            }
+
+            if ($verificationType === '') {
+
+                $error =
+                    'Choose a verification type.';
+
+            } elseif (
+                !in_array(
+                    $verificationType,
+                    $availableVerificationTypes,
+                    true
+                )
+            ) {
+
+                $error =
+                    'That verification type is not valid.';
+
+            } elseif (
+                $visitedAt !== '' &&
+                strtotime($visitedAt) === false
+            ) {
+
+                $error =
+                    'The visit date is not valid.';
+
+            } else {
+
+                try {
+
+                    $db->beginTransaction();
+
+                    $verifiedAt =
+                        date('Y-m-d H:i:s');
+
+                    $insertVerification =
+                        $db->prepare(
+                            '
+                            INSERT INTO place_verifications
+                            (
+                                place_id,
+                                verification_type,
+                                verified_at,
+                                visited_at,
+                                source,
+                                notes,
+                                verified_by
+                            )
+                            VALUES (
+                                ?, ?, ?, ?, ?, ?, ?
+                            )
+                            '
+                        );
+
+                    $insertVerification->execute([
+                        $placeId,
+                        $verificationType,
+                        $verifiedAt,
+                        $visitedAt !== ''
+                            ? date(
+                                'Y-m-d',
+                                strtotime($visitedAt)
+                            )
+                            : null,
+                        $verificationSource !== ''
+                            ? $verificationSource
+                            : null,
+                        $verificationNotes !== ''
+                            ? $verificationNotes
+                            : null,
+                        $user['id'],
+                    ]);
+
+                    $updatePlaceVerification =
+                        $db->prepare(
+                            '
+                            UPDATE places
+                            SET
+                                last_verified_at = ?,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE id = ?
+                            '
+                        );
+
+                    $updatePlaceVerification->execute([
+                        $verifiedAt,
+                        $placeId,
+                    ]);
+
+                    $db->commit();
+
+                    $message =
+                        'Place verification recorded.';
+
+                    $place =
+                        fetch_one(
+                            $db,
+                            '
+                            SELECT *
+                            FROM places
+                            WHERE id = ?
+                            LIMIT 1
+                            ',
+                            [$placeId]
+                        );
+
+                } catch (Throwable $exception) {
+
+                    if ($db->inTransaction()) {
+                        $db->rollBack();
+                    }
+
+                    error_log(
+                        'Llama Scout verification error: ' .
+                        $exception->getMessage()
+                    );
+
+                    $error =
+                        'The verification could not be saved.';
                 }
             }
 
@@ -868,6 +1078,23 @@ foreach ($reports as $report) {
 
         $openReports++;
     }
+}
+
+
+$verificationTypes =
+    enum_values(
+        $db,
+        'place_verifications',
+        'verification_type'
+    );
+
+if (!$verificationTypes) {
+    $verificationTypes = [
+        'on-site',
+        'remote',
+        'community',
+        'admin-review',
+    ];
 }
 
 
@@ -2014,14 +2241,18 @@ body {
   cursor: pointer;
 }
 
-.status-form label {
+.status-form label,
+.verification-form label {
   display: block;
   margin-bottom: 7px;
   font-weight: 800;
 }
 
 .status-form select,
-.status-form textarea {
+.status-form textarea,
+.verification-form select,
+.verification-form input,
+.verification-form textarea {
   width: 100%;
   box-sizing: border-box;
   padding: 11px 12px;
@@ -2032,7 +2263,8 @@ body {
   font: inherit;
 }
 
-.status-form textarea {
+.status-form textarea,
+.verification-form textarea {
   min-height: 105px;
   resize: vertical;
 }
@@ -2048,7 +2280,8 @@ body {
   line-height: 1.5;
 }
 
-.status-button {
+.status-button,
+.verification-button {
   width: 100%;
   margin-top: 16px;
   padding: 12px 15px;
@@ -2166,7 +2399,7 @@ body {
   href="places.php"
   class="back-link"
 >
-  â Back to Places
+  &larr; Back to Places
 </a>
 
 
@@ -2186,7 +2419,7 @@ body {
           )
       ) ?>
 
-      Â·
+      &middot;
 
       <?= e(
           human_label(
@@ -2194,7 +2427,7 @@ body {
           )
       ) ?>
 
-      Â· Place #<?= (int) $place['id'] ?>
+      &middot; Place #<?= (int) $place['id'] ?>
 
     </p>
 
@@ -3401,7 +3634,7 @@ body {
                       )
                   ) ?>
 
-                  â
+                  &rarr;
 
                 <?php endif; ?>
 
@@ -3505,6 +3738,146 @@ body {
     </div>
 
   <?php endif; ?>
+
+
+  <section class="admin-section">
+
+    <header class="section-heading">
+      <h2>Verify Place</h2>
+    </header>
+
+    <div class="section-body">
+
+      <form
+        method="post"
+        class="verification-form"
+      >
+
+        <input
+          type="hidden"
+          name="action"
+          value="verify_place"
+        >
+
+        <input
+          type="hidden"
+          name="place_id"
+          value="<?= $placeId ?>"
+        >
+
+        <input
+          type="hidden"
+          name="csrf_token"
+          value="<?= e(
+              $csrfToken
+          ) ?>"
+        >
+
+
+        <div class="form-field">
+
+          <label for="verification_type">
+            Verification Type
+          </label>
+
+          <select
+            id="verification_type"
+            name="verification_type"
+            required
+          >
+
+            <?php foreach (
+                $verificationTypes as
+                $verificationType
+            ): ?>
+
+              <option
+                value="<?= e(
+                    $verificationType
+                ) ?>"
+              >
+                <?= e(
+                    human_label(
+                        $verificationType
+                    )
+                ) ?>
+              </option>
+
+            <?php endforeach; ?>
+
+          </select>
+
+        </div>
+
+
+        <div class="form-field">
+
+          <label for="visited_at">
+            Date Visited
+          </label>
+
+          <input
+            id="visited_at"
+            name="visited_at"
+            type="date"
+            max="<?= e(
+                date('Y-m-d')
+            ) ?>"
+          >
+
+          <p class="status-help">
+            Leave blank if this was a remote
+            or records-based verification.
+          </p>
+
+        </div>
+
+
+        <div class="form-field">
+
+          <label for="verification_source">
+            Source
+          </label>
+
+          <input
+            id="verification_source"
+            name="verification_source"
+            type="text"
+            maxlength="255"
+            placeholder="Example: on-site visit, USFS notice, member report"
+          >
+
+        </div>
+
+
+        <div class="form-field">
+
+          <label for="verification_notes">
+            Verification Notes
+          </label>
+
+          <textarea
+            id="verification_notes"
+            name="verification_notes"
+            maxlength="3000"
+            placeholder="What did you check, confirm, or change?"
+          ></textarea>
+
+        </div>
+
+
+        <button
+          type="submit"
+          class="verification-button"
+        >
+          Record Verification
+        </button>
+
+      </form>
+
+    </div>
+
+  </section>
 
 
   <section class="admin-section">
