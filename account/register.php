@@ -180,7 +180,7 @@ $stmt->execute([
     $username,
     $passwordHash,
     $displayName,
-    'active'
+    'pending'
 ]);
 
 
