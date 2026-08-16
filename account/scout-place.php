@@ -1,3 +1,15 @@
+<?php
+
+declare(strict_types=1);
+
+require_once dirname(__DIR__) . '/app/auth.php';
+
+require_verified_email();
+
+$user = current_user();
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
