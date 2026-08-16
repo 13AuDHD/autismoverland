@@ -381,24 +381,22 @@ function e(string $value): string
       </a>
 
 
-      <div
-        class="admin-card
-               admin-card--disabled"
+      <a
+        class="admin-card"
+        href="places.php"
       >
-
+      
         <h2>
           Places
         </h2>
-
+      
         <p>
-          Llama Scouted,
-          Community Scouted,
-          and Public Sources.
-          Coming next.
+          Manage place data,
+          visibility, verification,
+          reports, and publication status.
         </p>
-
-      </div>
-
+      
+      </a>
 
       <a
         class="admin-card"
