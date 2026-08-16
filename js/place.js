@@ -48,9 +48,12 @@ async function initPlacePage() {
   try {
 
     const response =
-      await fetch(
-        "data/places.json"
-      );
+await fetch(
+  "/api/places.php",
+  {
+    cache: "no-store"
+  }
+);
 
 
     if (!response.ok) {
