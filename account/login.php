@@ -16,14 +16,11 @@ $email = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $email =
-        strtolower(
-            trim($_POST['email'] ?? '')
-        );
+    $login =
+        trim($_POST['login'] ?? '');
 
     $password =
         $_POST['password'] ?? '';
-
     if (
         !filter_var(
             $email,
