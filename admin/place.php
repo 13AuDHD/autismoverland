@@ -1350,7 +1350,7 @@ body {
 
   border-radius: 7px;
 
-  text-decoration: none;
+  text-decoration: none; 
   font-weight: 700;
 }
 
@@ -3409,7 +3409,10 @@ body {
        REPORTS
        ==================================================== -->
 
-  <section class="admin-section">
+<section
+  class="admin-section"
+  id="problem-reports"
+>
 
     <header class="section-heading">
       <h2>Problem Reports</h2>
