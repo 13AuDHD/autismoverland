@@ -315,216 +315,367 @@ $message = '';
 $error = '';
 
 
+$action =
+    trim(
+        (string) (
+            $_POST['action']
+            ?? 'place_status'
+        )
+    );
+
+
+/* =========================================================
+   REPORT MODERATION
+   ========================================================= */
+
 if (
-    $_SERVER['REQUEST_METHOD']
-    === 'POST'
+    $action ===
+    'update_report'
 ) {
 
-    $submittedToken =
-        $_POST['csrf_token']
-        ?? '';
+    $reportId =
+        (int) (
+            $_POST['report_id']
+            ?? 0
+        );
 
 
-    if (
-        !is_string(
-            $submittedToken
-        ) ||
-        !hash_equals(
-            $csrfToken,
-            $submittedToken
+    $reportStatus =
+        trim(
+            (string) (
+                $_POST[
+                    'report_status'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $adminNotes =
+        trim(
+            (string) (
+                $_POST[
+                    'admin_notes'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $allowedReportStatuses = [
+        'open',
+        'investigating',
+        'resolved',
+        'dismissed'
+    ];
+
+
+    if ($reportId < 1) {
+
+        $error =
+            'That report could not be identified.';
+
+    } elseif (
+        !in_array(
+            $reportStatus,
+            $allowedReportStatuses,
+            true
         )
     ) {
 
         $error =
-            'Your session could not be verified. Reload the page and try again.';
+            'That report status is not valid.';
 
     } else {
 
-        $newStatus =
-            trim(
-                (string) (
-                    $_POST['status']
-                    ?? ''
-                )
+        try {
+
+            $reportCheck =
+                $db->prepare(
+                    '
+                    SELECT id
+                    FROM place_reports
+                    WHERE id = ?
+                      AND place_id = ?
+                    LIMIT 1
+                    '
+                );
+
+
+            $reportCheck->execute([
+                $reportId,
+                $placeId
+            ]);
+
+
+            if (
+                !$reportCheck->fetch()
+            ) {
+
+                throw new RuntimeException(
+                    'Report does not belong to this place.'
+                );
+            }
+
+
+            $updateReport =
+                $db->prepare(
+                    '
+                    UPDATE place_reports
+
+                    SET
+                        status = ?,
+                        reviewed_by = ?,
+                        admin_notes = ?,
+                        reviewed_at =
+                            CURRENT_TIMESTAMP
+
+                    WHERE id = ?
+                      AND place_id = ?
+                    '
+                );
+
+
+            $updateReport->execute([
+
+                $reportStatus,
+
+                $user['id'],
+
+                $adminNotes !== ''
+                    ? $adminNotes
+                    : null,
+
+                $reportId,
+
+                $placeId
+            ]);
+
+
+            $message =
+                'Report #' .
+                $reportId .
+                ' updated.';
+
+
+        } catch (
+            Throwable $exception
+        ) {
+
+            error_log(
+                'Llama Scout report moderation error: ' .
+                $exception->getMessage()
             );
 
-        $reason =
-            trim(
-                (string) (
-                    $_POST[
-                        'status_reason'
-                    ]
-                    ?? ''
-                )
-            );
+
+            $error =
+                'The report could not be updated.';
+        }
+    }
 
 
-        $allowedStatuses = [
-            'draft',
-            'active',
-            'featured',
-            'unlisted',
-            'removed',
-            'archived'
-        ];
+/* =========================================================
+   PLACE STATUS
+   ========================================================= */
 
+} else {
 
-        if (
-            !in_array(
-                $newStatus,
-                $allowedStatuses,
-                true
+    $newStatus =
+        trim(
+            (string) (
+                $_POST['status']
+                ?? ''
             )
-        ) {
+        );
 
-            $error =
-                'That place status is not valid.';
 
-        } elseif (
-            $newStatus ===
-            $place['status']
-        ) {
+    $reason =
+        trim(
+            (string) (
+                $_POST[
+                    'status_reason'
+                ]
+                ?? ''
+            )
+        );
 
-            $error =
-                'The place is already ' .
+
+    $allowedStatuses = [
+        'draft',
+        'active',
+        'featured',
+        'unlisted',
+        'removed',
+        'archived'
+    ];
+
+
+    if (
+        !in_array(
+            $newStatus,
+            $allowedStatuses,
+            true
+        )
+    ) {
+
+        $error =
+            'That place status is not valid.';
+
+    } elseif (
+        $newStatus ===
+        $place['status']
+    ) {
+
+        $error =
+            'The place is already ' .
+            status_label(
+                $newStatus
+            ) .
+            '.';
+
+    } elseif (
+        in_array(
+            $newStatus,
+            [
+                'unlisted',
+                'removed',
+                'archived'
+            ],
+            true
+        ) &&
+        $reason === ''
+    ) {
+
+        $error =
+            'Add a reason before unlisting, removing, or archiving a place.';
+
+    } else {
+
+        try {
+
+            $db->beginTransaction();
+
+
+            $oldStatus =
+                $place['status'];
+
+
+            $update =
+                $db->prepare(
+                    '
+                    UPDATE places
+                    SET
+                        status = ?,
+                        status_reason = ?,
+                        status_changed_at =
+                            CURRENT_TIMESTAMP,
+                        status_changed_by = ?
+                    WHERE id = ?
+                    '
+                );
+
+
+            $update->execute([
+
+                $newStatus,
+
+                $reason !== ''
+                    ? $reason
+                    : null,
+
+                $user['id'],
+
+                $placeId
+            ]);
+
+
+            $history =
+                $db->prepare(
+                    '
+                    INSERT INTO
+                        place_status_history
+                    (
+                        place_id,
+                        old_status,
+                        new_status,
+                        reason,
+                        changed_by
+                    )
+                    VALUES (
+                        ?, ?, ?, ?, ?
+                    )
+                    '
+                );
+
+
+            $history->execute([
+
+                $placeId,
+
+                $oldStatus,
+
+                $newStatus,
+
+                $reason !== ''
+                    ? $reason
+                    : null,
+
+                $user['id']
+            ]);
+
+
+            $db->commit();
+
+
+            $message =
+                'Place changed from ' .
+                status_label(
+                    $oldStatus
+                ) .
+                ' to ' .
                 status_label(
                     $newStatus
                 ) .
                 '.';
 
-        } elseif (
-            in_array(
-                $newStatus,
-                [
-                    'unlisted',
-                    'removed',
-                    'archived'
-                ],
-                true
-            ) &&
-            $reason === ''
-        ) {
 
-            $error =
-                'Add a reason before unlisting, removing, or archiving a place.';
-
-        } else {
-
-            try {
-
-                $db->beginTransaction();
-
-
-                $oldStatus =
-                    $place['status'];
-
-
-                $update =
-                    $db->prepare(
-                        '
-                        UPDATE places
-                        SET
-                            status = ?,
-                            status_reason = ?,
-                            status_changed_at =
-                                CURRENT_TIMESTAMP,
-                            status_changed_by = ?
-                        WHERE id = ?
-                        '
-                    );
-
-
-                $update->execute([
-                    $newStatus,
-                    $reason !== ''
-                        ? $reason
-                        : null,
-                    $user['id'],
-                    $placeId
-                ]);
-
-
-                $history =
-                    $db->prepare(
-                        '
-                        INSERT INTO
-                            place_status_history
-                        (
-                            place_id,
-                            old_status,
-                            new_status,
-                            reason,
-                            changed_by
-                        )
-                        VALUES (
-                            ?, ?, ?, ?, ?
-                        )
-                        '
-                    );
-
-
-                $history->execute([
-                    $placeId,
-                    $oldStatus,
-                    $newStatus,
-                    $reason !== ''
-                        ? $reason
-                        : null,
-                    $user['id']
-                ]);
-
-
-                $db->commit();
-
-
-                $message =
-                    'Place changed from ' .
-                    status_label(
-                        $oldStatus
-                    ) .
-                    ' to ' .
-                    status_label(
-                        $newStatus
-                    ) .
-                    '.';
-
-
-                $place =
-                    fetch_one(
-                        $db,
-                        '
-                        SELECT *
-                        FROM places
-                        WHERE id = ?
-                        LIMIT 1
-                        ',
-                        [$placeId]
-                    );
-
-
-            } catch (Throwable $exception) {
-
-                if (
-                    $db->inTransaction()
-                ) {
-                    $db->rollBack();
-                }
-
-
-                error_log(
-                    'Llama Scout place status error: ' .
-                    $exception->getMessage()
+            $place =
+                fetch_one(
+                    $db,
+                    '
+                    SELECT *
+                    FROM places
+                    WHERE id = ?
+                    LIMIT 1
+                    ',
+                    [$placeId]
                 );
 
 
-                $error =
-                    'The place status could not be updated.';
+        } catch (
+            Throwable $exception
+        ) {
+
+            if (
+                $db->inTransaction()
+            ) {
+                $db->rollBack();
             }
+
+
+            error_log(
+                'Llama Scout place status error: ' .
+                $exception->getMessage()
+            );
+
+
+            $error =
+                'The place status could not be updated.';
         }
     }
 }
 
-
+   
 /* =========================================================
    RELATED PLACE DATA
    ========================================================= */
