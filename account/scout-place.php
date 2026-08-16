@@ -3618,23 +3618,17 @@ if (
           }
       
       
-          showEditorMessage(
-            result.message,
-            "success"
-          );
-      
-      
-          document
-            .getElementById(
-              "place-editor-form"
-            )
-            ?.reset();
-      
-      
-          window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-          });
+         showEditorMessage(
+           result.message,
+           "success"
+         );
+         
+         setTimeout(() => {
+         
+           window.location.href =
+             "submissions.php?submitted=1";
+         
+         }, 700);
       
       
         } catch (error) {
