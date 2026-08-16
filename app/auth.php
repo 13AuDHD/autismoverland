@@ -91,26 +91,28 @@ function is_logged_in(): bool
    ========================================================= */
 
 function attempt_login(
-    string $email,
+    string $login,
     string $password
 ): bool {
 
-    $email =
+    $login =
         strtolower(
-            trim($email)
+            trim($login)
         );
 
     $stmt = db()->prepare(
         '
         SELECT *
         FROM users
-        WHERE email = ?
+        WHERE LOWER(email) = ?
+           OR LOWER(username) = ?
         LIMIT 1
         '
     );
 
     $stmt->execute([
-        $email
+        $login,
+        $login
     ]);
 
     $user =
@@ -148,7 +150,6 @@ function attempt_login(
 
     return true;
 }
-
 
 /* =========================================================
    LOGOUT
