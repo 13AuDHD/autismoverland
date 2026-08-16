@@ -406,6 +406,15 @@ if (
           class="place-editor-form"
         >
 
+           <input
+              type="hidden"
+              id="scout-place-csrf"
+              value="<?= htmlspecialchars(
+                  $csrfToken,
+                  ENT_QUOTES,
+                  'UTF-8'
+              ) ?>"
+            >
 
           <!-- ==================================================
                BASIC INFO
@@ -3436,47 +3445,34 @@ if (
                ACTIONS
                ================================================== -->
 
-          <div class="place-editor-actions">
-
-            <button
-              class="primary-btn"
-              type="button"
-              id="generate-place"
-            >
-
-              <i class="fa-solid fa-code"></i>
-
-              Generate JSON
-
-            </button>
-
-
-            <button
-              class="small-btn"
-              type="button"
-              id="copy-place"
-            >
-
-              <i class="fa-solid fa-copy"></i>
-
-              Copy JSON
-
-            </button>
-
-
-            <button
-              class="small-btn"
-              type="reset"
-              id="reset-place"
-            >
-
-              <i class="fa-solid fa-rotate-left"></i>
-
-              Reset Form
-
-            </button>
-
-          </div>
+         <div class="place-editor-actions">
+         
+           <button
+             class="primary-btn"
+             type="button"
+             id="submit-community-place"
+           >
+         
+             <i class="fa-solid fa-paper-plane"></i>
+         
+             Submit for Review
+         
+           </button>
+         
+         
+           <button
+             class="small-btn"
+             type="reset"
+             id="reset-place"
+           >
+         
+             <i class="fa-solid fa-rotate-left"></i>
+         
+             Reset Form
+         
+           </button>
+         
+         </div>
 
         </form>
 
@@ -3486,32 +3482,16 @@ if (
              JSON OUTPUT
              ================================================== -->
 
-        <aside class="place-editor-output">
+<div
+  id="place-editor-message"
+  class="place-editor-message"
+  aria-live="polite"
+></div>
 
-          <div class="place-editor-output-card">
-
-            <h2>
-              Generated Place
-            </h2>
-
-            <p>
-              This is the structured place record created from
-              the information entered above.
-            </p>
-
-            <pre><code id="place-json-output">Fill out the form, then choose Generate JSON.</code></pre>
-
-          </div>
-
-
-          <div
-            id="place-editor-message"
-            class="place-editor-message"
-            aria-live="polite"
-          ></div>
-
-        </aside>
-
+<pre
+  hidden
+  aria-hidden="true"
+><code id="place-json-output">Fill out the form, then choose Generate JSON.</code></pre>
       </div>
 
     </section>
@@ -3523,6 +3503,162 @@ if (
     src="https://llamascout.com/js/add-place.js"
   ></script>
 
+   <script>
+      
+      document
+        .getElementById(
+          "submit-community-place"
+        )
+        ?.addEventListener(
+          "click",
+          submitCommunityPlace
+        );
+      
+      
+      async function submitCommunityPlace() {
+      
+        const button =
+          document.getElementById(
+            "submit-community-place"
+          );
+      
+        const output =
+          document.getElementById(
+            "place-json-output"
+          );
+      
+        const csrf =
+          document.getElementById(
+            "scout-place-csrf"
+          )?.value;
+      
+      
+        if (!button || !output || !csrf) {
+          return;
+        }
+      
+      
+        /*
+         * Use the existing Llama Scout generator
+         * to build and validate the complete
+         * structured place object.
+         */
+      
+        generatePlaceJSON();
+      
+      
+        let place;
+      
+      
+        try {
+      
+          place =
+            JSON.parse(
+              output.textContent
+            );
+      
+        } catch (error) {
+      
+          /*
+           * generatePlaceJSON already displays
+           * the appropriate validation message.
+           */
+      
+          return;
+        }
+      
+      
+        const originalText =
+          button.innerHTML;
+      
+      
+        button.disabled = true;
+      
+        button.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+      
+      
+        try {
+      
+          const response =
+            await fetch(
+              "scout-place.php",
+              {
+                method: "POST",
+      
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+      
+                credentials: "same-origin",
+      
+                body: JSON.stringify({
+                  csrf_token: csrf,
+                  place: place
+                })
+              }
+            );
+      
+      
+          const result =
+            await response.json();
+      
+      
+          if (
+            !response.ok ||
+            !result.success
+          ) {
+      
+            throw new Error(
+              result.message ||
+              "The submission could not be saved."
+            );
+      
+          }
+      
+      
+          showEditorMessage(
+            result.message,
+            "success"
+          );
+      
+      
+          document
+            .getElementById(
+              "place-editor-form"
+            )
+            ?.reset();
+      
+      
+          window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+          });
+      
+      
+        } catch (error) {
+      
+          showEditorMessage(
+            error.message ||
+            "Something went wrong while submitting the place.",
+            "error"
+          );
+      
+      
+        } finally {
+      
+          button.disabled = false;
+      
+          button.innerHTML =
+            originalText;
+      
+        }
+      
+      }
+      
+      </script>
+   
 </body>
 
 </html>
