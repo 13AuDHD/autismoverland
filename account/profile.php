@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/mail.php';
+require_once dirname(__DIR__) . '/app/username-policy.php';
 
 require_login();
 
@@ -172,15 +173,18 @@ if (
         );
 
 
-    if (
-        !preg_match(
-            '/^[a-z0-9_]{4,16}$/',
+    $usernamePolicy =
+        username_policy_check(
             $username
-        )
+        );
+
+
+    if (
+        !$usernamePolicy['allowed']
     ) {
 
         $errors[] =
-            'Username must be 4-16 characters and contain only letters, numbers, or underscores.';
+            $usernamePolicy['reason'];
     }
 
 
