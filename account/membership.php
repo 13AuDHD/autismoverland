@@ -228,6 +228,31 @@ body {
 .status-item strong {
   font-size: 1rem;
 }
+.portal-card {
+  margin-top: 26px;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.09);
+  border-radius: 12px;
+}
+.portal-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+.portal-card p {
+  margin: 0 0 16px;
+  color: #667069;
+  line-height: 1.6;
+}
+.portal-button {
+  display: inline-block;
+  padding: 12px 16px;
+  background: #172822;
+  color: #fff;
+  border-radius: 7px;
+  text-decoration: none;
+  font-weight: 800;
+}
 .plans-heading {
   margin: 34px 0 16px;
 }
@@ -511,10 +536,26 @@ body {
 
   <?php else: ?>
 
-    <p class="plan-note">
-      Membership management will be connected to Stripe's billing
-      portal in the next step.
-    </p>
+    <section class="portal-card">
+
+      <h2>
+        Manage Membership
+      </h2>
+
+      <p>
+        Update your payment method, review invoices,
+        switch between monthly and annual billing,
+        or cancel your membership through Stripe.
+      </p>
+
+      <a
+        href="billing-portal.php"
+        class="portal-button"
+      >
+        Manage Membership
+      </a>
+
+    </section>
 
   <?php endif; ?>
 
