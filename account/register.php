@@ -4,44 +4,75 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/mail.php';
+require_once dirname(__DIR__) . '/app/username-policy.php';
 
 start_llama_session();
 
 if (is_logged_in()) {
-    header('Location: https://account.llamascout.com/');
+    header(
+        'Location: https://account.llamascout.com/'
+    );
     exit;
 }
 
 $errors = [];
+
 $values = [
     'username' => '',
     'display_name' => '',
     'email' => '',
 ];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+if (
+    $_SERVER['REQUEST_METHOD']
+    === 'POST'
+) {
 
     $username =
-    strtolower(
-        trim($_POST['username'] ?? ''));
-    
+        strtolower(
+            trim(
+                (string) (
+                    $_POST['username']
+                    ?? ''
+                )
+            )
+        );
+
     $displayName =
-        trim($_POST['display_name'] ?? '');
+        trim(
+            (string) (
+                $_POST['display_name']
+                ?? ''
+            )
+        );
 
     $email =
         strtolower(
-            trim($_POST['email'] ?? '')
+            trim(
+                (string) (
+                    $_POST['email']
+                    ?? ''
+                )
+            )
         );
 
     $password =
-        $_POST['password'] ?? '';
+        (string) (
+            $_POST['password']
+            ?? ''
+        );
 
     $passwordConfirm =
-        $_POST['password_confirm'] ?? '';
+        (string) (
+            $_POST['password_confirm']
+            ?? ''
+        );
+
 
     $values['username'] =
         $username;
-    
+
     $values['display_name'] =
         $displayName;
 
@@ -53,22 +84,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
        VALIDATION
        ===================================================== */
 
+    $usernamePolicy =
+        username_policy_check(
+            $username
+        );
+
+
     if (
-    !preg_match(
-        '/^[a-z0-9_]{4,16}$/',
-        $username
-    )
-) {
-    $errors[] =
-        'Username must be 4–16 characters and contain only letters, numbers, or underscores.';
-}
-    
-    if (
-        $displayName === '' ||
-        mb_strlen($displayName) < 2
+        !$usernamePolicy['allowed']
     ) {
+
+        $errors[] =
+            $usernamePolicy['reason'];
+    }
+
+
+    if (
+        $displayName === ''
+        ||
+        mb_strlen(
+            $displayName
+        ) < 2
+    ) {
+
         $errors[] =
             'Enter a display name.';
+    }
+
+
+    if (
+        mb_strlen(
+            $displayName
+        ) > 100
+    ) {
+
+        $errors[] =
+            'Display name must be 100 characters or fewer.';
     }
 
 
@@ -78,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             FILTER_VALIDATE_EMAIL
         )
     ) {
+
         $errors[] =
             'Enter a valid email address.';
     }
@@ -86,6 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (
         strlen($password) < 10
     ) {
+
         $errors[] =
             'Your password must be at least 10 characters long.';
     }
@@ -95,54 +148,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password !==
         $passwordConfirm
     ) {
+
         $errors[] =
             'The passwords do not match.';
     }
 
 
-/* =====================================================
-   CHECK EXISTING ACCOUNT
-   ===================================================== */
+    /* =====================================================
+       CHECK EXISTING ACCOUNT
+       ===================================================== */
 
-if (!$errors) {
+    if (!$errors) {
 
-    $stmt = db()->prepare(
-        '
-        SELECT username, email
-        FROM users
-        WHERE LOWER(username) = ?
-           OR LOWER(email) = ?
-        LIMIT 1
-        '
-    );
+        $stmt =
+            db()->prepare(
+                '
+                SELECT
+                    username,
+                    email
 
-    $stmt->execute([
-        $username,
-        $email
-    ]);
+                FROM users
 
-    $existing =
-        $stmt->fetch();
+                WHERE LOWER(username) = ?
+                   OR LOWER(email) = ?
 
-    if ($existing) {
+                LIMIT 1
+                '
+            );
 
-        if (
-            strtolower($existing['username'] ?? '') ===
-            $username
-        ) {
-            $errors[] =
-                'That username is already taken.';
-        }
 
-        if (
-            strtolower($existing['email']) ===
+        $stmt->execute([
+            $username,
             $email
-        ) {
-            $errors[] =
-                'An account already exists with that email address.';
+        ]);
+
+
+        $existing =
+            $stmt->fetch();
+
+
+        if ($existing) {
+
+            if (
+                strtolower(
+                    $existing['username']
+                    ?? ''
+                )
+                === $username
+            ) {
+
+                $errors[] =
+                    'That username is already taken.';
+            }
+
+
+            if (
+                strtolower(
+                    (string)
+                    $existing['email']
+                )
+                === $email
+            ) {
+
+                $errors[] =
+                    'An account already exists with that email address.';
+            }
         }
     }
-}
 
 
     /* =====================================================
@@ -163,92 +235,131 @@ if (!$errors) {
                 );
 
 
-            $stmt = db()->prepare(
-                '
-                INSERT INTO users (
-                    email,
-                    username,
-                    password_hash,
-                    display_name,
-                    status
-                )
-                VALUES (?, ?, ?, ?, ?)
-                '
-            );
+            if (
+                $passwordHash === false
+            ) {
 
-$stmt->execute([
-    $email,
-    $username,
-    $passwordHash,
-    $displayName,
-    'pending'
-]);
+                throw new RuntimeException(
+                    'Password hashing failed.'
+                );
+            }
+
+
+            $stmt =
+                db()->prepare(
+                    '
+                    INSERT INTO users
+                    (
+                        email,
+                        username,
+                        password_hash,
+                        display_name,
+                        status
+                    )
+                    VALUES
+                    (
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?
+                    )
+                    '
+                );
+
+
+            $stmt->execute([
+                $email,
+                $username,
+                $passwordHash,
+                $displayName,
+                'pending'
+            ]);
 
 
             $userId =
-                (int) db()->lastInsertId();
+                (int)
+                db()->lastInsertId();
 
 
-            $roleStmt = db()->prepare(
-                '
-                SELECT id
-                FROM roles
-                WHERE slug = ?
-                LIMIT 1
-                '
-            );
+            $roleStmt =
+                db()->prepare(
+                    '
+                    SELECT id
+
+                    FROM roles
+
+                    WHERE slug = ?
+
+                    LIMIT 1
+                    '
+                );
+
 
             $roleStmt->execute([
                 'member'
             ]);
+
 
             $memberRole =
                 $roleStmt->fetch();
 
 
             if (!$memberRole) {
+
                 throw new RuntimeException(
                     'Member role is missing.'
                 );
             }
 
 
-            $assignStmt = db()->prepare(
-                '
-                INSERT INTO user_roles (
-                    user_id,
-                    role_id
-                )
-                VALUES (?, ?)
-                '
-            );
+            $assignStmt =
+                db()->prepare(
+                    '
+                    INSERT INTO user_roles
+                    (
+                        user_id,
+                        role_id
+                    )
+                    VALUES
+                    (
+                        ?,
+                        ?
+                    )
+                    '
+                );
+
 
             $assignStmt->execute([
                 $userId,
                 $memberRole['id']
             ]);
 
+
             $verificationToken =
                 bin2hex(
                     random_bytes(32)
                 );
-            
+
+
             $verificationHash =
                 hash(
                     'sha256',
                     $verificationToken
                 );
-            
-            
+
+
             $verificationStmt =
                 db()->prepare(
                     '
-                    INSERT INTO email_verifications (
+                    INSERT INTO email_verifications
+                    (
                         user_id,
                         token_hash,
                         expires_at
                     )
-                    VALUES (
+                    VALUES
+                    (
                         ?,
                         ?,
                         DATE_ADD(
@@ -258,23 +369,25 @@ $stmt->execute([
                     )
                     '
                 );
-            
-            
+
+
             $verificationStmt->execute([
                 $userId,
                 $verificationHash
             ]);
 
+
             db()->commit();
+
 
             send_verification_email(
                 [
                     'email' =>
                         $email,
-            
+
                     'username' =>
                         $username,
-            
+
                     'display_name' =>
                         $displayName,
                 ],
@@ -284,7 +397,10 @@ $stmt->execute([
 
             start_llama_session();
 
-            session_regenerate_id(true);
+            session_regenerate_id(
+                true
+            );
+
 
             $_SESSION['user_id'] =
                 $userId;
@@ -300,28 +416,35 @@ $stmt->execute([
             exit;
 
 
-        } catch (Throwable $error) {
+        } catch (
+            Throwable $exception
+        ) {
 
-            if (db()->inTransaction()) {
+            if (
+                db()->inTransaction()
+            ) {
+
                 db()->rollBack();
             }
 
+
             error_log(
                 'Llama Scout registration error: ' .
-                $error->getMessage()
+                $exception->getMessage()
             );
+
 
             $errors[] =
                 'Something went wrong while creating your account. Please try again.';
-
         }
-
     }
-
 }
 
-function e(string $value): string
-{
+
+function e(
+    string $value
+): string {
+
     return htmlspecialchars(
         $value,
         ENT_QUOTES,
@@ -331,276 +454,401 @@ function e(string $value): string
 
 ?>
 <!doctype html>
+
 <html lang="en">
+
 <head>
-  <meta charset="utf-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
 
-  <title>Create Account | Llama Scout</title>
+<meta charset="utf-8">
 
-  <meta
-    name="description"
-    content="Create your Llama Scout account."
-  >
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1"
+>
 
-  <link
-    rel="stylesheet"
-    href="https://llamascout.com/css/style.css"
-  >
+<title>
+  Create Account | Llama Scout
+</title>
 
-  <style>
-    body {
-      min-height: 100vh;
-      margin: 0;
-      background: #f4efe6;
-    }
+<meta
+  name="description"
+  content="Create your Llama Scout account."
+>
 
-    .account-auth {
-      width: min(520px, calc(100% - 36px));
-      margin: 0 auto;
-      padding: 48px 0 70px;
-    }
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/style.css"
+>
 
-    .account-auth-logo {
-      display: block;
-      width: min(340px, 90%);
-      margin: 0 auto 28px;
-    }
+<style>
 
-    .account-auth-card {
-      padding: 28px;
-      background: #fff;
-      border: 1px solid rgba(0,0,0,.1);
-      border-radius: 14px;
-      box-shadow: 0 12px 30px rgba(0,0,0,.08);
-    }
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: #f4efe6;
+}
 
-    .account-auth h1 {
-      margin: 0 0 10px;
-      font-size: 2rem;
-    }
+.account-auth {
+  width:
+    min(
+      520px,
+      calc(
+        100% - 36px
+      )
+    );
 
-    .account-auth-intro {
-      margin: 0 0 26px;
-      color: #666;
-      line-height: 1.6;
-    }
+  margin: 0 auto;
 
-    .account-field {
-      display: grid;
-      gap: 7px;
-      margin-bottom: 18px;
-    }
+  padding:
+    48px 0
+    70px;
+}
 
-    .account-field label {
-      font-weight: 700;
-    }
+.account-auth-logo {
+  display: block;
 
-    .account-field input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 13px 14px;
-      border: 1px solid rgba(0,0,0,.18);
-      border-radius: 7px;
-      font: inherit;
-    }
+  width:
+    min(
+      340px,
+      90%
+    );
 
-    .account-errors {
-      margin: 0 0 22px;
-      padding: 14px 16px 14px 34px;
-      border: 1px solid #b64b42;
-      border-radius: 8px;
-      background: #fff3f1;
-    }
+  margin:
+    0 auto
+    28px;
+}
 
-    .account-errors li + li {
-      margin-top: 6px;
-    }
+.account-auth-card {
+  padding: 28px;
+  background: #fff;
 
-    .account-submit {
-      width: 100%;
-      margin-top: 4px;
-      padding: 14px 18px;
-      border: 0;
-      border-radius: 7px;
-      background: #172822;
-      color: #fff;
-      font: inherit;
-      font-weight: 800;
-      cursor: pointer;
-    }
+  border:
+    1px solid
+    rgba(
+      0,
+      0,
+      0,
+      .1
+    );
 
-    .account-auth-footer {
-      margin: 22px 0 0;
-      text-align: center;
-    }
+  border-radius: 14px;
 
-    .account-auth-footer a {
-      color: inherit;
-      font-weight: 700;
-    }
-  </style>
+  box-shadow:
+    0 12px 30px
+    rgba(
+      0,
+      0,
+      0,
+      .08
+    );
+}
+
+.account-auth h1 {
+  margin:
+    0 0
+    10px;
+
+  font-size: 2rem;
+}
+
+.account-auth-intro {
+  margin:
+    0 0
+    26px;
+
+  color: #666;
+  line-height: 1.6;
+}
+
+.account-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+
+.account-field label {
+  font-weight: 700;
+}
+
+.account-field input {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding:
+    13px 14px;
+
+  border:
+    1px solid
+    rgba(
+      0,
+      0,
+      0,
+      .18
+    );
+
+  border-radius: 7px;
+
+  font: inherit;
+}
+
+.account-field-note {
+  margin:
+    -8px 0
+    18px;
+
+  color: #747b76;
+  font-size: .84rem;
+  line-height: 1.5;
+}
+
+.account-errors {
+  margin:
+    0 0
+    22px;
+
+  padding:
+    14px 16px
+    14px 34px;
+
+  border:
+    1px solid
+    #b64b42;
+
+  border-radius: 8px;
+
+  background: #fff3f1;
+}
+
+.account-errors li + li {
+  margin-top: 6px;
+}
+
+.account-submit {
+  width: 100%;
+
+  margin-top: 4px;
+
+  padding:
+    14px 18px;
+
+  border: 0;
+  border-radius: 7px;
+
+  background: #172822;
+  color: #fff;
+
+  font: inherit;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.account-auth-footer {
+  margin:
+    22px 0
+    0;
+
+  text-align: center;
+}
+
+.account-auth-footer a {
+  color: inherit;
+  font-weight: 700;
+}
+
+</style>
+
 </head>
 
 <body>
 
-  <main class="account-auth">
+<main class="account-auth">
 
-    <a href="https://llamascout.com">
-      <img
-        src="https://llamascout.com/images/logo.png"
-        alt="Llama Scout"
-        class="account-auth-logo"
-      >
-    </a>
+  <a href="https://llamascout.com">
 
-    <section class="account-auth-card">
+    <img
+      src="https://llamascout.com/images/logo.png"
+      alt="Llama Scout"
+      class="account-auth-logo"
+    >
 
-      <h1>Create your account</h1>
-
-      <p class="account-auth-intro">
-        Create a Llama Scout account to start building your profile,
-        save places, and manage your membership.
-      </p>
+  </a>
 
 
-      <?php if ($errors): ?>
+  <section class="account-auth-card">
 
-        <ul class="account-errors">
+    <h1>
+      Create your account
+    </h1>
 
-          <?php foreach ($errors as $error): ?>
+    <p class="account-auth-intro">
 
-            <li>
-              <?= e($error) ?>
-            </li>
+      Create a Llama Scout account to
+      start building your profile, save
+      places, and manage your membership.
 
-          <?php endforeach; ?>
-
-        </ul>
-
-      <?php endif; ?>
+    </p>
 
 
-      <form method="post" novalidate>
+    <?php if ($errors): ?>
 
-          <div class="account-field">
+      <ul class="account-errors">
 
-          <label for="username">
-            Username
-          </label>
-        
-          <input
-            id="username"
-            name="username"
-            type="text"
-            minlength="4"
-            maxlength="16"
-            autocomplete="username"
-            autocapitalize="none"
-            spellcheck="false"
-            value="<?= e($values['username']) ?>"
-            required
-          >
-        
-        </div>
+        <?php foreach (
+            $errors as $error
+        ): ?>
 
-        <div class="account-field">
+          <li>
+            <?= e($error) ?>
+          </li>
 
-          <label for="display_name">
-            Display name
-          </label>
+        <?php endforeach; ?>
 
-          <input
-            id="display_name"
-            name="display_name"
-            type="text"
-            maxlength="100"
-            autocomplete="name"
-            value="<?= e($values['display_name']) ?>"
-            required
-          >
+      </ul>
 
-        </div>
+    <?php endif; ?>
 
 
-        <div class="account-field">
+    <form
+      method="post"
+      novalidate
+    >
 
-          <label for="email">
-            Email address
-          </label>
+      <div class="account-field">
 
-          <input
-            id="email"
-            name="email"
-            type="email"
-            maxlength="255"
-            autocomplete="email"
-            value="<?= e($values['email']) ?>"
-            required
-          >
+        <label for="username">
+          Username
+        </label>
 
-        </div>
-
-
-        <div class="account-field">
-
-          <label for="password">
-            Password
-          </label>
-
-          <input
-            id="password"
-            name="password"
-            type="password"
-            minlength="10"
-            autocomplete="new-password"
-            required
-          >
-
-        </div>
-
-
-        <div class="account-field">
-
-          <label for="password_confirm">
-            Confirm password
-          </label>
-
-          <input
-            id="password_confirm"
-            name="password_confirm"
-            type="password"
-            minlength="10"
-            autocomplete="new-password"
-            required
-          >
-
-        </div>
-
-
-        <button
-          type="submit"
-          class="account-submit"
+        <input
+          id="username"
+          name="username"
+          type="text"
+          minlength="4"
+          maxlength="16"
+          autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
+          value="<?= e(
+              $values['username']
+          ) ?>"
+          required
         >
-          Create Account
-        </button>
 
-      </form>
+      </div>
 
+      <p class="account-field-note">
 
-      <p class="account-auth-footer">
-        Already have an account?
-        <a href="login.php">
-          Log in
-        </a>
+        4-16 characters.
+        Letters, numbers, and underscores only.
+        Official-looking and inappropriate
+        usernames are not allowed.
+
       </p>
 
-    </section>
 
-  </main>
+      <div class="account-field">
+
+        <label for="display_name">
+          Display name
+        </label>
+
+        <input
+          id="display_name"
+          name="display_name"
+          type="text"
+          maxlength="100"
+          autocomplete="name"
+          value="<?= e(
+              $values['display_name']
+          ) ?>"
+          required
+        >
+
+      </div>
+
+
+      <div class="account-field">
+
+        <label for="email">
+          Email address
+        </label>
+
+        <input
+          id="email"
+          name="email"
+          type="email"
+          maxlength="255"
+          autocomplete="email"
+          value="<?= e(
+              $values['email']
+          ) ?>"
+          required
+        >
+
+      </div>
+
+
+      <div class="account-field">
+
+        <label for="password">
+          Password
+        </label>
+
+        <input
+          id="password"
+          name="password"
+          type="password"
+          minlength="10"
+          autocomplete="new-password"
+          required
+        >
+
+      </div>
+
+
+      <div class="account-field">
+
+        <label for="password_confirm">
+          Confirm password
+        </label>
+
+        <input
+          id="password_confirm"
+          name="password_confirm"
+          type="password"
+          minlength="10"
+          autocomplete="new-password"
+          required
+        >
+
+      </div>
+
+
+      <button
+        type="submit"
+        class="account-submit"
+      >
+        Create Account
+      </button>
+
+    </form>
+
+
+    <p class="account-auth-footer">
+
+      Already have an account?
+
+      <a href="login.php">
+        Log in
+      </a>
+
+    </p>
+
+  </section>
+
+</main>
 
 </body>
+
 </html>
