@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/auth.php';
+require_once dirname(__DIR__) . '/app/timezone.php';
 
 require_role('admin');
 
@@ -32,22 +33,14 @@ function format_date(
     bool $includeTime = false
 ): string {
 
-    if (!$date) {
-        return 'Never';
-    }
+    global $adminUser;
 
-    $timestamp =
-        strtotime($date);
-
-    if ($timestamp === false) {
-        return (string) $date;
-    }
-
-    return date(
+    return llama_format_user_datetime(
+        $date,
+        $adminUser,
         $includeTime
             ? 'M j, Y g:i A'
-            : 'M j, Y',
-        $timestamp
+            : 'M j, Y'
     );
 }
 
@@ -185,6 +178,7 @@ $managedUser =
             email,
             username,
             display_name,
+            timezone,
             status,
             email_verified_at,
             created_at,
@@ -1597,6 +1591,28 @@ body {
           <div class="data-value">
             <?= e(
                 $managedUser['email']
+            ) ?>
+          </div>
+
+        </div>
+
+
+        <div class="data-row">
+
+          <div class="data-label">
+            Time Zone
+          </div>
+
+          <div class="data-value">
+            <?= e(
+                llama_timezones()[
+                    llama_user_timezone(
+                        $managedUser
+                    )
+                ]
+                ?? llama_user_timezone(
+                    $managedUser
+                )
             ) ?>
           </div>
 
