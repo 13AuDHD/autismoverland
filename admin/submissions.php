@@ -1764,15 +1764,16 @@ if ($selectedId > 0) {
             <div class="review-actions">
 
 
-              <button
-                type="submit"
-                name="status"
-                value="approved"
-                class="
-                  review-button
-                  button-approve
-                "
-              >
+<button
+  type="submit"
+  name="status"
+  value="approved"
+  formaction="approve-submission.php"
+  class="
+    review-button
+    button-approve
+  "
+>
                 Approve
               </button>
 
