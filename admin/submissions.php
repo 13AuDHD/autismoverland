@@ -1449,6 +1449,41 @@ if ($selectedId > 0) {
 
             </div>
 
+             <?php if (
+    !empty(
+        $selectedSubmission[
+            'place_id'
+        ]
+    )
+): ?>
+
+  <div class="summary-item">
+
+    <span>
+      Created Place
+    </span>
+
+    <strong>
+
+      <a
+        href="place.php?id=<?= (int)
+            $selectedSubmission[
+                'place_id'
+            ]
+        ?>"
+      >
+        Place #<?= (int)
+            $selectedSubmission[
+                'place_id'
+            ]
+        ?>
+      </a>
+
+    </strong>
+
+  </div>
+
+<?php endif; ?>
 
           </div>
 
