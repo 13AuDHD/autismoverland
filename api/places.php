@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/database.php';
+require_once dirname(__DIR__) . '/app/auth.php';
+require_once dirname(__DIR__) . '/app/place-access.php';
 
 
 header(
@@ -1932,6 +1933,29 @@ try {
         ];
     }
 
+        $apiUser =
+        current_user();
+
+    $hasProtectedAccess =
+        user_can_view_protected_place_data(
+            $apiUser
+        );
+
+
+    foreach (
+        $output as
+        $index => $place
+    ) {
+
+        $output[$index] =
+            $hasProtectedAccess
+                ? member_place_view(
+                    $place
+                )
+                : public_place_preview(
+                    $place
+                );
+    }
 
     /*
      * IMPORTANT:
