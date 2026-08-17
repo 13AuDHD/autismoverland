@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/auth.php';
+require_once dirname(__DIR__) . '/app/timezone.php';
 
 require_role('admin');
 
@@ -30,22 +31,14 @@ function format_date(
     bool $includeTime = false
 ): string {
 
-    if (!$date) {
-        return 'Never';
-    }
+    global $user;
 
-    $timestamp =
-        strtotime($date);
-
-    if ($timestamp === false) {
-        return (string) $date;
-    }
-
-    return date(
+    return llama_format_user_datetime(
+        $date,
+        $user,
         $includeTime
             ? 'M j, Y g:i A'
-            : 'M j, Y',
-        $timestamp
+            : 'M j, Y'
     );
 }
 
