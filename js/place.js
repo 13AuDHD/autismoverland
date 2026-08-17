@@ -185,10 +185,12 @@ function renderPlace(
       <div class="container place-layout">
 
 
-        <div class="place-main">
-
+       <div class="place-main">
+          
           ${renderAbout(place)}
-
+          
+          ${renderMembershipGate(place)}
+          
           ${renderWarnings(place)}
 
           ${renderSensory(place)}
@@ -251,6 +253,61 @@ function renderPlace(
 
   initSavePlaceButton();
 
+}
+
+/* =========================================================
+   MEMBERSHIP GATE
+   ========================================================= */
+
+function renderMembershipGate(place) {
+
+  if (place.memberAccess === true) {
+    return "";
+  }
+
+  return `
+    <section class="place-section place-membership-gate">
+
+      <div class="place-section-inner">
+
+        <div class="place-membership-lock">
+          <i class="fa-solid fa-lock"></i>
+        </div>
+
+        <p class="eyebrow">
+          Llama Scout Membership
+        </p>
+
+        <h2>
+          There's more to scout here.
+        </h2>
+
+        <p>
+          Members get the exact location plus the detailed
+          information that helps you know a place before
+          you go.
+        </p>
+
+        <ul class="place-membership-features">
+          <li>Exact campsite location</li>
+          <li>Complete sensory profile</li>
+          <li>Road and vehicle access details</li>
+          <li>Cell carrier and Starlink connectivity</li>
+          <li>Important warnings and regulations</li>
+          <li>Nearby fuel, water, groceries, and services</li>
+        </ul>
+
+        <a
+          class="place-membership-button"
+          href="https://account.llamascout.com/membership.php"
+        >
+          Unlock Full Place Details
+        </a>
+
+      </div>
+
+    </section>
+  `;
 }
 
 
