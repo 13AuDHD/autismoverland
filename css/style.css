@@ -3043,6 +3043,63 @@ img {
 }
 
 
+/* =========================================================
+   PLACE MEMBERSHIP GATE
+   ========================================================= */
+
+.place-membership-gate {
+  border: 1px solid rgba(67, 109, 80, 0.25);
+  background: #f7f4ed;
+}
+
+.place-membership-gate .place-section-inner {
+  padding: 28px;
+}
+
+.place-membership-lock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: #172822;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.place-membership-gate h2 {
+  margin-top: 4px;
+}
+
+.place-membership-gate p {
+  max-width: 650px;
+  line-height: 1.65;
+}
+
+.place-membership-features {
+  margin: 20px 0 24px;
+  padding-left: 20px;
+  line-height: 1.8;
+}
+
+.place-membership-button {
+  display: inline-block;
+  padding: 12px 18px;
+  border-radius: 7px;
+  background: #172822;
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.place-membership-button:hover {
+  opacity: 0.9;
+}
+
+
+
 
 
 
