@@ -52,8 +52,15 @@ function current_user(): ?array
             email,
             username,
             display_name,
+            timezone,
             status,
             email_verified_at,
+            stripe_customer_id,
+            stripe_subscription_id,
+            membership_status,
+            membership_interval,
+            membership_started_at,
+            membership_ends_at,
             created_at
         FROM users
         WHERE id = ?
@@ -139,34 +146,35 @@ function attempt_login(
         return false;
     }
 
-start_llama_session();
+    start_llama_session();
 
-session_regenerate_id(true);
+    session_regenerate_id(true);
 
-$_SESSION['user_id'] =
-    (int) $user['id'];
+    $_SESSION['user_id'] =
+        (int) $user['id'];
 
-$_SESSION['logged_in_at'] =
-    time();
-
-
-$loginStmt = db()->prepare(
-    '
-    UPDATE users
-    SET
-        last_login_at = CURRENT_TIMESTAMP,
-        dormancy_notice_sent_at = NULL
-    WHERE id = ?
-    '
-);
-
-$loginStmt->execute([
-    $user['id']
-]);
+    $_SESSION['logged_in_at'] =
+        time();
 
 
-return true;
+    $loginStmt = db()->prepare(
+        '
+        UPDATE users
+        SET
+            last_login_at = CURRENT_TIMESTAMP,
+            dormancy_notice_sent_at = NULL
+        WHERE id = ?
+        '
+    );
+
+    $loginStmt->execute([
+        $user['id']
+    ]);
+
+
+    return true;
 }
+
 
 /* =========================================================
    LOGOUT
@@ -220,6 +228,10 @@ function require_login(): void
 }
 
 
+/* =========================================================
+   EMAIL VERIFICATION
+   ========================================================= */
+
 function is_email_verified(
     ?array $user = null
 ): bool {
@@ -256,6 +268,115 @@ function require_verified_email(): void
 
     exit;
 }
+
+
+/* =========================================================
+   MEMBERSHIP ACCESS
+   ========================================================= */
+
+function membership_status(
+    ?array $user = null
+): string {
+
+    if ($user === null) {
+        $user = current_user();
+    }
+
+    if (!$user) {
+        return 'none';
+    }
+
+    return strtolower(
+        trim(
+            (string) (
+                $user['membership_status']
+                ?? 'none'
+            )
+        )
+    );
+}
+
+
+function user_has_membership(
+    ?array $user = null
+): bool {
+
+    $status =
+        membership_status(
+            $user
+        );
+
+    /*
+     * past_due keeps access temporarily while Stripe
+     * retries payment. Webhooks will move the account
+     * to canceled if the subscription ultimately ends.
+     */
+
+    return in_array(
+        $status,
+        [
+            'active',
+            'trialing',
+            'past_due',
+            'complimentary',
+        ],
+        true
+    );
+}
+
+
+function user_has_paid_membership(
+    ?array $user = null
+): bool {
+
+    $status =
+        membership_status(
+            $user
+        );
+
+    return in_array(
+        $status,
+        [
+            'active',
+            'trialing',
+            'past_due',
+        ],
+        true
+    );
+}
+
+
+function user_has_complimentary_membership(
+    ?array $user = null
+): bool {
+
+    return membership_status(
+        $user
+    ) === 'complimentary';
+}
+
+
+function require_membership(): void
+{
+    require_login();
+
+    $user = current_user();
+
+    if (
+        user_has_membership(
+            $user
+        )
+    ) {
+        return;
+    }
+
+    header(
+        'Location: https://account.llamascout.com/membership.php'
+    );
+
+    exit;
+}
+
 
 /* =========================================================
    USER ROLES
