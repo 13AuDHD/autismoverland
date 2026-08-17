@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/mail.php';
 require_once dirname(__DIR__) . '/app/username-policy.php';
+require_once dirname(__DIR__) . '/app/timezone.php';
 
 start_llama_session();
 
@@ -21,6 +22,8 @@ $values = [
     'username' => '',
     'display_name' => '',
     'email' => '',
+    'timezone' =>
+        llama_default_timezone(),
 ];
 
 
@@ -57,6 +60,15 @@ if (
             )
         );
 
+    $timezone =
+        trim(
+            (string) (
+                $_POST['timezone']
+                ?? llama_default_timezone()
+            )
+        );
+
+
     $password =
         (string) (
             $_POST['password']
@@ -78,6 +90,9 @@ if (
 
     $values['email'] =
         $email;
+
+    $values['timezone'] =
+        $timezone;
 
 
     /* =====================================================
@@ -132,6 +147,17 @@ if (
 
         $errors[] =
             'Enter a valid email address.';
+    }
+
+
+    if (
+        !llama_timezone_is_valid(
+            $timezone
+        )
+    ) {
+
+        $errors[] =
+            'Choose a valid time zone.';
     }
 
 
@@ -254,10 +280,12 @@ if (
                         username,
                         password_hash,
                         display_name,
+                        timezone,
                         status
                     )
                     VALUES
                     (
+                        ?,
                         ?,
                         ?,
                         ?,
@@ -273,6 +301,7 @@ if (
                 $username,
                 $passwordHash,
                 $displayName,
+                $timezone,
                 'pending'
             ]);
 
@@ -570,7 +599,8 @@ body {
   font-weight: 700;
 }
 
-.account-field input {
+.account-field input,
+.account-field select {
   width: 100%;
   box-sizing: border-box;
 
@@ -787,6 +817,48 @@ body {
         >
 
       </div>
+
+
+      <div class="account-field">
+
+        <label for="timezone">
+          Time zone
+        </label>
+
+        <select
+          id="timezone"
+          name="timezone"
+          required
+        >
+
+          <?php foreach (
+              llama_timezones()
+              as $zone => $label
+          ): ?>
+
+            <option
+              value="<?= e($zone) ?>"
+              <?= $values['timezone'] === $zone
+                  ? 'selected'
+                  : ''
+              ?>
+            >
+              <?= e($label) ?>
+            </option>
+
+          <?php endforeach; ?>
+
+        </select>
+
+      </div>
+
+      <p class="account-field-note">
+
+        Controls how dates and times are
+        shown in your Llama Scout account.
+        Mountain Time is the default.
+
+      </p>
 
 
       <div class="account-field">
