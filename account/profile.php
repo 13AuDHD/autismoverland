@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/mail.php';
 require_once dirname(__DIR__) . '/app/username-policy.php';
+require_once dirname(__DIR__) . '/app/timezone.php';
 
 require_login();
 
@@ -32,6 +33,11 @@ $email =
     (string) (
         $user['email']
         ?? ''
+    );
+
+$timezone =
+    llama_user_timezone(
+        $user
     );
 
 
@@ -172,6 +178,14 @@ if (
             )
         );
 
+    $timezone =
+        trim(
+            (string) (
+                $_POST['timezone']
+                ?? llama_default_timezone()
+            )
+        );
+
 
     $usernamePolicy =
         username_policy_check(
@@ -221,6 +235,17 @@ if (
 
         $errors[] =
             'Enter a valid email address.';
+    }
+
+
+    if (
+        !llama_timezone_is_valid(
+            $timezone
+        )
+    ) {
+
+        $errors[] =
+            'Choose a valid time zone.';
     }
 
 
@@ -312,6 +337,7 @@ if (
                             username = ?,
                             display_name = ?,
                             email = ?,
+                            timezone = ?,
                             email_verified_at = NULL
 
                         WHERE id = ?
@@ -322,6 +348,7 @@ if (
                     $username,
                     $displayName,
                     $email,
+                    $timezone,
                     $user['id']
                 ]);
 
@@ -334,7 +361,8 @@ if (
 
                         SET
                             username = ?,
-                            display_name = ?
+                            display_name = ?,
+                            timezone = ?
 
                         WHERE id = ?
                         '
@@ -343,6 +371,7 @@ if (
                 $stmt->execute([
                     $username,
                     $displayName,
+                    $timezone,
                     $user['id']
                 ]);
             }
@@ -411,6 +440,11 @@ $email =
     (string) (
         $user['email']
         ?? $email
+    );
+
+$timezone =
+    llama_user_timezone(
+        $user
     );
 
 $isVerified =
@@ -544,7 +578,8 @@ body {
   font-weight: 700;
 }
 
-.account-field input {
+.account-field input,
+.account-field select {
   width: 100%;
   box-sizing: border-box;
 
@@ -795,6 +830,47 @@ body {
           Changing your email address
           requires verification of the
           new address.
+
+        </p>
+
+      </div>
+
+
+      <div class="account-field">
+
+        <label for="timezone">
+          Time zone
+        </label>
+
+        <select
+          id="timezone"
+          name="timezone"
+          required
+        >
+
+          <?php foreach (
+              llama_timezones()
+              as $zone => $label
+          ): ?>
+
+            <option
+              value="<?= e($zone) ?>"
+              <?= $timezone === $zone
+                  ? 'selected'
+                  : ''
+              ?>
+            >
+              <?= e($label) ?>
+            </option>
+
+          <?php endforeach; ?>
+
+        </select>
+
+        <p class="account-field-note">
+
+          Dates and times in your account
+          will be shown in this time zone.
 
         </p>
 
