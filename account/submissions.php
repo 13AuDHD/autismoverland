@@ -17,17 +17,28 @@ $stmt =
     db()->prepare(
         '
         SELECT
-            id,
-            place_name,
-            source_type,
-            status,
-            submitted_at,
-            updated_at,
-            reviewed_at,
-            review_notes
-        FROM place_submissions
-        WHERE user_id = ?
-        ORDER BY submitted_at DESC
+            ps.id,
+            ps.place_id,
+            ps.place_name,
+            ps.source_type,
+            ps.status,
+            ps.submitted_at,
+            ps.updated_at,
+            ps.reviewed_at,
+            ps.review_notes,
+
+            p.slug AS place_slug,
+            p.status AS place_status
+
+        FROM place_submissions ps
+
+        LEFT JOIN places p
+          ON p.id = ps.place_id
+
+        WHERE ps.user_id = ?
+
+        ORDER BY
+            ps.submitted_at DESC
         '
     );
 
@@ -36,15 +47,19 @@ $stmt->execute([
 ]);
 
 $submissions =
-    $stmt->fetchAll();
+    $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function e(string $value): string
-{
+function e(
+    string $value
+): string {
+
     return htmlspecialchars(
         $value,
         ENT_QUOTES,
@@ -122,6 +137,21 @@ function format_submission_date(
     return date(
         'F j, Y',
         $timestamp
+    );
+}
+
+
+function place_is_public(
+    ?string $status
+): bool {
+
+    return in_array(
+        (string) $status,
+        [
+            'active',
+            'featured',
+        ],
+        true
     );
 }
 
@@ -300,7 +330,8 @@ function format_submission_date(
     }
 
 
-    .submission-review {
+    .submission-review,
+    .submission-listing {
       margin-top: 18px;
       padding-top: 16px;
       border-top:
@@ -308,17 +339,52 @@ function format_submission_date(
     }
 
 
-    .submission-review strong {
+    .submission-review strong,
+    .submission-listing strong {
       display: block;
       margin-bottom: 6px;
     }
 
 
-    .submission-review p {
+    .submission-review p,
+    .submission-listing p {
       margin: 0;
       color: #667069;
       line-height: 1.6;
       white-space: pre-line;
+    }
+
+
+    .listing-button {
+      display: inline-block;
+
+      margin-top: 12px;
+      padding: 10px 14px;
+
+      background: #172822;
+      color: #fff;
+
+      border-radius: 7px;
+
+      text-decoration: none;
+      font-weight: 800;
+      font-size: .88rem;
+    }
+
+
+    .listing-state {
+      display: inline-block;
+
+      margin-top: 9px;
+      padding: 6px 9px;
+
+      background: #f2eee5;
+      color: #667069;
+
+      border-radius: 999px;
+
+      font-size: .78rem;
+      font-weight: 800;
     }
 
 
@@ -419,7 +485,7 @@ function format_submission_date(
       href="/"
       class="back-link"
     >
-      ← Back to My Account
+      &larr; Back to My Account
     </a>
 
 
@@ -473,6 +539,7 @@ function format_submission_date(
 
                 <h2>
                   <?= e(
+                      (string)
                       $submission[
                           'place_name'
                       ]
@@ -483,7 +550,7 @@ function format_submission_date(
 
                   Community Scouted
 
-                  ·
+                  &middot;
 
                   Submitted
                   <?= e(
@@ -504,6 +571,7 @@ function format_submission_date(
                   submission-status
                   <?= e(
                       submission_status_class(
+                          (string)
                           $submission[
                               'status'
                           ]
@@ -514,6 +582,7 @@ function format_submission_date(
 
                 <?= e(
                     submission_status_label(
+                        (string)
                         $submission[
                             'status'
                         ]
@@ -541,11 +610,80 @@ function format_submission_date(
 
                 <p>
                   <?= e(
+                      (string)
                       $submission[
                           'review_notes'
                       ]
                   ) ?>
                 </p>
+
+              </div>
+
+            <?php endif; ?>
+
+
+            <?php if (
+                $submission['status']
+                === 'approved'
+                &&
+                !empty(
+                    $submission[
+                        'place_id'
+                    ]
+                )
+            ): ?>
+
+              <div class="submission-listing">
+
+                <strong>
+                  Your listing
+                </strong>
+
+
+                <?php if (
+                    place_is_public(
+                        $submission[
+                            'place_status'
+                        ]
+                    )
+                    &&
+                    !empty(
+                        $submission[
+                            'place_slug'
+                        ]
+                    )
+                ): ?>
+
+                  <p>
+                    This place is published on Llama Scout.
+                  </p>
+
+                  <a
+                    class="listing-button"
+                    href="https://llamascout.com/place.html?place=<?= rawurlencode(
+                        (string)
+                        $submission[
+                            'place_slug'
+                        ]
+                    ) ?>"
+                  >
+                    View Listing
+                  </a>
+
+
+                <?php else: ?>
+
+                  <p>
+                    Your submission was approved and
+                    has been converted into a Llama Scout
+                    place. It is awaiting publication.
+                  </p>
+
+                  <span class="listing-state">
+                    Awaiting Publication
+                  </span>
+
+                <?php endif; ?>
 
               </div>
 
