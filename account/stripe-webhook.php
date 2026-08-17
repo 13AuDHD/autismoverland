@@ -31,12 +31,15 @@ if (!is_string($signature) || $signature === '') {
     exit('Missing Stripe signature.');
 }
 
+$webhookSecret =
+    llama_stripe_webhook_secret();
+
 try {
 
     $event = \Stripe\Webhook::constructEvent(
         $payload,
         $signature,
-        llama_stripe_webhook_secret()
+        $webhookSecret
     );
 
 } catch (Throwable $exception) {
