@@ -603,9 +603,17 @@ require_once
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
 ></script>
 
-<script src="/js/main.js"></script>
+<script
+  src="/js/header.js"
+></script>
 
-<script src="/js/blog-home.js"></script>
+<script
+  src="/js/main.js"
+></script>
+
+<script
+  src="/js/blog-home.js"
+></script>
 
 
 </body>
