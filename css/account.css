@@ -1422,3 +1422,245 @@ body.account-auth-body {
   display: block;
   margin-bottom: 4px;
 }
+
+
+/* =========================================================
+   REPORT A PLACE
+   ========================================================= */
+
+.report-page {
+  width:
+    min(
+      760px,
+      calc(100% - 36px)
+    );
+
+  margin: 0 auto;
+  padding: 30px 0 80px;
+}
+
+.report-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  margin-bottom: 24px;
+
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.report-back:hover {
+  text-decoration: underline;
+}
+
+.report-card {
+  padding: 28px;
+
+  background: #fff;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .09);
+
+  border-radius: 14px;
+}
+
+.report-eyebrow {
+  margin: 0 0 8px;
+
+  color: #707870;
+
+  font-size: .75rem;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.report-card h1 {
+  margin: 0 0 10px;
+}
+
+.report-place-name {
+  margin: 0 0 24px;
+
+  color: #667069;
+  line-height: 1.5;
+}
+
+.report-intro {
+  margin-bottom: 28px;
+  line-height: 1.65;
+}
+
+.report-notice {
+  padding: 15px 17px;
+  margin-bottom: 22px;
+
+  border-radius: 8px;
+  line-height: 1.55;
+}
+
+.report-notice-error {
+  background: #f8e3df;
+
+  border-left:
+    5px solid #9b443d;
+}
+
+.report-notice-success {
+  background: #e4f1e7;
+
+  border-left:
+    5px solid #436d50;
+}
+
+.report-field + .report-field {
+  margin-top: 20px;
+}
+
+.report-field label {
+  display: block;
+
+  margin-bottom: 7px;
+  font-weight: 800;
+}
+
+.report-field select,
+.report-field textarea,
+.report-field input[type="file"] {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.report-field select,
+.report-field textarea {
+  padding: 12px 13px;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .2);
+
+  border-radius: 8px;
+
+  background: #fff;
+}
+
+.report-field textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.report-field input[type="file"] {
+  padding: 12px;
+
+  border:
+    1px dashed
+    rgba(0, 0, 0, .25);
+
+  border-radius: 8px;
+
+  background: #f9f7f2;
+}
+
+.report-help {
+  margin: 7px 0 0;
+
+  color: #737b76;
+
+  font-size: .82rem;
+  line-height: 1.5;
+}
+
+.report-photo-note {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+
+  background: #f4f0e5;
+
+  border-radius: 7px;
+
+  font-size: .84rem;
+  line-height: 1.55;
+}
+
+.report-submit {
+  margin-top: 24px;
+  padding: 12px 17px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #172822;
+  color: #fff;
+
+  font: inherit;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.report-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  margin-top: 20px;
+}
+
+.report-success-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 10px 14px;
+
+  border-radius: 7px;
+
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.report-primary-link {
+  background: #172822;
+  color: #fff;
+}
+
+.report-secondary-link {
+  color: #172822;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .15);
+}
+
+.report-number {
+  margin-top: 12px;
+
+  color: #68716c;
+
+  font-size: .84rem;
+}
+
+
+/* =========================================================
+   REPORT A PLACE MOBILE
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .report-page {
+    padding-top: 22px;
+  }
+
+  .report-card {
+    padding: 22px 18px;
+  }
+
+}
+
+
+
