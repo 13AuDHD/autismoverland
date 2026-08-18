@@ -91,7 +91,7 @@ function e(string $value): string
  
 </head>
 
-<body>
+<body class="account-auth-body">
 
   <main class="account-auth">
 
