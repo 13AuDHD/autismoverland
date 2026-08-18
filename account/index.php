@@ -314,5 +314,7 @@ function e(string $value): string
 
   </main>
 
+    <script src="https://llamascout.com/js/header.js"></script>
+
 </body>
 </html>
