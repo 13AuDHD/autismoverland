@@ -662,20 +662,16 @@ async function initRemoveButton(
 
   try {
 
-    const response =
-      await fetch(
-        `https://llamascout.com/save-place.php?place=${encodeURIComponent(
-          placeId
-        )}`,
-        {
-          credentials:
-            "include",
-
-          cache:
-            "no-store"
-        }
-      );
-
+const response =
+  await fetch(
+    `save-place.php?place=${encodeURIComponent(
+      placeId
+    )}`,
+    {
+      credentials: "include",
+      cache: "no-store"
+    }
+  );
 
     const result =
       await response.json();
@@ -759,7 +755,7 @@ async function removeSavedPlace(
 
     const response =
       await fetch(
-        "https://llamascout.com/save-place.php",
+        "save-place.php",
         {
           method:
             "POST",
