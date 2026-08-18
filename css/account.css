@@ -1378,3 +1378,47 @@ body.account-auth-body {
   }
 
 }
+
+
+/* =========================================================
+   SCOUT A PLACE
+   ========================================================= */
+
+.member-page-nav {
+  padding-top: 24px;
+  padding-bottom: 4px;
+}
+
+.member-page-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.member-page-nav a:hover {
+  text-decoration: underline;
+}
+
+.community-source-note {
+  padding: 16px 18px;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .09);
+
+  border-radius: 10px;
+
+  background:
+    rgba(255, 255, 255, .7);
+
+  line-height: 1.6;
+}
+
+.community-source-note strong {
+  display: block;
+  margin-bottom: 4px;
+}
