@@ -84,6 +84,10 @@ function e(string $value): string
     rel="stylesheet"
     href="https://llamascout.com/css/style.css"
   >
+  <link
+  rel="stylesheet"
+  href="https://llamascout.com/css/account.css"
+>
 
   <style>
 
