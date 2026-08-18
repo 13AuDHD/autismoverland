@@ -911,154 +911,166 @@ async function initHomepageMap() {
               "member";
 
 
-          marker.bindPopup(`
+marker.bindPopup(`
 
-            <article class="map-popup">
-
-
-              ${
-                featuredImage
-                  ? `
-                    <img
-                      class="map-popup-image"
-                      src="${escapeHTML(
-                        featuredImage.src
-                      )}"
-                      alt="${escapeHTML(
-                        featuredImage.alt
-                        ||
-                        place.name
-                      )}"
-                    >
-                  `
-                  : ""
-              }
+  <article class="map-popup">
 
 
-              <div class="map-popup-body">
+    <div class="map-popup-hero">
+
+      ${
+        featuredImage
+          ? `
+            <img
+              class="map-popup-image"
+              src="${escapeHTML(
+                featuredImage.src
+              )}"
+              alt="${escapeHTML(
+                featuredImage.alt
+                ||
+                place.name
+              )}"
+            >
+          `
+          : ""
+      }
 
 
-                <span class="map-popup-type">
+      <div class="map-popup-hero-overlay">
 
-                  ${escapeHTML(
-                    formatHomepageType(
-                      place.type
-                    )
-                  )}
+        <span class="map-popup-type">
 
-                </span>
+          ${escapeHTML(
+            formatHomepageType(
+              place.type
+            )
+          )}
 
-
-                <h2>
-                  ${escapeHTML(
-                    place.name
-                  )}
-                </h2>
+        </span>
 
 
-                ${
+        <h2>
+          ${escapeHTML(
+            place.name
+          )}
+        </h2>
+
+      </div>
+
+    </div>
+
+
+    <div class="map-popup-body">
+
+
+      <div class="map-popup-meta">
+
+        ${
+          location
+            ? `
+              <span>
+
+                <i
+                  class="fa-solid fa-location-dot"
+                  aria-hidden="true"
+                ></i>
+
+                ${escapeHTML(
                   location
-                    ? `
-                      <p class="map-popup-location">
+                )}
 
-                        <i
-                          class="fa-solid fa-location-dot"
-                          aria-hidden="true"
-                        ></i>
-
-                        ${escapeHTML(
-                          location
-                        )}
-
-                      </p>
-                    `
-                    : ""
-                }
+              </span>
+            `
+            : ""
+        }
 
 
-                ${
-                  approximateLocation
-                    ? `
-                      <p class="map-popup-approximate">
+        ${
+          approximateLocation
+            ? `
+              <span>
 
-                        <i
-                          class="fa-solid fa-circle-info"
-                          aria-hidden="true"
-                        ></i>
+                <i
+                  class="fa-solid fa-circle-info"
+                  aria-hidden="true"
+                ></i>
 
-                        Approximate location
+                Approximate location
 
-                      </p>
-                    `
-                    : ""
-                }
+              </span>
+            `
+            : ""
+        }
 
-
-                <div class="map-popup-ratings">
-
-                  ${popupRating(
-                    "Road",
-                    difficulty
-                  )}
-
-                  ${popupRating(
-                    "Night noise",
-                    nightNoise
-                  )}
-
-                  ${popupRating(
-                    "Privacy",
-                    privacy
-                  )}
-
-                  ${popupRating(
-                    "Cell",
-                    cell
-                  )}
-
-                </div>
+      </div>
 
 
-                ${
-                  verified
-                    ? `
-                      <p class="verified-place">
+      <div class="map-popup-ratings">
 
-                        <i
-                          class="fa-solid fa-circle-check"
-                          aria-hidden="true"
-                        ></i>
+        ${popupRating(
+          "Road",
+          difficulty
+        )}
 
-                        Personally Scouted
+        ${popupRating(
+          "Night noise",
+          nightNoise
+        )}
 
-                      </p>
-                    `
-                    : ""
-                }
+        ${popupRating(
+          "Privacy",
+          privacy
+        )}
 
+        ${popupRating(
+          "Cell",
+          cell
+        )}
 
-                <a
-                  class="map-popup-details"
-                  href="/place.php?place=${encodeURIComponent(
-                    place.slug
-                  )}"
-                >
-
-                  View Scout Report
-
-                  <i
-                    class="fa-solid fa-arrow-right"
-                    aria-hidden="true"
-                  ></i>
-
-                </a>
+      </div>
 
 
-              </div>
+      ${
+        verified
+          ? `
+            <p class="verified-place">
 
-            </article>
+              <i
+                class="fa-solid fa-circle-check"
+                aria-hidden="true"
+              ></i>
 
-          `);
+              Llama Scouted
+
+            </p>
+          `
+          : ""
+      }
+
+
+      <a
+        class="map-popup-details"
+        href="/place.php?place=${encodeURIComponent(
+          place.slug
+        )}"
+      >
+
+        View Scout Report
+
+        <i
+          class="fa-solid fa-arrow-right"
+          aria-hidden="true"
+        ></i>
+
+      </a>
+
+
+    </div>
+
+  </article>
+
+`);
 
 
           bounds.push(
