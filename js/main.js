@@ -1,182 +1,214 @@
 /* =========================================================
-   Llama Scout
-   main.js
+   LLAMA SCOUT
+   MAIN.JS
+
+   Homepage content + homepage map only.
+
+   Shared header behavior lives in:
+   /js/header.js
+
+   Header + footer markup are rendered by:
+   /app/header.php
+   /app/footer.php
    ========================================================= */
 
 
 /* =========================================================
-   SHARED HEADER + FOOTER
+   ACCESS VALUE HELPERS
    ========================================================= */
 
-async function includeHTML(selector, file) {
-  const target = document.querySelector(selector);
+function isLockedValue(value) {
 
-  if (!target) return;
-
-  try {
-   const response = await fetch(
-     file,
-     {
-       cache: "no-store"
-     }
-   );
-
-    if (!response.ok) {
-      throw new Error(`${file} could not be loaded`);
-    }
-
-    target.innerHTML = await response.text();
-
-  } catch (error) {
-    console.warn(error.message);
-  }
-}
-
-async function initAccountLinks() {
-
-  const links =
-    document.querySelectorAll(
-      "[data-account-link]"
-    );
-
-  if (!links.length) return;
-
-
-  try {
-
-    const response =
-      await fetch(
-        "/auth-status.php",
-        {
-          credentials: "include",
-          cache: "no-store"
-        }
-      );
-
-
-    if (!response.ok) {
-      throw new Error(
-        "Could not check account status"
-      );
-    }
-
-
-    const status =
-      await response.json();
-
-
-    links.forEach((link) => {
-
-      if (status.logged_in) {
-
-        link.textContent =
-          "Account";
-
-        link.href =
-          "https://account.llamascout.com/";
-
-      } else {
-
-        link.textContent =
-          "Log In / Sign-up";
-
-        link.href =
-          "https://account.llamascout.com/login.php";
-
-      }
-
-    });
-
-
-  } catch (error) {
-
-    console.warn(
-      "Llama Scout account status:",
-      error.message
-    );
-
-  }
-
-}
-
-async function initIncludes() {
-
-  await includeHTML(
-    "#site-header",
-    "header.html"
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    value.locked === true
   );
 
-  await includeHTML(
-    "#site-footer",
-    "footer.html"
-  );
-
-  await initAccountLinks();
-
-  const header =
-    document.querySelector(
-      "[data-site-header]"
-    );
-
-  const toggle =
-    document.querySelector(
-      ".menu-toggle"
-    );
-
-  const mobileNav =
-    document.querySelector(
-      ".mobile-nav"
-    );
-
-
-  /* Mobile menu */
-
-  if (toggle && mobileNav) {
-
-    toggle.addEventListener(
-      "click",
-      () => {
-
-        const isOpen =
-          mobileNav.classList.toggle(
-            "is-open"
-          );
-
-        toggle.setAttribute(
-          "aria-expanded",
-          String(isOpen)
-        );
-
-        toggle.innerHTML =
-          isOpen
-            ? '<i class="fa-solid fa-xmark"></i>'
-            : '<i class="fa-solid fa-bars"></i>';
-
-      }
-    );
-
-  }
-
-
-  /* Header scroll state */
-
-  if (header) {
-
-    window.addEventListener(
-      "scroll",
-      () => {
-
-        header.classList.toggle(
-          "is-scrolled",
-          window.scrollY > 8
-        );
-
-      }
-    );
-
-  }
 }
 
+
+function numericPlaceValue(value) {
+
+  if (isLockedValue(value)) {
+    return null;
+  }
+
+
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+    return value;
+  }
+
+
+  const number =
+    Number(value);
+
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+
+}
+
+
+function booleanPlaceValue(value) {
+
+  if (isLockedValue(value)) {
+    return null;
+  }
+
+
+  if (value === true) {
+    return true;
+  }
+
+
+  if (value === false) {
+    return false;
+  }
+
+
+  return null;
+
+}
+
+
+function searchablePlaceValue(value) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    isLockedValue(value)
+  ) {
+    return "";
+  }
+
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+    return String(value);
+  }
+
+
+  return "";
+
+}
+
+
+function lockedValueLabel(value) {
+
+  if (!isLockedValue(value)) {
+    return "";
+  }
+
+
+  if (value.cta === "sign_up") {
+    return "Sign up";
+  }
+
+
+  if (value.cta === "upgrade") {
+    return "Member only";
+  }
+
+
+  return "Member only";
+
+}
+
+
+function displayRatingValue(value) {
+
+  const numeric =
+    numericPlaceValue(value);
+
+
+  if (numeric !== null) {
+    return `${numeric}/5`;
+  }
+
+
+  if (isLockedValue(value)) {
+    return lockedValueLabel(value);
+  }
+
+
+  return "";
+
+}
+
+
+function ratingIsAvailable(value) {
+
+  return (
+    numericPlaceValue(value) !== null ||
+    isLockedValue(value)
+  );
+
+}
+
+
+/* =========================================================
+   SAFE TEXT
+   ========================================================= */
+
+function escapeHTML(value) {
+
+  return String(
+    value ?? ""
+  )
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+    .replaceAll(
+      "\"",
+      "&quot;"
+    )
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
+
+}
+
+
+/* =========================================================
+   PLACE TYPE
+   ========================================================= */
+
+function formatHomepageType(value) {
+
+  if (!value) {
+    return "";
+  }
+
+
+  return String(value)
+    .replaceAll(
+      "-",
+      " "
+    )
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase()
+    );
+
+}
 
 
 /* =========================================================
@@ -190,22 +222,25 @@ async function initFeaturedLocations() {
       "featured-locations-grid"
     );
 
-  /*
-   * Only runs on pages containing
-   * the featured locations grid.
-   */
-  if (!grid) return;
+
+  if (!grid) {
+    return;
+  }
 
 
   try {
 
-   const response =
-     await fetch(
-       "/api/places.php",
-       {
-         cache: "no-store"
-       }
-     );
+    const response =
+      await fetch(
+        "/api/places.php",
+        {
+          credentials:
+            "include",
+
+          cache:
+            "no-store"
+        }
+      );
 
 
     if (!response.ok) {
@@ -221,6 +256,15 @@ async function initFeaturedLocations() {
       await response.json();
 
 
+    if (!Array.isArray(places)) {
+
+      throw new Error(
+        "Places API did not return a list"
+      );
+
+    }
+
+
     let featuredPlaces =
       places.filter(
         (place) =>
@@ -230,9 +274,8 @@ async function initFeaturedLocations() {
 
 
     /*
-     * Development fallback:
-     * if nothing is marked featured,
-     * show active locations.
+     * If nothing is explicitly featured,
+     * use active places as a fallback.
      */
 
     if (!featuredPlaces.length) {
@@ -246,13 +289,11 @@ async function initFeaturedLocations() {
     }
 
 
-    /*
-     * Homepage shows a maximum
-     * of three featured places.
-     */
-
     featuredPlaces =
-      featuredPlaces.slice(0, 3);
+      featuredPlaces.slice(
+        0,
+        3
+      );
 
 
     renderFeaturedLocations(
@@ -273,6 +314,9 @@ async function initFeaturedLocations() {
 }
 
 
+/* =========================================================
+   FEATURED PLACE CARDS
+   ========================================================= */
 
 function renderFeaturedLocations(
   grid,
@@ -282,152 +326,230 @@ function renderFeaturedLocations(
   grid.innerHTML = "";
 
 
-  places.forEach((place) => {
-
-    const image =
-      place.images?.find(
-        (image) =>
-          image.featured
-      ) ||
-      place.images?.[0];
+  places.forEach(
+    (place) => {
 
 
-    const difficulty =
-      place.access
-        ?.siteAccessDifficulty ??
-      place.access
-        ?.roadDifficulty ??
-      null;
+      const image =
+        place.images?.find(
+          (item) =>
+            item.featured
+        )
+        ??
+        place.images?.[0]
+        ??
+        null;
 
 
-    const cell =
-      place.connectivity
-        ?.overall ??
-      null;
+      const difficulty =
+        place.access
+          ?.siteAccessDifficulty
+        ??
+        place.access
+          ?.roadDifficulty
+        ??
+        null;
 
 
-    const privacy =
-      place.sensory
-        ?.daytime
-        ?.privacy ??
-      null;
+      const cell =
+        place.connectivity
+          ?.overall
+        ??
+        null;
 
 
-    const elevation =
-      place.location
-        ?.elevationFeet ??
-      null;
+      const privacy =
+        place.sensory
+          ?.daytime
+          ?.privacy
+        ??
+        null;
 
 
-    const card =
-      document.createElement(
-        "article"
+      const elevation =
+        numericPlaceValue(
+          place.location
+            ?.elevationFeet
+        );
+
+
+      const card =
+        document.createElement(
+          "article"
+        );
+
+
+      card.className =
+        "location-card";
+
+
+      const roadHTML =
+        ratingIsAvailable(
+          difficulty
+        )
+          ? `
+            <span>
+              <i
+                class="fa-solid fa-road"
+                aria-hidden="true"
+              ></i>
+
+              Road
+              ${escapeHTML(
+                displayRatingValue(
+                  difficulty
+                )
+              )}
+            </span>
+          `
+          : "";
+
+
+      const privacyHTML =
+        ratingIsAvailable(
+          privacy
+        )
+          ? `
+            <span>
+              <i
+                class="fa-solid fa-eye"
+                aria-hidden="true"
+              ></i>
+
+              Privacy
+              ${escapeHTML(
+                displayRatingValue(
+                  privacy
+                )
+              )}
+            </span>
+          `
+          : "";
+
+
+      const cellHTML =
+        ratingIsAvailable(
+          cell
+        )
+          ? `
+            <span>
+              <i
+                class="fa-solid fa-signal"
+                aria-hidden="true"
+              ></i>
+
+              Cell
+              ${escapeHTML(
+                displayRatingValue(
+                  cell
+                )
+              )}
+            </span>
+          `
+          : "";
+
+
+      const elevationHTML =
+        elevation !== null
+          ? `
+            <span>
+              <i
+                class="fa-solid fa-mountain"
+                aria-hidden="true"
+              ></i>
+
+              ${elevation.toLocaleString()}
+              ft
+            </span>
+          `
+          : "";
+
+
+      card.innerHTML = `
+
+        ${
+          image
+            ? `
+              <a
+                href="/place.html?place=${encodeURIComponent(
+                  place.slug
+                )}"
+                class="location-card-image-link"
+              >
+
+                <img
+                  src="${escapeHTML(
+                    image.src
+                  )}"
+                  alt="${escapeHTML(
+                    image.alt
+                    ||
+                    place.name
+                  )}"
+                >
+
+              </a>
+            `
+            : ""
+        }
+
+
+        <div class="card-body">
+
+          <h3>
+
+            <a
+              href="/place.html?place=${encodeURIComponent(
+                place.slug
+              )}"
+              class="location-card-title"
+            >
+              ${escapeHTML(
+                place.name
+              )}
+            </a>
+
+          </h3>
+
+
+          ${
+            elevationHTML ||
+            roadHTML
+              ? `
+                <p>
+                  ${elevationHTML}
+                  ${roadHTML}
+                </p>
+              `
+              : ""
+          }
+
+
+          ${
+            privacyHTML ||
+            cellHTML
+              ? `
+                <p>
+                  ${privacyHTML}
+                  ${cellHTML}
+                </p>
+              `
+              : ""
+          }
+
+        </div>
+
+      `;
+
+
+      grid.appendChild(
+        card
       );
 
-
-    card.className =
-      "location-card";
-
-
-    card.innerHTML = `
-
-      ${
-        image
-          ? `
-            <a
-              href="place.html?place=${encodeURIComponent(place.slug)}"
-              class="location-card-image-link"
-            >
-              <img
-                src="${image.src}"
-                alt="${image.alt || place.name}"
-              >
-            </a>
-          `
-          : ""
-      }
-
-
-      <div class="card-body">
-
-        <h3>
-
-          <a
-            href="place.html?place=${encodeURIComponent(place.slug)}"
-            class="location-card-title"
-          >
-            ${place.name}
-          </a>
-
-        </h3>
-
-
-        <p>
-
-          ${
-            elevation
-              ? `
-                <span>
-                  <i class="fa-solid fa-mountain"></i>
-                  ${elevation.toLocaleString()} ft
-                </span>
-              `
-              : ""
-          }
-
-
-          ${
-            difficulty != null
-              ? `
-                <span>
-                  <i class="fa-solid fa-road"></i>
-                  Road ${difficulty}/5
-                </span>
-              `
-              : ""
-          }
-
-        </p>
-
-
-        <p>
-
-          ${
-            privacy != null
-              ? `
-                <span>
-                  <i class="fa-solid fa-eye"></i>
-                  Privacy ${privacy}/5
-                </span>
-              `
-              : ""
-          }
-
-
-          ${
-            cell != null
-              ? `
-                <span>
-                  <i class="fa-solid fa-signal"></i>
-                  Cell ${cell}/5
-                </span>
-              `
-              : ""
-          }
-
-        </p>
-
-      </div>
-
-    `;
-
-
-    grid.appendChild(card);
-
-  });
+    }
+  );
 
 }
-
 
 
 /* =========================================================
@@ -442,11 +564,6 @@ async function initHomepageMap() {
     );
 
 
-  /*
-   * Only run on the homepage,
-   * and only if Leaflet loaded.
-   */
-
   if (
     !mapElement ||
     typeof L === "undefined"
@@ -457,13 +574,17 @@ async function initHomepageMap() {
 
   try {
 
-const response =
-  await fetch(
-    "/api/places.php",
-    {
-      cache: "no-store"
-    }
-  );
+    const response =
+      await fetch(
+        "/api/places.php",
+        {
+          credentials:
+            "include",
+
+          cache:
+            "no-store"
+        }
+      );
 
 
     if (!response.ok) {
@@ -479,17 +600,52 @@ const response =
       await response.json();
 
 
+    if (!Array.isArray(places)) {
+
+      throw new Error(
+        "Places API did not return a list"
+      );
+
+    }
+
+
     /*
-     * Only display active locations
-     * with valid coordinates.
+     * Coordinates returned by the API
+     * are already access-aware:
+     *
+     * Visitor/free:
+     * approximate coordinates
+     *
+     * Paid member/Scout/Admin:
+     * exact coordinates
      */
 
     const validPlaces =
       places.filter(
-        (place) =>
-          place.status === "active" &&
-          place.location?.latitude != null &&
-          place.location?.longitude != null
+        (place) => {
+
+          const lat =
+            numericPlaceValue(
+              place.location
+                ?.latitude
+            );
+
+
+          const lng =
+            numericPlaceValue(
+              place.location
+                ?.longitude
+            );
+
+
+          return (
+            place.status ===
+              "active" &&
+            lat !== null &&
+            lng !== null
+          );
+
+        }
       );
 
 
@@ -502,55 +658,59 @@ const response =
       validPlaces[0];
 
 
-    /*
-     * Create Leaflet map.
-     */
+    const firstLat =
+      numericPlaceValue(
+        firstPlace.location.latitude
+      );
+
+
+    const firstLng =
+      numericPlaceValue(
+        firstPlace.location.longitude
+      );
+
 
     const map =
       L.map(
         "homepage-map",
         {
-          zoomControl: false,
-          scrollWheelZoom: false
+          zoomControl:
+            false,
+
+          scrollWheelZoom:
+            false
         }
-      ).setView(
+      )
+      .setView(
         [
-          firstPlace.location.latitude,
-          firstPlace.location.longitude
+          firstLat,
+          firstLng
         ],
         10
       );
 
 
-    /*
-     * OpenStreetMap tiles.
-     */
-
     L.tileLayer(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       {
-        maxZoom: 19,
+        maxZoom:
+          19,
 
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       }
-    ).addTo(map);
+    )
+    .addTo(
+      map
+    );
 
-
-    /*
-     * All markers live inside this
-     * layer so filters can remove and
-     * recreate them easily.
-     */
 
     const markerLayer =
-      L.layerGroup().addTo(map);
+      L.layerGroup()
+        .addTo(
+          map
+        );
 
-
-    /*
-     * Build place-type dropdown from
-     * whatever exists in places.json.
-     */
 
     populateHomepageTypeFilter(
       validPlaces
@@ -558,7 +718,82 @@ const response =
 
 
     /* =====================================================
-       RENDER MAP MARKERS
+       MARKER POPUP RATING
+       ===================================================== */
+
+    function popupRating(
+      label,
+      value
+    ) {
+
+      if (
+        !ratingIsAvailable(
+          value
+        )
+      ) {
+        return "";
+      }
+
+
+      const isLocked =
+        isLockedValue(
+          value
+        );
+
+
+      return `
+
+        <div
+          class="
+            map-rating
+            ${
+              isLocked
+                ? "map-rating--locked"
+                : ""
+            }
+          "
+        >
+
+          <span>
+            ${escapeHTML(
+              label
+            )}
+          </span>
+
+          <strong>
+
+            ${
+              isLocked
+                ? `
+                  <i
+                    class="fa-solid fa-lock"
+                    aria-hidden="true"
+                  ></i>
+
+                  ${escapeHTML(
+                    lockedValueLabel(
+                      value
+                    )
+                  )}
+                `
+                : escapeHTML(
+                    displayRatingValue(
+                      value
+                    )
+                  )
+            }
+
+          </strong>
+
+        </div>
+
+      `;
+
+    }
+
+
+    /* =====================================================
+       RENDER MARKERS
        ===================================================== */
 
     function renderMarkers(
@@ -574,193 +809,306 @@ const response =
       filteredPlaces.forEach(
         (place) => {
 
+
           const lat =
-            place.location.latitude;
+            numericPlaceValue(
+              place.location
+                ?.latitude
+            );
+
 
           const lng =
-            place.location.longitude;
+            numericPlaceValue(
+              place.location
+                ?.longitude
+            );
+
+
+          if (
+            lat === null ||
+            lng === null
+          ) {
+            return;
+          }
 
 
           const marker =
             L.marker(
-              [lat, lng]
-            ).addTo(
+              [
+                lat,
+                lng
+              ]
+            )
+            .addTo(
               markerLayer
             );
 
 
           const location =
             [
-              place.location?.city,
-              place.location?.state
+              searchablePlaceValue(
+                place.location
+                  ?.city
+              ),
+
+              searchablePlaceValue(
+                place.location
+                  ?.state
+              )
             ]
-              .filter(Boolean)
-              .join(", ");
+            .filter(Boolean)
+            .join(", ");
 
 
-const featuredImage =
-  place.images?.find((image) => image.featured) ||
-  place.images?.[0];
+          const featuredImage =
+            place.images?.find(
+              (image) =>
+                image.featured
+            )
+            ??
+            place.images?.[0]
+            ??
+            null;
 
-const difficulty =
-  place.access?.siteAccessDifficulty ??
-  place.access?.roadDifficulty ??
-  null;
 
-const nightNoise =
-  place.sensory?.nighttime?.noise ??
-  null;
+          const difficulty =
+            place.access
+              ?.siteAccessDifficulty
+            ??
+            place.access
+              ?.roadDifficulty
+            ??
+            null;
 
-const privacy =
-  place.sensory?.daytime?.privacy ??
-  null;
 
-const cell =
-  place.connectivity?.overall ??
-  null;
+          const nightNoise =
+            place.sensory
+              ?.nighttime
+              ?.noise
+            ??
+            null;
 
-const verified =
-  place.verification?.status === "field-verified";
 
-marker.bindPopup(`
-  <article class="map-popup">
+          const privacy =
+            place.sensory
+              ?.daytime
+              ?.privacy
+            ??
+            null;
 
-    ${
-      featuredImage
-        ? `
-          <img
-            class="map-popup-image"
-            src="${featuredImage.src}"
-            alt="${featuredImage.alt || place.name}"
-          >
-        `
-        : ""
-    }
 
-    <div class="map-popup-body">
+          const cell =
+            place.connectivity
+              ?.overall
+            ??
+            null;
 
-      <span class="map-popup-type">
-        ${formatHomepageType(place.type)}
-      </span>
 
-      <h2>${place.name}</h2>
+          const verificationStatus =
+            searchablePlaceValue(
+              place.verification
+                ?.status
+            );
 
-      ${
-        location
-          ? `
-            <p class="map-popup-location">
-              <i class="fa-solid fa-location-dot"></i>
-              ${location}
-            </p>
-          `
-          : ""
-      }
 
-      <div class="map-popup-ratings">
+          const verified =
+            verificationStatus ===
+              "field-verified";
 
-        ${
-          difficulty != null
-            ? `
-              <div class="map-rating">
-                <span>Road</span>
-                <strong>${difficulty}/5</strong>
+
+          const accessLevel =
+            searchablePlaceValue(
+              place.accessLevel
+            );
+
+
+          const approximateLocation =
+            accessLevel !==
+              "member";
+
+
+          marker.bindPopup(`
+
+            <article class="map-popup">
+
+
+              ${
+                featuredImage
+                  ? `
+                    <img
+                      class="map-popup-image"
+                      src="${escapeHTML(
+                        featuredImage.src
+                      )}"
+                      alt="${escapeHTML(
+                        featuredImage.alt
+                        ||
+                        place.name
+                      )}"
+                    >
+                  `
+                  : ""
+              }
+
+
+              <div class="map-popup-body">
+
+
+                <span class="map-popup-type">
+
+                  ${escapeHTML(
+                    formatHomepageType(
+                      place.type
+                    )
+                  )}
+
+                </span>
+
+
+                <h2>
+                  ${escapeHTML(
+                    place.name
+                  )}
+                </h2>
+
+
+                ${
+                  location
+                    ? `
+                      <p class="map-popup-location">
+
+                        <i
+                          class="fa-solid fa-location-dot"
+                          aria-hidden="true"
+                        ></i>
+
+                        ${escapeHTML(
+                          location
+                        )}
+
+                      </p>
+                    `
+                    : ""
+                }
+
+
+                ${
+                  approximateLocation
+                    ? `
+                      <p class="map-popup-approximate">
+
+                        <i
+                          class="fa-solid fa-circle-info"
+                          aria-hidden="true"
+                        ></i>
+
+                        Approximate location
+
+                      </p>
+                    `
+                    : ""
+                }
+
+
+                <div class="map-popup-ratings">
+
+                  ${popupRating(
+                    "Road",
+                    difficulty
+                  )}
+
+                  ${popupRating(
+                    "Night noise",
+                    nightNoise
+                  )}
+
+                  ${popupRating(
+                    "Privacy",
+                    privacy
+                  )}
+
+                  ${popupRating(
+                    "Cell",
+                    cell
+                  )}
+
+                </div>
+
+
+                ${
+                  verified
+                    ? `
+                      <p class="verified-place">
+
+                        <i
+                          class="fa-solid fa-circle-check"
+                          aria-hidden="true"
+                        ></i>
+
+                        Personally Scouted
+
+                      </p>
+                    `
+                    : ""
+                }
+
+
+                <a
+                  class="map-popup-details"
+                  href="/place.html?place=${encodeURIComponent(
+                    place.slug
+                  )}"
+                >
+
+                  View Scout Report
+
+                  <i
+                    class="fa-solid fa-arrow-right"
+                    aria-hidden="true"
+                  ></i>
+
+                </a>
+
+
               </div>
-            `
-            : ""
-        }
 
-        ${
-          nightNoise != null
-            ? `
-              <div class="map-rating">
-                <span>Night noise</span>
-                <strong>${nightNoise}/5</strong>
-              </div>
-            `
-            : ""
-        }
+            </article>
 
-        ${
-          privacy != null
-            ? `
-              <div class="map-rating">
-                <span>Privacy</span>
-                <strong>${privacy}/5</strong>
-              </div>
-            `
-            : ""
-        }
-
-        ${
-          cell != null
-            ? `
-              <div class="map-rating">
-                <span>Cell</span>
-                <strong>${cell}/5</strong>
-              </div>
-            `
-            : ""
-        }
-
-      </div>
-
-      ${
-        verified
-          ? `
-            <p class="verified-place">
-              <i class="fa-solid fa-circle-check"></i>
-              Personally Scouted
-            </p>
-          `
-          : ""
-      }
-
-      <a
-        class="map-popup-details"
-        href="place.html?place=${encodeURIComponent(place.slug)}"
-      >
-        View Scout Report
-        <i class="fa-solid fa-arrow-right"></i>
-      </a>
-
-    </div>
-
-  </article>
-`);
+          `);
 
 
           bounds.push(
-            [lat, lng]
+            [
+              lat,
+              lng
+            ]
           );
 
         }
       );
 
 
-      /*
-       * Multiple locations:
-       * fit map around all visible markers.
-       */
-
-      if (bounds.length > 1) {
+      if (
+        bounds.length > 1
+      ) {
 
         map.fitBounds(
           bounds,
           {
-            padding: [30, 30],
-            maxZoom: 10
+            padding:
+              [
+                30,
+                30
+              ],
+
+            maxZoom:
+              10
           }
         );
 
-      }
-
-
-      /*
-       * One visible location:
-       * center on it.
-       */
-
-      else if (bounds.length === 1) {
+      } else if (
+        bounds.length === 1
+      ) {
 
         map.setView(
           bounds[0],
@@ -772,9 +1120,8 @@ marker.bindPopup(`
     }
 
 
-
     /* =====================================================
-       APPLY MAP FILTERS
+       FILTERS
        ===================================================== */
 
     function applyHomepageMapFilters() {
@@ -786,7 +1133,9 @@ marker.bindPopup(`
           )
           ?.value
           .trim()
-          .toLowerCase() || "";
+          .toLowerCase()
+        ||
+        "";
 
 
       const type =
@@ -794,7 +1143,9 @@ marker.bindPopup(`
           .getElementById(
             "homepage-type-filter"
           )
-          ?.value || "all";
+          ?.value
+        ||
+        "all";
 
 
       const road =
@@ -802,7 +1153,9 @@ marker.bindPopup(`
           .getElementById(
             "homepage-road-filter"
           )
-          ?.value || "all";
+          ?.value
+        ||
+        "all";
 
 
       const noise =
@@ -810,7 +1163,9 @@ marker.bindPopup(`
           .getElementById(
             "homepage-noise-filter"
           )
-          ?.value || "all";
+          ?.value
+        ||
+        "all";
 
 
       const quiet =
@@ -818,7 +1173,9 @@ marker.bindPopup(`
           .getElementById(
             "homepage-quiet-filter"
           )
-          ?.checked || false;
+          ?.checked
+        ||
+        false;
 
 
       const privateEnough =
@@ -826,7 +1183,9 @@ marker.bindPopup(`
           .getElementById(
             "homepage-private-filter"
           )
-          ?.checked || false;
+          ?.checked
+        ||
+        false;
 
 
       const sensory =
@@ -834,7 +1193,9 @@ marker.bindPopup(`
           .getElementById(
             "homepage-sensory-filter"
           )
-          ?.checked || false;
+          ?.checked
+        ||
+        false;
 
 
       const cell =
@@ -842,7 +1203,9 @@ marker.bindPopup(`
           .getElementById(
             "homepage-cell-filter"
           )
-          ?.checked || false;
+          ?.checked
+        ||
+        false;
 
 
       const starlink =
@@ -850,7 +1213,9 @@ marker.bindPopup(`
           .getElementById(
             "homepage-starlink-filter"
           )
-          ?.checked || false;
+          ?.checked
+        ||
+        false;
 
 
       const sedan =
@@ -858,8 +1223,9 @@ marker.bindPopup(`
           .getElementById(
             "homepage-sedan-filter"
           )
-          ?.checked || false;
-
+          ?.checked
+        ||
+        false;
 
 
       const filteredPlaces =
@@ -867,84 +1233,109 @@ marker.bindPopup(`
           (place) => {
 
 
-            /*
-             * Searchable text.
-             */
+            const searchableText =
+              [
 
-            const searchableText = [
+                searchablePlaceValue(
+                  place.name
+                ),
 
-              place.name,
+                searchablePlaceValue(
+                  place.type
+                ),
 
-              place.type,
+                searchablePlaceValue(
+                  place.location
+                    ?.city
+                ),
 
-              place.location?.city,
+                searchablePlaceValue(
+                  place.location
+                    ?.county
+                ),
 
-              place.location?.county,
+                searchablePlaceValue(
+                  place.location
+                    ?.state
+                ),
 
-              place.location?.state,
+                searchablePlaceValue(
+                  place.location
+                    ?.region
+                ),
 
-              place.location?.region,
+                searchablePlaceValue(
+                  place.description
+                )
 
-              place.location?.road,
-
-              place.description
-
-            ]
+              ]
               .filter(Boolean)
               .join(" ")
               .toLowerCase();
 
 
-
             /*
-             * Rating values.
+             * Road names intentionally do NOT
+             * participate in public search.
+             *
+             * They are protected location data.
              */
 
+
             const difficulty =
-              place.access
-                ?.siteAccessDifficulty ??
-              place.access
-                ?.roadDifficulty ??
-              null;
+              numericPlaceValue(
+                place.access
+                  ?.siteAccessDifficulty
+                ??
+                place.access
+                  ?.roadDifficulty
+              );
 
 
             const nightNoise =
-              place.sensory
-                ?.nighttime
-                ?.noise ??
-              null;
+              numericPlaceValue(
+                place.sensory
+                  ?.nighttime
+                  ?.noise
+              );
 
 
             const privacy =
-              place.sensory
-                ?.daytime
-                ?.privacy ??
-              null;
+              numericPlaceValue(
+                place.sensory
+                  ?.daytime
+                  ?.privacy
+              );
 
 
             const sensoryComfort =
-              place.sensory
-                ?.nighttime
-                ?.sensoryComfort ??
-              null;
+              numericPlaceValue(
+                place.sensory
+                  ?.nighttime
+                  ?.sensoryComfort
+              );
 
 
             const cellRating =
-              place.connectivity
-                ?.overall ??
-              null;
+              numericPlaceValue(
+                place.connectivity
+                  ?.overall
+              );
 
 
             const starlinkRating =
-              place.connectivity
-                ?.starlink ??
-              null;
+              numericPlaceValue(
+                place.connectivity
+                  ?.starlink
+              );
 
 
+            const sedanAccessible =
+              booleanPlaceValue(
+                place.access
+                  ?.sedanAccessible
+              );
 
-            /*
-             * Search filter.
-             */
 
             if (
               search &&
@@ -956,11 +1347,6 @@ marker.bindPopup(`
             }
 
 
-
-            /*
-             * Place type.
-             */
-
             if (
               type !== "all" &&
               place.type !== type
@@ -969,15 +1355,20 @@ marker.bindPopup(`
             }
 
 
-
             /*
-             * Maximum road difficulty.
+             * Protected ratings do not
+             * masquerade as numbers.
+             *
+             * If a filter requires protected
+             * information, that location does
+             * not match until the user has
+             * access to the actual value.
              */
 
             if (
               road !== "all" &&
               (
-                difficulty == null ||
+                difficulty === null ||
                 difficulty >
                   Number(road)
               )
@@ -986,15 +1377,10 @@ marker.bindPopup(`
             }
 
 
-
-            /*
-             * Maximum night noise.
-             */
-
             if (
               noise !== "all" &&
               (
-                nightNoise == null ||
+                nightNoise === null ||
                 nightNoise >
                   Number(noise)
               )
@@ -1003,16 +1389,10 @@ marker.bindPopup(`
             }
 
 
-
-            /*
-             * Quiet at night:
-             * noise must be 2/5 or lower.
-             */
-
             if (
               quiet &&
               (
-                nightNoise == null ||
+                nightNoise === null ||
                 nightNoise > 2
               )
             ) {
@@ -1020,16 +1400,10 @@ marker.bindPopup(`
             }
 
 
-
-            /*
-             * Good privacy:
-             * privacy must be 4/5+.
-             */
-
             if (
               privateEnough &&
               (
-                privacy == null ||
+                privacy === null ||
                 privacy < 4
               )
             ) {
@@ -1037,16 +1411,10 @@ marker.bindPopup(`
             }
 
 
-
-            /*
-             * Good nighttime sensory comfort:
-             * 4/5+.
-             */
-
             if (
               sensory &&
               (
-                sensoryComfort == null ||
+                sensoryComfort === null ||
                 sensoryComfort < 4
               )
             ) {
@@ -1054,16 +1422,10 @@ marker.bindPopup(`
             }
 
 
-
-            /*
-             * Good cell:
-             * 4/5+.
-             */
-
             if (
               cell &&
               (
-                cellRating == null ||
+                cellRating === null ||
                 cellRating < 4
               )
             ) {
@@ -1071,16 +1433,10 @@ marker.bindPopup(`
             }
 
 
-
-            /*
-             * Good Starlink:
-             * 4/5+.
-             */
-
             if (
               starlink &&
               (
-                starlinkRating == null ||
+                starlinkRating === null ||
                 starlinkRating < 4
               )
             ) {
@@ -1088,15 +1444,9 @@ marker.bindPopup(`
             }
 
 
-
-            /*
-             * Sedan access.
-             */
-
             if (
               sedan &&
-              place.access
-                ?.sedanAccessible !== true
+              sedanAccessible !== true
             ) {
               return false;
             }
@@ -1113,7 +1463,6 @@ marker.bindPopup(`
       );
 
     }
-
 
 
     /* =====================================================
@@ -1154,17 +1503,14 @@ marker.bindPopup(`
           );
 
 
-        if (!element) return;
+        if (!element) {
+          return;
+        }
 
-
-        /*
-         * Search updates while typing.
-         * Everything else updates
-         * when its value changes.
-         */
 
         const eventName =
-          element.type === "search"
+          element.type ===
+            "search"
             ? "input"
             : "change";
 
@@ -1176,7 +1522,6 @@ marker.bindPopup(`
 
       }
     );
-
 
 
     /* =====================================================
@@ -1194,10 +1539,6 @@ marker.bindPopup(`
       () => {
 
 
-        /*
-         * Reset dropdowns.
-         */
-
         document
           .querySelectorAll(
             ".homepage-map-controls select"
@@ -1212,11 +1553,6 @@ marker.bindPopup(`
           );
 
 
-
-        /*
-         * Reset search.
-         */
-
         const searchInput =
           document.getElementById(
             "homepage-map-search"
@@ -1225,15 +1561,11 @@ marker.bindPopup(`
 
         if (searchInput) {
 
-          searchInput.value = "";
+          searchInput.value =
+            "";
 
         }
 
-
-
-        /*
-         * Reset checkboxes.
-         */
 
         document
           .querySelectorAll(
@@ -1249,11 +1581,6 @@ marker.bindPopup(`
           );
 
 
-
-        /*
-         * Show every location again.
-         */
-
         renderMarkers(
           validPlaces
         );
@@ -1262,9 +1589,8 @@ marker.bindPopup(`
     );
 
 
-
     /*
-     * Initial marker rendering.
+     * Initial map render.
      */
 
     renderMarkers(
@@ -1284,9 +1610,8 @@ marker.bindPopup(`
 }
 
 
-
 /* =========================================================
-   HOMEPAGE MAP HELPERS
+   HOMEPAGE PLACE TYPE FILTER
    ========================================================= */
 
 function populateHomepageTypeFilter(
@@ -1299,42 +1624,45 @@ function populateHomepageTypeFilter(
     );
 
 
-  if (!select) return;
+  if (!select) {
+    return;
+  }
 
-
-  /*
-   * Prevent duplicates if the
-   * function somehow runs twice.
-   */
 
   const existingValues =
     new Set(
       Array.from(
         select.options
-      ).map(
+      )
+      .map(
         (option) =>
           option.value
       )
     );
 
 
-  const types = [
-    ...new Set(
-      places
-        .map(
-          (place) =>
-            place.type
-        )
-        .filter(Boolean)
-    )
-  ].sort();
+  const types =
+    [
+      ...new Set(
+        places
+          .map(
+            (place) =>
+              place.type
+          )
+          .filter(Boolean)
+      )
+    ]
+    .sort();
 
 
   types.forEach(
     (type) => {
 
+
       if (
-        existingValues.has(type)
+        existingValues.has(
+          type
+        )
       ) {
         return;
       }
@@ -1366,35 +1694,13 @@ function populateHomepageTypeFilter(
 }
 
 
-
-function formatHomepageType(
-  value
-) {
-
-  if (!value) return "";
-
-
-  return String(value)
-    .replaceAll("-", " ")
-    .replace(
-      /\b\w/g,
-      (letter) =>
-        letter.toUpperCase()
-    );
-
-}
-
-
-
 /* =========================================================
-   INITIALIZE SITE
+   INITIALIZE HOMEPAGE FEATURES
    ========================================================= */
 
 document.addEventListener(
   "DOMContentLoaded",
   () => {
-
-    initIncludes();
 
     initFeaturedLocations();
 
