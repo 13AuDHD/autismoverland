@@ -2,48 +2,88 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
 
-require_role('admin');
 
-$user = current_user();
+require_role(
+    'admin'
+);
 
-$db = db();
+
+$user =
+    current_user();
+
+
+$db =
+    db();
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function e(mixed $value): string
-{
+function e(
+    mixed $value
+): string {
+
     return htmlspecialchars(
         (string) $value,
         ENT_QUOTES,
         'UTF-8'
     );
+
 }
 
 
-function location_text(array $place): string
-{
+function location_text(
+    array $place
+): string {
+
     $parts = [];
 
-    if (!empty($place['city'])) {
-        $parts[] = $place['city'];
+
+    if (
+        !empty(
+            $place['city']
+        )
+    ) {
+
+        $parts[] =
+            $place['city'];
+
     }
 
-    if (!empty($place['state'])) {
-        $parts[] = $place['state'];
+
+    if (
+        !empty(
+            $place['state']
+        )
+    ) {
+
+        $parts[] =
+            $place['state'];
+
     }
 
-    return implode(', ', $parts);
+
+    return implode(
+        ', ',
+        $parts
+    );
+
 }
 
 
-function source_label(?string $source): string
-{
-    return match ($source) {
+function source_label(
+    ?string $source
+): string {
+
+    return match (
+        $source
+    ) {
+
         'llama-scouted' =>
             'Llama Scouted',
 
@@ -61,28 +101,45 @@ function source_label(?string $source): string
                     (string) $source
                 )
             ),
+
     };
+
 }
 
 
-function date_label(?string $date): string
-{
+function date_label(
+    ?string $date
+): string {
+
     if (!$date) {
-        return 'Not yet verified';
+
+        return
+            'Not yet verified';
+
     }
+
 
     $timestamp =
-        strtotime($date);
+        strtotime(
+            $date
+        );
+
 
     if (!$timestamp) {
-        return 'Verification date unknown';
+
+        return
+            'Verification date unknown';
+
     }
 
-    return 'Verified ' .
-        date(
+
+    return
+        'Verified '
+        . date(
             'M j, Y',
             $timestamp
         );
+
 }
 
 
@@ -94,42 +151,69 @@ function date_label(?string $date): string
  * due = more than 12 months
  * never = no valid verification date
  */
+
 function verified_state(
     ?string $date
 ): string {
 
     if (!$date) {
+
         return 'never';
+
     }
+
 
     $timestamp =
-        strtotime($date);
+        strtotime(
+            $date
+        );
+
 
     if (!$timestamp) {
+
         return 'never';
+
     }
+
 
     $sixMonthsAgo =
-        strtotime('-6 months');
+        strtotime(
+            '-6 months'
+        );
+
 
     $twelveMonthsAgo =
-        strtotime('-12 months');
+        strtotime(
+            '-12 months'
+        );
+
 
     if (
-        $twelveMonthsAgo !== false &&
-        $timestamp < $twelveMonthsAgo
+        $twelveMonthsAgo !== false
+        &&
+        $timestamp <
+        $twelveMonthsAgo
     ) {
+
         return 'due';
+
     }
 
+
     if (
-        $sixMonthsAgo !== false &&
-        $timestamp < $sixMonthsAgo
+        $sixMonthsAgo !== false
+        &&
+        $timestamp <
+        $sixMonthsAgo
     ) {
+
         return 'aging';
+
     }
+
 
     return 'current';
+
 }
 
 
@@ -137,7 +221,10 @@ function verification_label(
     string $state
 ): string {
 
-    return match ($state) {
+    return match (
+        $state
+    ) {
+
         'current' =>
             'Current',
 
@@ -152,7 +239,9 @@ function verification_label(
 
         default =>
             'Unknown',
+
     };
+
 }
 
 
@@ -229,24 +318,30 @@ $places =
    ========================================================= */
 
 $totalPlaces =
-    count($places);
+    count(
+        $places
+    );
 
 
 $statusCounts = [
+
     'featured' => 0,
     'active' => 0,
     'draft' => 0,
     'unlisted' => 0,
     'removed' => 0,
     'archived' => 0,
+
 ];
 
 
 $verificationCounts = [
+
     'current' => 0,
     'aging' => 0,
     'due' => 0,
     'never' => 0,
+
 ];
 
 
@@ -257,10 +352,14 @@ $placesWithReports = 0;
 $verificationDueCount = 0;
 
 
-foreach ($places as &$place) {
+foreach (
+    $places as &$place
+) {
 
     $status =
-        $place['status'];
+        $place[
+            'status'
+        ];
 
 
     if (
@@ -274,6 +373,7 @@ foreach ($places as &$place) {
         $statusCounts[
             $status
         ]++;
+
     }
 
 
@@ -302,6 +402,7 @@ foreach ($places as &$place) {
     ) {
 
         $placesWithReports++;
+
     }
 
 
@@ -338,6 +439,7 @@ foreach ($places as &$place) {
         $verificationCounts[
             $verificationState
         ]++;
+
     }
 
 
@@ -353,10 +455,21 @@ foreach ($places as &$place) {
     ) {
 
         $verificationDueCount++;
+
     }
+
 }
 
-unset($place);
+
+unset(
+    $place
+);
+
+
+$displayName =
+    $user['display_name']
+    ?: $user['username']
+    ?: $user['email'];
 
 ?>
 <!doctype html>
@@ -365,1214 +478,974 @@ unset($place);
 
 <head>
 
-<meta charset="utf-8">
-
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
-
-<title>
-  Places | Llama Scout Admin
-</title>
-
-<meta
-  name="robots"
-  content="noindex,nofollow"
->
-
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/style.css"
->
-
-<style>
-
-body {
-  margin: 0;
-  background: #f4efe6;
-  color: #172822;
-}
-
-.admin-header {
-  background: #101815;
-  color: #fff;
-  padding: 18px 24px;
-}
-
-.admin-header-inner {
-  width: min(
-    1200px,
-    100%
-  );
-
-  margin: 0 auto;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.admin-brand {
-  font-weight: 800;
-  font-size: 1.1rem;
-}
-
-.admin-user {
-  color:
-    rgba(
-      255,
-      255,
-      255,
-      .75
-    );
-
-  font-size: .88rem;
-}
-
-.admin-main {
-  width: min(
-    1100px,
-    calc(
-      100% - 36px
-    )
-  );
-
-  margin: 0 auto;
-
-  padding:
-    42px 0
-    70px;
-}
-
-.back-link {
-  display: inline-block;
-  margin-bottom: 28px;
-  color: inherit;
-  font-weight: 700;
-}
-
-.page-header {
-  margin-bottom: 30px;
-}
-
-.page-header h1 {
-  margin: 0 0 8px;
-
-  font-size: clamp(
-    2rem,
-    5vw,
-    3.2rem
-  );
-}
-
-.page-header p {
-  margin: 0;
-  color: #667069;
-}
-
-
-/* =========================================================
-   STATS
-   ========================================================= */
-
-.stats {
-  display: grid;
-
-  grid-template-columns:
-    repeat(
-      5,
-      minmax(
-        0,
-        1fr
-      )
-    );
-
-  gap: 14px;
-
-  margin-bottom: 28px;
-}
-
-.stat {
-  padding: 18px;
-
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .09
-    );
-
-  border-radius: 10px;
-}
-
-.stat span {
-  display: block;
-
-  margin-bottom: 6px;
-
-  color: #6b746e;
-
-  font-size: .72rem;
-  font-weight: 800;
-
-  text-transform: uppercase;
-
-  letter-spacing: .06em;
-}
-
-.stat strong {
-  font-size: 1.7rem;
-}
-
-.stat-alert {
-  background: #fff4df;
-}
-
-.stat-alert strong {
-  color: #9a5818;
-}
-
-
-/* =========================================================
-   FILTERS
-   ========================================================= */
-
-.place-controls {
-  display: grid;
-
-  grid-template-columns:
-    repeat(
-      4,
-      minmax(
-        0,
-        1fr
-      )
-    );
-
-  gap: 12px;
-
-  margin-bottom: 26px;
-
-  padding: 18px;
-
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .09
-    );
-
-  border-radius: 12px;
-}
-
-.control label {
-  display: block;
-
-  margin-bottom: 6px;
-
-  color: #68716c;
-
-  font-size: .72rem;
-  font-weight: 800;
-
-  text-transform: uppercase;
-
-  letter-spacing: .05em;
-}
-
-.control select {
-  width: 100%;
-
-  box-sizing: border-box;
-
-  padding: 10px 11px;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .18
-    );
-
-  border-radius: 7px;
-
-  background: #fff;
-
-  color: #172822;
-
-  font: inherit;
-}
-
-.filter-summary {
-  margin:
-    -10px 0
-    20px;
-
-  color: #69716c;
-
-  font-size: .86rem;
-}
-
-
-/* =========================================================
-   PLACE CARDS
-   ========================================================= */
-
-.place-list {
-  display: grid;
-  gap: 14px;
-}
-
-.place-card {
-  padding: 20px;
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .09
-    );
-
-  border-radius: 12px;
-}
-
-.place-card.has-reports {
-  border-left:
-    5px solid
-    #c07a25;
-}
-
-.place-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.place-heading-area {
-  min-width: 0;
-}
-
-.place-name {
-  margin: 0 0 5px;
-  font-size: 1.2rem;
-}
-
-.place-location {
-  margin: 0;
-  color: #667069;
-}
-
-.place-flags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 7px;
-}
-
-
-/* =========================================================
-   STATUS BADGES
-   ========================================================= */
-
-.status,
-.verification-flag,
-.report-flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-
-  padding: 6px 9px;
-
-  border-radius: 999px;
-
-  font-size: .7rem;
-  font-weight: 800;
-
-  text-transform: uppercase;
-  letter-spacing: .04em;
-
-  white-space: nowrap;
-}
-
-.status {
-  background: #e8ece8;
-  letter-spacing: .05em;
-}
-
-.status-featured {
-  background: #e6efe5;
-}
-
-.status-active {
-  background: #e4eee9;
-}
-
-.status-draft {
-  background: #eceae4;
-}
-
-.status-unlisted {
-  background: #fff0c9;
-}
-
-.status-removed {
-  background: #f3dddd;
-}
-
-.status-archived {
-  background: #e3e3e3;
-}
-
-
-/* =========================================================
-   REPORT FLAGS
-   ========================================================= */
-
-.report-flag {
-  background: #fff0cf;
-  color: #7d4710;
-  text-decoration: none;
-}
-
-.report-flag-new {
-  background: #f5ddd7;
-  color: #8b342a;
-}
-
-
-/* =========================================================
-   VERIFICATION FLAGS
-   ========================================================= */
-
-.verification-flag {
-  background: #ece9df;
-  color: #666057;
-}
-
-.verification-current {
-  background: #e6efe5;
-  color: #355443;
-}
-
-.verification-aging {
-  background: #f4eed8;
-  color: #766123;
-}
-
-.verification-due {
-  background: #fff0cf;
-  color: #7d4710;
-}
-
-.verification-never {
-  background: #f2dddd;
-  color: #873c35;
-}
-
-
-/* =========================================================
-   META + ACTIONS
-   ========================================================= */
-
-.place-meta {
-  display: flex;
-  flex-wrap: wrap;
-
-  gap:
-    7px
-    14px;
-
-  margin-top: 15px;
-
-  color: #707870;
-
-  font-size: .84rem;
-}
-
-.place-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-  margin-top: 18px;
-}
-
-.manage-button {
-  display: inline-block;
-
-  padding: 9px 14px;
-
-  background: #172822;
-  color: #fff;
-
-  border-radius: 7px;
-
-  text-decoration: none;
-
-  font-weight: 800;
-  font-size: .85rem;
-}
-
-.report-button {
-  display: inline-block;
-
-  padding: 9px 14px;
-
-  border:
-    1px solid
-    #c07a25;
-
-  border-radius: 7px;
-
-  color: #7d4710;
-
-  text-decoration: none;
-
-  font-weight: 800;
-  font-size: .85rem;
-
-  background: #fff8ea;
-}
-
-.empty {
-  padding: 30px;
-
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .09
-    );
-
-  border-radius: 12px;
-
-  text-align: center;
-
-  color: #667069;
-}
-
-
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
-
-@media (
-  max-width: 900px
-) {
-
-  .stats {
-    grid-template-columns:
-      repeat(
-        2,
-        1fr
-      );
-  }
-
-  .place-controls {
-    grid-template-columns:
-      repeat(
-        2,
-        1fr
-      );
-  }
-}
-
-@media (
-  max-width: 650px
-) {
-
-  .place-controls {
-    grid-template-columns:
-      1fr;
-  }
-
-  .place-top {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .place-flags {
-    justify-content: flex-start;
-  }
-}
-
-</style>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    Places | Llama Scout Admin
+  </title>
+
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
+
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
+
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
+
+
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/style.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/admin.css"
+  >
+
+
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="https://llamascout.com/icons/apple-touch-icon.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="https://llamascout.com/icons/favicon-32x32.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="https://llamascout.com/icons/favicon-16x16.png"
+  >
+
+  <link
+    rel="icon"
+    href="https://llamascout.com/icons/favicon.ico"
+    sizes="any"
+  >
+
+  <link
+    rel="manifest"
+    href="https://llamascout.com/icons/site.webmanifest"
+  >
 
 </head>
 
-<body>
+
+<body class="admin-page">
 
 
-<header class="admin-header">
+<?php
 
-  <div class="admin-header-inner">
+require_once
+    dirname(__DIR__)
+    . '/app/header.php';
 
-    <div class="admin-brand">
-      Llama Scout Admin
-    </div>
-
-    <div class="admin-user">
-
-      <?= e(
-          $user[
-              'display_name'
-          ]
-          ?: $user[
-              'username'
-          ]
-          ?: $user[
-              'email'
-          ]
-      ) ?>
-
-    </div>
-
-  </div>
-
-</header>
+?>
 
 
 <main class="admin-main">
 
 
-<a
-  href="/"
-  class="back-link"
->
-  &larr; Back to Basecamp
-</a>
+  <!-- =====================================================
+       PAGE INTRO
+       ===================================================== -->
 
+  <section class="admin-intro">
 
-<header class="page-header">
+    <div class="admin-intro-row">
 
-  <h1>
-    Places
-  </h1>
+      <div class="admin-intro-copy">
 
-  <p>
-    Manage place status,
-    verification, and community reports.
-  </p>
+        <p class="admin-eyebrow">
+          Llama Scout Admin
+        </p>
 
-</header>
+        <h1>
+          Places
+        </h1>
 
-
-<section class="stats">
-
-
-  <div class="stat">
-
-    <span>
-      Total
-    </span>
-
-    <strong>
-      <?= $totalPlaces ?>
-    </strong>
-
-  </div>
-
-
-  <div class="stat">
-
-    <span>
-      Featured
-    </span>
-
-    <strong>
-      <?= $statusCounts[
-          'featured'
-      ] ?>
-    </strong>
-
-  </div>
-
-
-  <div class="stat">
-
-    <span>
-      Active
-    </span>
-
-    <strong>
-      <?= $statusCounts[
-          'active'
-      ] ?>
-    </strong>
-
-  </div>
-
-
-  <div
-    class="
-      stat
-      <?= $totalOpenReports > 0
-          ? 'stat-alert'
-          : ''
-      ?>
-    "
-  >
-
-    <span>
-      Open Reports
-    </span>
-
-    <strong>
-      <?= $totalOpenReports ?>
-    </strong>
-
-  </div>
-
-
-  <div
-    class="
-      stat
-      <?= $verificationDueCount > 0
-          ? 'stat-alert'
-          : ''
-      ?>
-    "
-  >
-
-    <span>
-      Verification Due
-    </span>
-
-    <strong>
-      <?= $verificationDueCount ?>
-    </strong>
-
-  </div>
-
-
-</section>
-
-
-<section class="place-controls">
-
-
-  <div class="control">
-
-    <label for="filter-status">
-      Status
-    </label>
-
-    <select id="filter-status">
-
-      <option value="all">
-        All statuses
-      </option>
-
-      <option value="featured">
-        Featured
-      </option>
-
-      <option value="active">
-        Active
-      </option>
-
-      <option value="draft">
-        Draft
-      </option>
-
-      <option value="unlisted">
-        Unlisted
-      </option>
-
-      <option value="removed">
-        Removed
-      </option>
-
-      <option value="archived">
-        Archived
-      </option>
-
-    </select>
-
-  </div>
-
-
-  <div class="control">
-
-    <label for="filter-reports">
-      Reports
-    </label>
-
-    <select id="filter-reports">
-
-      <option value="all">
-        All places
-      </option>
-
-      <option value="reports">
-        Has open reports
-      </option>
-
-      <option value="no-reports">
-        No open reports
-      </option>
-
-    </select>
-
-  </div>
-
-
-  <div class="control">
-
-    <label for="filter-verification">
-      Verification
-    </label>
-
-    <select id="filter-verification">
-
-      <option value="all">
-        All
-      </option>
-
-      <option value="current">
-        Current
-      </option>
-
-      <option value="aging">
-        Aging
-      </option>
-
-      <option value="due">
-        Verification due
-      </option>
-
-      <option value="never">
-        Never verified
-      </option>
-
-    </select>
-
-  </div>
-
-
-  <div class="control">
-
-    <label for="sort-places">
-      Sort
-    </label>
-
-    <select id="sort-places">
-
-      <option value="priority">
-        Needs attention first
-      </option>
-
-      <option value="name">
-        Name A-Z
-      </option>
-
-      <option value="reports">
-        Most reports
-      </option>
-
-      <option value="verified-oldest">
-        Oldest verification
-      </option>
-
-      <option value="updated">
-        Recently updated
-      </option>
-
-    </select>
-
-  </div>
-
-
-</section>
-
-
-<p
-  class="filter-summary"
-  id="filter-summary"
->
-  Showing <?= $totalPlaces ?>
-  place<?= $totalPlaces === 1
-      ? ''
-      : 's'
-  ?>.
-</p>
-
-
-<?php if (!$places): ?>
-
-
-  <div class="empty">
-
-    No places are currently
-    in the database.
-
-  </div>
-
-
-<?php else: ?>
-
-
-  <section
-    class="place-list"
-    id="place-list"
-  >
-
-
-  <?php foreach (
-      $places as $place
-  ): ?>
-
-
-    <?php
-
-      $location =
-          location_text(
-              $place
-          );
-
-
-      $reportCount =
-          (int)
-          $place[
-              'open_report_count'
-          ];
-
-
-      $newReportCount =
-          (int)
-          $place[
-              'new_report_count'
-          ];
-
-
-      $verificationState =
-          $place[
-              'verification_state'
-          ];
-
-
-      $verifiedTimestamp =
-          $place[
-              'last_verified_at'
-          ]
-              ? strtotime(
-                  $place[
-                      'last_verified_at'
-                  ]
-              )
-              : 0;
-
-
-      $updatedTimestamp =
-          $place[
-              'updated_at'
-          ]
-              ? strtotime(
-                  $place[
-                      'updated_at'
-                  ]
-              )
-              : 0;
-
-    ?>
-
-
-    <article
-      class="
-        place-card
-        <?= $reportCount > 0
-            ? 'has-reports'
-            : ''
-        ?>
-      "
-
-      data-status="<?= e(
-          $place[
-              'status'
-          ]
-      ) ?>"
-
-      data-reports="<?= $reportCount ?>"
-
-      data-verification="<?= e(
-          $verificationState
-      ) ?>"
-
-      data-name="<?= e(
-          strtolower(
-              $place[
-                  'name'
-              ]
-          )
-      ) ?>"
-
-      data-verified="<?= (int)
-          $verifiedTimestamp
-      ?>"
-
-      data-updated="<?= (int)
-          $updatedTimestamp
-      ?>"
-    >
-
-
-      <div class="place-top">
-
-
-        <div class="place-heading-area">
-
-          <h2 class="place-name">
-
-            <?= e(
-                $place[
-                    'name'
-                ]
-            ) ?>
-
-          </h2>
-
-
-          <?php if (
-              $location
-          ): ?>
-
-            <p class="place-location">
-
-              <?= e(
-                  $location
-              ) ?>
-
-            </p>
-
-          <?php endif; ?>
-
-        </div>
-
-
-        <div class="place-flags">
-
-
-          <span
-            class="
-              status
-              status-<?= e(
-                  $place[
-                      'status'
-                  ]
-              ) ?>
-            "
-          >
-
-            <?= e(
-                $place[
-                    'status'
-                ]
-            ) ?>
-
-          </span>
-
-
-          <?php if (
-              $reportCount > 0
-          ): ?>
-
-            <a
-              class="
-                report-flag
-                <?= $newReportCount > 0
-                    ? 'report-flag-new'
-                    : ''
-                ?>
-              "
-
-              href="place.php?id=<?= (int)
-                  $place['id']
-              ?>#problem-reports"
-            >
-
-              REPORT
-
-              <?= $reportCount ?>
-
-            </a>
-
-          <?php endif; ?>
-
-
-          <span
-            class="
-              verification-flag
-              verification-<?= e(
-                  $verificationState
-              ) ?>
-            "
-          >
-
-            <?= e(
-                verification_label(
-                    $verificationState
-                )
-            ) ?>
-
-          </span>
-
-
-        </div>
-
+        <p>
+          Manage place status, verification,
+          and community reports.
+        </p>
 
       </div>
 
 
-      <div class="place-meta">
-
-
-        <span>
-
-          <?= e(
-              source_label(
-                  $place[
-                      'source_type'
-                  ]
-              )
-          ) ?>
-
-        </span>
-
-
-        <span>
-
-          <?= e(
-              date_label(
-                  $place[
-                      'last_verified_at'
-                  ]
-              )
-          ) ?>
-
-        </span>
-
-
-        <?php if (
-            !empty(
-                $place[
-                    'land_manager'
-                ]
-            )
-        ): ?>
-
-          <span>
-
-            <?= e(
-                $place[
-                    'land_manager'
-                ]
-            ) ?>
-
-          </span>
-
-        <?php endif; ?>
-
-
-        <span>
-
-          Place #<?= (int)
-              $place[
-                  'id'
-              ]
-          ?>
-
-        </span>
-
-
-      </div>
-
-
-      <div class="place-actions">
-
+      <div class="admin-intro-actions">
 
         <a
-          class="manage-button"
-
-          href="place.php?id=<?= (int)
-              $place[
-                  'id'
-              ]
-          ?>"
+          class="admin-button admin-button--secondary"
+          href="https://llamascout.com/places.php"
         >
-          Manage
+
+          <i
+            class="fa-solid fa-arrow-up-right-from-square"
+            aria-hidden="true"
+          ></i>
+
+          View Public Places
+
         </a>
-
-
-        <?php if (
-            $reportCount > 0
-        ): ?>
-
-          <a
-            class="report-button"
-
-            href="place.php?id=<?= (int)
-                $place[
-                    'id'
-            ] ?>#problem-reports"
-          >
-
-            Review
-            <?= $reportCount === 1
-                ? 'Report'
-                : 'Reports'
-            ?>
-
-          </a>
-
-        <?php endif; ?>
-
 
       </div>
 
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       ADMIN NAVIGATION
+       ===================================================== -->
+
+  <nav
+    class="admin-nav"
+    aria-label="Admin navigation"
+  >
+
+    <div class="admin-nav-inner">
+
+      <a href="/">
+
+        <i
+          class="fa-solid fa-campground"
+          aria-hidden="true"
+        ></i>
+
+        Basecamp
+
+      </a>
+
+
+      <a
+        class="is-active"
+        href="/places.php"
+        aria-current="page"
+      >
+
+        <i
+          class="fa-solid fa-location-dot"
+          aria-hidden="true"
+        ></i>
+
+        Places
+
+      </a>
+
+
+      <a href="/submissions.php">
+
+        <i
+          class="fa-solid fa-inbox"
+          aria-hidden="true"
+        ></i>
+
+        Submissions
+
+      </a>
+
+
+      <a href="/users.php">
+
+        <i
+          class="fa-solid fa-users"
+          aria-hidden="true"
+        ></i>
+
+        Users
+
+      </a>
+
+
+      <a href="/import-places.php">
+
+        <i
+          class="fa-solid fa-file-import"
+          aria-hidden="true"
+        ></i>
+
+        Import
+
+      </a>
+
+    </div>
+
+  </nav>
+
+
+  <!-- =====================================================
+       PLACE STATS
+       ===================================================== -->
+
+  <section
+    class="admin-stats admin-stats--5"
+    aria-label="Place statistics"
+  >
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Total
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $totalPlaces ?>
+      </strong>
 
     </article>
 
 
-  <?php endforeach; ?>
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Featured
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $statusCounts[
+            'featured'
+        ] ?>
+      </strong>
+
+    </article>
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Active
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $statusCounts[
+            'active'
+        ] ?>
+      </strong>
+
+    </article>
+
+
+    <article
+      class="
+        admin-stat
+        <?= $totalOpenReports > 0
+            ? 'admin-stat--alert'
+            : ''
+        ?>
+      "
+    >
+
+      <span class="admin-stat-label">
+        Open Reports
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $totalOpenReports ?>
+      </strong>
+
+    </article>
+
+
+    <article
+      class="
+        admin-stat
+        <?= $verificationDueCount > 0
+            ? 'admin-stat--alert'
+            : ''
+        ?>
+      "
+    >
+
+      <span class="admin-stat-label">
+        Verification Due
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $verificationDueCount ?>
+      </strong>
+
+    </article>
 
 
   </section>
 
 
-  <div
-    class="empty"
-    id="filter-empty"
-    hidden
+  <!-- =====================================================
+       FILTERS
+       ===================================================== -->
+
+  <section
+    class="admin-place-controls"
+    aria-label="Place filters"
   >
 
-    No places match those filters.
+
+    <div class="admin-place-control">
+
+      <label for="filter-status">
+        Status
+      </label>
+
+      <select id="filter-status">
+
+        <option value="all">
+          All statuses
+        </option>
+
+        <option value="featured">
+          Featured
+        </option>
+
+        <option value="active">
+          Active
+        </option>
+
+        <option value="draft">
+          Draft
+        </option>
+
+        <option value="unlisted">
+          Unlisted
+        </option>
+
+        <option value="removed">
+          Removed
+        </option>
+
+        <option value="archived">
+          Archived
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <div class="admin-place-control">
+
+      <label for="filter-reports">
+        Reports
+      </label>
+
+      <select id="filter-reports">
+
+        <option value="all">
+          All places
+        </option>
+
+        <option value="reports">
+          Has open reports
+        </option>
+
+        <option value="no-reports">
+          No open reports
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <div class="admin-place-control">
+
+      <label for="filter-verification">
+        Verification
+      </label>
+
+      <select id="filter-verification">
+
+        <option value="all">
+          All
+        </option>
+
+        <option value="current">
+          Current
+        </option>
+
+        <option value="aging">
+          Aging
+        </option>
+
+        <option value="due">
+          Verification due
+        </option>
+
+        <option value="never">
+          Never verified
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <div class="admin-place-control">
+
+      <label for="sort-places">
+        Sort
+      </label>
+
+      <select id="sort-places">
+
+        <option value="priority">
+          Needs attention first
+        </option>
+
+        <option value="name">
+          Name A-Z
+        </option>
+
+        <option value="reports">
+          Most reports
+        </option>
+
+        <option value="verified-oldest">
+          Oldest verification
+        </option>
+
+        <option value="updated">
+          Recently updated
+        </option>
+
+      </select>
+
+    </div>
+
+
+  </section>
+
+
+  <p
+    class="admin-place-filter-summary"
+    id="filter-summary"
+  >
+
+    Showing
+    <?= $totalPlaces ?>
+
+    place<?= $totalPlaces === 1
+        ? ''
+        : 's'
+    ?>.
+
+  </p>
+
+
+  <!-- =====================================================
+       PLACE LIST
+       ===================================================== -->
+
+  <?php if (!$places): ?>
+
+
+    <div class="admin-place-empty">
+
+      No places are currently
+      in the database.
+
+    </div>
+
+
+  <?php else: ?>
+
+
+    <section
+      class="admin-place-list"
+      id="place-list"
+    >
+
+
+      <?php foreach (
+          $places as $place
+      ): ?>
+
+
+        <?php
+
+        $location =
+            location_text(
+                $place
+            );
+
+
+        $reportCount =
+            (int)
+            $place[
+                'open_report_count'
+            ];
+
+
+        $newReportCount =
+            (int)
+            $place[
+                'new_report_count'
+            ];
+
+
+        $verificationState =
+            $place[
+                'verification_state'
+            ];
+
+
+        $verifiedTimestamp =
+            $place[
+                'last_verified_at'
+            ]
+                ? strtotime(
+                    $place[
+                        'last_verified_at'
+                    ]
+                )
+                : 0;
+
+
+        $updatedTimestamp =
+            $place[
+                'updated_at'
+            ]
+                ? strtotime(
+                    $place[
+                        'updated_at'
+                    ]
+                )
+                : 0;
+
+        ?>
+
+
+        <article
+          class="
+            admin-place-card
+            <?= $reportCount > 0
+                ? 'has-reports'
+                : ''
+            ?>
+          "
+
+          data-status="<?= e(
+              $place[
+                  'status'
+              ]
+          ) ?>"
+
+          data-reports="<?= $reportCount ?>"
+
+          data-verification="<?= e(
+              $verificationState
+          ) ?>"
+
+          data-name="<?= e(
+              strtolower(
+                  $place[
+                      'name'
+                  ]
+              )
+          ) ?>"
+
+          data-verified="<?= (int)
+              $verifiedTimestamp
+          ?>"
+
+          data-updated="<?= (int)
+              $updatedTimestamp
+          ?>"
+        >
+
+
+          <div class="admin-place-top">
+
+
+            <div class="admin-place-heading">
+
+              <h2 class="admin-place-name">
+
+                <?= e(
+                    $place[
+                        'name'
+                    ]
+                ) ?>
+
+              </h2>
+
+
+              <?php if (
+                  $location
+              ): ?>
+
+                <p class="admin-place-location">
+
+                  <i
+                    class="fa-solid fa-location-dot"
+                    aria-hidden="true"
+                  ></i>
+
+                  <?= e(
+                      $location
+                  ) ?>
+
+                </p>
+
+              <?php endif; ?>
+
+            </div>
+
+
+            <div class="admin-place-flags">
+
+
+              <span
+                class="
+                  admin-place-status
+                  admin-place-status--<?= e(
+                      $place[
+                          'status'
+                      ]
+                  ) ?>
+                "
+              >
+
+                <?= e(
+                    $place[
+                        'status'
+                    ]
+                ) ?>
+
+              </span>
+
+
+              <?php if (
+                  $reportCount > 0
+              ): ?>
+
+                <a
+                  class="
+                    admin-place-report
+                    <?= $newReportCount > 0
+                        ? 'admin-place-report--new'
+                        : ''
+                    ?>
+                  "
+
+                  href="/place.php?id=<?= (int)
+                      $place[
+                          'id'
+                      ]
+                  ?>#problem-reports"
+                >
+
+                  <i
+                    class="fa-solid fa-triangle-exclamation"
+                    aria-hidden="true"
+                  ></i>
+
+                  REPORT
+                  <?= $reportCount ?>
+
+                </a>
+
+              <?php endif; ?>
+
+
+              <span
+                class="
+                  admin-place-verification
+                  admin-place-verification--<?= e(
+                      $verificationState
+                  ) ?>
+                "
+              >
+
+                <?= e(
+                    verification_label(
+                        $verificationState
+                    )
+                ) ?>
+
+              </span>
+
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-place-meta">
+
+
+            <span>
+
+              <i
+                class="fa-solid fa-binoculars"
+                aria-hidden="true"
+              ></i>
+
+              <?= e(
+                  source_label(
+                      $place[
+                          'source_type'
+                      ]
+                  )
+              ) ?>
+
+            </span>
+
+
+            <span>
+
+              <i
+                class="fa-regular fa-calendar-check"
+                aria-hidden="true"
+              ></i>
+
+              <?= e(
+                  date_label(
+                      $place[
+                          'last_verified_at'
+                      ]
+                  )
+              ) ?>
+
+            </span>
+
+
+            <?php if (
+                !empty(
+                    $place[
+                        'land_manager'
+                    ]
+                )
+            ): ?>
+
+              <span>
+
+                <i
+                  class="fa-solid fa-tree"
+                  aria-hidden="true"
+                ></i>
+
+                <?= e(
+                    $place[
+                        'land_manager'
+                    ]
+                ) ?>
+
+              </span>
+
+            <?php endif; ?>
+
+
+            <span>
+
+              <i
+                class="fa-solid fa-hashtag"
+                aria-hidden="true"
+              ></i>
+
+              Place
+              <?= (int)
+                  $place[
+                      'id'
+                  ]
+              ?>
+
+            </span>
+
+
+          </div>
+
+
+          <div class="admin-place-actions">
+
+
+            <a
+              class="admin-button admin-button--small"
+              href="/place.php?id=<?= (int)
+                  $place[
+                      'id'
+                  ]
+              ?>"
+            >
+
+              <i
+                class="fa-solid fa-gear"
+                aria-hidden="true"
+              ></i>
+
+              Manage
+
+            </a>
+
+
+            <?php if (
+                $reportCount > 0
+            ): ?>
+
+              <a
+                class="
+                  admin-button
+                  admin-button--warning
+                  admin-button--small
+                "
+
+                href="/place.php?id=<?= (int)
+                    $place[
+                        'id'
+                    ]
+                ?>#problem-reports"
+              >
+
+                <i
+                  class="fa-solid fa-flag"
+                  aria-hidden="true"
+                ></i>
+
+                Review
+
+                <?= $reportCount === 1
+                    ? 'Report'
+                    : 'Reports'
+                ?>
+
+              </a>
+
+            <?php endif; ?>
+
+
+            <?php if (
+                !empty(
+                    $place[
+                        'slug'
+                    ]
+                )
+            ): ?>
+
+              <a
+                class="
+                  admin-button
+                  admin-button--secondary
+                  admin-button--small
+                "
+
+                href="https://llamascout.com/place.php?place=<?= urlencode(
+                    (string)
+                    $place[
+                        'slug'
+                    ]
+                ) ?>"
+
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+
+                <i
+                  class="fa-solid fa-arrow-up-right-from-square"
+                  aria-hidden="true"
+                ></i>
+
+                Public Page
+
+              </a>
+
+            <?php endif; ?>
+
+
+          </div>
+
+
+        </article>
+
+
+      <?php endforeach; ?>
+
+
+    </section>
+
+
+    <div
+      class="admin-place-empty"
+      id="filter-empty"
+      hidden
+    >
+
+      No places match those filters.
+
+    </div>
+
+
+  <?php endif; ?>
+
+
+  <!-- =====================================================
+       FOOT ACTIONS
+       ===================================================== -->
+
+  <div class="admin-foot-actions">
+
+    <a href="/">
+      Basecamp
+    </a>
+
+    <a href="/import-places.php">
+      Import Places
+    </a>
+
+    <a href="https://llamascout.com/places.php">
+      Public Places
+    </a>
 
   </div>
 
 
-<?php endif; ?>
-
-
 </main>
+
+
+<?php
+
+require_once
+    dirname(__DIR__)
+    . '/app/footer.php';
+
+?>
+
+
+<script
+  src="https://llamascout.com/js/header.js"
+></script>
 
 
 <script>
@@ -1596,7 +1469,7 @@ body {
   const cards =
     Array.from(
       list.querySelectorAll(
-        ".place-card"
+        ".admin-place-card"
       )
     );
 
@@ -1637,6 +1510,10 @@ body {
     );
 
 
+  /* =======================================================
+     FILTERS
+     ======================================================= */
+
   function applyFilters() {
 
     const status =
@@ -1675,43 +1552,56 @@ body {
           card.dataset.verification;
 
 
-        let visible = true;
+        let visible =
+          true;
 
 
         if (
-          status !== "all" &&
+          status !== "all"
+          &&
           cardStatus !== status
         ) {
 
-          visible = false;
+          visible =
+            false;
+
         }
 
 
         if (
-          reports === "reports" &&
+          reports === "reports"
+          &&
           reportCount < 1
         ) {
 
-          visible = false;
+          visible =
+            false;
+
         }
 
 
         if (
-          reports === "no-reports" &&
+          reports === "no-reports"
+          &&
           reportCount > 0
         ) {
 
-          visible = false;
+          visible =
+            false;
+
         }
 
 
         if (
-          verification !== "all" &&
+          verification !== "all"
+          &&
           verificationState !==
             verification
         ) {
 
-          visible = false;
+          visible =
+            false;
+
         }
 
 
@@ -1720,7 +1610,9 @@ body {
 
 
         if (visible) {
+
           visibleCount++;
+
         }
 
       }
@@ -1730,7 +1622,8 @@ body {
     if (summary) {
 
       summary.textContent =
-        `Showing ${visibleCount} ` +
+        `Showing ${visibleCount} `
+        +
         (
           visibleCount === 1
             ? "place."
@@ -1750,15 +1643,21 @@ body {
   }
 
 
+  /* =======================================================
+     SORTING
+     ======================================================= */
+
   function verificationPriority(
     state
   ) {
 
     return {
+
       never: 4,
       due: 3,
       aging: 2,
       current: 1
+
     }[state] || 0;
 
   }
@@ -1848,7 +1747,8 @@ body {
           return (
             bReports -
             aReports
-          ) ||
+          )
+          ||
           aName.localeCompare(
             bName
           );
@@ -1864,7 +1764,8 @@ body {
           return (
             aVerified -
             bVerified
-          ) ||
+          )
+          ||
           aName.localeCompare(
             bName
           );
@@ -1879,7 +1780,8 @@ body {
           return (
             bUpdated -
             aUpdated
-          ) ||
+          )
+          ||
           aName.localeCompare(
             bName
           );
@@ -1924,15 +1826,18 @@ body {
         return (
           bHasReports -
           aHasReports
-        ) ||
+        )
+        ||
         (
           bReports -
           aReports
-        ) ||
+        )
+        ||
         (
           bVerificationPriority -
           aVerificationPriority
-        ) ||
+        )
+        ||
         aName.localeCompare(
           bName
         );
@@ -1953,6 +1858,10 @@ body {
 
   }
 
+
+  /* =======================================================
+     EVENTS
+     ======================================================= */
 
   [
     statusFilter,
@@ -1981,6 +1890,10 @@ body {
     }
   );
 
+
+  /* =======================================================
+     INITIAL STATE
+     ======================================================= */
 
   applySort();
 
