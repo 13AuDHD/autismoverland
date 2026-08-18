@@ -11,6 +11,10 @@ $user =
     current_user();
 
 
+/* =========================================================
+   ACCOUNT
+   ========================================================= */
+
 $stmt =
     db()->prepare(
         '
@@ -27,9 +31,11 @@ $stmt =
         '
     );
 
+
 $stmt->execute([
     $user['id']
 ]);
+
 
 $account =
     $stmt->fetch(
@@ -46,6 +52,10 @@ if (!$account) {
     );
 }
 
+
+/* =========================================================
+   STRIPE CUSTOMER
+   ========================================================= */
 
 $customerId =
     trim(
@@ -67,6 +77,10 @@ if ($customerId === '') {
     exit;
 }
 
+
+/* =========================================================
+   OPEN STRIPE BILLING PORTAL
+   ========================================================= */
 
 try {
 
@@ -96,8 +110,8 @@ try {
 
 
     header(
-        'Location: ' .
-        $portalSession->url
+        'Location: '
+        . $portalSession->url
     );
 
     exit;
@@ -108,106 +122,137 @@ try {
 ) {
 
     error_log(
-        'Llama Scout Stripe portal error for user #' .
-        $account['id'] .
-        ': ' .
-        $exception->getMessage()
+        'Llama Scout Stripe portal error for user #'
+        . $account['id']
+        . ': '
+        . $exception->getMessage()
     );
 
 
     http_response_code(500);
+}
 
-    ?>
+?>
+
 <!doctype html>
 
 <html lang="en">
 
 <head>
 
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
-<title>
-  Billing Portal Error | Llama Scout
-</title>
+  <title>
+    Billing Portal Error | Llama Scout
+  </title>
 
-<style>
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
 
-body {
-  margin: 0;
-  background: #f4efe6;
-  color: #172822;
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/style.css"
+  >
 
-main {
-  width:
-    min(
-      650px,
-      calc(
-        100% - 36px
-      )
-    );
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/account.css"
+  >
 
-  margin: 0 auto;
-
-  padding:
-    60px 0;
-}
-
-.error-card {
-  padding: 24px;
-  background: #fff;
-  border-left: 5px solid #a9443d;
-  border-radius: 10px;
-}
-
-a {
-  color: inherit;
-  font-weight: 800;
-}
-
-</style>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
 
 </head>
 
-<body>
 
-<main>
+<body class="account-body">
 
-  <section class="error-card">
+
+<?php
+
+require_once
+    dirname(__DIR__)
+    . '/app/header.php';
+
+?>
+
+
+<main class="account-page">
+
+
+  <a
+    href="membership.php"
+    class="back-link"
+  >
+
+    <i
+      class="fa-solid fa-arrow-left"
+      aria-hidden="true"
+    ></i>
+
+    Back to Membership
+
+  </a>
+
+
+  <section class="account-card">
+
 
     <h1>
-      Billing portal could not open.
+      Billing portal could not open
     </h1>
 
-    <p>
+
+    <div
+      class="
+        account-status
+        account-status--error
+      "
+    >
+
+      Stripe could not open your billing portal.
+
       No changes were made to your membership.
+
+    </div>
+
+
+    <p class="account-intro">
+      Try again in a moment. If the problem continues,
+      return to Membership and try again later.
     </p>
 
-    <p>
-      <a href="membership.php">
-        Return to Membership
-      </a>
-    </p>
+
+    <a
+      href="membership.php"
+      class="primary-button"
+    >
+
+      Return to Membership
+
+    </a>
+
 
   </section>
 
+
 </main>
+
+
+<script
+  src="https://llamascout.com/js/header.js"
+></script>
+
 
 </body>
 
 </html>
-<?php
-
-    exit;
-}
