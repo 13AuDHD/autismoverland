@@ -46,142 +46,15 @@ function e(string $value): string
     href="https://llamascout.com/css/style.css"
   >
 
-  <style>
+  <link
+  rel="stylesheet"
+  href="https://llamascout.com/css/account.css"
+  >
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: #f4efe6;
-      color: #172822;
-    }
-
-    .account-shell {
-      width: min(1100px, calc(100% - 36px));
-      margin: 0 auto;
-      padding: 42px 0 70px;
-    }
-
-    .account-logo {
-      display: block;
-      width: min(320px, 80%);
-      margin: 0 auto 34px;
-    }
-
-    .account-header {
-      margin-bottom: 30px;
-    }
-
-    .account-header h1 {
-      margin: 0 0 8px;
-      font-size: clamp(2rem, 6vw, 3.5rem);
-    }
-
-    .account-header p {
-      margin: 0;
-      color: #667069;
-      line-height: 1.6;
-    }
-
-    .account-status {
-      margin-bottom: 34px;
-      padding: 18px 20px;
-      background: #fff;
-      border: 1px solid rgba(0,0,0,.09);
-      border-radius: 12px;
-    }
-
-    .account-status strong {
-      display: block;
-      margin-bottom: 5px;
-    }
-
-    .account-status--verified {
-      border-left: 5px solid #436d50;
-    }
-
-    .account-status--pending {
-      border-left: 5px solid #b0782c;
-    }
-
-    .account-status p {
-      margin: 5px 0 0;
-      color: #667069;
-      line-height: 1.55;
-    }
-
-    .account-section {
-      margin-top: 36px;
-    }
-
-    .account-section h2 {
-      margin: 0 0 16px;
-      font-size: 1.4rem;
-    }
-
-    .account-dashboard-grid {
-      display: grid;
-      grid-template-columns:
-        repeat(2, minmax(0, 1fr));
-      gap: 18px;
-    }
-
-    .account-dashboard-card {
-      display: block;
-      padding: 24px;
-      background: #fff;
-      color: inherit;
-      border: 1px solid rgba(0,0,0,.09);
-      border-radius: 12px;
-      text-decoration: none;
-      transition:
-        transform .15s ease,
-        box-shadow .15s ease;
-    }
-
-    .account-dashboard-card:hover {
-      transform: translateY(-2px);
-      box-shadow:
-        0 10px 24px rgba(0,0,0,.08);
-    }
-
-    .account-dashboard-card h3 {
-      margin: 0 0 7px;
-      font-size: 1.1rem;
-    }
-
-    .account-dashboard-card p {
-      margin: 0;
-      color: #667069;
-      line-height: 1.55;
-    }
-
-    .account-footer {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 18px;
-      margin-top: 42px;
-      padding-top: 22px;
-      border-top: 1px solid rgba(0,0,0,.12);
-    }
-
-    .account-footer a {
-      color: inherit;
-      font-weight: 700;
-    }
-
-    @media (max-width: 700px) {
-
-      .account-dashboard-grid {
-        grid-template-columns: 1fr;
-      }
-
-    }
-
-  </style>
 
 </head>
 
-<body>
+<body class="account-body">
 
   <main class="account-shell">
 
