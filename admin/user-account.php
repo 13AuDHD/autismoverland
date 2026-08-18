@@ -2,28 +2,53 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
-require_once dirname(__DIR__) . '/app/mail.php';
-require_once dirname(__DIR__) . '/app/username-policy.php';
-require_once dirname(__DIR__) . '/app/timezone.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
 
-require_role('admin');
+require_once
+    dirname(__DIR__)
+    . '/app/mail.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/username-policy.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/timezone.php';
+
+
+require_role(
+    'admin'
+);
+
 
 $adminUser =
     current_user();
 
+
 start_llama_session();
 
-$db = db();
+
+$db =
+    db();
 
 
-function e(mixed $value): string
-{
+/* =========================================================
+   HELPERS
+   ========================================================= */
+
+function e(
+    mixed $value
+): string {
+
     return htmlspecialchars(
         (string) $value,
         ENT_QUOTES,
         'UTF-8'
     );
+
 }
 
 
@@ -54,17 +79,24 @@ function fetch_user(
             '
         );
 
+
     $stmt->execute([
         $userId
     ]);
+
 
     return
         $stmt->fetch(
             PDO::FETCH_ASSOC
         )
         ?: [];
+
 }
 
+
+/* =========================================================
+   CREATE EMAIL VERIFICATION
+   ========================================================= */
 
 function create_verification(
     PDO $db,
@@ -73,7 +105,13 @@ function create_verification(
 
     $db->beginTransaction();
 
+
     try {
+
+        /*
+         * Expire any unused verification links
+         * already associated with this account.
+         */
 
         $stmt =
             $db->prepare(
@@ -88,6 +126,7 @@ function create_verification(
                 '
             );
 
+
         $stmt->execute([
             $user['id']
         ]);
@@ -95,8 +134,11 @@ function create_verification(
 
         $token =
             bin2hex(
-                random_bytes(32)
+                random_bytes(
+                    32
+                )
             );
+
 
         $tokenHash =
             hash(
@@ -126,6 +168,7 @@ function create_verification(
                 '
             );
 
+
         $stmt->execute([
             $user['id'],
             $tokenHash
@@ -140,7 +183,6 @@ function create_verification(
             $token
         );
 
-
     } catch (
         Throwable $exception
     ) {
@@ -148,13 +190,22 @@ function create_verification(
         if (
             $db->inTransaction()
         ) {
+
             $db->rollBack();
+
         }
 
+
         throw $exception;
+
     }
+
 }
 
+
+/* =========================================================
+   CREATE PASSWORD RESET
+   ========================================================= */
 
 function create_password_reset(
     PDO $db,
@@ -163,7 +214,12 @@ function create_password_reset(
 
     $db->beginTransaction();
 
+
     try {
+
+        /*
+         * Expire any unused reset links first.
+         */
 
         $expireStmt =
             $db->prepare(
@@ -178,6 +234,7 @@ function create_password_reset(
                 '
             );
 
+
         $expireStmt->execute([
             $user['id']
         ]);
@@ -185,8 +242,11 @@ function create_password_reset(
 
         $token =
             bin2hex(
-                random_bytes(32)
+                random_bytes(
+                    32
+                )
             );
+
 
         $tokenHash =
             hash(
@@ -216,6 +276,7 @@ function create_password_reset(
                 '
             );
 
+
         $insertStmt->execute([
             $user['id'],
             $tokenHash
@@ -226,7 +287,8 @@ function create_password_reset(
 
 
         $resetUrl =
-            'https://account.llamascout.com/reset-password.php?token=' .
+            'https://account.llamascout.com/reset-password.php?token='
+            .
             rawurlencode(
                 $token
             );
@@ -235,8 +297,12 @@ function create_password_reset(
         $name =
             trim(
                 (string) (
-                    $user['display_name']
-                    ?: $user['username']
+                    $user[
+                        'display_name'
+                    ]
+                    ?: $user[
+                        'username'
+                    ]
                     ?: 'Scout'
                 )
             );
@@ -247,22 +313,30 @@ function create_password_reset(
 
 
         $message =
-            "Hi {$name},\n\n" .
-            "Llama Scout support sent you a secure password reset link.\n\n" .
-            "Use the link below to choose a new password:\n\n" .
-            $resetUrl .
-            "\n\n" .
-            "This link expires in 60 minutes and can only be used once.\n\n" .
-            "If you were not expecting this email, you can ignore it.\n\n" .
+            "Hi {$name},\n\n"
+            .
+            "Llama Scout support sent you a secure password reset link.\n\n"
+            .
+            "Use the link below to choose a new password:\n\n"
+            .
+            $resetUrl
+            .
+            "\n\n"
+            .
+            "This link expires in 60 minutes and can only be used once.\n\n"
+            .
+            "If you were not expecting this email, you can ignore it.\n\n"
+            .
             "Llama Scout";
 
 
         return send_llama_mail(
-            $user['email'],
+            $user[
+                'email'
+            ],
             $subject,
             $message
         );
-
 
     } catch (
         Throwable $exception
@@ -271,31 +345,56 @@ function create_password_reset(
         if (
             $db->inTransaction()
         ) {
+
             $db->rollBack();
+
         }
 
+
         throw $exception;
+
     }
+
 }
 
 
+/* =========================================================
+   USER ID
+   ========================================================= */
+
 $userId =
     (int) (
-        $_GET['id']
-        ?? $_POST['user_id']
-        ?? 0
+        $_GET[
+            'id'
+        ]
+        ??
+        $_POST[
+            'user_id'
+        ]
+        ??
+        0
     );
 
 
-if ($userId < 1) {
+if (
+    $userId < 1
+) {
 
-    http_response_code(400);
+    http_response_code(
+        400
+    );
+
 
     exit(
         'A valid user ID is required.'
     );
+
 }
 
+
+/* =========================================================
+   CSRF
+   ========================================================= */
 
 if (
     empty(
@@ -309,8 +408,11 @@ if (
         'admin_user_account_csrf'
     ] =
         bin2hex(
-            random_bytes(32)
+            random_bytes(
+                32
+            )
         );
+
 }
 
 
@@ -320,6 +422,10 @@ $csrfToken =
     ];
 
 
+/* =========================================================
+   LOAD USER
+   ========================================================= */
+
 $managedUser =
     fetch_user(
         $db,
@@ -327,27 +433,44 @@ $managedUser =
     );
 
 
-if (!$managedUser) {
+if (
+    !$managedUser
+) {
 
-    http_response_code(404);
+    http_response_code(
+        404
+    );
+
 
     exit(
         'User not found.'
     );
+
 }
 
 
-$message = '';
-$error = '';
+/* =========================================================
+   POST ACTIONS
+   ========================================================= */
+
+$message =
+    '';
+
+
+$error =
+    '';
 
 
 if (
-    $_SERVER['REQUEST_METHOD']
-    === 'POST'
+    $_SERVER[
+        'REQUEST_METHOD'
+    ] === 'POST'
 ) {
 
     $submittedToken =
-        $_POST['csrf_token']
+        $_POST[
+            'csrf_token'
+        ]
         ?? '';
 
 
@@ -370,11 +493,17 @@ if (
         $action =
             trim(
                 (string) (
-                    $_POST['action']
+                    $_POST[
+                        'action'
+                    ]
                     ?? ''
                 )
             );
 
+
+        /* =================================================
+           UPDATE ACCOUNT
+           ================================================= */
 
         if (
             $action ===
@@ -385,34 +514,45 @@ if (
                 strtolower(
                     trim(
                         (string) (
-                            $_POST['username']
+                            $_POST[
+                                'username'
+                            ]
                             ?? ''
                         )
                     )
                 );
 
+
             $displayName =
                 trim(
                     (string) (
-                        $_POST['display_name']
+                        $_POST[
+                            'display_name'
+                        ]
                         ?? ''
                     )
                 );
+
 
             $email =
                 strtolower(
                     trim(
                         (string) (
-                            $_POST['email']
+                            $_POST[
+                                'email'
+                            ]
                             ?? ''
                         )
                     )
                 );
 
+
             $timezone =
                 trim(
                     (string) (
-                        $_POST['timezone']
+                        $_POST[
+                            'timezone'
+                        ]
                         ?? llama_default_timezone()
                     )
                 );
@@ -425,11 +565,15 @@ if (
 
 
             if (
-                !$usernamePolicy['allowed']
+                !$usernamePolicy[
+                    'allowed'
+                ]
             ) {
 
                 $error =
-                    $usernamePolicy['reason'];
+                    $usernamePolicy[
+                        'reason'
+                    ];
 
             } elseif (
                 $displayName === ''
@@ -455,6 +599,7 @@ if (
 
                 $error =
                     'Enter a valid email address.';
+
             }
 
 
@@ -468,10 +613,17 @@ if (
 
                 $error =
                     'Choose a valid time zone.';
+
             }
 
 
-            if ($error === '') {
+            /* =============================================
+               USERNAME UNIQUENESS
+               ============================================= */
+
+            if (
+                $error === ''
+            ) {
 
                 $stmt =
                     $db->prepare(
@@ -487,20 +639,32 @@ if (
                         '
                     );
 
+
                 $stmt->execute([
                     $username,
                     $userId
                 ]);
 
-                if ($stmt->fetch()) {
+
+                if (
+                    $stmt->fetch()
+                ) {
 
                     $error =
                         'That username is already taken.';
+
                 }
+
             }
 
 
-            if ($error === '') {
+            /* =============================================
+               EMAIL UNIQUENESS
+               ============================================= */
+
+            if (
+                $error === ''
+            ) {
 
                 $stmt =
                     $db->prepare(
@@ -516,32 +680,49 @@ if (
                         '
                     );
 
+
                 $stmt->execute([
                     $email,
                     $userId
                 ]);
 
-                if ($stmt->fetch()) {
+
+                if (
+                    $stmt->fetch()
+                ) {
 
                     $error =
                         'An account already exists with that email address.';
+
                 }
+
             }
 
 
-            if ($error === '') {
+            /* =============================================
+               SAVE ACCOUNT
+               ============================================= */
+
+            if (
+                $error === ''
+            ) {
 
                 $emailChanged =
-                    $email !==
+                    $email
+                    !==
                     strtolower(
                         (string)
-                        $managedUser['email']
+                        $managedUser[
+                            'email'
+                        ]
                     );
 
 
                 try {
 
-                    if ($emailChanged) {
+                    if (
+                        $emailChanged
+                    ) {
 
                         $stmt =
                             $db->prepare(
@@ -558,6 +739,7 @@ if (
                                 WHERE id = ?
                                 '
                             );
+
 
                         $stmt->execute([
                             $username,
@@ -583,12 +765,14 @@ if (
                                 '
                             );
 
+
                         $stmt->execute([
                             $username,
                             $displayName,
                             $timezone,
                             $userId
                         ]);
+
                     }
 
 
@@ -599,13 +783,16 @@ if (
                         );
 
 
-                    if ($emailChanged) {
+                    if (
+                        $emailChanged
+                    ) {
 
                         $sent =
                             create_verification(
                                 $db,
                                 $managedUser
                             );
+
 
                         $message =
                             $sent
@@ -616,23 +803,32 @@ if (
 
                         $message =
                             'Account information updated.';
-                    }
 
+                    }
 
                 } catch (
                     Throwable $exception
                 ) {
 
                     error_log(
-                        'Llama Scout admin account edit error: ' .
-                        $exception->getMessage()
+                        'Llama Scout admin account edit error: '
+                        .
+                        $exception
+                            ->getMessage()
                     );
+
 
                     $error =
                         'The account information could not be updated.';
+
                 }
+
             }
 
+
+        /* =================================================
+           PASSWORD RESET
+           ================================================= */
 
         } elseif (
             $action ===
@@ -650,25 +846,36 @@ if (
 
                 $message =
                     $sent
-                        ? 'Password reset email sent to ' .
-                          $managedUser['email'] .
+                        ? 'Password reset email sent to '
+                          .
+                          $managedUser[
+                              'email'
+                          ]
+                          .
                           '.'
                         : 'The reset link was created, but the email could not be sent.';
-
 
             } catch (
                 Throwable $exception
             ) {
 
                 error_log(
-                    'Llama Scout admin password reset error: ' .
-                    $exception->getMessage()
+                    'Llama Scout admin password reset error: '
+                    .
+                    $exception
+                        ->getMessage()
                 );
+
 
                 $error =
                     'The password reset email could not be created.';
+
             }
 
+
+        /* =================================================
+           VERIFICATION EMAIL
+           ================================================= */
 
         } elseif (
             $action ===
@@ -686,34 +893,47 @@ if (
 
                 $message =
                     $sent
-                        ? 'Verification email sent to ' .
-                          $managedUser['email'] .
+                        ? 'Verification email sent to '
+                          .
+                          $managedUser[
+                              'email'
+                          ]
+                          .
                           '.'
                         : 'A verification link was created, but the email could not be sent.';
-
 
             } catch (
                 Throwable $exception
             ) {
 
                 error_log(
-                    'Llama Scout admin verification email error: ' .
-                    $exception->getMessage()
+                    'Llama Scout admin verification email error: '
+                    .
+                    $exception
+                        ->getMessage()
                 );
+
 
                 $error =
                     'The verification email could not be created.';
-            }
 
+            }
 
         } else {
 
             $error =
                 'That admin action is not supported.';
+
         }
+
     }
+
 }
 
+
+/* =========================================================
+   REFRESH USER AFTER ACTIONS
+   ========================================================= */
 
 $managedUser =
     fetch_user(
@@ -721,12 +941,19 @@ $managedUser =
         $userId
     );
 
+
 $displayHeading =
     trim(
         (string) (
-            $managedUser['display_name']
-            ?: $managedUser['username']
-            ?: $managedUser['email']
+            $managedUser[
+                'display_name'
+            ]
+            ?: $managedUser[
+                'username'
+            ]
+            ?: $managedUser[
+                'email'
+            ]
         )
     );
 
@@ -737,374 +964,344 @@ $displayHeading =
 
 <head>
 
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
-<title>
-  Edit <?= e($displayHeading) ?>
-  | Llama Scout Admin
-</title>
+  <title>
+    Edit <?= e(
+        $displayHeading
+    ) ?>
+    | Llama Scout Admin
+  </title>
 
-<meta
-  name="robots"
-  content="noindex,nofollow"
->
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
 
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/style.css"
->
 
-<style>
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
 
-body {
-  margin: 0;
-  background: #f4efe6;
-  color: #172822;
-}
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
 
-.admin-header {
-  background: #101815;
-  color: #fff;
-  padding: 18px 24px;
-}
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
 
-.admin-header-inner {
-  width: min(1100px, 100%);
-  margin: 0 auto;
 
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-}
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
 
-.admin-brand {
-  color: #fff;
-  font-weight: 800;
-  text-decoration: none;
-}
 
-.admin-user {
-  color: rgba(255,255,255,.72);
-  font-size: .88rem;
-}
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/style.css"
+  >
 
-.admin-page {
-  width:
-    min(
-      820px,
-      calc(
-        100% - 36px
-      )
-    );
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/admin.css"
+  >
 
-  margin: 0 auto;
 
-  padding:
-    38px 0
-    70px;
-}
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="https://llamascout.com/icons/apple-touch-icon.png"
+  >
 
-.back-link {
-  display: inline-block;
-  margin-bottom: 24px;
-  color: inherit;
-  font-weight: 700;
-}
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="https://llamascout.com/icons/favicon-32x32.png"
+  >
 
-.page-header {
-  margin-bottom: 26px;
-}
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="https://llamascout.com/icons/favicon-16x16.png"
+  >
 
-.page-header h1 {
-  margin:
-    0 0
-    6px;
+  <link
+    rel="icon"
+    href="https://llamascout.com/icons/favicon.ico"
+    sizes="any"
+  >
 
-  font-size:
-    clamp(
-      2rem,
-      5vw,
-      3rem
-    );
-}
-
-.page-header p {
-  margin: 0;
-  color: #667069;
-}
-
-.notice {
-  margin-bottom: 20px;
-  padding: 14px 16px;
-  border-radius: 8px;
-}
-
-.notice-success {
-  background: #edf7ef;
-}
-
-.notice-error {
-  background: #fff3f1;
-  border: 1px solid #b64b42;
-}
-
-.admin-card {
-  margin-bottom: 18px;
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .09
-    );
-
-  border-radius: 12px;
-
-  overflow: hidden;
-}
-
-.card-heading {
-  padding: 17px 20px;
-
-  border-bottom:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .08
-    );
-}
-
-.card-heading h2 {
-  margin: 0;
-  font-size: 1.08rem;
-}
-
-.card-body {
-  padding: 20px;
-}
-
-.admin-field {
-  display: grid;
-  gap: 7px;
-  margin-bottom: 18px;
-}
-
-.admin-field label {
-  font-weight: 800;
-}
-
-.admin-field input,
-.admin-field select {
-  width: 100%;
-  box-sizing: border-box;
-
-  padding:
-    12px 13px;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .18
-    );
-
-  border-radius: 7px;
-
-  font: inherit;
-}
-
-.field-note {
-  margin: 0;
-  color: #727a75;
-  font-size: .82rem;
-  line-height: 1.5;
-}
-
-.admin-button {
-  width: 100%;
-
-  padding:
-    12px 15px;
-
-  border: 0;
-  border-radius: 7px;
-
-  background: #172822;
-  color: #fff;
-
-  font: inherit;
-  font-weight: 800;
-
-  cursor: pointer;
-}
-
-.admin-button-secondary {
-  background: #fff;
-  color: #172822;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .18
-    );
-}
-
-.email-status {
-  margin-bottom: 16px;
-  padding: 12px 14px;
-  border-radius: 8px;
-  background: #f7f5ef;
-}
-
-.email-status strong {
-  display: block;
-  margin-bottom: 4px;
-}
-
-.support-grid {
-  display: grid;
-  grid-template-columns:
-    repeat(
-      2,
-      minmax(
-        0,
-        1fr
-      )
-    );
-  gap: 12px;
-}
-
-.support-grid form {
-  margin: 0;
-}
-
-@media (
-  max-width: 650px
-) {
-
-  .support-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-</style>
+  <link
+    rel="manifest"
+    href="https://llamascout.com/icons/site.webmanifest"
+  >
 
 </head>
 
-<body>
 
-<header class="admin-header">
+<body class="admin-page">
 
-  <div class="admin-header-inner">
 
-    <a
-      href="/"
-      class="admin-brand"
-    >
-      Llama Scout Admin
-    </a>
+<?php
 
-    <div class="admin-user">
-      <?= e(
-          $adminUser['display_name']
-          ?: $adminUser['username']
-          ?: $adminUser['email']
-      ) ?>
+require_once
+    dirname(__DIR__)
+    . '/app/header.php';
+
+?>
+
+
+<main class="admin-main">
+
+
+  <!-- =====================================================
+       PAGE INTRO
+       ===================================================== -->
+
+  <section class="admin-intro">
+
+    <div class="admin-intro-row">
+
+      <div class="admin-intro-copy">
+
+        <p class="admin-eyebrow">
+          User Management
+        </p>
+
+        <h1>
+          Edit Account
+        </h1>
+
+        <p>
+          <?= e(
+              $displayHeading
+          ) ?>
+
+          &middot;
+
+          User
+          #<?= $userId ?>
+        </p>
+
+      </div>
+
+
+      <div class="admin-intro-actions">
+
+        <a
+          class="
+            admin-button
+            admin-button--secondary
+          "
+          href="/user.php?id=<?= $userId ?>"
+        >
+
+          <i
+            class="fa-solid fa-arrow-left"
+            aria-hidden="true"
+          ></i>
+
+          User Overview
+
+        </a>
+
+      </div>
+
     </div>
 
-  </div>
-
-</header>
+  </section>
 
 
-<main class="admin-page">
+  <!-- =====================================================
+       ADMIN NAVIGATION
+       ===================================================== -->
 
-  <a
-    href="user.php?id=<?= $userId ?>"
-    class="back-link"
+  <nav
+    class="admin-nav"
+    aria-label="Admin navigation"
   >
-    &larr; Back to User
-  </a>
+
+    <div class="admin-nav-inner">
+
+      <a href="/">
+
+        <i
+          class="fa-solid fa-campground"
+          aria-hidden="true"
+        ></i>
+
+        Basecamp
+
+      </a>
 
 
-  <header class="page-header">
+      <a href="/places.php">
 
-    <h1>
-      Edit Account
-    </h1>
+        <i
+          class="fa-solid fa-location-dot"
+          aria-hidden="true"
+        ></i>
 
-    <p>
-      <?= e($displayHeading) ?>
-      &middot;
-      User #<?= $userId ?>
-    </p>
+        Places
 
-  </header>
+      </a>
 
 
-  <?php if ($message): ?>
+      <a href="/submissions.php">
 
-    <div class="notice notice-success">
-      <?= e($message) ?>
+        <i
+          class="fa-solid fa-inbox"
+          aria-hidden="true"
+        ></i>
+
+        Submissions
+
+      </a>
+
+
+      <a
+        class="is-active"
+        href="/users.php"
+      >
+
+        <i
+          class="fa-solid fa-users"
+          aria-hidden="true"
+        ></i>
+
+        Users
+
+      </a>
+
+
+      <a href="/import-places.php">
+
+        <i
+          class="fa-solid fa-file-import"
+          aria-hidden="true"
+        ></i>
+
+        Import
+
+      </a>
+
+    </div>
+
+  </nav>
+
+
+  <!-- =====================================================
+       NOTICES
+       ===================================================== -->
+
+  <?php if (
+      $message
+  ): ?>
+
+    <div
+      class="
+        admin-notice
+        admin-notice--success
+      "
+    >
+
+      <p>
+        <?= e(
+            $message
+        ) ?>
+      </p>
+
     </div>
 
   <?php endif; ?>
 
 
-  <?php if ($error): ?>
+  <?php if (
+      $error
+  ): ?>
 
-    <div class="notice notice-error">
-      <?= e($error) ?>
+    <div
+      class="
+        admin-notice
+        admin-notice--error
+      "
+    >
+
+      <p>
+        <?= e(
+            $error
+        ) ?>
+      </p>
+
     </div>
 
   <?php endif; ?>
 
 
-  <section class="admin-card">
+  <!-- =====================================================
+       ACCOUNT INFORMATION
+       ===================================================== -->
 
-    <header class="card-heading">
-      <h2>Account Information</h2>
-    </header>
+  <section class="admin-panel">
 
-    <div class="card-body">
+    <div class="admin-panel-header">
 
-      <form method="post">
+      <div>
 
-        <input
-          type="hidden"
-          name="action"
-          value="update_account"
-        >
+        <h2>
+          Account Information
+        </h2>
 
-        <input
-          type="hidden"
-          name="user_id"
-          value="<?= $userId ?>"
-        >
+        <p>
+          Update the member's public account identity,
+          email address, and time zone.
+        </p>
 
-        <input
-          type="hidden"
-          name="csrf_token"
-          value="<?= e(
-              $csrfToken
-          ) ?>"
-        >
+      </div>
+
+    </div>
+
+
+    <form
+      method="post"
+      class="admin-form"
+    >
+
+      <input
+        type="hidden"
+        name="action"
+        value="update_account"
+      >
+
+      <input
+        type="hidden"
+        name="user_id"
+        value="<?= $userId ?>"
+      >
+
+      <input
+        type="hidden"
+        name="csrf_token"
+        value="<?= e(
+            $csrfToken
+        ) ?>"
+      >
+
+
+      <div class="admin-form-grid">
 
 
         <div class="admin-field">
@@ -1149,11 +1346,9 @@ body {
             required
           >
 
-          <p class="field-note">
-
-            4-16 characters.
+          <p class="admin-field-help">
+            4 to 16 characters.
             Letters, numbers, and underscores only.
-
           </p>
 
         </div>
@@ -1171,17 +1366,17 @@ body {
             type="email"
             maxlength="255"
             value="<?= e(
-                $managedUser['email']
+                $managedUser[
+                    'email'
+                ]
             ) ?>"
             required
           >
 
-          <p class="field-note">
-
+          <p class="admin-field-help">
             Changing the email address clears
-            its verified status and sends
-            verification to the new address.
-
+            its verified status and sends a new
+            verification email.
           </p>
 
         </div>
@@ -1201,11 +1396,15 @@ body {
 
             <?php foreach (
                 llama_timezones()
-                as $zone => $label
+                as
+                $zone =>
+                $label
             ): ?>
 
               <option
-                value="<?= e($zone) ?>"
+                value="<?= e(
+                    $zone
+                ) ?>"
                 <?= llama_user_timezone(
                     $managedUser
                 ) === $zone
@@ -1213,161 +1412,344 @@ body {
                     : ''
                 ?>
               >
-                <?= e($label) ?>
+
+                <?= e(
+                    $label
+                ) ?>
+
               </option>
 
             <?php endforeach; ?>
 
           </select>
 
-          <p class="field-note">
-
-            Controls how account dates and
-            times are shown for this user.
-
+          <p class="admin-field-help">
+            Controls how dates and times
+            are shown for this user.
           </p>
 
         </div>
 
 
+      </div>
+
+
+      <div class="admin-form-actions">
+
         <button
           type="submit"
           class="admin-button"
         >
+
+          <i
+            class="fa-solid fa-floppy-disk"
+            aria-hidden="true"
+          ></i>
+
           Save Account Information
+
         </button>
 
-      </form>
+      </div>
 
-    </div>
+    </form>
 
   </section>
 
 
-  <section class="admin-card">
+  <!-- =====================================================
+       EMAIL VERIFICATION
+       ===================================================== -->
 
-    <header class="card-heading">
-      <h2>Email Verification</h2>
-    </header>
+  <section class="admin-panel">
 
-    <div class="card-body">
+    <div class="admin-panel-header">
 
-      <div class="email-status">
+      <div>
 
-        <strong>
-          <?= !empty(
-              $managedUser[
-                  'email_verified_at'
-              ]
-          )
-              ? 'Verified'
-              : 'Verification Required'
-          ?>
-        </strong>
+        <h2>
+          Email Verification
+        </h2>
 
-        <?= e(
-            $managedUser['email']
-        ) ?>
+        <p>
+          Review verification status or send
+          a fresh verification link.
+        </p>
 
       </div>
 
 
-      <form method="post">
+      <?php if (
+          !empty(
+              $managedUser[
+                  'email_verified_at'
+              ]
+          )
+      ): ?>
 
-        <input
-          type="hidden"
-          name="action"
-          value="send_verification"
+        <span
+          class="
+            admin-badge
+            admin-badge--success
+          "
         >
 
-        <input
-          type="hidden"
-          name="user_id"
-          value="<?= $userId ?>"
+          Verified
+
+        </span>
+
+      <?php else: ?>
+
+        <span
+          class="
+            admin-badge
+            admin-badge--warning
+          "
         >
 
-        <input
-          type="hidden"
-          name="csrf_token"
-          value="<?= e(
-              $csrfToken
-          ) ?>"
-        >
+          Verification Required
+
+        </span>
+
+      <?php endif; ?>
+
+    </div>
+
+
+    <div class="admin-detail-list">
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Email
+        </div>
+
+        <div class="admin-detail-value">
+
+          <?= e(
+              $managedUser[
+                  'email'
+              ]
+          ) ?>
+
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Verification
+        </div>
+
+        <div class="admin-detail-value">
+
+          <?php if (
+              !empty(
+                  $managedUser[
+                      'email_verified_at'
+                  ]
+              )
+          ): ?>
+
+            Verified
+
+          <?php else: ?>
+
+            Not yet verified
+
+          <?php endif; ?>
+
+        </div>
+
+      </div>
+
+
+    </div>
+
+
+    <form
+      method="post"
+      class="admin-form"
+      style="margin-top: 20px;"
+    >
+
+      <input
+        type="hidden"
+        name="action"
+        value="send_verification"
+      >
+
+      <input
+        type="hidden"
+        name="user_id"
+        value="<?= $userId ?>"
+      >
+
+      <input
+        type="hidden"
+        name="csrf_token"
+        value="<?= e(
+            $csrfToken
+        ) ?>"
+      >
+
+
+      <div class="admin-form-actions">
 
         <button
           type="submit"
           class="
             admin-button
-            admin-button-secondary
+            admin-button--secondary
           "
         >
+
+          <i
+            class="fa-solid fa-envelope"
+            aria-hidden="true"
+          ></i>
+
           Send Verification Email
+
         </button>
 
-      </form>
+      </div>
 
-    </div>
+    </form>
 
   </section>
 
 
-  <section class="admin-card">
+  <!-- =====================================================
+       PASSWORD ASSISTANCE
+       ===================================================== -->
 
-    <header class="card-heading">
-      <h2>Password Assistance</h2>
-    </header>
+  <section class="admin-panel">
 
-    <div class="card-body">
+    <div class="admin-panel-header">
 
-      <p class="field-note">
+      <div>
 
+        <h2>
+          Password Assistance
+        </h2>
+
+        <p>
+          Send the user a secure one-time
+          password reset link.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div
+      class="
+        admin-notice
+        admin-notice--info
+      "
+    >
+
+      <p>
         Llama Scout never displays or sends
-        a user's password. This sends a secure
-        one-time reset link to the account email.
-        The link expires after 60 minutes.
-
+        a user's password. The reset link is sent
+        to the account email, expires after
+        60 minutes, and can only be used once.
       </p>
 
+    </div>
 
-      <form
-        method="post"
-        style="margin-top:16px;"
+
+    <form
+      method="post"
+      class="admin-form"
+    >
+
+      <input
+        type="hidden"
+        name="action"
+        value="send_password_reset"
       >
 
-        <input
-          type="hidden"
-          name="action"
-          value="send_password_reset"
-        >
+      <input
+        type="hidden"
+        name="user_id"
+        value="<?= $userId ?>"
+      >
 
-        <input
-          type="hidden"
-          name="user_id"
-          value="<?= $userId ?>"
-        >
+      <input
+        type="hidden"
+        name="csrf_token"
+        value="<?= e(
+            $csrfToken
+        ) ?>"
+      >
 
-        <input
-          type="hidden"
-          name="csrf_token"
-          value="<?= e(
-              $csrfToken
-          ) ?>"
-        >
+
+      <div class="admin-form-actions">
 
         <button
           type="submit"
           class="admin-button"
         >
+
+          <i
+            class="fa-solid fa-key"
+            aria-hidden="true"
+          ></i>
+
           Send Password Reset Link
+
         </button>
 
-      </form>
+      </div>
 
-    </div>
+    </form>
 
   </section>
 
+
+  <!-- =====================================================
+       QUICK LINKS
+       ===================================================== -->
+
+  <div class="admin-foot-actions">
+
+    <a href="/user.php?id=<?= $userId ?>">
+      User Overview
+    </a>
+
+    <a href="/users.php">
+      All Users
+    </a>
+
+    <a href="/">
+      Basecamp
+    </a>
+
+  </div>
+
+
 </main>
+
+
+<?php
+
+require_once
+    dirname(__DIR__)
+    . '/app/footer.php';
+
+?>
+
+
+<script
+  src="https://llamascout.com/js/header.js"
+></script>
+
 
 </body>
 
