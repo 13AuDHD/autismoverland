@@ -2355,75 +2355,79 @@ function buildPopup(
     <article class="map-popup">
 
 
-      ${imageHTML}
+<div class="map-popup-hero">
+
+  ${imageHTML}
+
+  <div class="map-popup-hero-overlay">
+
+    <span class="map-popup-type">
+
+      ${escapeHTML(
+        formatLabel(
+          place.type
+        )
+      )}
+
+    </span>
+
+    <h2>
+
+      ${escapeHTML(
+        place.name
+      )}
+
+    </h2>
+
+  </div>
+
+</div>
 
 
-      <div class="map-popup-body">
+<div class="map-popup-body">
 
+<div class="map-popup-meta">
 
-        <span class="map-popup-type">
+  ${locationName
+    ? `
 
-          ${escapeHTML(
-            formatLabel(
-              place.type
-            )
-          )}
+      <span>
 
-        </span>
+        <i
+          class="fa-solid fa-location-dot"
+          aria-hidden="true"
+        ></i>
 
-
-        <h2>
-
-          ${escapeHTML(
-            place.name
-          )}
-
-        </h2>
-
-
-        ${
+        ${escapeHTML(
           locationName
-            ? `
+        )}
 
-              <p class="map-popup-location">
+      </span>
 
-                <i
-                  class="fa-solid fa-location-dot"
-                  aria-hidden="true"
-                ></i>
-
-                ${escapeHTML(
-                  locationName
-                )}
-
-              </p>
-
-            `
-            : ""
-        }
+    `
+    : ""
+  }
 
 
-        ${
-          approximateLocation
-            ? `
+  ${approximateLocation
+    ? `
 
-              <div class="map-popup-approximate">
+      <span>
 
-                <i
-                  class="fa-solid fa-circle-info"
-                  aria-hidden="true"
-                ></i>
+        <i
+          class="fa-solid fa-circle-info"
+          aria-hidden="true"
+        ></i>
 
-                <strong>
-                  Approximate location
-                </strong>
+        Approximate location
 
-              </div>
+      </span>
 
-            `
-            : ""
-        }
+    `
+    : ""
+  }
 
+</div>
 
         <div class="map-popup-ratings">
 
