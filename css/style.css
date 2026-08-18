@@ -3098,6 +3098,128 @@ img {
   opacity: 0.9;
 }
 
+/* =========================================================
+   MAP POPUP COMPACT MOBILE TUNING
+   ========================================================= */
+
+.map-popup-body {
+  padding: 14px 16px 16px;
+}
+
+.map-popup-type {
+  margin-bottom: 4px;
+}
+
+.map-popup h2 {
+  margin: 2px 0 8px;
+  line-height: 1.15;
+}
+
+.map-popup-location {
+  margin: 0 0 7px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.map-popup-approximate {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  font-size: 0.86rem;
+  line-height: 1.2;
+}
+
+.map-popup-approximate i {
+  flex: 0 0 auto;
+}
+
+.map-popup-ratings {
+  margin-top: 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.map-rating {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.map-popup-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.map-popup-details {
+  margin-top: 9px;
+  padding-top: 10px;
+}
+
+
+/* Leaflet popup close X */
+
+.leaflet-container
+.leaflet-popup-close-button {
+  width: 36px !important;
+  height: 36px !important;
+  top: 4px !important;
+  right: 4px !important;
+  padding: 0 !important;
+
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 28px !important;
+  line-height: 1 !important;
+  font-weight: 700 !important;
+
+  color: #1f2723 !important;
+}
+
+
+/* Keep popup manageable on phones */
+
+@media (max-width: 600px) {
+
+  .leaflet-popup-content {
+    margin: 0 !important;
+    width: min(78vw, 340px) !important;
+  }
+
+  .map-popup-image {
+    max-height: 190px;
+    object-fit: cover;
+  }
+
+  .map-popup-body {
+    padding: 12px 14px 14px;
+  }
+
+  .map-popup h2 {
+    font-size: 1.25rem;
+  }
+
+  .map-popup-location {
+    margin-bottom: 6px;
+  }
+
+  .map-popup-approximate {
+    margin-bottom: 8px;
+  }
+
+  .map-rating {
+    min-height: 26px;
+  }
+
+}
 
 
 
