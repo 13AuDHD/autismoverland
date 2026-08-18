@@ -503,12 +503,18 @@ require_once dirname(__DIR__) . '/app/header.php';
 
 
   <a
-    href="/"
-    class="account-back"
-  >
-    &larr; Back to My Account
-  </a>
+  href="/"
+  class="back-link"
+>
 
+  <i
+    class="fa-solid fa-arrow-left"
+    aria-hidden="true"
+  ></i>
+
+  Back to My Account
+
+</a>
 
   <section class="account-card">
 
@@ -727,7 +733,9 @@ require_once dirname(__DIR__) . '/app/header.php';
 
 </main>
 
-    <script src="https://llamascout.com/js/header.js"></script>
+<script
+  src="https://llamascout.com/js/header.js"
+></script>
     
 </body>
 
