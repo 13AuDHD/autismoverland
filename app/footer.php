@@ -166,23 +166,23 @@ $footerAccountBase =
           Legal
         </h2>
 
-        <a href="<?= $footerSiteBase ?>/privacy.html">
+        <a href="<?= $footerSiteBase ?>/privacy.php">
           Privacy Policy
         </a>
 
-        <a href="<?= $footerSiteBase ?>/privacy-choices.html">
+        <a href="<?= $footerSiteBase ?>/privacy-choices.php">
           Privacy Choices
         </a>
 
-        <a href="<?= $footerSiteBase ?>/terms.html">
+        <a href="<?= $footerSiteBase ?>/terms.php">
           Terms of Use
         </a>
 
-        <a href="<?= $footerSiteBase ?>/accessibility.html">
+        <a href="<?= $footerSiteBase ?>/accessibility.php">
           Accessibility
         </a>
 
-        <a href="<?= $footerSiteBase ?>/disclaimer.html">
+        <a href="<?= $footerSiteBase ?>/disclaimer.php">
           Outdoor Disclaimer
         </a>
 
