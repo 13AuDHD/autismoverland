@@ -2,12 +2,18 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
 
-require_role('admin');
 
-$user = current_user();
-$roles = user_roles();
+require_role(
+    'admin'
+);
+
+
+$user =
+    current_user();
 
 
 /* =========================================================
@@ -58,17 +64,27 @@ $verifiedUsers =
         ->fetchColumn();
 
 
-function e(string $value): string
-{
+function e(
+    string $value
+): string {
+
     return htmlspecialchars(
         $value,
         ENT_QUOTES,
         'UTF-8'
     );
+
 }
+
+
+$displayName =
+    $user['display_name']
+    ?: $user['username']
+    ?: $user['email'];
 
 ?>
 <!doctype html>
+
 <html lang="en">
 
 <head>
@@ -81,7 +97,7 @@ function e(string $value): string
   >
 
   <title>
-    Admin | Llama Scout
+    Admin Basecamp | Llama Scout
   </title>
 
   <meta
@@ -89,284 +105,328 @@ function e(string $value): string
     content="noindex,nofollow"
   >
 
+
   <link
-    rel="stylesheet"
-    href="https://llamascout.com/css/style.css"
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
   >
 
-  <style>
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
 
-    body {
-      margin: 0;
-      background: #f4efe6;
-      color: #172822;
-    }
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
 
-    .admin-shell {
-      min-height: 100vh;
-    }
 
-    .admin-header {
-      background: #101815;
-      color: #fff;
-      padding: 18px 24px;
-    }
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
 
-    .admin-header-inner {
-      width: min(1200px, 100%);
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-    }
 
-    .admin-brand {
-      font-weight: 800;
-      font-size: 1.1rem;
-    }
+  <link
+    rel="stylesheet"
+    href="/css/style.css"
+  >
 
-    .admin-user {
-      font-size: .88rem;
-      color: rgba(255,255,255,.75);
-    }
+  <link
+    rel="stylesheet"
+    href="/css/admin.css"
+  >
 
-    .admin-main {
-      width: min(
-        1200px,
-        calc(100% - 36px)
-      );
-      margin: 0 auto;
-      padding: 42px 0 70px;
-    }
 
-    .admin-intro {
-      margin-bottom: 34px;
-    }
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="/icons/apple-touch-icon.png"
+  >
 
-    .admin-intro h1 {
-      margin: 0 0 8px;
-      font-size: clamp(
-        2rem,
-        5vw,
-        3.5rem
-      );
-    }
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="/icons/favicon-32x32.png"
+  >
 
-    .admin-intro p {
-      margin: 0;
-      color: #667069;
-    }
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="/icons/favicon-16x16.png"
+  >
 
-    .admin-stats {
-      display: grid;
-      grid-template-columns:
-        repeat(
-          4,
-          minmax(0, 1fr)
-        );
-      gap: 16px;
-      margin-bottom: 36px;
-    }
+  <link
+    rel="icon"
+    href="/icons/favicon.ico"
+    sizes="any"
+  >
 
-    .admin-stat {
-      padding: 22px;
-      background: #fff;
-      border:
-        1px solid rgba(0,0,0,.09);
-      border-radius: 12px;
-    }
-
-    .admin-stat span {
-      display: block;
-      margin-bottom: 8px;
-      color: #6b746e;
-      font-size: .78rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-    }
-
-    .admin-stat strong {
-      font-size: 2rem;
-    }
-
-    .admin-grid {
-      display: grid;
-      grid-template-columns:
-        repeat(
-          2,
-          minmax(0, 1fr)
-        );
-      gap: 18px;
-    }
-
-    .admin-card {
-      display: block;
-      padding: 24px;
-      background: #fff;
-      color: inherit;
-      border:
-        1px solid rgba(0,0,0,.09);
-      border-radius: 12px;
-      text-decoration: none;
-    }
-
-    .admin-card h2 {
-      margin: 0 0 7px;
-      font-size: 1.15rem;
-    }
-
-    .admin-card p {
-      margin: 0;
-      color: #6b746e;
-      line-height: 1.55;
-    }
-
-    .admin-card--disabled {
-      opacity: .55;
-      cursor: default;
-    }
-
-    .admin-footer {
-      margin-top: 38px;
-      padding-top: 20px;
-      border-top:
-        1px solid rgba(0,0,0,.12);
-      display: flex;
-      gap: 18px;
-      flex-wrap: wrap;
-    }
-
-    .admin-footer a {
-      color: inherit;
-      font-weight: 700;
-    }
-
-    @media (max-width: 800px) {
-
-      .admin-stats {
-        grid-template-columns:
-          repeat(2, 1fr);
-      }
-
-      .admin-grid {
-        grid-template-columns: 1fr;
-      }
-
-    }
-
-  </style>
+  <link
+    rel="manifest"
+    href="/icons/site.webmanifest"
+  >
 
 </head>
 
-<body>
 
-<div class="admin-shell">
+<body class="admin-page">
 
-  <header class="admin-header">
 
-    <div class="admin-header-inner">
+<?php
 
-      <div class="admin-brand">
-        Llama Scout Admin
+require_once
+    dirname(__DIR__)
+    . '/app/header.php';
+
+?>
+
+
+<main class="admin-main">
+
+
+  <!-- =====================================================
+       ADMIN INTRO
+       ===================================================== -->
+
+  <section class="admin-intro">
+
+    <div class="admin-intro-row">
+
+      <div class="admin-intro-copy">
+
+        <p class="admin-eyebrow">
+          Llama Scout Admin
+        </p>
+
+        <h1>
+          Basecamp
+        </h1>
+
+        <p>
+          Manage Llama Scout from one place.
+          Signed in as
+          <strong>
+            <?= e(
+                (string) $displayName
+            ) ?>
+          </strong>.
+        </p>
+
       </div>
 
-      <div class="admin-user">
 
-        <?= e(
-            $user['display_name']
-            ?: $user['username']
-            ?: $user['email']
-        ) ?>
+      <div class="admin-intro-actions">
+
+        <a
+          class="admin-button admin-button--secondary"
+          href="https://llamascout.com"
+        >
+
+          <i
+            class="fa-solid fa-arrow-up-right-from-square"
+            aria-hidden="true"
+          ></i>
+
+          View Website
+
+        </a>
 
       </div>
 
     </div>
 
-  </header>
+  </section>
 
 
-  <main class="admin-main">
+  <!-- =====================================================
+       ADMIN NAVIGATION
+       ===================================================== -->
 
-    <section class="admin-intro">
+  <nav
+    class="admin-nav"
+    aria-label="Admin navigation"
+  >
 
-      <h1>
+    <div class="admin-nav-inner">
+
+      <a
+        class="is-active"
+        href="/"
+        aria-current="page"
+      >
+
+        <i
+          class="fa-solid fa-campground"
+          aria-hidden="true"
+        ></i>
+
         Basecamp
-      </h1>
 
-      <p>
-        Manage Llama Scout from one place.
-      </p>
-
-    </section>
+      </a>
 
 
-    <section
-      class="admin-stats"
-      aria-label="User statistics"
-    >
+      <a href="/places.php">
 
-      <article class="admin-stat">
+        <i
+          class="fa-solid fa-location-dot"
+          aria-hidden="true"
+        ></i>
 
-        <span>
-          Users
-        </span>
+        Places
 
-        <strong>
-          <?= $totalUsers ?>
-        </strong>
-
-      </article>
+      </a>
 
 
-      <article class="admin-stat">
+      <a href="/submissions.php">
 
-        <span>
-          Active
-        </span>
+        <i
+          class="fa-solid fa-inbox"
+          aria-hidden="true"
+        ></i>
 
-        <strong>
-          <?= $activeUsers ?>
-        </strong>
+        Submissions
 
-      </article>
-
-
-      <article class="admin-stat">
-
-        <span>
-          Pending
-        </span>
-
-        <strong>
-          <?= $pendingUsers ?>
-        </strong>
-
-      </article>
+      </a>
 
 
-      <article class="admin-stat">
+      <a href="/users.php">
 
-        <span>
-          Verified
-        </span>
+        <i
+          class="fa-solid fa-users"
+          aria-hidden="true"
+        ></i>
 
-        <strong>
-          <?= $verifiedUsers ?>
-        </strong>
+        Users
 
-      </article>
-
-    </section>
+      </a>
 
 
-    <section class="admin-grid">
+      <a href="/import-places.php">
+
+        <i
+          class="fa-solid fa-file-import"
+          aria-hidden="true"
+        ></i>
+
+        Import
+
+      </a>
+
+    </div>
+
+  </nav>
+
+
+  <!-- =====================================================
+       USER STATS
+       ===================================================== -->
+
+  <section
+    class="admin-stats"
+    aria-label="User statistics"
+  >
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Users
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $totalUsers ?>
+      </strong>
+
+    </article>
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Active
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $activeUsers ?>
+      </strong>
+
+    </article>
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Pending
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $pendingUsers ?>
+      </strong>
+
+    </article>
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Verified
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $verifiedUsers ?>
+      </strong>
+
+    </article>
+
+
+  </section>
+
+
+  <!-- =====================================================
+       ADMIN TOOLS
+       ===================================================== -->
+
+  <section class="admin-section">
+
+    <div class="admin-section-header">
+
+      <div>
+
+        <h2>
+          Admin Tools
+        </h2>
+
+        <p>
+          Manage accounts, places, submissions,
+          and Llama Scout data.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div class="admin-grid">
+
 
       <a
         class="admin-card"
-        href="users.php"
+        href="/users.php"
       >
+
+        <div class="admin-card-icon">
+
+          <i
+            class="fa-solid fa-users"
+            aria-hidden="true"
+          ></i>
+
+        </div>
 
         <h2>
           Users
@@ -383,42 +443,98 @@ function e(string $value): string
 
       <a
         class="admin-card"
-        href="places.php"
+        href="/places.php"
       >
-      
+
+        <div class="admin-card-icon">
+
+          <i
+            class="fa-solid fa-map-location-dot"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
         <h2>
           Places
         </h2>
-      
+
         <p>
           Manage place data,
           visibility, verification,
           reports, and publication status.
         </p>
-      
+
       </a>
+
 
       <a
         class="admin-card"
-        href="submissions.php"
+        href="/submissions.php"
       >
-      
+
+        <div class="admin-card-icon">
+
+          <i
+            class="fa-solid fa-inbox"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
         <h2>
           Community Submissions
         </h2>
-      
+
         <p>
           Review, approve, request changes,
           or decline Community Scouted submissions.
         </p>
-      
+
+      </a>
+
+
+      <a
+        class="admin-card"
+        href="/import-places.php"
+      >
+
+        <div class="admin-card-icon">
+
+          <i
+            class="fa-solid fa-file-import"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
+        <h2>
+          Import Places
+        </h2>
+
+        <p>
+          Import or migrate place data into
+          the Llama Scout place system.
+        </p>
+
       </a>
 
 
       <div
-        class="admin-card
-               admin-card--disabled"
+        class="
+          admin-card
+          admin-card--disabled
+        "
       >
+
+        <div class="admin-card-icon">
+
+          <i
+            class="fa-solid fa-id-card"
+            aria-hidden="true"
+          ></i>
+
+        </div>
 
         <h2>
           Memberships
@@ -427,77 +543,88 @@ function e(string $value): string
         <p>
           Plans, subscriptions,
           access, and billing status.
-          Coming soon.
+          Coming later.
         </p>
 
       </div>
 
 
       <div
-        class="admin-card
-               admin-card--disabled"
+        class="
+          admin-card
+          admin-card--disabled
+        "
       >
+
+        <div class="admin-card-icon">
+
+          <i
+            class="fa-solid fa-binoculars"
+            aria-hidden="true"
+          ></i>
+
+        </div>
 
         <h2>
           Llama Scouts
         </h2>
 
         <p>
-          Manage authorized scouts
-          and their access.
-          Coming soon.
+          Manage authorized scouts,
+          permissions, and Scout tools.
+          Coming later.
         </p>
 
       </div>
 
 
-      <div
-        class="admin-card
-               admin-card--disabled"
-      >
+    </div>
 
-        <h2>
-          Site Tools
-        </h2>
-
-        <p>
-          Maintenance,
-          moderation,
-          data tools,
-          and system controls.
-          Coming soon.
-        </p>
-
-      </div>
-
-    </section>
+  </section>
 
 
-    <footer class="admin-footer">
+  <!-- =====================================================
+       QUICK LINKS
+       ===================================================== -->
 
-      <a
-        href="https://llamascout.com"
-      >
-        View Website
-      </a>
+  <div class="admin-foot-actions">
 
-      <a
-        href="https://account.llamascout.com"
-      >
-        My Account
-      </a>
+    <a
+      href="https://llamascout.com"
+    >
+      View Website
+    </a>
 
-      <a
-        href="https://account.llamascout.com/logout.php"
-      >
-        Log Out
-      </a>
+    <a
+      href="https://account.llamascout.com"
+    >
+      My Account
+    </a>
 
-    </footer>
+    <a
+      href="https://account.llamascout.com/logout.php"
+    >
+      Log Out
+    </a>
 
-  </main>
+  </div>
 
-</div>
+
+</main>
+
+
+<?php
+
+require_once
+    dirname(__DIR__)
+    . '/app/footer.php';
+
+?>
+
+
+<script src="/js/header.js"></script>
+
 
 </body>
+
 </html>
