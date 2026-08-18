@@ -5877,7 +5877,23 @@ require_once
 
           </a>
 
-
+            <a
+              class="
+                admin-button
+                admin-button--secondary
+              "
+              href="/public-preview.php?id=<?= $placeId ?>"
+            >
+            
+              <i
+                class="fa-solid fa-eye"
+                aria-hidden="true"
+              ></i>
+            
+              Public Preview
+            
+            </a>
+            
           <a
             class="
               admin-button
