@@ -1,0 +1,264 @@
+<?php
+
+declare(strict_types=1);
+
+?>
+
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    Blog | Llama Scout
+  </title>
+
+  <meta
+    name="description"
+    content="Practical guides for quieter camping, dispersed travel, sensory comfort, road access, connectivity, and neurodivergent outdoor adventures."
+  >
+
+
+  <script src="/js/privacy.js"></script>
+
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="/css/style.css"
+  >
+
+
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="/icons/apple-touch-icon.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="/icons/favicon-32x32.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="/icons/favicon-16x16.png"
+  >
+
+  <link
+    rel="icon"
+    href="/icons/favicon.ico"
+    sizes="any"
+  >
+
+  <link
+    rel="manifest"
+    href="/icons/site.webmanifest"
+  >
+
+</head>
+
+
+<body>
+
+
+<?php
+
+require_once
+    __DIR__
+    . '/app/header.php';
+
+?>
+
+
+<main class="blog-page">
+
+
+  <section class="blog-hero">
+
+
+    <div class="container">
+
+
+      <p class="eyebrow">
+        The Llama Scout Field Guide
+      </p>
+
+
+      <h1>
+        Useful information before you lose cell service.
+      </h1>
+
+
+      <p class="blog-hero-lede">
+        Practical guides for finding quieter places,
+        understanding forest roads, planning for sensory
+        needs, staying connected, and getting outside
+        with fewer surprises.
+      </p>
+
+
+    </div>
+
+
+  </section>
+
+
+  <section
+    class="blog-controls-section"
+    aria-label="Blog filters"
+  >
+
+
+    <div
+      class="
+        container
+        blog-controls
+      "
+    >
+
+
+      <label class="blog-search">
+
+        <i
+          class="fa-solid fa-magnifying-glass"
+          aria-hidden="true"
+        ></i>
+
+        <input
+          id="blog-search"
+          type="search"
+          placeholder="Search the field guide..."
+          autocomplete="off"
+        >
+
+      </label>
+
+
+      <label class="blog-category-filter">
+
+        <span>
+          Category
+        </span>
+
+        <select id="blog-category">
+
+          <option value="all">
+            All topics
+          </option>
+
+        </select>
+
+      </label>
+
+
+    </div>
+
+
+  </section>
+
+
+  <section class="blog-results-section">
+
+
+    <div class="container">
+
+
+      <div class="blog-results-heading">
+
+        <p id="blog-count"></p>
+
+      </div>
+
+
+      <div
+        id="blog-grid"
+        class="blog-index-grid"
+        aria-live="polite"
+      ></div>
+
+
+      <div
+        id="blog-empty"
+        class="blog-empty"
+        hidden
+      >
+
+        <i
+          class="fa-solid fa-compass"
+          aria-hidden="true"
+        ></i>
+
+        <h2>
+          No posts found.
+        </h2>
+
+        <p>
+          Try a different search or category.
+        </p>
+
+      </div>
+
+
+    </div>
+
+
+  </section>
+
+
+</main>
+
+
+<?php
+
+require_once
+    __DIR__
+    . '/app/footer.php';
+
+?>
+
+
+<script
+  src="/js/header.js"
+></script>
+
+<script
+  src="/js/blog.js"
+></script>
+
+
+</body>
+
+</html>
