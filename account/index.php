@@ -47,8 +47,13 @@ function e(string $value): string
   >
 
   <link
-  rel="stylesheet"
-  href="https://llamascout.com/css/account.css"
+    rel="stylesheet"
+    href="https://llamascout.com/css/account.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
 
 
@@ -56,18 +61,11 @@ function e(string $value): string
 
 <body class="account-body">
 
+    <?php
+    require_once dirname(__DIR__) . '/app/header.php';
+    ?>
+
   <main class="account-shell">
-
-    <a href="https://llamascout.com">
-
-      <img
-        src="https://llamascout.com/images/logo.png"
-        alt="Llama Scout"
-        class="account-logo"
-      >
-
-    </a>
-
 
     <header class="account-header">
 
