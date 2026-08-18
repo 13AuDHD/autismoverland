@@ -216,125 +216,14 @@ $alreadyVerified =
   href="https://llamascout.com/css/style.css"
 >
 
-<style>
-
-body {
-  min-height: 100vh;
-  margin: 0;
-  background: #f4efe6;
-}
-
-.verify-page {
-  width:
-    min(
-      520px,
-      calc(
-        100% - 36px
-      )
-    );
-
-  margin: 0 auto;
-
-  padding:
-    48px 0
-    70px;
-}
-
-.verify-logo {
-  display: block;
-
-  width:
-    min(
-      340px,
-      90%
-    );
-
-  margin:
-    0 auto
-    28px;
-}
-
-.verify-card {
-  padding: 28px;
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .1
-    );
-
-  border-radius: 14px;
-
-  box-shadow:
-    0 12px 30px
-    rgba(
-      0,
-      0,
-      0,
-      .08
-    );
-}
-
-.verify-card h1 {
-  margin-top: 0;
-}
-
-.verify-card p {
-  line-height: 1.65;
-}
-
-.verify-success,
-.verify-error {
-  padding:
-    14px 16px;
-
-  border-radius: 8px;
-
-  margin-bottom: 20px;
-}
-
-.verify-success {
-  background: #edf7ef;
-}
-
-.verify-error {
-  background: #fff3f1;
-  border: 1px solid #b64b42;
-}
-
-.verify-button {
-  display: inline-flex;
-  justify-content: center;
-
-  padding:
-    13px 18px;
-
-  border: 0;
-  border-radius: 7px;
-
-  background: #172822;
-  color: #fff;
-
-  text-decoration: none;
-  font-weight: 800;
-}
-
-.verify-link {
-  display: inline-block;
-  margin-top: 18px;
-  color: inherit;
-  font-weight: 700;
-}
-
-</style>
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/account.css"
+>
 
 </head>
 
-<body>
+<body class="account-auth-body">
 
 <main class="verify-page">
 
