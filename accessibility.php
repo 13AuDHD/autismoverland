@@ -1,0 +1,550 @@
+<?php
+
+declare(strict_types=1);
+
+?>
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Accessibility | Llama Scout</title>
+
+  <meta
+    name="description"
+    content="Llama Scout's commitment to accessible website design, inclusive outdoor information, and reducing barriers for disabled and neurodivergent visitors."
+  >
+
+
+  <script src="/js/privacy.js"></script>
+
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="/css/style.css"
+  >
+
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="/icons/apple-touch-icon.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="/icons/favicon-32x32.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="/icons/favicon-16x16.png"
+  >
+
+  <link
+    rel="icon"
+    href="/icons/favicon.ico"
+    sizes="any"
+  >
+
+  <link
+    rel="manifest"
+    href="/icons/site.webmanifest"
+  >
+
+</head>
+
+
+<body>
+
+
+<?php
+
+require_once
+    __DIR__
+    . '/app/header.php';
+
+?>
+
+
+<main class="legal-page">
+
+
+  <section class="legal-hero">
+
+    <div class="legal-container">
+
+      <p class="eyebrow">
+        Accessibility
+      </p>
+
+      <h1>
+        Access Shouldn't Be an Afterthought
+      </h1>
+
+      <p class="legal-updated">
+        Last updated: August 13, 2026
+      </p>
+
+      <p class="legal-lede">
+        Llama Scout was built around the idea that knowing more
+        about a place before you arrive can remove unnecessary
+        barriers. That applies to the website too.
+      </p>
+
+    </div>
+
+  </section>
+
+
+  <section class="legal-content">
+
+    <div class="legal-container">
+
+
+      <section class="legal-section">
+
+        <h2>
+          Our Commitment
+        </h2>
+
+        <p>
+          Llama Scout is committed to making its website,
+          information, maps, field reports, and other digital
+          resources usable by as many people as reasonably possible,
+          including people with disabilities and neurodivergent users.
+        </p>
+
+        <p>
+          Accessibility is considered part of the design and
+          development process rather than a separate feature added
+          afterward.
+        </p>
+
+        <p>
+          We continue to review and improve the website as Llama
+          Scout grows.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Accessibility Standard
+        </h2>
+
+        <p>
+          Llama Scout uses the Web Content Accessibility Guidelines
+          as a technical reference for improving digital accessibility.
+        </p>
+
+        <p>
+          Our current goal is to work toward conformance with
+          <strong>WCAG 2.2 Level AA</strong>.
+        </p>
+
+        <p>
+          WCAG is developed by the World Wide Web Consortium and
+          provides guidance for making web content more accessible to
+          people with visual, auditory, physical, speech, cognitive,
+          learning, language, and neurological disabilities.
+        </p>
+
+        <p>
+          Accessibility is an ongoing process, and stating this goal
+          does not mean every part of Llama Scout has already been
+          independently audited or certified as fully conforming.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          What We Try to Make Accessible
+        </h2>
+
+        <p>
+          Llama Scout aims to support accessibility through practices
+          such as:
+        </p>
+
+        <ul>
+          <li>Readable text with sufficient contrast</li>
+          <li>Responsive layouts that work across screen sizes</li>
+          <li>Keyboard-accessible navigation and controls</li>
+          <li>Visible keyboard focus states</li>
+          <li>Semantic headings and page structure</li>
+          <li>Descriptive alternative text for meaningful images</li>
+          <li>Labels for forms and interactive controls</li>
+          <li>Clear link and button text</li>
+          <li>Interfaces that do not rely on color alone to communicate meaning</li>
+          <li>Content that can be enlarged without becoming unusable</li>
+          <li>Reduced unnecessary visual clutter</li>
+          <li>Predictable navigation and page structure</li>
+          <li>Touch targets that are practical on mobile devices</li>
+        </ul>
+
+        <p>
+          These practices reflect common accessibility principles
+          identified in WCAG and federal accessibility guidance.
+
+          <a
+            href="https://www.ada.gov/resources/web-guidance/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ADA Web Accessibility Guidance
+          </a>
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Neurodivergent Accessibility
+        </h2>
+
+        <p>
+          Llama Scout also considers accessibility needs that may not
+          always be captured by traditional physical-accessibility
+          checklists.
+        </p>
+
+        <p>
+          We try to make the website easier to use for people who may
+          experience sensory overload, attention differences,
+          executive-function challenges, cognitive fatigue, or
+          difficulty processing dense or unpredictable interfaces.
+        </p>
+
+        <p>
+          This includes an emphasis on:
+        </p>
+
+        <ul>
+          <li>Clear and predictable navigation</li>
+          <li>Plain-language descriptions</li>
+          <li>Consistent page layouts</li>
+          <li>Breaking large amounts of information into sections</li>
+          <li>Reducing unnecessary animation and visual distraction</li>
+          <li>Providing detailed information before someone has to make a decision</li>
+        </ul>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Accessibility Information About Outdoor Places
+        </h2>
+
+        <p>
+          Llama Scout includes accessibility observations in Scout
+          Reports because information about terrain and facilities can
+          determine whether a place is usable for someone.
+        </p>
+
+        <p>
+          Depending on the location, a Scout Report may include
+          information about:
+        </p>
+
+        <ul>
+          <li>Wheelchair suitability</li>
+          <li>Outdoor mobility-device suitability</li>
+          <li>Step-free access from the vehicle</li>
+          <li>Walking surfaces</li>
+          <li>Distance from parking</li>
+          <li>Accessible toilets</li>
+          <li>Accessible picnic tables</li>
+          <li>Terrain and slope</li>
+          <li>Vehicle access</li>
+          <li>Nearby obstacles</li>
+        </ul>
+
+        <p>
+          These observations are intended to provide useful context,
+          but they are not formal ADA accessibility inspections or
+          certifications.
+        </p>
+
+        <p>
+          Outdoor conditions can also change after a place is
+          scouted.
+        </p>
+
+        <p>
+          See the
+          <a href="/disclaimer.php">Outdoor Disclaimer</a>
+          for more information.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Maps and Interactive Features
+        </h2>
+
+        <p>
+          Interactive maps can present accessibility challenges,
+          particularly for keyboard users and people using screen
+          readers.
+        </p>
+
+        <p>
+          Llama Scout aims to provide important place information
+          outside the map itself through individual Scout Reports and
+          the Places directory so that access to core information does
+          not depend entirely on interacting with a visual map.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Images
+        </h2>
+
+        <p>
+          Meaningful images should include alternative text that
+          describes the important visual information they contain.
+        </p>
+
+        <p>
+          Decorative images may intentionally use empty alternative
+          text where appropriate so screen readers do not announce
+          unnecessary visual elements.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Third-Party Content
+        </h2>
+
+        <p>
+          Some parts of Llama Scout may rely on third-party services,
+          libraries, maps, embedded content, or external websites.
+        </p>
+
+        <p>
+          We cannot guarantee the accessibility of services that we do
+          not control, but we try to avoid making critical Llama Scout
+          information available only through inaccessible third-party
+          tools.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Known Limitations
+        </h2>
+
+        <p>
+          Llama Scout is actively developed, and accessibility issues
+          may exist despite efforts to prevent them.
+        </p>
+
+        <p>
+          Areas that may require continued review include:
+        </p>
+
+        <ul>
+          <li>Interactive maps</li>
+          <li>Third-party map controls</li>
+          <li>Complex filters and forms</li>
+          <li>Older content created before current accessibility practices were adopted</li>
+          <li>Third-party embedded services</li>
+        </ul>
+
+        <p>
+          These areas will continue to be reviewed as the site changes.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Need Help Accessing Something?
+        </h2>
+
+        <p>
+          If you cannot access information, complete an action, use a
+          feature, or understand part of Llama Scout because of an
+          accessibility barrier, please let us know immediately at
+          <a href="mailto:access@llamascout.com">
+            access@llamascout.com
+          </a>.
+        </p>
+
+        <p>
+          When reporting an accessibility problem, it is helpful to
+          include:
+        </p>
+
+        <ul>
+          <li>The page or feature you were trying to use</li>
+          <li>What happened</li>
+          <li>The device and browser you were using, if relevant</li>
+          <li>Any assistive technology involved, if you are comfortable sharing it</li>
+          <li>What would make the information or feature usable for you</li>
+        </ul>
+
+        <p>
+          You do not need to provide information about your disability
+          in order to report an accessibility problem.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Alternative Access
+        </h2>
+
+        <p>
+          If information on Llama Scout is inaccessible to you, we will
+          make reasonable efforts to provide the same information in
+          another usable format when possible.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Ongoing Improvement
+        </h2>
+
+        <p>
+          Accessibility standards, technology, and Llama Scout itself
+          will continue to change.
+        </p>
+
+        <p>
+          We expect this accessibility statement and the website's
+          implementation to evolve with them.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Contact
+        </h2>
+
+        <p>
+          Accessibility questions, problems, or suggestions may be
+          submitted through the contact information provided on
+          Llama Scout.
+        </p>
+
+        <p>
+          Accessibility feedback is useful. If something does not work,
+          we would rather know about it than assume everything is fine.
+        </p>
+
+      </section>
+
+
+      <div class="legal-related">
+
+        <a href="/privacy.php">
+          Privacy Policy
+        </a>
+
+        <a href="/privacy-choices.php">
+          Privacy Choices
+        </a>
+
+        <a href="/terms.php">
+          Terms of Use
+        </a>
+
+        <a href="/disclaimer.php">
+          Outdoor Disclaimer
+        </a>
+
+      </div>
+
+
+    </div>
+
+  </section>
+
+
+</main>
+
+
+<?php
+
+require_once
+    __DIR__
+    . '/app/footer.php';
+
+?>
+
+
+<script src="/js/header.js"></script>
+
+
+</body>
+
+</html>
