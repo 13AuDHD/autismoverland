@@ -1,0 +1,1142 @@
+/* =========================================================
+   LLAMA SCOUT
+   ACCOUNT + BACKEND STYLES
+   ========================================================= */
+
+
+/* =========================================================
+   BASE
+   ========================================================= */
+
+body.account-body,
+body.account-auth-body {
+  margin: 0;
+  min-height: 100vh;
+  background: #f4efe6;
+  color: #172822;
+}
+
+
+/* =========================================================
+   AUTH PAGES
+   Login, registration, password recovery
+   ========================================================= */
+
+.account-auth {
+  width: min(520px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: 14px 0 48px;
+}
+
+.account-auth-logo {
+  display: block;
+  width: min(340px, 90%);
+  margin: 0 auto 14px;
+}
+
+.account-auth-card {
+  padding: 28px;
+  background: #fff;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .1);
+
+  border-radius: 14px;
+
+  box-shadow:
+    0 12px 30px
+    rgba(0, 0, 0, .08);
+}
+
+.account-auth h1,
+.account-auth-card h1 {
+  margin: 0 0 10px;
+  font-size: 2rem;
+}
+
+.account-auth-intro {
+  margin: 0 0 26px;
+  color: #667069;
+  line-height: 1.6;
+}
+
+.account-auth-footer {
+  margin: 22px 0 0;
+  text-align: center;
+}
+
+.account-auth-footer a {
+  color: inherit;
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   ACCOUNT HEADER
+   Used after login, not on login/signup
+   ========================================================= */
+
+.account-site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10000;
+
+  width: 100%;
+
+  background:
+    rgba(0, 0, 0, .98);
+
+  color: #f7f1e8;
+
+  border-bottom:
+    1px solid
+    rgba(255, 255, 255, .09);
+}
+
+.account-site-header-inner {
+  width:
+    min(
+      1120px,
+      calc(100% - 36px)
+    );
+
+  min-height: 68px;
+
+  margin: 0 auto;
+
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.account-site-brand {
+  display: flex;
+  align-items: center;
+
+  flex: 0 0 auto;
+}
+
+.account-site-logo {
+  display: block;
+
+  width: 220px;
+  height: 68px;
+
+  object-fit: contain;
+  object-position: left center;
+
+  transform:
+    translateY(7px);
+}
+
+.account-site-nav {
+  margin-left: auto;
+
+  display: flex;
+  align-items: center;
+  gap: 26px;
+}
+
+.account-site-nav a {
+  color: #f7f1e8;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.account-site-nav a:hover {
+  color: #cde8f0;
+}
+
+.account-menu-toggle {
+  display: none;
+
+  margin-left: auto;
+
+  border: 0;
+  background: transparent;
+
+  color: #f7f1e8;
+
+  font-size: 1.7rem;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   MOBILE ACCOUNT MENU
+   ========================================================= */
+
+.account-mobile-menu {
+  display: none;
+}
+
+.account-mobile-menu.is-open {
+  display: block;
+}
+
+.account-mobile-menu-inner {
+  padding: 22px 18px 28px;
+}
+
+.account-mobile-menu a {
+  display: block;
+
+  padding: 14px 0;
+
+  color: #f7f1e8;
+  text-decoration: none;
+  font-weight: 700;
+
+  border-top:
+    1px solid
+    rgba(255, 255, 255, .12);
+}
+
+
+/* =========================================================
+   GENERAL PAGE SHELLS
+   ========================================================= */
+
+.account-shell {
+  width:
+    min(
+      1100px,
+      calc(100% - 36px)
+    );
+
+  margin: 0 auto;
+
+  padding:
+    30px 0
+    70px;
+}
+
+.account-page {
+  width:
+    min(
+      720px,
+      calc(100% - 36px)
+    );
+
+  margin: 0 auto;
+
+  padding:
+    30px 0
+    70px;
+}
+
+.membership-page {
+  width:
+    min(
+      900px,
+      calc(100% - 36px)
+    );
+
+  margin: 0 auto;
+
+  padding:
+    30px 0
+    70px;
+}
+
+.saved-page {
+  width:
+    min(
+      1000px,
+      calc(100% - 36px)
+    );
+
+  margin: 0 auto;
+
+  padding:
+    30px 0
+    70px;
+}
+
+
+/* =========================================================
+   LEGACY ACCOUNT LOGO
+   Temporary while pages migrate
+   ========================================================= */
+
+.account-logo {
+  display: block;
+
+  width:
+    min(
+      280px,
+      75%
+    );
+
+  margin:
+    0 auto
+    22px;
+}
+
+
+/* =========================================================
+   BACK LINKS
+   ========================================================= */
+
+.account-back,
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  margin-bottom: 22px;
+
+  color: inherit;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.account-back:hover,
+.back-link:hover {
+  text-decoration: underline;
+}
+
+
+/* =========================================================
+   PAGE HEADINGS
+   ========================================================= */
+
+.account-header,
+.page-header,
+.saved-header {
+  margin-bottom: 28px;
+}
+
+.account-header h1,
+.page-header h1,
+.saved-header h1 {
+  margin: 0 0 8px;
+
+  font-size:
+    clamp(
+      2rem,
+      6vw,
+      3.25rem
+    );
+}
+
+.account-header p,
+.page-header p,
+.saved-header p {
+  margin: 0;
+
+  max-width: 700px;
+
+  color: #667069;
+  line-height: 1.65;
+}
+
+.account-intro {
+  margin: 0 0 28px;
+
+  color: #667069;
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
+.account-card,
+.status-card,
+.portal-card {
+  padding: 24px;
+
+  background: #fff;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .09);
+
+  border-radius: 12px;
+}
+
+.account-card {
+  padding: 28px;
+
+  border-radius: 14px;
+
+  box-shadow:
+    0 12px 30px
+    rgba(0, 0, 0, .06);
+}
+
+.account-card h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+
+/* =========================================================
+   FORM FIELDS
+   ========================================================= */
+
+.account-field {
+  display: grid;
+  gap: 7px;
+
+  margin-bottom: 18px;
+}
+
+.account-field label {
+  font-weight: 700;
+}
+
+.account-field input,
+.account-field select,
+.account-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 13px 14px;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .18);
+
+  border-radius: 7px;
+
+  background: #fff;
+
+  color: inherit;
+  font: inherit;
+}
+
+.account-field textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.account-field input:focus,
+.account-field select:focus,
+.account-field textarea:focus {
+  outline:
+    2px solid
+    rgba(47, 129, 158, .28);
+
+  outline-offset: 1px;
+
+  border-color: #2f819e;
+}
+
+.account-field-note {
+  margin: 0;
+
+  color: #747b76;
+
+  font-size: .84rem;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.account-submit,
+.plan-button {
+  width: 100%;
+
+  padding: 14px 18px;
+
+  border: 0;
+  border-radius: 7px;
+
+  background: #172822;
+  color: #fff;
+
+  font: inherit;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.account-submit:hover,
+.plan-button:hover {
+  background: #21392f;
+}
+
+.primary-button,
+.view-place-button,
+.portal-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 12px 16px;
+
+  background: #172822;
+  color: #fff;
+
+  border-radius: 7px;
+
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.remove-place-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 11px 15px;
+
+  background: transparent;
+  color: #172822;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .18);
+
+  border-radius: 7px;
+
+  font: inherit;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.remove-place-button:hover {
+  background:
+    rgba(0, 0, 0, .04);
+}
+
+.remove-place-button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+
+/* =========================================================
+   LOGIN HELPERS
+   ========================================================= */
+
+.account-forgot {
+  display: block;
+
+  margin-top: -6px;
+  margin-bottom: 20px;
+
+  text-align: right;
+
+  color: inherit;
+
+  font-size: .88rem;
+}
+
+
+/* =========================================================
+   NOTICES + STATUS
+   ========================================================= */
+
+.account-error,
+.account-status,
+.notice {
+  margin-bottom: 22px;
+
+  padding: 14px 16px;
+
+  border-radius: 8px;
+}
+
+.account-error,
+.account-status--error {
+  background: #fff3f1;
+
+  border:
+    1px solid
+    #b64b42;
+}
+
+.account-status--success,
+.notice {
+  background: #edf7ef;
+}
+
+.notice {
+  border-left:
+    5px solid
+    #436d50;
+}
+
+.account-status--verified {
+  border-left:
+    5px solid
+    #436d50;
+}
+
+.account-status--pending {
+  border-left:
+    5px solid
+    #b0782c;
+}
+
+.account-status strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.account-status p {
+  margin: 5px 0 0;
+
+  color: #667069;
+  line-height: 1.55;
+}
+
+.account-status--error ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+
+/* =========================================================
+   EMAIL VERIFICATION STATE
+   ========================================================= */
+
+.account-email-state {
+  margin:
+    -8px 0
+    22px;
+
+  padding:
+    12px 14px;
+
+  border-radius: 8px;
+}
+
+.account-email-state--verified {
+  background: #edf7ef;
+}
+
+.account-email-state--pending {
+  background: #fff4df;
+}
+
+.account-email-state strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.account-email-state a {
+  color: inherit;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   ACCOUNT DASHBOARD
+   ========================================================= */
+
+.account-section {
+  margin-top: 36px;
+}
+
+.account-section h2 {
+  margin: 0 0 16px;
+  font-size: 1.4rem;
+}
+
+.account-dashboard-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 18px;
+}
+
+.account-dashboard-card {
+  display: block;
+
+  padding: 24px;
+
+  background: #fff;
+  color: inherit;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .09);
+
+  border-radius: 12px;
+
+  text-decoration: none;
+
+  transition:
+    transform .15s ease,
+    box-shadow .15s ease;
+}
+
+.account-dashboard-card:hover {
+  transform:
+    translateY(-2px);
+
+  box-shadow:
+    0 10px 24px
+    rgba(0, 0, 0, .08);
+}
+
+.account-dashboard-card h3 {
+  margin: 0 0 7px;
+  font-size: 1.1rem;
+}
+
+.account-dashboard-card p {
+  margin: 0;
+
+  color: #667069;
+  line-height: 1.55;
+}
+
+
+/* =========================================================
+   MEMBERSHIP STATUS
+   ========================================================= */
+
+.status-card {
+  margin-bottom: 26px;
+}
+
+.status-card h2 {
+  margin: 0 0 12px;
+  font-size: 1.2rem;
+}
+
+.status-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 14px;
+}
+
+.status-item {
+  padding: 14px;
+
+  background: #f7f4ed;
+
+  border-radius: 8px;
+}
+
+.status-item span {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #737a76;
+
+  font-size: .8rem;
+  font-weight: 700;
+
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.status-item strong {
+  font-size: 1rem;
+}
+
+
+/* =========================================================
+   MEMBERSHIP PLANS
+   ========================================================= */
+
+.plans-heading {
+  margin: 34px 0 16px;
+}
+
+.plan-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 18px;
+}
+
+.plan-card {
+  display: flex;
+  flex-direction: column;
+
+  padding: 24px;
+
+  background: #fff;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .09);
+
+  border-radius: 12px;
+}
+
+.plan-card--featured {
+  border:
+    2px solid
+    #436d50;
+}
+
+.plan-badge {
+  align-self: flex-start;
+
+  margin-bottom: 12px;
+
+  padding: 5px 9px;
+
+  border-radius: 999px;
+
+  background: #e4f1e7;
+  color: #315c3c;
+
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.plan-card h3 {
+  margin: 0 0 5px;
+  font-size: 1.3rem;
+}
+
+.plan-price {
+  margin: 0 0 16px;
+
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.plan-price span {
+  color: #667069;
+
+  font-size: .9rem;
+  font-weight: 600;
+}
+
+.plan-card p {
+  margin: 0 0 18px;
+
+  color: #667069;
+  line-height: 1.6;
+}
+
+.plan-features {
+  margin: 0 0 22px;
+  padding-left: 20px;
+
+  color: #4e5751;
+  line-height: 1.7;
+}
+
+.plan-card form {
+  margin-top: auto;
+}
+
+.plan-note {
+  margin-top: 18px;
+
+  color: #737a76;
+
+  font-size: .84rem;
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   BILLING PORTAL
+   ========================================================= */
+
+.portal-card {
+  margin-top: 26px;
+}
+
+.portal-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+
+.portal-card p {
+  margin: 0 0 16px;
+
+  color: #667069;
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   SAVED PLACES
+   ========================================================= */
+
+.saved-count {
+  margin-top: 10px;
+
+  color: #172822;
+  font-weight: 700;
+}
+
+.saved-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 18px;
+}
+
+.saved-card {
+  display: flex;
+  flex-direction: column;
+
+  padding: 24px;
+
+  background: #fff;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .09);
+
+  border-radius: 14px;
+}
+
+.saved-card-type {
+  margin: 0 0 8px;
+
+  color: #667069;
+
+  font-size: .78rem;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.saved-card h2 {
+  margin: 0 0 7px;
+  font-size: 1.35rem;
+}
+
+.saved-location {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  margin: 0 0 18px;
+
+  color: #667069;
+  font-size: .92rem;
+}
+
+.saved-details {
+  display: grid;
+  gap: 8px;
+
+  margin-bottom: 22px;
+}
+
+.saved-detail {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  color: #667069;
+  font-size: .9rem;
+}
+
+.saved-detail i {
+  width: 18px;
+
+  text-align: center;
+}
+
+.saved-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.saved-date {
+  margin-top: 16px;
+
+  color: #8a908c;
+  font-size: .78rem;
+}
+
+
+/* =========================================================
+   EMPTY STATES
+   ========================================================= */
+
+.empty-state {
+  padding: 40px 30px;
+
+  background: #fff;
+
+  border:
+    1px solid
+    rgba(0, 0, 0, .09);
+
+  border-radius: 14px;
+
+  text-align: center;
+}
+
+.empty-state i {
+  margin-bottom: 14px;
+  font-size: 2rem;
+}
+
+.empty-state h2 {
+  margin: 0 0 8px;
+}
+
+.empty-state p {
+  max-width: 520px;
+
+  margin:
+    0 auto
+    22px;
+
+  color: #667069;
+  line-height: 1.65;
+}
+
+
+/* =========================================================
+   ACCOUNT FOOTERS
+   ========================================================= */
+
+.account-footer,
+.saved-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+
+  margin-top: 42px;
+  padding-top: 22px;
+
+  border-top:
+    1px solid
+    rgba(0, 0, 0, .12);
+}
+
+.account-footer a,
+.saved-footer a {
+  color: inherit;
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+  .account-site-header-inner {
+    min-height: 62px;
+  }
+
+  .account-site-logo {
+    width: 190px;
+    height: 62px;
+
+    transform:
+      translateY(6px);
+  }
+
+  .account-site-nav {
+    display: none;
+  }
+
+  .account-menu-toggle {
+    display: block;
+  }
+
+  .account-shell,
+  .account-page,
+  .membership-page,
+  .saved-page {
+    padding-top: 22px;
+  }
+
+  .account-auth {
+    padding-top: 8px;
+  }
+
+  .account-auth-logo {
+    width:
+      min(
+        320px,
+        92%
+      );
+
+    margin-bottom: 10px;
+  }
+
+  .account-auth-card,
+  .account-card {
+    padding: 22px;
+  }
+
+  .account-dashboard-grid,
+  .status-grid,
+  .plan-grid,
+  .saved-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+/* =========================================================
+   SMALL PHONES
+   ========================================================= */
+
+@media (max-width: 430px) {
+
+  .account-auth {
+    width:
+      calc(
+        100% - 24px
+      );
+  }
+
+  .account-auth-card,
+  .account-card {
+    padding: 20px;
+  }
+
+  .account-site-header-inner {
+    width:
+      calc(
+        100% - 24px
+      );
+  }
+
+  .account-site-logo {
+    width: 176px;
+  }
+
+}
