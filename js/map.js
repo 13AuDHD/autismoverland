@@ -1,21 +1,42 @@
-document.addEventListener(
-  "DOMContentLoaded",
-  initMap
-);
+/* =========================================================
+   LLAMA SCOUT
+   MAP.JS
+
+   Full Explore Map behavior.
+
+   Access rules are enforced by /api/places.php.
+   This file only displays and filters the data
+   the current visitor is allowed to receive.
+   ========================================================= */
 
 
-let autismOverlandMap = null;
+/* =========================================================
+   GLOBAL MAP STATE
+   ========================================================= */
+
+let llamaScoutMap = null;
 
 let allPlaces = [];
 
 let placeMarkers =
   new Map();
 
+let mapAccessLevel =
+  "visitor";
+
+let mapMaximumZoom =
+  11;
 
 
 /* =========================================================
-   INIT
+   INITIALIZE
    ========================================================= */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  initMap
+);
+
 
 async function initMap() {
 
@@ -25,59 +46,121 @@ async function initMap() {
     );
 
 
-  if (!mapElement) return;
-
-
-  autismOverlandMap =
-    L.map(
-      "autismoverland-map"
-    )
-      .setView(
-        [
-          37.25222,
-          -107.2192
-        ],
-        11
-      );
-
-
-  L.tileLayer(
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    {
-
-      maxZoom: 19,
-
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-
-    }
-  ).addTo(
-    autismOverlandMap
-  );
+  if (
+    !mapElement ||
+    typeof L === "undefined"
+  ) {
+    return;
+  }
 
 
   try {
 
     const response =
-await fetch(
-  "/api/places.php",
-  {
-    cache: "no-store"
-  }
-);
+      await fetch(
+        "/api/places.php",
+        {
+          credentials:
+            "include",
+
+          cache:
+            "no-store"
+        }
+      );
 
 
     if (!response.ok) {
 
       throw new Error(
-        "Could not load places.json"
+        "Could not load Llama Scout places."
+      );
+
+    }
+
+
+    const places =
+      await response.json();
+
+
+    if (!Array.isArray(places)) {
+
+      throw new Error(
+        "Places API did not return a list."
       );
 
     }
 
 
     allPlaces =
-      await response.json();
+      places.filter(
+        (place) =>
+          place &&
+          place.status === "active"
+      );
+
+
+    /*
+     * Every place returned by the API
+     * is produced for the same current user,
+     * so accessLevel will be consistent.
+     */
+
+    mapAccessLevel =
+      allPlaces[0]
+        ?.accessLevel
+      ||
+      "visitor";
+
+
+    /*
+     * Exact-location users may zoom all
+     * the way in.
+     *
+     * Visitors and free accounts receive
+     * approximate coordinates and are also
+     * prevented from zooming deeply enough
+     * to imply that the pin is exact.
+     */
+
+    mapMaximumZoom =
+      mapAccessLevel === "member"
+        ? 19
+        : 11;
+
+
+    llamaScoutMap =
+      L.map(
+        "autismoverland-map",
+        {
+          maxZoom:
+            mapMaximumZoom
+        }
+      )
+      .setView(
+        [
+          37.25222,
+          -107.2192
+        ],
+        Math.min(
+          9,
+          mapMaximumZoom
+        )
+      );
+
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom:
+          mapMaximumZoom,
+
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }
+    )
+    .addTo(
+      llamaScoutMap
+    );
 
 
     createMarkers(
@@ -111,57 +194,259 @@ await fetch(
 }
 
 
+/* =========================================================
+   ACCESS-AWARE VALUES
+   ========================================================= */
+
+function isLockedMapValue(
+  value
+) {
+
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    value.locked === true
+  );
+
+}
+
+
+function mapNumericValue(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    isLockedMapValue(value)
+  ) {
+    return null;
+  }
+
+
+  const number =
+    Number(value);
+
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+
+}
+
+
+function mapBooleanValue(
+  value
+) {
+
+  if (
+    isLockedMapValue(value)
+  ) {
+    return null;
+  }
+
+
+  if (value === true) {
+    return true;
+  }
+
+
+  if (value === false) {
+    return false;
+  }
+
+
+  return null;
+
+}
+
+
+function mapStringValue(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    isLockedMapValue(value)
+  ) {
+    return "";
+  }
+
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+
+    return String(value);
+
+  }
+
+
+  return "";
+
+}
+
+
+/* =========================================================
+   LOCKED DISPLAY
+   ========================================================= */
+
+function mapLockedText(
+  value
+) {
+
+  if (
+    !isLockedMapValue(value)
+  ) {
+    return "";
+  }
+
+
+  if (
+    value.cta === "sign_up"
+  ) {
+    return "Sign up";
+  }
+
+
+  if (
+    value.cta === "upgrade"
+  ) {
+    return "Member only";
+  }
+
+
+  return "Member only";
+
+}
+
+
+function mapLockedHref(
+  value
+) {
+
+  if (
+    !isLockedMapValue(value)
+  ) {
+    return "";
+  }
+
+
+  return value.cta === "sign_up"
+    ? "https://account.llamascout.com/register.php"
+    : "https://account.llamascout.com/membership.php";
+
+}
+
+
+function mapLockedLink(
+  value
+) {
+
+  if (
+    !isLockedMapValue(value)
+  ) {
+    return "";
+  }
+
+
+  return `
+
+    <a
+      class="map-popup-locked"
+      href="${mapLockedHref(
+        value
+      )}"
+    >
+
+      <i
+        class="fa-solid fa-lock"
+        aria-hidden="true"
+      ></i>
+
+      ${escapeHTML(
+        mapLockedText(
+          value
+        )
+      )}
+
+    </a>
+
+  `;
+
+}
+
 
 /* =========================================================
    MARKERS
    ========================================================= */
 
-function createMarkers(places) {
+function createMarkers(
+  places
+) {
 
-  places.forEach((place) => {
-
-    const latitude =
-      place.location?.latitude;
-
-    const longitude =
-      place.location?.longitude;
+  placeMarkers.clear();
 
 
-    if (
-      latitude == null ||
-      longitude == null
-    ) {
+  places.forEach(
+    (place) => {
 
-      return;
+
+      const latitude =
+        mapNumericValue(
+          place.location
+            ?.latitude
+        );
+
+
+      const longitude =
+        mapNumericValue(
+          place.location
+            ?.longitude
+        );
+
+
+      if (
+        latitude === null ||
+        longitude === null
+      ) {
+        return;
+      }
+
+
+      const marker =
+        L.marker(
+          [
+            latitude,
+            longitude
+          ]
+        );
+
+
+      marker.bindPopup(
+        buildPopup(
+          place
+        )
+      );
+
+
+      placeMarkers.set(
+        place.slug ||
+        place.id,
+        marker
+      );
 
     }
-
-
-    const marker =
-      L.marker([
-        latitude,
-        longitude
-      ]);
-
-
-    marker.bindPopup(
-      buildPopup(place)
-    );
-
-
-    placeMarkers.set(
-      place.slug || place.id,
-      marker
-    );
-
-  });
+  );
 
 }
 
 
-
 /* =========================================================
-   DYNAMIC SELECT OPTIONS
+   DYNAMIC FILTER OPTIONS
    ========================================================= */
 
 function populateDynamicFilters(
@@ -172,7 +457,10 @@ function populateDynamicFilters(
     "filter-state",
     places.map(
       (place) =>
-        place.location?.state
+        mapStringValue(
+          place.location
+            ?.state
+        )
     )
   );
 
@@ -181,7 +469,10 @@ function populateDynamicFilters(
     "filter-county",
     places.map(
       (place) =>
-        place.location?.county
+        mapStringValue(
+          place.location
+            ?.county
+        )
     )
   );
 
@@ -190,7 +481,10 @@ function populateDynamicFilters(
     "filter-city",
     places.map(
       (place) =>
-        place.location?.city
+        mapStringValue(
+          place.location
+            ?.city
+        )
     )
   );
 
@@ -199,7 +493,10 @@ function populateDynamicFilters(
     "filter-region",
     places.map(
       (place) =>
-        place.location?.region
+        mapStringValue(
+          place.location
+            ?.region
+        )
     )
   );
 
@@ -208,7 +505,9 @@ function populateDynamicFilters(
     "filter-type",
     places.map(
       (place) =>
-        place.type
+        mapStringValue(
+          place.type
+        )
     ),
     true
   );
@@ -218,7 +517,10 @@ function populateDynamicFilters(
     "filter-land-manager",
     places.map(
       (place) =>
-        place.location?.landManager
+        mapStringValue(
+          place.location
+            ?.landManager
+        )
     )
   );
 
@@ -227,12 +529,14 @@ function populateDynamicFilters(
     "filter-land-type",
     places.map(
       (place) =>
-        place.location?.landType
+        mapStringValue(
+          place.location
+            ?.landType
+        )
     )
   );
 
 }
-
 
 
 function populateSelect(
@@ -242,58 +546,76 @@ function populateSelect(
 ) {
 
   const select =
-    document.getElementById(id);
+    document.getElementById(
+      id
+    );
 
 
-  if (!select) return;
+  if (!select) {
+    return;
+  }
+
+
+  const cleanValues =
+    values
+      .map(
+        (value) =>
+          mapStringValue(
+            value
+          )
+      )
+      .filter(Boolean);
 
 
   const unique =
     [
       ...new Set(
-        values
-          .filter(Boolean)
+        cleanValues
       )
     ]
-      .sort(
-        (a, b) =>
-          String(a)
-            .localeCompare(
-              String(b)
-            )
-      );
-
-
-  unique.forEach((value) => {
-
-    const option =
-      document.createElement(
-        "option"
-      );
-
-
-    option.value =
-      value;
-
-
-    option.textContent =
-      format
-        ? formatLabel(value)
-        : value;
-
-
-    select.appendChild(
-      option
+    .sort(
+      (a, b) =>
+        String(a)
+          .localeCompare(
+            String(b)
+          )
     );
 
-  });
+
+  unique.forEach(
+    (item) => {
+
+
+      const option =
+        document.createElement(
+          "option"
+        );
+
+
+      option.value =
+        item;
+
+
+      option.textContent =
+        format
+          ? formatLabel(
+              item
+            )
+          : item;
+
+
+      select.appendChild(
+        option
+      );
+
+    }
+  );
 
 }
 
 
-
 /* =========================================================
-   EVENTS
+   FILTER EVENTS
    ========================================================= */
 
 function bindFilterEvents() {
@@ -302,27 +624,30 @@ function bindFilterEvents() {
     .querySelectorAll(
       "#map-filter-panel input, #map-filter-panel select"
     )
-    .forEach((element) => {
+    .forEach(
+      (element) => {
 
-      element.addEventListener(
-        "change",
-        applyMapFilters
-      );
-
-
-      if (
-        element.type ===
-        "number"
-      ) {
 
         element.addEventListener(
-          "input",
+          "change",
           applyMapFilters
         );
 
-      }
 
-    });
+        if (
+          element.type ===
+          "number"
+        ) {
+
+          element.addEventListener(
+            "input",
+            applyMapFilters
+          );
+
+        }
+
+      }
+    );
 
 
   document
@@ -357,7 +682,6 @@ function bindFilterEvents() {
 }
 
 
-
 /* =========================================================
    APPLY FILTERS
    ========================================================= */
@@ -387,7 +711,6 @@ function applyMapFilters() {
 }
 
 
-
 /* =========================================================
    FILTER LOGIC
    ========================================================= */
@@ -396,31 +719,70 @@ function placeMatchesFilters(
   place
 ) {
 
-  /* Search */
+  /* =======================================================
+     SEARCH
+
+     Road name is deliberately excluded.
+     ======================================================= */
 
   const search =
-    value("map-search")
-      .toLowerCase();
+    value(
+      "map-search"
+    )
+    .toLowerCase();
 
 
   if (search) {
 
     const haystack =
       [
-        place.name,
-        place.type,
-        place.location?.road,
-        place.location?.city,
-        place.location?.county,
-        place.location?.state,
-        place.location?.region,
-        place.location?.landManager,
-        place.location?.landType,
-        place.description
+
+        mapStringValue(
+          place.name
+        ),
+
+        mapStringValue(
+          place.type
+        ),
+
+        mapStringValue(
+          place.location
+            ?.city
+        ),
+
+        mapStringValue(
+          place.location
+            ?.county
+        ),
+
+        mapStringValue(
+          place.location
+            ?.state
+        ),
+
+        mapStringValue(
+          place.location
+            ?.region
+        ),
+
+        mapStringValue(
+          place.location
+            ?.landManager
+        ),
+
+        mapStringValue(
+          place.location
+            ?.landType
+        ),
+
+        mapStringValue(
+          place.description
+        )
+
       ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
 
 
     if (
@@ -428,93 +790,132 @@ function placeMatchesFilters(
         search
       )
     ) {
-
       return false;
-
     }
 
   }
 
 
-  /* Location */
+  /* =======================================================
+     LOCATION
+     ======================================================= */
 
   if (
     !matchesExact(
-      place.location?.state,
-      value("filter-state")
+      place.location
+        ?.state,
+      value(
+        "filter-state"
+      )
     )
-  ) return false;
-
-
-  if (
-    !matchesExact(
-      place.location?.county,
-      value("filter-county")
-    )
-  ) return false;
-
-
-  if (
-    !matchesExact(
-      place.location?.city,
-      value("filter-city")
-    )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
     !matchesExact(
-      place.location?.region,
-      value("filter-region")
+      place.location
+        ?.county,
+      value(
+        "filter-county"
+      )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
-  /* Type */
+  if (
+    !matchesExact(
+      place.location
+        ?.city,
+      value(
+        "filter-city"
+      )
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    !matchesExact(
+      place.location
+        ?.region,
+      value(
+        "filter-region"
+      )
+    )
+  ) {
+    return false;
+  }
+
+
+  /* =======================================================
+     PLACE TYPE
+     ======================================================= */
 
   if (
     !matchesExact(
       place.type,
-      value("filter-type")
+      value(
+        "filter-type"
+      )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
-  /* Land */
+  /* =======================================================
+     LAND
+     ======================================================= */
 
   if (
     !matchesExact(
-      place.location?.landManager,
+      place.location
+        ?.landManager,
       value(
         "filter-land-manager"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
     !matchesExact(
-      place.location?.landType,
+      place.location
+        ?.landType,
       value(
         "filter-land-type"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
-  /* Road */
+  /* =======================================================
+     VEHICLE + ACCESS
+     ======================================================= */
 
   if (
     !maxRatingMatch(
       place.access
-        ?.roadOverallDifficulty ??
+        ?.roadOverallDifficulty
+      ??
       place.access
         ?.roadDifficulty,
       value(
         "filter-road-difficulty"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -525,7 +926,9 @@ function placeMatchesFilters(
         "filter-road-stress"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   const capacity =
@@ -535,18 +938,14 @@ function placeMatchesFilters(
 
 
   if (
-    capacity != null &&
-    (
+    capacity !== null &&
+    !minimumNumberMatch(
       place.site
-        ?.vehicleCapacity == null ||
-      place.site
-        .vehicleCapacity <
-        capacity
+        ?.vehicleCapacity,
+      capacity
     )
   ) {
-
     return false;
-
   }
 
 
@@ -557,74 +956,92 @@ function placeMatchesFilters(
 
 
   if (
-    length != null &&
-    (
+    length !== null &&
+    !minimumNumberMatch(
       place.site
-        ?.maxVehicleLengthFeet ==
-        null ||
-      place.site
-        .maxVehicleLengthFeet <
-        length
+        ?.maxVehicleLengthFeet,
+      length
     )
   ) {
-
     return false;
-
   }
 
 
   if (
-    checked("filter-sedan") &&
-    place.access
-      ?.sedanAccessible !== true
-  ) return false;
+    !booleanFilterMatch(
+      "filter-sedan",
+      place.access
+        ?.sedanAccessible,
+      true
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-no-high-clearance"
-    ) &&
-    place.access
-      ?.highClearanceRecommended !==
+    !booleanFilterMatch(
+      "filter-no-high-clearance",
+      place.access
+        ?.highClearanceRecommended,
       false
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked("filter-no-4wd") &&
-    place.access
-      ?.fourWheelDriveRecommended !==
+    !booleanFilterMatch(
+      "filter-no-4wd",
+      place.access
+        ?.fourWheelDriveRecommended,
       false
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked("filter-tent") &&
-    place.site
-      ?.tentCampingSuitable !==
+    !booleanFilterMatch(
+      "filter-tent",
+      place.site
+        ?.tentCampingSuitable,
       true
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked("filter-trailer") &&
-    place.site
-      ?.trailerSuitable !==
+    !booleanFilterMatch(
+      "filter-trailer",
+      place.site
+        ?.trailerSuitable,
       true
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-turnaround"
-    ) &&
-    place.site
-      ?.turnaroundSpace !==
+    !booleanFilterMatch(
+      "filter-turnaround",
+      place.site
+        ?.turnaroundSpace,
       true
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
-  /* Sensory */
+  /* =======================================================
+     SENSORY
+     ======================================================= */
 
   if (
     !maxRatingMatch(
@@ -635,7 +1052,9 @@ function placeMatchesFilters(
         "filter-day-noise"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -647,7 +1066,9 @@ function placeMatchesFilters(
         "filter-night-noise"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -659,7 +1080,9 @@ function placeMatchesFilters(
         "filter-day-privacy"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -671,7 +1094,9 @@ function placeMatchesFilters(
         "filter-night-privacy"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -683,7 +1108,9 @@ function placeMatchesFilters(
         "filter-day-comfort"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -695,7 +1122,9 @@ function placeMatchesFilters(
         "filter-night-comfort"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -706,7 +1135,9 @@ function placeMatchesFilters(
         "filter-human-activity"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -717,251 +1148,357 @@ function placeMatchesFilters(
         "filter-predictability"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
-  /* Connectivity */
+  /* =======================================================
+     CONNECTIVITY
+     ======================================================= */
 
   if (
     !minRatingMatch(
       place.connectivity
         ?.overall,
-      value("filter-cell")
+      value(
+        "filter-cell"
+      )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
     !minRatingMatch(
       place.connectivity
         ?.tMobile,
-      value("filter-tmobile")
+      value(
+        "filter-tmobile"
+      )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
     !minRatingMatch(
       place.connectivity
         ?.verizon,
-      value("filter-verizon")
+      value(
+        "filter-verizon"
+      )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
     !minRatingMatch(
       place.connectivity
         ?.att,
-      value("filter-att")
+      value(
+        "filter-att"
+      )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
     !minRatingMatch(
       place.connectivity
         ?.starlink,
-      value("filter-starlink")
+      value(
+        "filter-starlink"
+      )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-starlink-tested"
-    ) &&
-    place.connectivity
-      ?.starlinkTested !==
+    !booleanFilterMatch(
+      "filter-starlink-tested",
+      place.connectivity
+        ?.starlinkTested,
       true
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
-  /* Amenities */
+  /* =======================================================
+     AMENITIES
 
-  if (
-    checked("filter-toilets") &&
-    place.amenities
-      ?.toilets !== true
-  ) return false;
-
-
-  if (
-    checked("filter-water") &&
-    place.amenities
-      ?.potableWater !== true
-  ) return false;
-
+     Amenities remain public yes/no/unknown data.
+     ======================================================= */
 
   if (
-    checked("filter-trash") &&
-    place.amenities
-      ?.trash !== true
-  ) return false;
+    !booleanFilterMatch(
+      "filter-toilets",
+      place.amenities
+        ?.toilets,
+      true
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked("filter-fire-ring") &&
-    place.amenities
-      ?.fireRing !== true
-  ) return false;
+    !booleanFilterMatch(
+      "filter-water",
+      place.amenities
+        ?.potableWater,
+      true
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-picnic-table"
-    ) &&
-    place.amenities
-      ?.picnicTable !== true
-  ) return false;
+    !booleanFilterMatch(
+      "filter-trash",
+      place.amenities
+        ?.trash,
+      true
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-electricity"
-    ) &&
-    place.amenities
-      ?.electricity !== true
-  ) return false;
-
-
-  /* Environment */
-
-  if (
-    checked("filter-forest") &&
-    place.environment
-      ?.forest !== true
-  ) return false;
+    !booleanFilterMatch(
+      "filter-fire-ring",
+      place.amenities
+        ?.fireRing,
+      true
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked("filter-mountains") &&
-    place.environment
-      ?.mountains !== true
-  ) return false;
+    !booleanFilterMatch(
+      "filter-picnic-table",
+      place.amenities
+        ?.picnicTable,
+      true
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-water-nearby"
-    ) &&
-    place.environment
-      ?.waterNearby !== true
-  ) return false;
+    !booleanFilterMatch(
+      "filter-electricity",
+      place.amenities
+        ?.electricity,
+      true
+    )
+  ) {
+    return false;
+  }
+
+
+  /* =======================================================
+     ENVIRONMENT
+     ======================================================= */
+
+  if (
+    !booleanFilterMatch(
+      "filter-forest",
+      place.environment
+        ?.forest,
+      true
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-water-view"
-    ) &&
-    place.environment
-      ?.waterView !== true
-  ) return false;
+    !booleanFilterMatch(
+      "filter-mountains",
+      place.environment
+        ?.mountains,
+      true
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    !booleanFilterMatch(
+      "filter-water-nearby",
+      place.environment
+        ?.waterNearby,
+      true
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    !booleanFilterMatch(
+      "filter-water-view",
+      place.environment
+        ?.waterView,
+      true
+    )
+  ) {
+    return false;
+  }
 
 
   if (
     !minRatingMatch(
       place.environment
-        ?.openSky ??
+        ?.openSky
+      ??
       place.site
         ?.openSky,
       value(
         "filter-open-sky"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
-  /* Accessibility */
+  /* =======================================================
+     ACCESSIBILITY
+     ======================================================= */
 
   if (
-    checked(
-      "filter-wheelchair"
-    ) &&
-    place.accessibility
-      ?.wheelchairFriendly !==
+    !booleanFilterMatch(
+      "filter-wheelchair",
+      place.accessibility
+        ?.wheelchairFriendly,
       true
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-mobility"
-    ) &&
-    place.accessibility
-      ?.mobilityDeviceFriendly !==
+    !booleanFilterMatch(
+      "filter-mobility",
+      place.accessibility
+        ?.mobilityDeviceFriendly,
       true
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-flat-walking"
-    ) &&
-    place.accessibility
-      ?.flatWalkingSurface !==
+    !booleanFilterMatch(
+      "filter-flat-walking",
+      place.accessibility
+        ?.flatWalkingSurface,
       true
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-step-free"
-    ) &&
-    place.accessibility
-      ?.stepFreeAccess !== true
-  ) return false;
-
-
-  if (
-    checked(
-      "filter-accessible-toilet"
-    ) &&
-    place.accessibility
-      ?.accessibleToilet !== true
-  ) return false;
-
-
-  /* Safety */
-
-  if (
-    checked(
-      "filter-safe-night"
-    ) &&
-    place.safety
-      ?.feltSafeNighttime !==
+    !booleanFilterMatch(
+      "filter-step-free",
+      place.accessibility
+        ?.stepFreeAccess,
       true
-  ) return false;
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-no-cliff"
-    ) &&
-    place.safety
-      ?.cliffExposure !== false
-  ) return false;
+    !booleanFilterMatch(
+      "filter-accessible-toilet",
+      place.accessibility
+        ?.accessibleToilet,
+      true
+    )
+  ) {
+    return false;
+  }
+
+
+  /* =======================================================
+     SAFETY
+     ======================================================= */
+
+  if (
+    !booleanFilterMatch(
+      "filter-safe-night",
+      place.safety
+        ?.feltSafeNighttime,
+      true
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-no-traffic-hazard"
-    ) &&
-    place.safety
-      ?.trafficHazard !== false
-  ) return false;
+    !booleanFilterMatch(
+      "filter-no-cliff",
+      place.safety
+        ?.cliffExposure,
+      false
+    )
+  ) {
+    return false;
+  }
 
 
   if (
-    checked(
-      "filter-emergency-access"
-    ) &&
-    place.safety
-      ?.emergencyAccess !== true
-  ) return false;
+    !booleanFilterMatch(
+      "filter-no-traffic-hazard",
+      place.safety
+        ?.trafficHazard,
+      false
+    )
+  ) {
+    return false;
+  }
 
 
-  /* Experience */
+  if (
+    !booleanFilterMatch(
+      "filter-emergency-access",
+      place.safety
+        ?.emergencyAccess,
+      true
+    )
+  ) {
+    return false;
+  }
+
+
+  /* =======================================================
+     EXPERIENCE
+     ======================================================= */
 
   if (
     !minRatingMatch(
@@ -971,7 +1508,9 @@ function placeMatchesFilters(
         "filter-stargazing"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -982,7 +1521,9 @@ function placeMatchesFilters(
         "filter-overnight"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -993,7 +1534,9 @@ function placeMatchesFilters(
         "filter-sensory-retreat"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
   if (
@@ -1004,25 +1547,198 @@ function placeMatchesFilters(
         "filter-remote-work"
       )
     )
-  ) return false;
+  ) {
+    return false;
+  }
 
 
-  /* Verification */
+  /* =======================================================
+     VERIFICATION
+     ======================================================= */
 
   if (
     checked(
       "filter-field-verified"
-    ) &&
-    place.verification
-      ?.status !==
+    )
+  ) {
+
+    const status =
+      mapStringValue(
+        place.verification
+          ?.status
+      );
+
+
+    if (
+      status !==
       "field-verified"
-  ) return false;
+    ) {
+      return false;
+    }
+
+  }
 
 
   return true;
 
 }
 
+
+/* =========================================================
+   FILTER MATCH HELPERS
+   ========================================================= */
+
+function matchesExact(
+  actual,
+  selected
+) {
+
+  if (!selected) {
+    return true;
+  }
+
+
+  const cleanActual =
+    mapStringValue(
+      actual
+    );
+
+
+  if (!cleanActual) {
+    return false;
+  }
+
+
+  return (
+    cleanActual ===
+    selected
+  );
+
+}
+
+
+function minRatingMatch(
+  actual,
+  selected
+) {
+
+  if (!selected) {
+    return true;
+  }
+
+
+  const cleanActual =
+    mapNumericValue(
+      actual
+    );
+
+
+  if (
+    cleanActual === null
+  ) {
+    return false;
+  }
+
+
+  return (
+    cleanActual >=
+    Number(selected)
+  );
+
+}
+
+
+function maxRatingMatch(
+  actual,
+  selected
+) {
+
+  if (!selected) {
+    return true;
+  }
+
+
+  const cleanActual =
+    mapNumericValue(
+      actual
+    );
+
+
+  if (
+    cleanActual === null
+  ) {
+    return false;
+  }
+
+
+  return (
+    cleanActual <=
+    Number(selected)
+  );
+
+}
+
+
+function minimumNumberMatch(
+  actual,
+  minimum
+) {
+
+  const cleanActual =
+    mapNumericValue(
+      actual
+    );
+
+
+  if (
+    cleanActual === null
+  ) {
+    return false;
+  }
+
+
+  return (
+    cleanActual >=
+    minimum
+  );
+
+}
+
+
+function booleanFilterMatch(
+  controlId,
+  actual,
+  expected
+) {
+
+  if (
+    !checked(
+      controlId
+    )
+  ) {
+    return true;
+  }
+
+
+  const cleanActual =
+    mapBooleanValue(
+      actual
+    );
+
+
+  if (
+    cleanActual === null
+  ) {
+    return false;
+  }
+
+
+  return (
+    cleanActual ===
+    expected
+  );
+
+}
 
 
 /* =========================================================
@@ -1032,6 +1748,11 @@ function placeMatchesFilters(
 function updateMarkers(
   places
 ) {
+
+  if (!llamaScoutMap) {
+    return;
+  }
+
 
   const visible =
     new Set(
@@ -1049,29 +1770,38 @@ function updateMarkers(
       key
     ) => {
 
+
       if (
-        visible.has(key)
+        visible.has(
+          key
+        )
       ) {
 
         if (
-          !autismOverlandMap
-            .hasLayer(marker)
+          !llamaScoutMap
+            .hasLayer(
+              marker
+            )
         ) {
 
           marker.addTo(
-            autismOverlandMap
+            llamaScoutMap
           );
 
         }
 
+
       } else {
 
+
         if (
-          autismOverlandMap
-            .hasLayer(marker)
+          llamaScoutMap
+            .hasLayer(
+              marker
+            )
         ) {
 
-          autismOverlandMap
+          llamaScoutMap
             .removeLayer(
               marker
             );
@@ -1086,14 +1816,18 @@ function updateMarkers(
 }
 
 
-
 /* =========================================================
-   FIT BOUNDS
+   FIT MAP
    ========================================================= */
 
 function fitMapToPlaces(
   places
 ) {
+
+  if (!llamaScoutMap) {
+    return;
+  }
+
 
   const params =
     new URLSearchParams(
@@ -1101,41 +1835,60 @@ function fitMapToPlaces(
     );
 
 
+  /*
+   * Do not fight the manually requested
+   * place position.
+   */
+
   if (
-    params.get("place")
+    params.get(
+      "place"
+    )
   ) {
-
     return;
-
   }
 
 
   const bounds =
     places
-      .filter(
-        (place) =>
-          place.location
-            ?.latitude != null &&
-          place.location
-            ?.longitude != null
-      )
       .map(
-        (place) => [
+        (place) => {
 
-          place.location
-            .latitude,
 
-          place.location
-            .longitude
+          const latitude =
+            mapNumericValue(
+              place.location
+                ?.latitude
+            );
 
-        ]
-      );
+
+          const longitude =
+            mapNumericValue(
+              place.location
+                ?.longitude
+            );
+
+
+          if (
+            latitude === null ||
+            longitude === null
+          ) {
+            return null;
+          }
+
+
+          return [
+            latitude,
+            longitude
+          ];
+
+        }
+      )
+      .filter(Boolean);
 
 
   if (!bounds.length) {
-
     return;
-
   }
 
 
@@ -1143,10 +1896,13 @@ function fitMapToPlaces(
     bounds.length === 1
   ) {
 
-    autismOverlandMap
+    llamaScoutMap
       .setView(
         bounds[0],
-        13
+        Math.min(
+          13,
+          mapMaximumZoom
+        )
       );
 
     return;
@@ -1154,21 +1910,25 @@ function fitMapToPlaces(
   }
 
 
-  autismOverlandMap
+  llamaScoutMap
     .fitBounds(
       bounds,
       {
-
         padding:
-          [50, 50],
+          [
+            50,
+            50
+          ],
 
-        maxZoom: 11
-
+        maxZoom:
+          Math.min(
+            11,
+            mapMaximumZoom
+          )
       }
     );
 
 }
-
 
 
 /* =========================================================
@@ -1177,6 +1937,11 @@ function fitMapToPlaces(
 
 function handleRequestedPlace() {
 
+  if (!llamaScoutMap) {
+    return;
+  }
+
+
   const params =
     new URLSearchParams(
       window.location.search
@@ -1184,13 +1949,13 @@ function handleRequestedPlace() {
 
 
   const requestedPlace =
-    params.get("place");
+    params.get(
+      "place"
+    );
 
 
   if (!requestedPlace) {
-
     return;
-
   }
 
 
@@ -1198,7 +1963,8 @@ function handleRequestedPlace() {
     allPlaces.find(
       (item) =>
         item.slug ===
-          requestedPlace ||
+          requestedPlace
+        ||
         item.id ===
           requestedPlace
     );
@@ -1214,31 +1980,56 @@ function handleRequestedPlace() {
     !place ||
     !marker
   ) {
-
     return;
+  }
 
+
+  const latitude =
+    mapNumericValue(
+      place.location
+        ?.latitude
+    );
+
+
+  const longitude =
+    mapNumericValue(
+      place.location
+        ?.longitude
+    );
+
+
+  if (
+    latitude === null ||
+    longitude === null
+  ) {
+    return;
   }
 
 
   if (
-    !autismOverlandMap
-      .hasLayer(marker)
+    !llamaScoutMap
+      .hasLayer(
+        marker
+      )
   ) {
 
     marker.addTo(
-      autismOverlandMap
+      llamaScoutMap
     );
 
   }
 
 
-  autismOverlandMap
+  llamaScoutMap
     .setView(
       [
-        place.location.latitude,
-        place.location.longitude
+        latitude,
+        longitude
       ],
-      15
+      mapAccessLevel ===
+        "member"
+          ? 15
+          : mapMaximumZoom
     );
 
 
@@ -1247,9 +2038,8 @@ function handleRequestedPlace() {
 }
 
 
-
 /* =========================================================
-   COUNT
+   RESULT COUNT
    ========================================================= */
 
 function updateFilterCount(
@@ -1298,9 +2088,8 @@ function updateFilterCount(
 }
 
 
-
 /* =========================================================
-   CLEAR
+   CLEAR FILTERS
    ========================================================= */
 
 function clearMapFilters() {
@@ -1312,6 +2101,7 @@ function clearMapFilters() {
     .forEach(
       (input) => {
 
+
         if (
           input.type ===
           "checkbox"
@@ -1320,9 +2110,11 @@ function clearMapFilters() {
           input.checked =
             false;
 
+
         } else {
 
-          input.value = "";
+          input.value =
+            "";
 
         }
 
@@ -1337,7 +2129,8 @@ function clearMapFilters() {
     .forEach(
       (select) => {
 
-        select.value = "";
+        select.value =
+          "";
 
       }
     );
@@ -1351,7 +2144,8 @@ function clearMapFilters() {
 
   if (search) {
 
-    search.value = "";
+    search.value =
+      "";
 
   }
 
@@ -1359,7 +2153,6 @@ function clearMapFilters() {
   applyMapFilters();
 
 }
-
 
 
 /* =========================================================
@@ -1384,9 +2177,7 @@ function toggleFilterPanel() {
     !panel ||
     !button
   ) {
-
     return;
-
   }
 
 
@@ -1398,39 +2189,48 @@ function toggleFilterPanel() {
 
   button.setAttribute(
     "aria-expanded",
-    String(!hidden)
+    String(
+      !hidden
+    )
   );
 
 }
 
 
-
 /* =========================================================
-   HELPERS
+   FORM HELPERS
    ========================================================= */
 
-function value(id) {
+function value(
+  id
+) {
 
   return (
     document
-      .getElementById(id)
-      ?.value || ""
-  ).trim();
+      .getElementById(
+        id
+      )
+      ?.value
+    ||
+    ""
+  )
+  .trim();
 
 }
 
 
-
-function numberValue(id) {
+function numberValue(
+  id
+) {
 
   const raw =
-    value(id);
+    value(
+      id
+    );
 
 
   if (!raw) {
-
     return null;
-
   }
 
 
@@ -1438,102 +2238,28 @@ function numberValue(id) {
     Number(raw);
 
 
-  return Number.isFinite(number)
+  return Number.isFinite(
+    number
+  )
     ? number
     : null;
 
 }
 
 
-
-function checked(id) {
+function checked(
+  id
+) {
 
   return Boolean(
     document
-      .getElementById(id)
+      .getElementById(
+        id
+      )
       ?.checked
   );
 
 }
-
-
-
-function matchesExact(
-  actual,
-  selected
-) {
-
-  if (!selected) {
-
-    return true;
-
-  }
-
-
-  return actual === selected;
-
-}
-
-
-
-function minRatingMatch(
-  actual,
-  selected
-) {
-
-  if (!selected) {
-
-    return true;
-
-  }
-
-
-  if (
-    actual == null
-  ) {
-
-    return false;
-
-  }
-
-
-  return (
-    Number(actual) >=
-    Number(selected)
-  );
-
-}
-
-
-
-function maxRatingMatch(
-  actual,
-  selected
-) {
-
-  if (!selected) {
-
-    return true;
-
-  }
-
-
-  if (
-    actual == null
-  ) {
-
-    return false;
-
-  }
-
-
-  return (
-    Number(actual) <=
-    Number(selected)
-  );
-
-}
-
 
 
 /* =========================================================
@@ -1552,6 +2278,7 @@ function countActiveFilters() {
     .forEach(
       (element) => {
 
+
         if (
           element.type ===
           "checkbox"
@@ -1560,9 +2287,7 @@ function countActiveFilters() {
           if (
             element.checked
           ) {
-
             count++;
-
           }
 
           return;
@@ -1573,9 +2298,7 @@ function countActiveFilters() {
         if (
           element.value
         ) {
-
           count++;
-
         }
 
       }
@@ -1583,11 +2306,11 @@ function countActiveFilters() {
 
 
   if (
-    value("map-search")
+    value(
+      "map-search"
+    )
   ) {
-
     count++;
-
   }
 
 
@@ -1596,159 +2319,162 @@ function countActiveFilters() {
 }
 
 
-
 /* =========================================================
-   POPUP
+   MAP POPUP
    ========================================================= */
 
-function isLockedMapValue(value) {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    value.locked === true
-  );
-}
-
-
-function mapLockedText(value) {
-  if (!isLockedMapValue(value)) {
-    return "";
-  }
-
-  return value.requiredLevel === "free"
-    ? "Sign up to view"
-    : "Member only";
-}
-
-
-function mapLockedLink(value) {
-  if (!isLockedMapValue(value)) {
-    return "";
-  }
-
-  const href =
-    value.cta === "sign_up"
-      ? "https://account.llamascout.com/signup.php"
-      : "https://account.llamascout.com/membership.php";
-
-  return `
-    <a
-      class="map-popup-locked"
-      href="${href}"
-    >
-      <i class="fa-solid fa-lock"></i>
-      ${escapeHTML(mapLockedText(value))}
-    </a>
-  `;
-}
-
-
-function buildPopup(place) {
+function buildPopup(
+  place
+) {
 
   const featuredImage =
     place.images
       ?.find(
         (image) =>
           image.featured
-      ) ||
-    place.images?.[0];
+      )
+    ||
+    place.images?.[0]
+    ||
+    null;
 
 
   const imageHTML =
     featuredImage
       ? `
+
         <img
           class="map-popup-image"
           src="${escapeHTML(
             featuredImage.src
           )}"
           alt="${escapeHTML(
-            featuredImage.alt ||
+            featuredImage.alt
+            ||
             place.name
           )}"
         >
+
       `
       : "";
 
 
+  const city =
+    mapStringValue(
+      place.location
+        ?.city
+    );
+
+
+  const state =
+    mapStringValue(
+      place.location
+        ?.state
+    );
+
+
   const locationName =
-    place.location?.city &&
-    place.location?.state
-      ? `${place.location.city}, ${place.location.state}`
-      : place.location?.state ||
-        "";
+    [
+      city,
+      state
+    ]
+    .filter(Boolean)
+    .join(", ");
 
 
   const difficulty =
     place.access
-      ?.siteAccessDifficulty ??
+      ?.siteAccessDifficulty
+    ??
     place.access
-      ?.roadDifficulty ??
+      ?.roadDifficulty
+    ??
     null;
 
 
   const nighttimeNoise =
     place.sensory
       ?.nighttime
-      ?.noise ??
+      ?.noise
+    ??
     null;
 
 
   const privacy =
     place.sensory
       ?.daytime
-      ?.privacy ??
+      ?.privacy
+    ??
     null;
 
 
   const cell =
     place.connectivity
-      ?.overall ??
+      ?.overall
+    ??
     null;
 
 
   const approximateLocation =
-    place.exactLocationAvailable !== true;
+    place.exactLocationAvailable
+      !== true;
+
+
+  const verificationStatus =
+    mapStringValue(
+      place.verification
+        ?.status
+    );
 
 
   return `
 
     <article class="map-popup">
 
+
       ${imageHTML}
 
 
       <div class="map-popup-body">
 
+
         <span class="map-popup-type">
+
           ${escapeHTML(
             formatLabel(
               place.type
             )
           )}
+
         </span>
 
 
         <h2>
+
           ${escapeHTML(
             place.name
           )}
+
         </h2>
 
 
         ${
           locationName
             ? `
+
               <p class="map-popup-location">
 
-                <i class="fa-solid fa-location-dot"></i>
+                <i
+                  class="fa-solid fa-location-dot"
+                  aria-hidden="true"
+                ></i>
 
                 ${escapeHTML(
                   locationName
                 )}
 
               </p>
+
             `
             : ""
         }
@@ -1757,13 +2483,24 @@ function buildPopup(place) {
         ${
           approximateLocation
             ? `
+
               <div class="map-popup-approximate">
-                <i class="fa-solid fa-circle-info"></i>
-                <strong>Approximate location</strong>
+
+                <i
+                  class="fa-solid fa-circle-info"
+                  aria-hidden="true"
+                ></i>
+
+                <strong>
+                  Approximate location
+                </strong>
+
               </div>
+
             `
             : ""
         }
+
 
         <div class="map-popup-ratings">
 
@@ -1791,34 +2528,42 @@ function buildPopup(place) {
 
 
         ${
-          place.verification
-            ?.status ===
+          verificationStatus ===
             "field-verified"
-            ? `
-              <p class="verified-place">
+              ? `
 
-                <i class="fa-solid fa-circle-check"></i>
+                <p class="verified-place">
 
-                Llama Scouted
+                  <i
+                    class="fa-solid fa-circle-check"
+                    aria-hidden="true"
+                  ></i>
 
-              </p>
-            `
-            : ""
+                  Llama Scouted
+
+                </p>
+
+              `
+              : ""
         }
 
 
         <a
           class="map-popup-details"
-          href="place.html?place=${encodeURIComponent(
+          href="/place.html?place=${encodeURIComponent(
             place.slug
           )}"
         >
 
           View Scout Report
 
-          <i class="fa-solid fa-arrow-right"></i>
+          <i
+            class="fa-solid fa-arrow-right"
+            aria-hidden="true"
+          ></i>
 
         </a>
+
 
       </div>
 
@@ -1827,7 +2572,6 @@ function buildPopup(place) {
   `;
 
 }
-
 
 
 /* =========================================================
@@ -1840,14 +2584,17 @@ function ratingRow(
 ) {
 
   if (
-    value == null
+    value === null ||
+    value === undefined
   ) {
     return "";
   }
 
 
   if (
-    isLockedMapValue(value)
+    isLockedMapValue(
+      value
+    )
   ) {
 
     return `
@@ -1855,10 +2602,14 @@ function ratingRow(
       <div class="map-rating">
 
         <span>
-          ${escapeHTML(label)}
+          ${escapeHTML(
+            label
+          )}
         </span>
 
-        ${mapLockedLink(value)}
+        ${mapLockedLink(
+          value
+        )}
 
       </div>
 
@@ -1868,13 +2619,13 @@ function ratingRow(
 
 
   const numericValue =
-    Number(value);
+    mapNumericValue(
+      value
+    );
 
 
   if (
-    !Number.isFinite(
-      numericValue
-    )
+    numericValue === null
   ) {
     return "";
   }
@@ -1885,8 +2636,11 @@ function ratingRow(
     <div class="map-rating">
 
       <span>
-        ${escapeHTML(label)}
+        ${escapeHTML(
+          label
+        )}
       </span>
+
 
       <span
         class="rating-dots"
@@ -1908,9 +2662,12 @@ function ratingRow(
 }
 
 
-function makeDots(value) {
+function makeDots(
+  value
+) {
 
-  let output = "";
+  let output =
+    "";
 
 
   for (
@@ -1932,17 +2689,16 @@ function makeDots(value) {
 }
 
 
-
 /* =========================================================
-   LABELS
+   LABEL FORMATTER
    ========================================================= */
 
-function formatLabel(value) {
+function formatLabel(
+  value
+) {
 
   if (!value) {
-
     return "";
-
   }
 
 
@@ -1967,12 +2723,13 @@ function formatLabel(value) {
 }
 
 
-
 /* =========================================================
-   ESCAPE
+   SAFE HTML
    ========================================================= */
 
-function escapeHTML(value) {
+function escapeHTML(
+  value
+) {
 
   return String(
     value ?? ""
@@ -1994,7 +2751,7 @@ function escapeHTML(value) {
     )
 
     .replaceAll(
-      '"',
+      "\"",
       "&quot;"
     )
 
