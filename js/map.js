@@ -1601,6 +1601,49 @@ function countActiveFilters() {
    POPUP
    ========================================================= */
 
+function isLockedMapValue(value) {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    value.locked === true
+  );
+}
+
+
+function mapLockedText(value) {
+  if (!isLockedMapValue(value)) {
+    return "";
+  }
+
+  return value.requiredLevel === "free"
+    ? "Sign up to view"
+    : "Member only";
+}
+
+
+function mapLockedLink(value) {
+  if (!isLockedMapValue(value)) {
+    return "";
+  }
+
+  const href =
+    value.cta === "sign_up"
+      ? "https://account.llamascout.com/signup.php"
+      : "https://account.llamascout.com/membership.php";
+
+  return `
+    <a
+      class="map-popup-locked"
+      href="${href}"
+    >
+      <i class="fa-solid fa-lock"></i>
+      ${escapeHTML(mapLockedText(value))}
+    </a>
+  `;
+}
+
+
 function buildPopup(place) {
 
   const featuredImage =
@@ -1665,6 +1708,10 @@ function buildPopup(place) {
     null;
 
 
+  const approximateLocation =
+    place.exactLocationAvailable !== true;
+
+
   return `
 
     <article class="map-popup">
@@ -1702,6 +1749,27 @@ function buildPopup(place) {
                 )}
 
               </p>
+            `
+            : ""
+        }
+
+
+        ${
+          approximateLocation
+            ? `
+              <div class="map-popup-approximate">
+
+                <p>
+                  <i class="fa-solid fa-circle-info"></i>
+                  <strong>Approximate location</strong>
+                </p>
+
+                <span>
+                  This marker shows the general area only.
+                  Exact campsite location is available to members.
+                </span>
+
+              </div>
             `
             : ""
         }
@@ -1756,7 +1824,7 @@ function buildPopup(place) {
           )}"
         >
 
-          View Details
+          View Scout Report
 
           <i class="fa-solid fa-arrow-right"></i>
 
@@ -1784,9 +1852,41 @@ function ratingRow(
   if (
     value == null
   ) {
-
     return "";
+  }
 
+
+  if (
+    isLockedMapValue(value)
+  ) {
+
+    return `
+
+      <div class="map-rating">
+
+        <span>
+          ${escapeHTML(label)}
+        </span>
+
+        ${mapLockedLink(value)}
+
+      </div>
+
+    `;
+
+  }
+
+
+  const numericValue =
+    Number(value);
+
+
+  if (
+    !Number.isFinite(
+      numericValue
+    )
+  ) {
+    return "";
   }
 
 
@@ -1802,10 +1902,12 @@ function ratingRow(
         class="rating-dots"
         aria-label="${escapeHTML(
           label
-        )}: ${value} out of 5"
+        )}: ${numericValue} out of 5"
       >
 
-        ${makeDots(value)}
+        ${makeDots(
+          numericValue
+        )}
 
       </span>
 
@@ -1814,7 +1916,6 @@ function ratingRow(
   `;
 
 }
-
 
 
 function makeDots(value) {
