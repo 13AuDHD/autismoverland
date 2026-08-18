@@ -13,36 +13,42 @@ $user = current_user();
    LOAD SAVED PLACE IDS
    ========================================================= */
 
-$stmt = db()->prepare(
-    '
-    SELECT
-        place_id,
-        saved_at
-    FROM saved_places
-    WHERE user_id = ?
-    ORDER BY saved_at DESC
-    '
-);
+$stmt =
+    db()->prepare(
+        '
+        SELECT
+            place_id,
+            saved_at
+        FROM saved_places
+        WHERE user_id = ?
+        ORDER BY saved_at DESC
+        '
+    );
 
 $stmt->execute([
     $user['id']
 ]);
 
-$savedRows = $stmt->fetchAll();
+$savedRows =
+    $stmt->fetchAll();
 
 
 /* =========================================================
-   LOAD PUBLIC PLACE DATA
+   LOAD PLACE DATA
    ========================================================= */
 
 $placesPath =
-    dirname(__DIR__) .
-    '/data/places.json';
+    dirname(__DIR__)
+    . '/data/places.json';
 
 $allPlaces = [];
 
 
-if (is_file($placesPath)) {
+if (
+    is_file(
+        $placesPath
+    )
+) {
 
     $json =
         file_get_contents(
@@ -55,39 +61,63 @@ if (is_file($placesPath)) {
             true
         );
 
-    if (is_array($decoded)) {
-        $allPlaces = $decoded;
+    if (
+        is_array(
+            $decoded
+        )
+    ) {
+        $allPlaces =
+            $decoded;
     }
 }
 
 
 /* =========================================================
-   INDEX PLACES BY ID AND SLUG
+   INDEX PLACES BY ID + SLUG
    ========================================================= */
 
 $placeIndex = [];
 
 
-foreach ($allPlaces as $place) {
+foreach (
+    $allPlaces
+    as $place
+) {
 
-    if (!is_array($place)) {
+    if (
+        !is_array(
+            $place
+        )
+    ) {
         continue;
     }
 
 
-    if (!empty($place['id'])) {
+    if (
+        !empty(
+            $place['id']
+        )
+    ) {
 
         $placeIndex[
-            (string) $place['id']
-        ] = $place;
+            (string)
+            $place['id']
+        ] =
+            $place;
     }
 
 
-    if (!empty($place['slug'])) {
+    if (
+        !empty(
+            $place['slug']
+        )
+    ) {
 
         $placeIndex[
-            (string) $place['slug']
-        ] = $place;
+            (string)
+            $place['slug']
+        ] =
+            $place;
     }
 }
 
@@ -99,21 +129,31 @@ foreach ($allPlaces as $place) {
 $savedPlaces = [];
 
 
-foreach ($savedRows as $row) {
+foreach (
+    $savedRows
+    as $row
+) {
 
     $placeId =
-        (string) $row['place_id'];
+        (string)
+        $row['place_id'];
 
 
-    if (!isset(
-        $placeIndex[$placeId]
-    )) {
+    if (
+        !isset(
+            $placeIndex[
+                $placeId
+            ]
+        )
+    ) {
         continue;
     }
 
 
     $place =
-        $placeIndex[$placeId];
+        $placeIndex[
+            $placeId
+        ];
 
     $place['_saved_at'] =
         $row['saved_at'];
@@ -127,8 +167,10 @@ foreach ($savedRows as $row) {
    HELPERS
    ========================================================= */
 
-function e(string $value): string
-{
+function e(
+    string $value
+): string {
+
     return htmlspecialchars(
         $value,
         ENT_QUOTES,
@@ -143,23 +185,44 @@ function saved_place_location(
 
     $parts = [];
 
-    if (
-        !empty(
-            $place['location']['city']
-        )
-    ) {
-        $parts[] =
-            $place['location']['city'];
-    }
 
     if (
         !empty(
-            $place['location']['state']
+            $place[
+                'location'
+            ][
+                'city'
+            ]
         )
     ) {
+
         $parts[] =
-            $place['location']['state'];
+            $place[
+                'location'
+            ][
+                'city'
+            ];
     }
+
+
+    if (
+        !empty(
+            $place[
+                'location'
+            ][
+                'state'
+            ]
+        )
+    ) {
+
+        $parts[] =
+            $place[
+                'location'
+            ][
+                'state'
+            ];
+    }
+
 
     return implode(
         ', ',
@@ -177,6 +240,7 @@ function saved_place_type(
             $place['type']
             ?? 'Place'
         );
+
 
     return ucwords(
         str_replace(
@@ -196,12 +260,20 @@ function saved_place_date(
         return '';
     }
 
-    $timestamp =
-        strtotime($date);
 
-    if ($timestamp === false) {
+    $timestamp =
+        strtotime(
+            $date
+        );
+
+
+    if (
+        $timestamp
+        === false
+    ) {
         return $date;
     }
+
 
     return date(
         'F j, Y',
@@ -210,6 +282,7 @@ function saved_place_date(
 }
 
 ?>
+
 <!doctype html>
 
 <html lang="en">
@@ -232,6 +305,7 @@ function saved_place_date(
     content="noindex,nofollow"
   >
 
+
   <link
     rel="stylesheet"
     href="https://llamascout.com/css/style.css"
@@ -239,779 +313,538 @@ function saved_place_date(
 
   <link
     rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    href="https://llamascout.com/css/account.css"
   >
 
-  <style>
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: #f4efe6;
-      color: #172822;
-    }
-
-
-    .saved-page {
-      width: min(
-        1000px,
-        calc(100% - 36px)
-      );
-
-      margin: 0 auto;
-      padding: 42px 0 70px;
-    }
-
-
-    .account-logo {
-      display: block;
-      width: min(320px, 80%);
-      margin: 0 auto 34px;
-    }
-
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 24px;
-      color: inherit;
-      font-weight: 700;
-      text-decoration: none;
-    }
-
-
-    .back-link:hover {
-      text-decoration: underline;
-    }
-
-
-    .saved-header {
-      margin-bottom: 30px;
-    }
-
-
-    .saved-header h1 {
-      margin: 0 0 8px;
-
-      font-size: clamp(
-        2rem,
-        6vw,
-        3.25rem
-      );
-    }
-
-
-    .saved-header p {
-      max-width: 680px;
-      margin: 0;
-      color: #667069;
-      line-height: 1.65;
-    }
-
-
-    .saved-count {
-      margin-top: 10px;
-      font-weight: 700;
-      color: #172822;
-    }
-
-
-    .saved-grid {
-      display: grid;
-      grid-template-columns:
-        repeat(
-          2,
-          minmax(0, 1fr)
-        );
-      gap: 18px;
-    }
-
-
-    .saved-card {
-      display: flex;
-      flex-direction: column;
-      padding: 24px;
-
-      background: #fff;
-
-      border:
-        1px solid rgba(0,0,0,.09);
-
-      border-radius: 14px;
-    }
-
-
-    .saved-card-type {
-      margin: 0 0 8px;
-
-      color: #667069;
-
-      font-size: .78rem;
-      font-weight: 800;
-
-      text-transform: uppercase;
-      letter-spacing: .08em;
-    }
-
-
-    .saved-card h2 {
-      margin: 0 0 7px;
-      font-size: 1.35rem;
-    }
-
-
-    .saved-location {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-
-      margin: 0 0 18px;
-
-      color: #667069;
-      font-size: .92rem;
-    }
-
-
-    .saved-details {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 22px;
-    }
-
-
-    .saved-detail {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-
-      color: #667069;
-      font-size: .9rem;
-    }
-
-
-    .saved-detail i {
-      width: 18px;
-      text-align: center;
-    }
-
-
-    .saved-card-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-
-      margin-top: auto;
-      padding-top: 4px;
-    }
-
-
-    .view-place-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-
-      padding: 11px 15px;
-
-      background: #172822;
-      color: #fff;
-
-      border-radius: 7px;
-
-      text-decoration: none;
-      font-weight: 800;
-    }
-
-
-    .remove-place-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-
-      padding: 11px 15px;
-
-      background: transparent;
-      color: #172822;
-
-      border:
-        1px solid rgba(0,0,0,.18);
-
-      border-radius: 7px;
-
-      font: inherit;
-      font-weight: 800;
-
-      cursor: pointer;
-    }
-
-
-    .remove-place-button:hover {
-      background: rgba(0,0,0,.04);
-    }
-
-
-    .remove-place-button:disabled {
-      opacity: .6;
-      cursor: wait;
-    }
-
-
-    .saved-date {
-      margin-top: 16px;
-      color: #8a908c;
-      font-size: .78rem;
-    }
-
-
-    .empty-state {
-      padding: 40px 30px;
-
-      background: #fff;
-
-      border:
-        1px solid rgba(0,0,0,.09);
-
-      border-radius: 14px;
-
-      text-align: center;
-    }
-
-
-    .empty-state i {
-      margin-bottom: 14px;
-      font-size: 2rem;
-    }
-
-
-    .empty-state h2 {
-      margin: 0 0 8px;
-    }
-
-
-    .empty-state p {
-      max-width: 520px;
-      margin: 0 auto 22px;
-
-      color: #667069;
-      line-height: 1.65;
-    }
-
-
-    .primary-button {
-      display: inline-block;
-
-      padding: 13px 18px;
-
-      background: #172822;
-      color: #fff;
-
-      border-radius: 7px;
-
-      text-decoration: none;
-      font-weight: 800;
-    }
-
-
-    .saved-footer {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 18px;
-
-      margin-top: 34px;
-      padding-top: 22px;
-
-      border-top:
-        1px solid rgba(0,0,0,.12);
-    }
-
-
-    .saved-footer a {
-      color: inherit;
-      font-weight: 700;
-    }
-
-
-    @media (
-      max-width: 700px
-    ) {
-
-      .saved-grid {
-        grid-template-columns: 1fr;
-      }
-
-    }
-
-  </style>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
 
 </head>
 
 
-<body>
-
-  <main class="saved-page">
+<body class="account-body">
 
 
-    <a href="https://llamascout.com">
+<?php
 
-      <img
-        src="https://llamascout.com/images/logo.png"
-        alt="Llama Scout"
-        class="account-logo"
-      >
+require_once
+    dirname(__DIR__)
+    . '/app/header.php';
 
-    </a>
+?>
 
 
-    <a
-      href="/"
-      class="back-link"
+<main class="saved-page">
+
+
+  <a
+    href="/"
+    class="back-link"
+  >
+
+    <i
+      class="fa-solid fa-arrow-left"
+      aria-hidden="true"
+    ></i>
+
+    Back to My Account
+
+  </a>
+
+
+  <header class="saved-header">
+
+    <h1>
+      Saved Places
+    </h1>
+
+    <p>
+      Places you've bookmarked for later.
+      Save locations while exploring Llama Scout
+      and they'll stay here for easy access.
+    </p>
+
+
+    <?php if (
+        $savedPlaces
+    ): ?>
+
+      <div class="saved-count">
+
+        <?= count(
+            $savedPlaces
+        ) ?>
+
+        <?= count(
+            $savedPlaces
+        ) === 1
+            ? 'saved place'
+            : 'saved places'
+        ?>
+
+      </div>
+
+    <?php endif; ?>
+
+  </header>
+
+
+  <?php if (
+      $savedPlaces
+  ): ?>
+
+
+    <div
+      class="saved-grid"
+      id="saved-places-grid"
     >
 
-      <i class="fa-solid fa-arrow-left"></i>
 
-      Back to My Account
-
-    </a>
-
-
-    <header class="saved-header">
-
-      <h1>
-        Saved Places
-      </h1>
-
-      <p>
-        Places you've bookmarked for later.
-        Save locations while exploring Llama Scout
-        and they'll stay here for easy access.
-      </p>
+      <?php foreach (
+          $savedPlaces
+          as $place
+      ): ?>
 
 
-      <?php if ($savedPlaces): ?>
+        <?php
 
-        <div class="saved-count">
-
-          <?= count($savedPlaces) ?>
-
-          <?= count($savedPlaces) === 1
-              ? 'saved place'
-              : 'saved places'
-          ?>
-
-        </div>
-
-      <?php endif; ?>
-
-    </header>
+        $placeId =
+            (string) (
+                $place['slug']
+                ?? $place['id']
+                ?? ''
+            );
 
 
-    <?php if ($savedPlaces): ?>
+        $location =
+            saved_place_location(
+                $place
+            );
 
 
-      <div
-        class="saved-grid"
-        id="saved-places-grid"
-      >
+        $elevation =
+            $place[
+                'location'
+            ][
+                'elevationFeet'
+            ]
+            ?? null;
+
+        ?>
 
 
-        <?php foreach (
-            $savedPlaces as $place
-        ): ?>
+        <article
+          class="saved-card"
+          data-saved-card="<?= e(
+              $placeId
+          ) ?>"
+        >
 
 
-          <?php
+          <p class="saved-card-type">
 
-          $placeId =
-              (string) (
-                  $place['slug']
-                  ?? $place['id']
-                  ?? ''
-              );
+            <?= e(
+                saved_place_type(
+                    $place
+                )
+            ) ?>
 
-          $location =
-              saved_place_location(
-                  $place
-              );
-
-          $elevation =
-              $place['location']
-                    ['elevationFeet']
-              ?? null;
-
-          $road =
-              $place['location']
-                    ['road']
-              ?? null;
-
-          ?>
+          </p>
 
 
-          <article
-            class="saved-card"
-            data-saved-card="<?= e(
-                $placeId
-            ) ?>"
-          >
+          <h2>
+
+            <?= e(
+                (string) (
+                    $place['name']
+                    ?? 'Unnamed Place'
+                )
+            ) ?>
+
+          </h2>
 
 
-            <p class="saved-card-type">
+          <?php if (
+              $location
+          ): ?>
+
+            <p class="saved-location">
+
+              <i
+                class="fa-solid fa-location-dot"
+                aria-hidden="true"
+              ></i>
 
               <?= e(
-                  saved_place_type(
-                      $place
-                  )
+                  $location
               ) ?>
 
             </p>
 
-
-            <h2>
-
-              <?= e(
-                  (string) (
-                      $place['name']
-                      ?? 'Unnamed Place'
-                  )
-              ) ?>
-
-            </h2>
+          <?php endif; ?>
 
 
-            <?php if ($location): ?>
-
-              <p class="saved-location">
-
-                <i class="fa-solid fa-location-dot"></i>
-
-                <?= e($location) ?>
-
-              </p>
-
-            <?php endif; ?>
-
+          <?php if (
+              $elevation
+          ): ?>
 
             <div class="saved-details">
 
+              <div class="saved-detail">
 
-              <?php if ($elevation): ?>
+                <i
+                  class="fa-solid fa-mountain"
+                  aria-hidden="true"
+                ></i>
 
-                <div class="saved-detail">
+                <?= number_format(
+                    (int)
+                    $elevation
+                ) ?>
 
-                  <i class="fa-solid fa-mountain"></i>
+                ft elevation
 
-                  <?= number_format(
-                      (int) $elevation
-                  ) ?>
-                  ft elevation
-
-                </div>
-
-              <?php endif; ?>
-
-
-              <?php if ($road): ?>
-
-                <div class="saved-detail">
-
-                  <i class="fa-solid fa-road"></i>
-
-                  <?= e(
-                      (string) $road
-                  ) ?>
-
-                </div>
-
-              <?php endif; ?>
-
+              </div>
 
             </div>
 
-
-            <div class="saved-card-actions">
-
-
-              <a
-                class="view-place-button"
-                href="https://llamascout.com/place.html?place=<?= urlencode(
-                    $placeId
-                ) ?>"
-              >
-
-                View Place
-
-              </a>
+          <?php endif; ?>
 
 
-              <button
-                type="button"
-                class="remove-place-button"
-                data-remove-saved="<?= e(
-                    $placeId
-                ) ?>"
-              >
-
-                <i class="fa-solid fa-bookmark"></i>
-
-                Remove
-
-              </button>
+          <div class="saved-card-actions">
 
 
-            </div>
+            <a
+              class="view-place-button"
+              href="https://llamascout.com/place.html?place=<?= urlencode(
+                  $placeId
+              ) ?>"
+            >
+
+              <i
+                class="fa-solid fa-binoculars"
+                aria-hidden="true"
+              ></i>
+
+              View Scout Report
+
+            </a>
 
 
-            <div class="saved-date">
+            <button
+              type="button"
+              class="remove-place-button"
+              data-remove-saved="<?= e(
+                  $placeId
+              ) ?>"
+            >
 
-              Saved
-              <?= e(
-                  saved_place_date(
-                      $place['_saved_at']
-                      ?? null
-                  )
-              ) ?>
+              <i
+                class="fa-solid fa-bookmark"
+                aria-hidden="true"
+              ></i>
 
-            </div>
+              Remove
 
-
-          </article>
-
-
-        <?php endforeach; ?>
-
-
-      </div>
+            </button>
 
 
-    <?php else: ?>
+          </div>
 
 
-      <section class="empty-state">
+          <div class="saved-date">
 
-        <i class="fa-regular fa-bookmark"></i>
+            Saved
 
-        <h2>
-          No saved places yet
-        </h2>
+            <?= e(
+                saved_place_date(
+                    $place[
+                        '_saved_at'
+                    ]
+                    ?? null
+                )
+            ) ?>
 
-        <p>
-          When you find somewhere you want to
-          remember, choose Save Place and it'll
-          show up here.
-        </p>
-
-        <a
-          href="https://llamascout.com/map.html"
-          class="primary-button"
-        >
-          Explore Places
-        </a>
-
-      </section>
+          </div>
 
 
-    <?php endif; ?>
+        </article>
 
 
-    <footer class="saved-footer">
+      <?php endforeach; ?>
 
-      <a href="/">
-        My Account
+
+    </div>
+
+
+  <?php else: ?>
+
+
+    <section class="empty-state">
+
+      <i
+        class="fa-regular fa-bookmark"
+        aria-hidden="true"
+      ></i>
+
+      <h2>
+        No saved places yet
+      </h2>
+
+      <p>
+        When you find somewhere you want to
+        remember, choose Save Place and it'll
+        show up here.
+      </p>
+
+      <a
+        href="https://llamascout.com/map.html"
+        class="primary-button"
+      >
+
+        <i
+          class="fa-solid fa-map"
+          aria-hidden="true"
+        ></i>
+
+        Explore Places
+
       </a>
 
-      <a href="https://llamascout.com/map.html">
-        Explore Map
-      </a>
-
-    </footer>
+    </section>
 
 
-  </main>
+  <?php endif; ?>
 
 
-  <script>
+  <footer class="saved-footer">
 
-    document
-      .querySelectorAll(
-        "[data-remove-saved]"
-      )
-      .forEach(
-        initRemoveButton
+    <a href="/">
+      My Account
+    </a>
+
+    <a
+      href="https://llamascout.com/map.html"
+    >
+      Explore Map
+    </a>
+
+  </footer>
+
+
+</main>
+
+
+<!-- =======================================================
+     SAVED PLACE CONTROLS
+     ======================================================= -->
+
+<script>
+
+document
+  .querySelectorAll(
+    "[data-remove-saved]"
+  )
+  .forEach(
+    initRemoveButton
+  );
+
+
+async function initRemoveButton(
+  button
+) {
+
+  const placeId =
+    button.dataset.removeSaved;
+
+
+  try {
+
+    const response =
+      await fetch(
+        `https://llamascout.com/save-place.php?place=${encodeURIComponent(
+          placeId
+        )}`,
+        {
+          credentials:
+            "include",
+
+          cache:
+            "no-store"
+        }
       );
 
 
-    async function initRemoveButton(
-      button
+    const result =
+      await response.json();
+
+
+    if (
+      !result.logged_in ||
+      !result.csrf_token
+    ) {
+      return;
+    }
+
+
+    button.dataset.csrf =
+      result.csrf_token;
+
+
+    button.addEventListener(
+      "click",
+      removeSavedPlace
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Llama Scout saved-place error:",
+      error
+    );
+
+  }
+
+}
+
+
+async function removeSavedPlace(
+  event
+) {
+
+  const button =
+    event.currentTarget;
+
+
+  const placeId =
+    button.dataset.removeSaved;
+
+
+  const csrf =
+    button.dataset.csrf;
+
+
+  if (
+    !placeId ||
+    !csrf
+  ) {
+    return;
+  }
+
+
+  button.disabled =
+    true;
+
+
+  try {
+
+    const body =
+      new URLSearchParams();
+
+
+    body.set(
+      "place",
+      placeId
+    );
+
+
+    body.set(
+      "csrf_token",
+      csrf
+    );
+
+
+    const response =
+      await fetch(
+        "https://llamascout.com/save-place.php",
+        {
+          method:
+            "POST",
+
+          credentials:
+            "include",
+
+          headers: {
+            "Content-Type":
+              "application/x-www-form-urlencoded"
+          },
+
+          body
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      result.saved
+      !== false
     ) {
 
-      const placeId =
-        button.dataset.removeSaved;
-
-
-      try {
-
-        const response =
-          await fetch(
-            `https://llamascout.com/save-place.php?place=${encodeURIComponent(
-              placeId
-            )}`,
-            {
-              credentials: "include",
-              cache: "no-store"
-            }
-          );
-
-
-        const result =
-          await response.json();
-
-
-        if (
-          !result.logged_in ||
-          !result.csrf_token
-        ) {
-          return;
-        }
-
-
-        button.dataset.csrf =
-          result.csrf_token;
-
-
-        button.addEventListener(
-          "click",
-          removeSavedPlace
-        );
-
-
-      } catch (error) {
-
-        console.error(
-          "Llama Scout saved-place error:",
-          error
-        );
-
-      }
+      throw new Error(
+        result.message ||
+        "Could not remove saved place."
+      );
 
     }
 
 
-    async function removeSavedPlace(
-      event
-    ) {
-
-      const button =
-        event.currentTarget;
-
-      const placeId =
-        button.dataset.removeSaved;
-
-      const csrf =
-        button.dataset.csrf;
-
-
-      if (!placeId || !csrf) {
-        return;
-      }
-
-
-      button.disabled = true;
-
-
-      try {
-
-        const body =
-          new URLSearchParams();
-
-        body.set(
-          "place",
+    const card =
+      document.querySelector(
+        `[data-saved-card="${CSS.escape(
           placeId
-        );
-
-        body.set(
-          "csrf_token",
-          csrf
-        );
+        )}"]`
+      );
 
 
-        const response =
-          await fetch(
-            "https://llamascout.com/save-place.php",
-            {
-              method: "POST",
-
-              credentials: "include",
-
-              headers: {
-                "Content-Type":
-                  "application/x-www-form-urlencoded"
-              },
-
-              body
-            }
-          );
+    if (card) {
+      card.remove();
+    }
 
 
-        const result =
-          await response.json();
+    const remaining =
+      document.querySelectorAll(
+        "[data-saved-card]"
+      );
 
 
-        if (
-          !response.ok ||
-          result.saved !== false
-        ) {
+    if (
+      remaining.length
+      === 0
+    ) {
 
-          throw new Error(
-            result.message ||
-            "Could not remove saved place."
-          );
-
-        }
-
-
-        const card =
-          document.querySelector(
-            `[data-saved-card="${CSS.escape(
-              placeId
-            )}"]`
-          );
-
-
-        if (card) {
-          card.remove();
-        }
-
-
-        const remaining =
-          document.querySelectorAll(
-            "[data-saved-card]"
-          );
-
-
-        if (
-          remaining.length === 0
-        ) {
-
-          window.location.reload();
-
-        }
-
-
-      } catch (error) {
-
-        console.error(
-          "Llama Scout saved-place error:",
-          error
-        );
-
-        button.disabled = false;
-
-      }
+      window.location.reload();
 
     }
 
-  </script>
+
+  } catch (error) {
+
+    console.error(
+      "Llama Scout saved-place error:",
+      error
+    );
+
+
+    button.disabled =
+      false;
+
+  }
+
+}
+
+</script>
+
+
+<script
+  src="https://llamascout.com/js/header.js"
+></script>
 
 
 </body>
