@@ -2,29 +2,45 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
-require_once dirname(__DIR__) . '/app/timezone.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
 
-require_role('admin');
+require_once
+    dirname(__DIR__)
+    . '/app/timezone.php';
 
-$adminUser = current_user();
+
+require_role(
+    'admin'
+);
+
+
+$adminUser =
+    current_user();
+
 
 start_llama_session();
 
-$db = db();
+
+$db =
+    db();
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function e(mixed $value): string
-{
+function e(
+    mixed $value
+): string {
+
     return htmlspecialchars(
         (string) $value,
         ENT_QUOTES,
         'UTF-8'
     );
+
 }
 
 
@@ -35,6 +51,7 @@ function format_date(
 
     global $adminUser;
 
+
     return llama_format_user_datetime(
         $date,
         $adminUser,
@@ -42,6 +59,7 @@ function format_date(
             ? 'M j, Y g:i A'
             : 'M j, Y'
     );
+
 }
 
 
@@ -49,19 +67,36 @@ function status_label(
     ?string $status
 ): string {
 
-    return match ((string) $status) {
-        'active' => 'Active',
-        'pending' => 'Pending',
-        'suspended' => 'Suspended',
-        'disabled' => 'Disabled',
-        default => ucwords(
-            str_replace(
-                ['_', '-'],
-                ' ',
-                (string) $status
-            )
-        ),
+    return match (
+        (string) $status
+    ) {
+
+        'active' =>
+            'Active',
+
+        'pending' =>
+            'Pending',
+
+        'suspended' =>
+            'Suspended',
+
+        'disabled' =>
+            'Disabled',
+
+        default =>
+            ucwords(
+                str_replace(
+                    [
+                        '_',
+                        '-',
+                    ],
+                    ' ',
+                    (string) $status
+                )
+            ),
+
     };
+
 }
 
 
@@ -71,11 +106,15 @@ function role_label(
 
     return ucwords(
         str_replace(
-            ['_', '-'],
+            [
+                '_',
+                '-',
+            ],
             ' ',
             $role
         )
     );
+
 }
 
 
@@ -86,16 +125,26 @@ function fetch_one(
 ): array {
 
     $stmt =
-        $db->prepare($sql);
+        $db->prepare(
+            $sql
+        );
 
-    $stmt->execute($params);
+
+    $stmt->execute(
+        $params
+    );
+
 
     $row =
         $stmt->fetch(
             PDO::FETCH_ASSOC
         );
 
-    return $row ?: [];
+
+    return
+        $row
+        ?: [];
+
 }
 
 
@@ -106,13 +155,21 @@ function fetch_all(
 ): array {
 
     $stmt =
-        $db->prepare($sql);
+        $db->prepare(
+            $sql
+        );
 
-    $stmt->execute($params);
 
-    return $stmt->fetchAll(
-        PDO::FETCH_ASSOC
+    $stmt->execute(
+        $params
     );
+
+
+    return
+        $stmt->fetchAll(
+            PDO::FETCH_ASSOC
+        );
+
 }
 
 
@@ -123,18 +180,26 @@ function fetch_all(
 $userId =
     (int) (
         $_GET['id']
-        ?? $_POST['user_id']
-        ?? 0
+        ??
+        $_POST['user_id']
+        ??
+        0
     );
 
 
-if ($userId < 1) {
+if (
+    $userId < 1
+) {
 
-    http_response_code(400);
+    http_response_code(
+        400
+    );
+
 
     exit(
         'A valid user ID is required.'
     );
+
 }
 
 
@@ -154,8 +219,11 @@ if (
         'admin_user_csrf'
     ] =
         bin2hex(
-            random_bytes(32)
+            random_bytes(
+                32
+            )
         );
+
 }
 
 
@@ -191,17 +259,25 @@ $managedUser =
 
         LIMIT 1
         ',
-        [$userId]
+        [
+            $userId
+        ]
     );
 
 
-if (!$managedUser) {
+if (
+    !$managedUser
+) {
 
-    http_response_code(404);
+    http_response_code(
+        404
+    );
+
 
     exit(
         'User not found.'
     );
+
 }
 
 
@@ -219,7 +295,8 @@ $availableRoles =
 
         FROM roles
 
-        ORDER BY slug ASC
+        ORDER BY
+            slug ASC
         '
     );
 
@@ -247,10 +324,14 @@ function load_managed_roles(
 
         WHERE ur.user_id = ?
 
-        ORDER BY r.slug ASC
+        ORDER BY
+            r.slug ASC
         ',
-        [$userId]
+        [
+            $userId
+        ]
     );
+
 }
 
 
@@ -265,17 +346,24 @@ $managedRoles =
    POST ACTIONS
    ========================================================= */
 
-$message = '';
-$error = '';
+$message =
+    '';
+
+
+$error =
+    '';
 
 
 if (
-    $_SERVER['REQUEST_METHOD']
-    === 'POST'
+    $_SERVER[
+        'REQUEST_METHOD'
+    ] === 'POST'
 ) {
 
     $submittedToken =
-        $_POST['csrf_token']
+        $_POST[
+            'csrf_token'
+        ]
         ?? '';
 
 
@@ -298,7 +386,9 @@ if (
         $action =
             trim(
                 (string) (
-                    $_POST['action']
+                    $_POST[
+                        'action'
+                    ]
                     ?? ''
                 )
             );
@@ -316,7 +406,9 @@ if (
             $newStatus =
                 trim(
                     (string) (
-                        $_POST['status']
+                        $_POST[
+                            'status'
+                        ]
                         ?? ''
                     )
                 );
@@ -360,14 +452,18 @@ if (
 
             } elseif (
                 $newStatus ===
-                $managedUser['status']
+                $managedUser[
+                    'status'
+                ]
             ) {
 
                 $error =
-                    'The account is already ' .
+                    'The account is already '
+                    .
                     status_label(
                         $newStatus
-                    ) .
+                    )
+                    .
                     '.';
 
             } else {
@@ -393,30 +489,37 @@ if (
 
 
                     $message =
-                        'Account status updated to ' .
+                        'Account status updated to '
+                        .
                         status_label(
                             $newStatus
-                        ) .
+                        )
+                        .
                         '.';
 
 
-                    $managedUser['status'] =
+                    $managedUser[
+                        'status'
+                    ] =
                         $newStatus;
-
 
                 } catch (
                     Throwable $exception
                 ) {
 
                     error_log(
-                        'Llama Scout admin user status error: ' .
-                        $exception->getMessage()
+                        'Llama Scout admin user status error: '
+                        .
+                        $exception
+                            ->getMessage()
                     );
 
 
                     $error =
                         'The account status could not be updated.';
+
                 }
+
             }
 
 
@@ -430,7 +533,9 @@ if (
         ) {
 
             $submittedRoles =
-                $_POST['roles']
+                $_POST[
+                    'roles'
+                ]
                 ?? [];
 
 
@@ -440,7 +545,9 @@ if (
                 )
             ) {
 
-                $submittedRoles = [];
+                $submittedRoles =
+                    [];
+
             }
 
 
@@ -452,7 +559,9 @@ if (
                                 'intval',
                                 $submittedRoles
                             ),
-                            static fn(int $id): bool =>
+                            static fn(
+                                int $id
+                            ): bool =>
                                 $id > 0
                         )
                     )
@@ -461,8 +570,13 @@ if (
 
             $validRoleIds =
                 array_map(
-                    static fn(array $role): int =>
-                        (int) $role['id'],
+                    static fn(
+                        array $role
+                    ): int =>
+                        (int)
+                        $role[
+                            'id'
+                        ],
                     $availableRoles
                 );
 
@@ -484,13 +598,19 @@ if (
                         'One of the selected roles is not valid.';
 
                     break;
+
                 }
+
             }
 
 
-            if ($error === '') {
+            if (
+                $error === ''
+            ) {
 
-                $selectedRoleSlugs = [];
+                $selectedRoleSlugs =
+                    [];
+
 
                 foreach (
                     $availableRoles as
@@ -499,20 +619,30 @@ if (
 
                     if (
                         in_array(
-                            (int) $role['id'],
+                            (int)
+                            $role[
+                                'id'
+                            ],
                             $submittedRoleIds,
                             true
                         )
                     ) {
 
                         $selectedRoleSlugs[] =
-                            $role['slug'];
+                            $role[
+                                'slug'
+                            ];
+
                     }
+
                 }
 
 
                 if (
-                    (int) $adminUser['id']
+                    (int)
+                    $adminUser[
+                        'id'
+                    ]
                     === $userId
                     &&
                     !in_array(
@@ -524,11 +654,15 @@ if (
 
                     $error =
                         'You cannot remove your own admin role.';
+
                 }
+
             }
 
 
-            if ($error === '') {
+            if (
+                $error === ''
+            ) {
 
                 try {
 
@@ -545,9 +679,10 @@ if (
                         );
 
 
-                    $deleteRoles->execute([
-                        $userId,
-                    ]);
+                    $deleteRoles
+                        ->execute([
+                            $userId,
+                        ]);
 
 
                     if (
@@ -572,11 +707,14 @@ if (
                             $roleId
                         ) {
 
-                            $insertRole->execute([
-                                $userId,
-                                $roleId,
-                            ]);
+                            $insertRole
+                                ->execute([
+                                    $userId,
+                                    $roleId,
+                                ]);
+
                         }
+
                     }
 
 
@@ -593,7 +731,6 @@ if (
                     $message =
                         'User roles updated.';
 
-
                 } catch (
                     Throwable $exception
                 ) {
@@ -601,28 +738,36 @@ if (
                     if (
                         $db->inTransaction()
                     ) {
+
                         $db->rollBack();
+
                     }
 
 
                     error_log(
-                        'Llama Scout admin user role error: ' .
-                        $exception->getMessage()
+                        'Llama Scout admin user role error: '
+                        .
+                        $exception
+                            ->getMessage()
                     );
 
 
                     $error =
                         'The user roles could not be updated.';
-                }
-            }
 
+                }
+
+            }
 
         } else {
 
             $error =
                 'That admin action is not supported.';
+
         }
+
     }
+
 }
 
 
@@ -635,14 +780,19 @@ $submissionCount =
     fetch_one(
         $db,
         '
-        SELECT COUNT(*) AS total
+        SELECT
+            COUNT(*) AS total
 
         FROM place_submissions
 
         WHERE user_id = ?
         ',
-        [$userId]
-    )['total'];
+        [
+            $userId
+        ]
+    )[
+        'total'
+    ];
 
 
 $reportCount =
@@ -650,14 +800,19 @@ $reportCount =
     fetch_one(
         $db,
         '
-        SELECT COUNT(*) AS total
+        SELECT
+            COUNT(*) AS total
 
         FROM place_reports
 
         WHERE user_id = ?
         ',
-        [$userId]
-    )['total'];
+        [
+            $userId
+        ]
+    )[
+        'total'
+    ];
 
 
 $verificationCount =
@@ -665,14 +820,19 @@ $verificationCount =
     fetch_one(
         $db,
         '
-        SELECT COUNT(*) AS total
+        SELECT
+            COUNT(*) AS total
 
         FROM place_verifications
 
         WHERE verified_by = ?
         ',
-        [$userId]
-    )['total'];
+        [
+            $userId
+        ]
+    )[
+        'total'
+    ];
 
 
 /* =========================================================
@@ -701,7 +861,9 @@ $submissions =
 
         LIMIT 10
         ',
-        [$userId]
+        [
+            $userId
+        ]
     );
 
 
@@ -734,7 +896,9 @@ $reports =
 
         LIMIT 10
         ',
-        [$userId]
+        [
+            $userId
+        ]
     );
 
 
@@ -768,7 +932,9 @@ $verifications =
 
         LIMIT 10
         ',
-        [$userId]
+        [
+            $userId
+        ]
     );
 
 
@@ -778,8 +944,13 @@ $verifications =
 
 $managedRoleIds =
     array_map(
-        static fn(array $role): int =>
-            (int) $role['id'],
+        static fn(
+            array $role
+        ): int =>
+            (int)
+            $role[
+                'id'
+            ],
         $managedRoles
     );
 
@@ -806,951 +977,839 @@ $displayName =
 
 <head>
 
-<meta charset="utf-8">
-
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
-
-<title>
-  <?= e($displayName) ?>
-  | Llama Scout Admin
-</title>
-
-<meta
-  name="robots"
-  content="noindex,nofollow"
->
-
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/style.css"
->
-
-<style>
-
-body {
-  margin: 0;
-  background: #f4efe6;
-  color: #172822;
-}
-
-.admin-header {
-  background: #101815;
-  color: #fff;
-  padding: 18px 24px;
-}
-
-.admin-header-inner {
-  width: min(
-    1200px,
-    100%
-  );
-
-  margin: 0 auto;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.admin-brand {
-  color: #fff;
-  font-size: 1.1rem;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.admin-user {
-  color:
-    rgba(
-      255,
-      255,
-      255,
-      .75
-    );
-
-  font-size: .88rem;
-}
-
-.admin-page {
-  width: min(
-    1180px,
-    calc(
-      100% - 36px
-    )
-  );
-
-  margin: 0 auto;
-
-  padding:
-    38px 0
-    70px;
-}
-
-.back-link {
-  display: inline-block;
-  margin-bottom: 24px;
-  color: inherit;
-  font-weight: 700;
-}
-
-.user-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
-  margin-bottom: 26px;
-}
-
-.user-heading h1 {
-  margin: 0 0 6px;
-
-  font-size: clamp(
-    2rem,
-    5vw,
-    3.2rem
-  );
-}
-
-.user-heading p {
-  margin: 0;
-  color: #667069;
-  overflow-wrap: anywhere;
-}
-
-.status-badge {
-  flex: 0 0 auto;
-
-  padding: 8px 12px;
-
-  border-radius: 999px;
-
-  font-size: .76rem;
-  font-weight: 800;
-
-  text-transform: uppercase;
-
-  letter-spacing: .05em;
-}
-
-.status-active {
-  background: #e4eee9;
-  color: #355443;
-}
-
-.status-pending {
-  background: #fff0c9;
-  color: #7d4710;
-}
-
-.status-suspended,
-.status-disabled {
-  background: #f3dddd;
-  color: #873c35;
-}
-
-.notice {
-  margin-bottom: 22px;
-  padding: 15px 18px;
-  border-radius: 8px;
-}
-
-.notice-success {
-  background: #e4f1e7;
-  border-left: 5px solid #436d50;
-}
-
-.notice-error {
-  background: #f8e3df;
-  border-left: 5px solid #9b443d;
-}
-
-.stats {
-  display: grid;
-
-  grid-template-columns:
-    repeat(
-      4,
-      minmax(
-        0,
-        1fr
-      )
-    );
-
-  gap: 14px;
-  margin-bottom: 28px;
-}
-
-.stat {
-  padding: 17px;
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .09
-    );
-
-  border-radius: 10px;
-}
-
-.stat span {
-  display: block;
-  margin-bottom: 6px;
-
-  color: #707870;
-
-  font-size: .72rem;
-  font-weight: 800;
-
-  text-transform: uppercase;
-
-  letter-spacing: .05em;
-}
-
-.stat strong {
-  font-size: 1.5rem;
-}
-
-.admin-layout {
-  display: grid;
-
-  grid-template-columns:
-    minmax(0, 1.55fr)
-    minmax(290px, .7fr);
-
-  gap: 22px;
-
-  align-items: start;
-}
-
-.admin-section {
-  margin-bottom: 18px;
-
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .09
-    );
-
-  border-radius: 12px;
-
-  overflow: hidden;
-}
-
-.section-heading {
-  padding: 17px 20px;
-
-  border-bottom:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .08
-    );
-}
-
-.section-heading h2 {
-  margin: 0;
-  font-size: 1.08rem;
-}
-
-.section-body {
-  padding: 20px;
-}
-
-.data-grid {
-  display: grid;
-  gap: 1px;
-
-  overflow: hidden;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .07
-    );
-
-  border-radius: 8px;
-
-  background:
-    rgba(
-      0,
-      0,
-      0,
-      .07
-    );
-}
-
-.data-row {
-  display: grid;
-
-  grid-template-columns:
-    minmax(150px, .7fr)
-    minmax(0, 1.4fr);
-
-  gap: 16px;
-
-  padding: 10px 12px;
-
-  background: #fff;
-}
-
-.data-label {
-  color: #68716c;
-  font-weight: 700;
-}
-
-.data-value {
-  overflow-wrap: anywhere;
-}
-
-.role-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.role-badge {
-  display: inline-block;
-
-  padding: 6px 9px;
-
-  border-radius: 999px;
-
-  background: #e8ece8;
-  color: #43534d;
-
-  font-size: .72rem;
-  font-weight: 800;
-
-  text-transform: uppercase;
-}
-
-.role-admin {
-  background: #e3e1f0;
-  color: #4d456d;
-}
-
-.activity-list {
-  display: grid;
-  gap: 10px;
-}
-
-.activity-item {
-  padding: 14px;
-  background: #f7f5ef;
-  border-radius: 8px;
-}
-
-.activity-item strong {
-  display: block;
-  margin-bottom: 5px;
-}
-
-.activity-meta {
-  color: #727a75;
-  font-size: .82rem;
-  line-height: 1.5;
-}
-
-.activity-item a {
-  color: inherit;
-  font-weight: 800;
-}
-
-.form-field + .form-field {
-  margin-top: 16px;
-}
-
-.admin-form label,
-.field-label {
-  display: block;
-  margin-bottom: 7px;
-  font-weight: 800;
-}
-
-.admin-form select {
-  width: 100%;
-  box-sizing: border-box;
-
-  padding: 11px 12px;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .18
-    );
-
-  border-radius: 7px;
-
-  background: #fff;
-  color: #172822;
-
-  font: inherit;
-}
-
-.role-options {
-  display: grid;
-  gap: 9px;
-}
-
-.role-option {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-
-  padding: 10px 11px;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .1
-    );
-
-  border-radius: 7px;
-
-  background: #faf9f5;
-}
-
-.role-option input {
-  margin: 0;
-}
-
-.form-help {
-  margin:
-    8px 0
-    0;
-
-  color: #707870;
-
-  font-size: .8rem;
-  line-height: 1.5;
-}
-
-.admin-button {
-  width: 100%;
-
-  margin-top: 16px;
-
-  padding: 11px 14px;
-
-  border: 0;
-  border-radius: 7px;
-
-  background: #172822;
-  color: #fff;
-
-  font: inherit;
-  font-weight: 800;
-
-  cursor: pointer;
-}
-
-.quick-links {
-  display: grid;
-  gap: 9px;
-}
-
-.quick-links a {
-  padding: 10px 12px;
-
-  color: inherit;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .1
-    );
-
-  border-radius: 7px;
-
-  text-decoration: none;
-  font-weight: 700;
-}
-
-.empty {
-  color: #747c77;
-}
-
-@media (
-  max-width: 900px
-) {
-
-  .admin-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .stats {
-    grid-template-columns:
-      repeat(
-        2,
-        1fr
-      );
-  }
-}
-
-@media (
-  max-width: 650px
-) {
-
-  .user-heading {
-    flex-direction: column;
-  }
-
-  .stats {
-    grid-template-columns: 1fr;
-  }
-
-  .data-row {
-    grid-template-columns: 1fr;
-    gap: 3px;
-  }
-}
-
-</style>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    <?= e(
+        $displayName
+    ) ?>
+    | Llama Scout Admin
+  </title>
+
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
+
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
+
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
+
+
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/style.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/admin.css"
+  >
+
+
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="https://llamascout.com/icons/apple-touch-icon.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="https://llamascout.com/icons/favicon-32x32.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="https://llamascout.com/icons/favicon-16x16.png"
+  >
+
+  <link
+    rel="icon"
+    href="https://llamascout.com/icons/favicon.ico"
+    sizes="any"
+  >
+
+  <link
+    rel="manifest"
+    href="https://llamascout.com/icons/site.webmanifest"
+  >
 
 </head>
 
-<body>
 
+<body class="admin-page">
 
-<header class="admin-header">
 
-  <div class="admin-header-inner">
+<?php
 
-    <a
-      href="/"
-      class="admin-brand"
-    >
-      Llama Scout Admin
-    </a>
+require_once
+    dirname(__DIR__)
+    . '/app/header.php';
 
-    <div class="admin-user">
+?>
 
-      <?= e(
-          $adminUser[
-              'display_name'
-          ]
-          ?: $adminUser[
-              'username'
-          ]
-          ?: $adminUser[
-              'email'
-          ]
-      ) ?>
 
-    </div>
+<main class="admin-main">
 
-  </div>
 
-</header>
+  <!-- =====================================================
+       PAGE INTRO
+       ===================================================== -->
 
+  <section class="admin-intro">
 
-<main class="admin-page">
+    <div class="admin-intro-row">
 
+      <div class="admin-intro-copy">
 
-<a
-  href="users.php"
-  class="back-link"
->
-  &larr; Back to Users
-</a>
+        <p class="admin-eyebrow">
+          User Management
+        </p>
 
+        <h1>
+          <?= e(
+              $displayName
+          ) ?>
+        </h1>
 
-<header class="user-heading">
+        <p>
 
-  <div>
+          <?php if (
+              !empty(
+                  $managedUser[
+                      'username'
+                  ]
+              )
+          ): ?>
 
-    <h1>
-      <?= e($displayName) ?>
-    </h1>
-
-    <p>
-
-      <?php if (
-          !empty(
-              $managedUser['username']
-          )
-      ): ?>
-
-        @<?= e(
-            $managedUser['username']
-        ) ?>
-
-        &middot;
-
-      <?php endif; ?>
-
-      <?= e(
-          $managedUser['email']
-      ) ?>
-
-      &middot;
-
-      User #<?= (int)
-          $managedUser['id']
-      ?>
-
-    </p>
-
-  </div>
-
-
-  <span
-    class="
-      status-badge
-      status-<?= e(
-          $managedUser['status']
-      ) ?>
-    "
-  >
-
-    <?= e(
-        status_label(
-            $managedUser['status']
-        )
-    ) ?>
-
-  </span>
-
-</header>
-
-
-<?php if ($message): ?>
-
-  <div class="notice notice-success">
-    <?= e($message) ?>
-  </div>
-
-<?php endif; ?>
-
-
-<?php if ($error): ?>
-
-  <div class="notice notice-error">
-    <?= e($error) ?>
-  </div>
-
-<?php endif; ?>
-
-
-<section class="stats">
-
-  <article class="stat">
-
-    <span>
-      Submissions
-    </span>
-
-    <strong>
-      <?= $submissionCount ?>
-    </strong>
-
-  </article>
-
-
-  <article class="stat">
-
-    <span>
-      Problem Reports
-    </span>
-
-    <strong>
-      <?= $reportCount ?>
-    </strong>
-
-  </article>
-
-
-  <article class="stat">
-
-    <span>
-      Verifications
-    </span>
-
-    <strong>
-      <?= $verificationCount ?>
-    </strong>
-
-  </article>
-
-
-  <article class="stat">
-
-    <span>
-      Email
-    </span>
-
-    <strong>
-      <?= !empty(
-          $managedUser[
-              'email_verified_at'
-          ]
-      )
-          ? 'Verified'
-          : 'Unverified'
-      ?>
-    </strong>
-
-  </article>
-
-</section>
-
-
-<div class="admin-layout">
-
-
-<div>
-
-
-  <section class="admin-section">
-
-    <header class="section-heading">
-      <h2>Account</h2>
-    </header>
-
-    <div class="section-body">
-
-      <div class="data-grid">
-
-        <div class="data-row">
-
-          <div class="data-label">
-            Display Name
-          </div>
-
-          <div class="data-value">
-            <?= e(
-                $managedUser[
-                    'display_name'
-                ]
-                ?: 'Not set'
-            ) ?>
-          </div>
-
-        </div>
-
-
-        <div class="data-row">
-
-          <div class="data-label">
-            Username
-          </div>
-
-          <div class="data-value">
-
-            <?= !empty(
+            @<?= e(
                 $managedUser[
                     'username'
                 ]
-            )
-                ? '@' . e(
-                    $managedUser[
-                        'username'
-                    ]
-                )
-                : 'Not set'
-            ?>
-
-          </div>
-
-        </div>
-
-
-        <div class="data-row">
-
-          <div class="data-label">
-            Email
-          </div>
-
-          <div class="data-value">
-            <?= e(
-                $managedUser['email']
-            ) ?>
-          </div>
-
-        </div>
-
-
-        <div class="data-row">
-
-          <div class="data-label">
-            Time Zone
-          </div>
-
-          <div class="data-value">
-            <?= e(
-                llama_timezones()[
-                    llama_user_timezone(
-                        $managedUser
-                    )
-                ]
-                ?? llama_user_timezone(
-                    $managedUser
-                )
-            ) ?>
-          </div>
-
-        </div>
-
-
-        <div class="data-row">
-
-          <div class="data-label">
-            Email Verified
-          </div>
-
-          <div class="data-value">
-
-            <?= !empty(
-                $managedUser[
-                    'email_verified_at'
-                ]
-            )
-                ? format_date(
-                    $managedUser[
-                        'email_verified_at'
-                    ],
-                    true
-                )
-                : 'No'
-            ?>
-
-          </div>
-
-        </div>
-
-
-        <div class="data-row">
-
-          <div class="data-label">
-            Joined
-          </div>
-
-          <div class="data-value">
-
-            <?= e(
-                format_date(
-                    $managedUser[
-                        'created_at'
-                    ],
-                    true
-                )
             ) ?>
 
-          </div>
+            &middot;
 
-        </div>
+          <?php endif; ?>
 
+          <?= e(
+              $managedUser[
+                  'email'
+              ]
+          ) ?>
 
-        <div class="data-row">
+          &middot;
 
-          <div class="data-label">
-            Last Login
-          </div>
+          User
+          #<?= (int)
+              $managedUser[
+                  'id'
+              ]
+          ?>
 
-          <div class="data-value">
-
-            <?= e(
-                format_date(
-                    $managedUser[
-                        'last_login_at'
-                    ],
-                    true
-                )
-            ) ?>
-
-          </div>
-
-        </div>
-
-
-        <div class="data-row">
-
-          <div class="data-label">
-            Dormancy Notice
-          </div>
-
-          <div class="data-value">
-
-            <?= e(
-                format_date(
-                    $managedUser[
-                        'dormancy_notice_sent_at'
-                    ],
-                    true
-                )
-            ) ?>
-
-          </div>
-
-        </div>
+        </p>
 
       </div>
 
 
-      <div
-        style="
-          margin-top: 18px;
-        "
+      <div class="admin-intro-actions">
+
+        <span
+          class="
+            admin-user-badge
+            admin-user-status--<?= e(
+                $managedUser[
+                    'status'
+                ]
+            ) ?>
+          "
+        >
+
+          <?= e(
+              status_label(
+                  $managedUser[
+                      'status'
+                  ]
+              )
+          ) ?>
+
+        </span>
+
+
+        <a
+          class="
+            admin-button
+            admin-button--secondary
+          "
+          href="/user-account.php?id=<?= $userId ?>"
+        >
+
+          <i
+            class="fa-solid fa-user-pen"
+            aria-hidden="true"
+          ></i>
+
+          Edit Account
+
+        </a>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       ADMIN NAVIGATION
+       ===================================================== -->
+
+  <nav
+    class="admin-nav"
+    aria-label="Admin navigation"
+  >
+
+    <div class="admin-nav-inner">
+
+      <a href="/">
+
+        <i
+          class="fa-solid fa-campground"
+          aria-hidden="true"
+        ></i>
+
+        Basecamp
+
+      </a>
+
+
+      <a href="/places.php">
+
+        <i
+          class="fa-solid fa-location-dot"
+          aria-hidden="true"
+        ></i>
+
+        Places
+
+      </a>
+
+
+      <a href="/submissions.php">
+
+        <i
+          class="fa-solid fa-inbox"
+          aria-hidden="true"
+        ></i>
+
+        Submissions
+
+      </a>
+
+
+      <a
+        class="is-active"
+        href="/users.php"
       >
 
-        <div class="field-label">
-          Roles
+        <i
+          class="fa-solid fa-users"
+          aria-hidden="true"
+        ></i>
+
+        Users
+
+      </a>
+
+
+      <a href="/import-places.php">
+
+        <i
+          class="fa-solid fa-file-import"
+          aria-hidden="true"
+        ></i>
+
+        Import
+
+      </a>
+
+    </div>
+
+  </nav>
+
+
+  <!-- =====================================================
+       NOTICES
+       ===================================================== -->
+
+  <?php if (
+      $message
+  ): ?>
+
+    <div
+      class="
+        admin-notice
+        admin-notice--success
+      "
+    >
+
+      <p>
+        <?= e(
+            $message
+        ) ?>
+      </p>
+
+    </div>
+
+  <?php endif; ?>
+
+
+  <?php if (
+      $error
+  ): ?>
+
+    <div
+      class="
+        admin-notice
+        admin-notice--error
+      "
+    >
+
+      <p>
+        <?= e(
+            $error
+        ) ?>
+      </p>
+
+    </div>
+
+  <?php endif; ?>
+
+
+  <!-- =====================================================
+       STATS
+       ===================================================== -->
+
+  <section
+    class="admin-stats"
+    aria-label="User activity statistics"
+  >
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Submissions
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $submissionCount ?>
+      </strong>
+
+    </article>
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Problem Reports
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $reportCount ?>
+      </strong>
+
+    </article>
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Verifications
+      </span>
+
+      <strong class="admin-stat-value">
+        <?= $verificationCount ?>
+      </strong>
+
+    </article>
+
+
+    <article class="admin-stat">
+
+      <span class="admin-stat-label">
+        Email
+      </span>
+
+      <strong class="admin-stat-value">
+
+        <?= !empty(
+            $managedUser[
+                'email_verified_at'
+            ]
+        )
+            ? 'Verified'
+            : 'Unverified'
+        ?>
+
+      </strong>
+
+    </article>
+
+
+  </section>
+
+
+  <!-- =====================================================
+       MAIN DETAIL LAYOUT
+       ===================================================== -->
+
+  <div class="admin-detail-grid">
+
+
+    <!-- ===================================================
+         MAIN COLUMN
+         =================================================== -->
+
+    <div class="admin-detail-main">
+
+
+      <!-- ===============================================
+           ACCOUNT
+           =============================================== -->
+
+      <section class="admin-panel">
+
+        <div class="admin-panel-header">
+
+          <div>
+
+            <h2>
+              Account
+            </h2>
+
+            <p>
+              Core account details and assigned roles.
+            </p>
+
+          </div>
+
         </div>
 
 
-        <?php if ($managedRoles): ?>
+        <div class="admin-detail-list">
 
-          <div class="role-list">
 
-            <?php foreach (
-                $managedRoles as $role
-            ): ?>
+          <div class="admin-detail-row">
 
-              <span
-                class="
-                  role-badge
-                  <?= $role['slug']
-                      === 'admin'
-                      ? 'role-admin'
-                      : ''
-                  ?>
-                "
-              >
+            <div class="admin-detail-label">
+              Display Name
+            </div>
+
+            <div class="admin-detail-value">
+
+              <?= e(
+                  $managedUser[
+                      'display_name'
+                  ]
+                  ?: 'Not set'
+              ) ?>
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-detail-row">
+
+            <div class="admin-detail-label">
+              Username
+            </div>
+
+            <div class="admin-detail-value">
+
+              <?= !empty(
+                  $managedUser[
+                      'username'
+                  ]
+              )
+                  ? '@'
+                    .
+                    e(
+                        $managedUser[
+                            'username'
+                        ]
+                    )
+                  : 'Not set'
+              ?>
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-detail-row">
+
+            <div class="admin-detail-label">
+              Email
+            </div>
+
+            <div class="admin-detail-value">
+
+              <?= e(
+                  $managedUser[
+                      'email'
+                  ]
+              ) ?>
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-detail-row">
+
+            <div class="admin-detail-label">
+              Email Verification
+            </div>
+
+            <div class="admin-detail-value">
+
+              <?php if (
+                  !empty(
+                      $managedUser[
+                          'email_verified_at'
+                      ]
+                  )
+              ): ?>
+
+                <span
+                  class="
+                    admin-badge
+                    admin-badge--success
+                  "
+                >
+
+                  Verified
+
+                </span>
 
                 <?= e(
-                    role_label(
-                        $role['slug']
+                    format_date(
+                        $managedUser[
+                            'email_verified_at'
+                        ],
+                        true
                     )
                 ) ?>
 
-              </span>
+              <?php else: ?>
+
+                <span
+                  class="
+                    admin-badge
+                    admin-badge--warning
+                  "
+                >
+
+                  Unverified
+
+                </span>
+
+              <?php endif; ?>
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-detail-row">
+
+            <div class="admin-detail-label">
+              Timezone
+            </div>
+
+            <div class="admin-detail-value">
+
+              <?= e(
+                  $managedUser[
+                      'timezone'
+                  ]
+                  ?: 'Not set'
+              ) ?>
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-detail-row">
+
+            <div class="admin-detail-label">
+              Joined
+            </div>
+
+            <div class="admin-detail-value">
+
+              <?= e(
+                  format_date(
+                      $managedUser[
+                          'created_at'
+                      ],
+                      true
+                  )
+              ) ?>
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-detail-row">
+
+            <div class="admin-detail-label">
+              Last Login
+            </div>
+
+            <div class="admin-detail-value">
+
+              <?= e(
+                  format_date(
+                      $managedUser[
+                          'last_login_at'
+                      ],
+                      true
+                  )
+              ) ?>
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-detail-row">
+
+            <div class="admin-detail-label">
+              Dormancy Notice
+            </div>
+
+            <div class="admin-detail-value">
+
+              <?= !empty(
+                  $managedUser[
+                      'dormancy_notice_sent_at'
+                  ]
+              )
+                  ? e(
+                      format_date(
+                          $managedUser[
+                              'dormancy_notice_sent_at'
+                          ],
+                          true
+                      )
+                  )
+                  : 'None sent'
+              ?>
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-detail-row">
+
+            <div class="admin-detail-label">
+              Roles
+            </div>
+
+            <div class="admin-detail-value">
+
+              <?php if (
+                  $managedRoles
+              ): ?>
+
+                <div class="admin-user-flags">
+
+                  <?php foreach (
+                      $managedRoles as
+                      $role
+                  ): ?>
+
+                    <span
+                      class="
+                        admin-user-badge
+                        admin-user-role
+                        <?= $role[
+                            'slug'
+                        ] === 'admin'
+                            ? 'admin-user-role--admin'
+                            : ''
+                        ?>
+                        <?= $role[
+                            'slug'
+                        ] === 'scout'
+                            ? 'admin-user-role--scout'
+                            : ''
+                        ?>
+                      "
+                    >
+
+                      <?= e(
+                          role_label(
+                              $role[
+                                  'slug'
+                              ]
+                          )
+                      ) ?>
+
+                    </span>
+
+                  <?php endforeach; ?>
+
+                </div>
+
+              <?php else: ?>
+
+                <span class="admin-muted">
+                  No roles assigned.
+                </span>
+
+              <?php endif; ?>
+
+            </div>
+
+          </div>
+
+
+        </div>
+
+      </section>
+
+
+      <!-- ===============================================
+           COMMUNITY SUBMISSIONS
+           =============================================== -->
+
+      <section class="admin-panel">
+
+        <div class="admin-panel-header">
+
+          <div>
+
+            <h2>
+              Community Submissions
+            </h2>
+
+            <p>
+              Most recent submissions from this user.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <?php if (
+            $submissions
+        ): ?>
+
+          <div class="admin-detail-list">
+
+            <?php foreach (
+                $submissions as
+                $submission
+            ): ?>
+
+              <div class="admin-detail-row">
+
+                <div class="admin-detail-label">
+
+                  <?= e(
+                      $submission[
+                          'place_name'
+                      ]
+                  ) ?>
+
+                </div>
+
+                <div class="admin-detail-value">
+
+                  <span class="admin-muted">
+                    Status:
+                  </span>
+
+                  <?= e(
+                      ucwords(
+                          str_replace(
+                              '-',
+                              ' ',
+                              $submission[
+                                  'status'
+                              ]
+                          )
+                      )
+                  ) ?>
+
+                  <br>
+
+                  <span class="admin-muted">
+                    Submitted:
+                  </span>
+
+                  <?= e(
+                      format_date(
+                          $submission[
+                              'submitted_at'
+                          ],
+                          true
+                      )
+                  ) ?>
+
+                  <br>
+
+                  <a
+                    href="/submissions.php?id=<?= (int)
+                        $submission[
+                            'id'
+                        ]
+                    ?>&status=all"
+                  >
+
+                    Review submission
+
+                  </a>
+
+                </div>
+
+              </div>
 
             <?php endforeach; ?>
 
@@ -1758,583 +1817,710 @@ body {
 
         <?php else: ?>
 
-          <div class="empty">
-            No roles assigned.
+          <div class="admin-empty">
+
+            <p>
+              No community submissions.
+            </p>
+
           </div>
 
         <?php endif; ?>
 
-      </div>
-
-    </div>
-
-  </section>
+      </section>
 
 
-  <section class="admin-section">
+      <!-- ===============================================
+           PROBLEM REPORTS
+           =============================================== -->
 
-    <header class="section-heading">
-      <h2>Community Submissions</h2>
-    </header>
+      <section class="admin-panel">
 
-    <div class="section-body">
+        <div class="admin-panel-header">
 
-      <?php if ($submissions): ?>
+          <div>
 
-        <div class="activity-list">
+            <h2>
+              Problem Reports
+            </h2>
 
-          <?php foreach (
-              $submissions as
-              $submission
-          ): ?>
+            <p>
+              Recent place problems reported by this user.
+            </p>
 
-            <article class="activity-item">
-
-              <strong>
-                <?= e(
-                    $submission[
-                        'place_name'
-                    ]
-                ) ?>
-              </strong>
-
-              <div class="activity-meta">
-
-                Status:
-                <?= e(
-                    ucwords(
-                        str_replace(
-                            '-',
-                            ' ',
-                            $submission[
-                                'status'
-                            ]
-                        )
-                    )
-                ) ?>
-
-                <br>
-
-                Submitted:
-                <?= e(
-                    format_date(
-                        $submission[
-                            'submitted_at'
-                        ],
-                        true
-                    )
-                ) ?>
-
-                <br>
-
-                <a
-                  href="submissions.php?id=<?= (int)
-                      $submission['id']
-                  ?>&status=all"
-                >
-                  Review submission
-                </a>
-
-              </div>
-
-            </article>
-
-          <?php endforeach; ?>
+          </div>
 
         </div>
 
-      <?php else: ?>
 
-        <div class="empty">
-          No community submissions.
-        </div>
+        <?php if (
+            $reports
+        ): ?>
 
-      <?php endif; ?>
+          <div class="admin-detail-list">
 
-    </div>
+            <?php foreach (
+                $reports as
+                $report
+            ): ?>
 
-  </section>
+              <div class="admin-detail-row">
 
+                <div class="admin-detail-label">
 
-  <section class="admin-section">
+                  <?= e(
+                      $report[
+                          'place_name'
+                      ]
+                      ?: 'Unknown place'
+                  ) ?>
 
-    <header class="section-heading">
-      <h2>Problem Reports</h2>
-    </header>
+                </div>
 
-    <div class="section-body">
+                <div class="admin-detail-value">
 
-      <?php if ($reports): ?>
+                  <?= e(
+                      ucwords(
+                          str_replace(
+                              [
+                                  '_',
+                                  '-',
+                              ],
+                              ' ',
+                              $report[
+                                  'problem_type'
+                              ]
+                          )
+                      )
+                  ) ?>
 
-        <div class="activity-list">
+                  &middot;
 
-          <?php foreach (
-              $reports as $report
-          ): ?>
-
-            <article class="activity-item">
-
-              <strong>
-
-                <?= e(
-                    $report[
-                        'place_name'
-                    ]
-                    ?: 'Unknown place'
-                ) ?>
-
-              </strong>
-
-              <div class="activity-meta">
-
-                <?= e(
-                    ucwords(
-                        str_replace(
-                            ['_', '-'],
-                            ' ',
-                            $report[
-                                'problem_type'
-                            ]
-                        )
-                    )
-                ) ?>
-
-                &middot;
-
-                <?= e(
-                    ucwords(
-                        str_replace(
-                            '-',
-                            ' ',
-                            $report[
-                                'status'
-                            ]
-                        )
-                    )
-                ) ?>
-
-                <br>
-
-                Reported:
-                <?= e(
-                    format_date(
-                        $report[
-                            'created_at'
-                        ],
-                        true
-                    )
-                ) ?>
-
-                <?php if (
-                    !empty(
-                        $report[
-                            'place_id'
-                        ]
-                    )
-                ): ?>
+                  <?= e(
+                      ucwords(
+                          str_replace(
+                              '-',
+                              ' ',
+                              $report[
+                                  'status'
+                              ]
+                          )
+                      )
+                  ) ?>
 
                   <br>
 
-                  <a
-                    href="place.php?id=<?= (int)
-                        $report[
-                            'place_id'
-                        ]
-                    ?>#problem-reports"
-                  >
-                    Review report
-                  </a>
+                  <span class="admin-muted">
+                    Reported:
+                  </span>
 
-                <?php endif; ?>
-
-              </div>
-
-            </article>
-
-          <?php endforeach; ?>
-
-        </div>
-
-      <?php else: ?>
-
-        <div class="empty">
-          No problem reports.
-        </div>
-
-      <?php endif; ?>
-
-    </div>
-
-  </section>
-
-
-  <section class="admin-section">
-
-    <header class="section-heading">
-      <h2>Place Verifications</h2>
-    </header>
-
-    <div class="section-body">
-
-      <?php if ($verifications): ?>
-
-        <div class="activity-list">
-
-          <?php foreach (
-              $verifications as
-              $verification
-          ): ?>
-
-            <article class="activity-item">
-
-              <strong>
-
-                <?= e(
-                    $verification[
-                        'place_name'
-                    ]
-                    ?: 'Unknown place'
-                ) ?>
-
-              </strong>
-
-              <div class="activity-meta">
-
-                <?= e(
-                    ucwords(
-                        str_replace(
-                            ['_', '-'],
-                            ' ',
-                            $verification[
-                                'verification_type'
-                            ]
-                        )
-                    )
-                ) ?>
-
-                <br>
-
-                Verified:
-                <?= e(
-                    format_date(
-                        $verification[
-                            'verified_at'
-                        ],
-                        true
-                    )
-                ) ?>
-
-                <?php if (
-                    !empty(
-                        $verification[
-                            'visited_at'
-                        ]
-                    )
-                ): ?>
-
-                  <br>
-
-                  Visited:
                   <?= e(
                       format_date(
+                          $report[
+                              'created_at'
+                          ],
+                          true
+                      )
+                  ) ?>
+
+
+                  <?php if (
+                      !empty(
+                          $report[
+                              'place_id'
+                          ]
+                      )
+                  ): ?>
+
+                    <br>
+
+                    <a
+                      href="/place.php?id=<?= (int)
+                          $report[
+                              'place_id'
+                          ]
+                      ?>#problem-reports"
+                    >
+
+                      Review report
+
+                    </a>
+
+                  <?php endif; ?>
+
+                </div>
+
+              </div>
+
+            <?php endforeach; ?>
+
+          </div>
+
+        <?php else: ?>
+
+          <div class="admin-empty">
+
+            <p>
+              No problem reports.
+            </p>
+
+          </div>
+
+        <?php endif; ?>
+
+      </section>
+
+
+      <!-- ===============================================
+           PLACE VERIFICATIONS
+           =============================================== -->
+
+      <section class="admin-panel">
+
+        <div class="admin-panel-header">
+
+          <div>
+
+            <h2>
+              Place Verifications
+            </h2>
+
+            <p>
+              Recent verification activity by this user.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <?php if (
+            $verifications
+        ): ?>
+
+          <div class="admin-detail-list">
+
+            <?php foreach (
+                $verifications as
+                $verification
+            ): ?>
+
+              <div class="admin-detail-row">
+
+                <div class="admin-detail-label">
+
+                  <?= e(
+                      $verification[
+                          'place_name'
+                      ]
+                      ?: 'Unknown place'
+                  ) ?>
+
+                </div>
+
+                <div class="admin-detail-value">
+
+                  <?= e(
+                      ucwords(
+                          str_replace(
+                              [
+                                  '_',
+                                  '-',
+                              ],
+                              ' ',
+                              $verification[
+                                  'verification_type'
+                              ]
+                          )
+                      )
+                  ) ?>
+
+                  <br>
+
+                  <span class="admin-muted">
+                    Verified:
+                  </span>
+
+                  <?= e(
+                      format_date(
+                          $verification[
+                              'verified_at'
+                          ],
+                          true
+                      )
+                  ) ?>
+
+
+                  <?php if (
+                      !empty(
                           $verification[
                               'visited_at'
                           ]
                       )
-                  ) ?>
+                  ): ?>
 
-                <?php endif; ?>
+                    <br>
+
+                    <span class="admin-muted">
+                      Visited:
+                    </span>
+
+                    <?= e(
+                        format_date(
+                            $verification[
+                                'visited_at'
+                            ]
+                        )
+                    ) ?>
+
+                  <?php endif; ?>
 
 
-                <?php if (
-                    !empty(
-                        $verification[
-                            'place_id'
-                        ]
-                    )
-                ): ?>
+                  <?php if (
+                      !empty(
+                          $verification[
+                              'place_id'
+                          ]
+                      )
+                  ): ?>
 
-                  <br>
+                    <br>
 
-                  <a
-                    href="place.php?id=<?= (int)
-                        $verification[
-                            'place_id'
-                        ]
-                    ?>"
-                  >
-                    View place
-                  </a>
+                    <a
+                      href="/place.php?id=<?= (int)
+                          $verification[
+                              'place_id'
+                          ]
+                      ?>"
+                    >
 
-                <?php endif; ?>
+                      View place
+
+                    </a>
+
+                  <?php endif; ?>
+
+                </div>
 
               </div>
 
-            </article>
+            <?php endforeach; ?>
 
-          <?php endforeach; ?>
+          </div>
 
-        </div>
+        <?php else: ?>
 
-      <?php else: ?>
+          <div class="admin-empty">
 
-        <div class="empty">
-          No place verifications recorded.
-        </div>
+            <p>
+              No place verifications recorded.
+            </p>
 
-      <?php endif; ?>
+          </div>
+
+        <?php endif; ?>
+
+      </section>
+
 
     </div>
 
-  </section>
+
+    <!-- ===================================================
+         SIDEBAR
+         =================================================== -->
+
+    <aside class="admin-detail-sidebar">
 
 
-</div>
+      <!-- ===============================================
+           ACCOUNT STATUS
+           =============================================== -->
+
+      <section class="admin-panel">
+
+        <div class="admin-panel-header">
+
+          <div>
+
+            <h2>
+              Account Status
+            </h2>
+
+            <p>
+              Control whether this account can sign in.
+            </p>
+
+          </div>
+
+        </div>
 
 
-<aside>
-
-
-  <section class="admin-section">
-
-    <header class="section-heading">
-      <h2>Account Status</h2>
-    </header>
-
-    <div class="section-body">
-
-      <form
-        method="post"
-        class="admin-form"
-      >
-
-        <input
-          type="hidden"
-          name="action"
-          value="update_status"
+        <form
+          method="post"
+          class="admin-form"
         >
 
-        <input
-          type="hidden"
-          name="user_id"
-          value="<?= $userId ?>"
-        >
-
-        <input
-          type="hidden"
-          name="csrf_token"
-          value="<?= e(
-              $csrfToken
-          ) ?>"
-        >
-
-
-        <div class="form-field">
-
-          <label for="status">
-            Status
-          </label>
-
-          <select
-            id="status"
-            name="status"
+          <input
+            type="hidden"
+            name="action"
+            value="update_status"
           >
 
+          <input
+            type="hidden"
+            name="user_id"
+            value="<?= $userId ?>"
+          >
+
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= e(
+                $csrfToken
+            ) ?>"
+          >
+
+
+          <div class="admin-field">
+
+            <label for="status">
+              Status
+            </label>
+
+            <select
+              id="status"
+              name="status"
+            >
+
+              <?php foreach (
+                  [
+                      'active',
+                      'pending',
+                      'suspended',
+                      'disabled',
+                  ] as $status
+              ): ?>
+
+                <option
+                  value="<?= e(
+                      $status
+                  ) ?>"
+                  <?= $managedUser[
+                      'status'
+                  ] === $status
+                      ? 'selected'
+                      : ''
+                  ?>
+                >
+
+                  <?= e(
+                      status_label(
+                          $status
+                      )
+                  ) ?>
+
+                </option>
+
+              <?php endforeach; ?>
+
+            </select>
+
+
+            <p class="admin-field-help">
+
+              Suspended and disabled accounts
+              cannot sign in.
+
+            </p>
+
+          </div>
+
+
+          <div class="admin-form-actions">
+
+            <button
+              type="submit"
+              class="admin-button"
+            >
+
+              Update Status
+
+            </button>
+
+          </div>
+
+        </form>
+
+      </section>
+
+
+      <!-- ===============================================
+           ROLES
+           =============================================== -->
+
+      <section class="admin-panel">
+
+        <div class="admin-panel-header">
+
+          <div>
+
+            <h2>
+              Roles
+            </h2>
+
+            <p>
+              Control permissions assigned to this user.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <form
+          method="post"
+          class="admin-form"
+        >
+
+          <input
+            type="hidden"
+            name="action"
+            value="update_roles"
+          >
+
+          <input
+            type="hidden"
+            name="user_id"
+            value="<?= $userId ?>"
+          >
+
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= e(
+                $csrfToken
+            ) ?>"
+          >
+
+
+          <div class="admin-field">
+
+            <label>
+              Assigned Roles
+            </label>
+
+
             <?php foreach (
-                [
-                    'active',
-                    'pending',
-                    'suspended',
-                    'disabled',
-                ] as $status
+                $availableRoles as
+                $role
             ): ?>
 
-              <option
-                value="<?= e(
-                    $status
-                ) ?>"
-                <?= $managedUser[
-                    'status'
-                ] === $status
-                    ? 'selected'
-                    : ''
-                ?>
+              <label
+                class="admin-checkbox"
+                style="margin-bottom: 10px;"
               >
 
-                <?= e(
-                    status_label(
-                        $status
-                    )
-                ) ?>
+                <input
+                  type="checkbox"
+                  name="roles[]"
+                  value="<?= (int)
+                      $role[
+                          'id'
+                      ]
+                  ?>"
+                  <?= in_array(
+                      (int)
+                      $role[
+                          'id'
+                      ],
+                      $managedRoleIds,
+                      true
+                  )
+                      ? 'checked'
+                      : ''
+                  ?>
+                >
 
-              </option>
+                <span>
+
+                  <?= e(
+                      role_label(
+                          $role[
+                              'slug'
+                          ]
+                      )
+                  ) ?>
+
+                </span>
+
+              </label>
 
             <?php endforeach; ?>
 
-          </select>
+
+            <p class="admin-field-help">
+
+              Changes apply immediately.
+              Your own admin role cannot be removed
+              accidentally.
+
+            </p>
+
+          </div>
 
 
-          <p class="form-help">
+          <div class="admin-form-actions">
 
-            Suspended and disabled accounts
-            cannot sign in.
+            <button
+              type="submit"
+              class="admin-button"
+            >
 
-          </p>
+              Save Roles
 
-        </div>
+            </button>
 
+          </div>
 
-        <button
-          type="submit"
-          class="admin-button"
-        >
-          Update Status
-        </button>
+        </form>
 
-      </form>
-
-    </div>
-
-  </section>
+      </section>
 
 
-  <section class="admin-section">
+      <!-- ===============================================
+           QUICK LINKS
+           =============================================== -->
 
-    <header class="section-heading">
-      <h2>Roles</h2>
-    </header>
+      <section class="admin-panel">
 
-    <div class="section-body">
+        <div class="admin-panel-header">
 
-      <form
-        method="post"
-        class="admin-form"
-      >
+          <div>
 
-        <input
-          type="hidden"
-          name="action"
-          value="update_roles"
-        >
+            <h2>
+              Quick Links
+            </h2>
 
-        <input
-          type="hidden"
-          name="user_id"
-          value="<?= $userId ?>"
-        >
-
-        <input
-          type="hidden"
-          name="csrf_token"
-          value="<?= e(
-              $csrfToken
-          ) ?>"
-        >
-
-
-        <div class="role-options">
-
-          <?php foreach (
-              $availableRoles as $role
-          ): ?>
-
-            <label class="role-option">
-
-              <input
-                type="checkbox"
-                name="roles[]"
-                value="<?= (int)
-                    $role['id']
-                ?>"
-                <?= in_array(
-                    (int) $role['id'],
-                    $managedRoleIds,
-                    true
-                )
-                    ? 'checked'
-                    : ''
-                ?>
-              >
-
-              <span>
-                <?= e(
-                    role_label(
-                        $role['slug']
-                    )
-                ) ?>
-              </span>
-
-            </label>
-
-          <?php endforeach; ?>
+          </div>
 
         </div>
 
 
-        <p class="form-help">
+        <div class="admin-form">
 
-          Changes apply immediately.
-          Your own admin role is protected
-          from accidental removal.
+          <a
+            class="
+              admin-button
+              admin-button--secondary
+            "
+            href="/user-account.php?id=<?= $userId ?>"
+          >
 
-        </p>
+            Edit Account
 
-
-        <button
-          type="submit"
-          class="admin-button"
-        >
-          Save Roles
-        </button>
-
-      </form>
-
-    </div>
-
-  </section>
+          </a>
 
 
-  <section class="admin-section">
+          <a
+            class="
+              admin-button
+              admin-button--secondary
+            "
+            href="/users.php"
+          >
 
-    <header class="section-heading">
-      <h2>Quick Links</h2>
-    </header>
+            All Users
 
-    <div class="section-body">
-
-      <div class="quick-links">
-
-        <a href="users.php">
-          All Users
-        </a>
-
-        <a
-          href="submissions.php?status=all"
-        >
-          Community Submissions
-        </a>
-
-        <a href="places.php">
-          Places
-        </a>
-
-        <a href="/">
-          Basecamp
-        </a>
-
-      </div>
-
-    </div>
-
-  </section>
+          </a>
 
 
-</aside>
+          <a
+            class="
+              admin-button
+              admin-button--secondary
+            "
+            href="/submissions.php?status=all"
+          >
+
+            Community Submissions
+
+          </a>
 
 
-</div>
+          <a
+            class="
+              admin-button
+              admin-button--secondary
+            "
+            href="/places.php"
+          >
+
+            Places
+
+          </a>
+
+
+          <a
+            class="
+              admin-button
+              admin-button--secondary
+            "
+            href="/"
+          >
+
+            Basecamp
+
+          </a>
+
+        </div>
+
+      </section>
+
+
+    </aside>
+
+
+  </div>
+
+
+  <!-- =====================================================
+       FOOT ACTIONS
+       ===================================================== -->
+
+  <div class="admin-foot-actions">
+
+    <a href="/users.php">
+      All Users
+    </a>
+
+    <a href="/user-account.php?id=<?= $userId ?>">
+      Edit Account
+    </a>
+
+    <a href="/">
+      Basecamp
+    </a>
+
+  </div>
+
 
 </main>
+
+
+<?php
+
+require_once
+    dirname(__DIR__)
+    . '/app/footer.php';
+
+?>
+
+
+<script
+  src="https://llamascout.com/js/header.js"
+></script>
+
 
 </body>
 
