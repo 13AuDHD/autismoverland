@@ -127,7 +127,7 @@ body.account-auth-body {
   object-position: left center;
 
   transform:
-    translateY(13px);
+    translateY(7px);
 }
 
 .account-site-nav {
@@ -1063,7 +1063,7 @@ body.account-auth-body {
     height: 62px;
 
     transform:
-      translateY(6px);
+      translateY(10px);
   }
 
   .account-site-nav {
