@@ -129,46 +129,46 @@ $displayName =
   >
 
 
-  <link
-    rel="stylesheet"
-    href="/css/style.css"
-  >
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/style.css"
+>
 
-  <link
-    rel="stylesheet"
-    href="/css/admin.css"
-  >
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/admin.css"
+>
 
 
   <link
     rel="apple-touch-icon"
     sizes="180x180"
-    href="/icons/apple-touch-icon.png"
+    href="https://llamascout.com/icons/apple-touch-icon.png"
   >
 
   <link
     rel="icon"
     type="image/png"
     sizes="32x32"
-    href="/icons/favicon-32x32.png"
+    href="https://llamascout.com/icons/favicon-32x32.png"
   >
 
   <link
     rel="icon"
     type="image/png"
     sizes="16x16"
-    href="/icons/favicon-16x16.png"
+    href="https://llamascout.com/icons/favicon-16x16.png"
   >
 
   <link
     rel="icon"
-    href="/icons/favicon.ico"
+    href="https://llamascout.com/icons/favicon.ico"
     sizes="any"
   >
 
   <link
     rel="manifest"
-    href="/icons/site.webmanifest"
+    href="https://llamascout.com/icons/site.webmanifest"
   >
 
 </head>
@@ -622,7 +622,7 @@ require_once
 ?>
 
 
-<script src="/js/header.js"></script>
+<script src="https://llamascout.com/js/header.js"></script>
 
 
 </body>
