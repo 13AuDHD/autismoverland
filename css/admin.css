@@ -5,7 +5,7 @@
    Shared styles for the Llama Scout admin area.
 
    Loaded AFTER:
-   /css/style.css
+   https://llamascout.com/css/style.css
    ========================================================= */
 
 
@@ -199,6 +199,15 @@ body.admin-page {
 }
 
 
+.admin-stats--5 {
+  grid-template-columns:
+    repeat(
+      5,
+      minmax(0, 1fr)
+    );
+}
+
+
 .admin-stat {
   padding: 22px;
 
@@ -208,6 +217,16 @@ body.admin-page {
     1px solid rgba(0, 0, 0, .09);
 
   border-radius: 12px;
+}
+
+
+.admin-stat--alert {
+  background: #fff4df;
+}
+
+
+.admin-stat--alert .admin-stat-value {
+  color: #9a5818;
 }
 
 
@@ -529,6 +548,22 @@ a.admin-card:focus-visible {
 }
 
 
+.admin-button--warning,
+.admin-button--warning:visited {
+  background: #fff8ea;
+  color: #7d4710;
+
+  border-color: #c07a25;
+}
+
+
+.admin-button--warning:hover,
+.admin-button--warning:focus-visible {
+  background: #fff0cf;
+  color: #64380c;
+}
+
+
 .admin-button--danger,
 .admin-button--danger:visited {
   background: #9e2f2f;
@@ -610,6 +645,15 @@ a.admin-card:focus-visible {
 
   letter-spacing: .04em;
   text-transform: uppercase;
+}
+
+
+.admin-filter-summary {
+  margin: -8px 0 20px;
+
+  color: #69716c;
+
+  font-size: .86rem;
 }
 
 
@@ -1211,6 +1255,352 @@ a.admin-card:focus-visible {
 
 
 /* =========================================================
+   PLACES
+   ========================================================= */
+
+.admin-place-controls {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 12px;
+
+  margin-bottom: 26px;
+
+  padding: 18px;
+
+  background: #fff;
+
+  border:
+    1px solid rgba(0, 0, 0, .09);
+
+  border-radius: 12px;
+}
+
+
+.admin-place-control {
+  min-width: 0;
+}
+
+
+.admin-place-control label {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #68716c;
+
+  font-size: .72rem;
+  font-weight: 800;
+
+  text-transform: uppercase;
+
+  letter-spacing: .05em;
+}
+
+
+.admin-place-control select {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 10px 11px;
+
+  border:
+    1px solid rgba(0, 0, 0, .18);
+
+  border-radius: 7px;
+
+  background: #fff;
+
+  color: #172822;
+
+  font: inherit;
+
+  outline: none;
+}
+
+
+.admin-place-control select:focus {
+  border-color: #426b59;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(66, 107, 89, .14);
+}
+
+
+.admin-place-filter-summary {
+  margin: -10px 0 20px;
+
+  color: #69716c;
+
+  font-size: .86rem;
+}
+
+
+
+/* =========================================================
+   PLACE LIST
+   ========================================================= */
+
+.admin-place-list {
+  display: grid;
+  gap: 14px;
+}
+
+
+.admin-place-card {
+  padding: 20px;
+
+  background: #fff;
+
+  border:
+    1px solid rgba(0, 0, 0, .09);
+
+  border-radius: 12px;
+}
+
+
+.admin-place-card.has-reports {
+  border-left:
+    5px solid #c07a25;
+}
+
+
+.admin-place-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+
+.admin-place-heading {
+  min-width: 0;
+}
+
+
+.admin-place-name {
+  margin: 0 0 5px;
+
+  color: #172822;
+
+  font-size: 1.2rem;
+}
+
+
+.admin-place-location {
+  margin: 0;
+
+  color: #667069;
+}
+
+
+.admin-place-flags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+
+
+/* =========================================================
+   PLACE STATUS FLAGS
+   ========================================================= */
+
+.admin-place-status,
+.admin-place-verification,
+.admin-place-report {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
+  padding: 6px 9px;
+
+  border-radius: 999px;
+
+  font-size: .7rem;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: .04em;
+
+  white-space: nowrap;
+}
+
+
+.admin-place-status {
+  background: #e8ece8;
+  color: #45524b;
+
+  letter-spacing: .05em;
+}
+
+
+.admin-place-status--featured {
+  background: #e6efe5;
+  color: #355443;
+}
+
+
+.admin-place-status--active {
+  background: #e4eee9;
+  color: #355443;
+}
+
+
+.admin-place-status--draft {
+  background: #eceae4;
+  color: #666057;
+}
+
+
+.admin-place-status--unlisted {
+  background: #fff0c9;
+  color: #766123;
+}
+
+
+.admin-place-status--removed {
+  background: #f3dddd;
+  color: #873c35;
+}
+
+
+.admin-place-status--archived {
+  background: #e3e3e3;
+  color: #666;
+}
+
+
+
+/* =========================================================
+   PLACE REPORT FLAGS
+   ========================================================= */
+
+.admin-place-report,
+.admin-place-report:visited {
+  background: #fff0cf;
+  color: #7d4710;
+
+  text-decoration: none;
+}
+
+
+.admin-place-report--new,
+.admin-place-report--new:visited {
+  background: #f5ddd7;
+  color: #8b342a;
+}
+
+
+.admin-place-report:hover,
+.admin-place-report:focus-visible {
+  filter: brightness(.96);
+}
+
+
+
+/* =========================================================
+   PLACE VERIFICATION FLAGS
+   ========================================================= */
+
+.admin-place-verification {
+  background: #ece9df;
+  color: #666057;
+}
+
+
+.admin-place-verification--current {
+  background: #e6efe5;
+  color: #355443;
+}
+
+
+.admin-place-verification--aging {
+  background: #f4eed8;
+  color: #766123;
+}
+
+
+.admin-place-verification--due {
+  background: #fff0cf;
+  color: #7d4710;
+}
+
+
+.admin-place-verification--never {
+  background: #f2dddd;
+  color: #873c35;
+}
+
+
+
+/* =========================================================
+   PLACE META + ACTIONS
+   ========================================================= */
+
+.admin-place-meta {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap:
+    7px
+    14px;
+
+  margin-top: 15px;
+
+  color: #707870;
+
+  font-size: .84rem;
+}
+
+
+.admin-place-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+
+.admin-place-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+
+  margin-top: 18px;
+}
+
+
+
+/* =========================================================
+   PLACE EMPTY STATE
+   ========================================================= */
+
+.admin-place-empty {
+  padding: 30px;
+
+  background: #fff;
+
+  border:
+    1px solid rgba(0, 0, 0, .09);
+
+  border-radius: 12px;
+
+  text-align: center;
+
+  color: #667069;
+}
+
+
+
+/* =========================================================
    UTILITIES
    ========================================================= */
 
@@ -1249,9 +1639,32 @@ a.admin-card:focus-visible {
    RESPONSIVE
    ========================================================= */
 
+@media (max-width: 1000px) {
+
+  .admin-stats--5 {
+    grid-template-columns:
+      repeat(
+        3,
+        minmax(0, 1fr)
+      );
+  }
+
+}
+
+
+
 @media (max-width: 900px) {
 
   .admin-stats {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+
+  .admin-stats--5 {
     grid-template-columns:
       repeat(
         2,
@@ -1273,6 +1686,15 @@ a.admin-card:focus-visible {
     grid-template-columns: 1fr;
   }
 
+
+  .admin-place-controls {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
 }
 
 
@@ -1282,7 +1704,7 @@ a.admin-card:focus-visible {
   .admin-main {
     width:
       min(
-        100% - 24px,
+        calc(100% - 24px),
         1200px
       );
 
@@ -1331,13 +1753,36 @@ a.admin-card:focus-visible {
     border-radius: 0;
   }
 
+
+  .admin-place-top {
+    flex-direction: column;
+
+    gap: 10px;
+  }
+
+
+  .admin-place-flags {
+    justify-content: flex-start;
+  }
+
+}
+
+
+
+@media (max-width: 600px) {
+
+  .admin-place-controls {
+    grid-template-columns: 1fr;
+  }
+
 }
 
 
 
 @media (max-width: 520px) {
 
-  .admin-stats {
+  .admin-stats,
+  .admin-stats--5 {
     grid-template-columns: 1fr;
   }
 
@@ -1359,6 +1804,21 @@ a.admin-card:focus-visible {
 
 
   .admin-form-actions .admin-button {
+    width: 100%;
+  }
+
+
+  .admin-place-card {
+    padding: 18px;
+  }
+
+
+  .admin-place-actions {
+    flex-direction: column;
+  }
+
+
+  .admin-place-actions .admin-button {
     width: 100%;
   }
 
