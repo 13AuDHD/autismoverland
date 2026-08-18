@@ -1198,41 +1198,43 @@ if (
 
 <head>
 
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
-<title>
-  Mark a Problem | Llama Scout
-</title>
+  <title>
+    Mark a Problem | Llama Scout
+  </title>
 
-<meta
-  name="robots"
-  content="noindex,nofollow"
->
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
 
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/style.css"
->
 
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/account.css"
->
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/style.css"
+  >
 
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
->
-   
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/account.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
 
 </head>
 
+
 <body class="account-body">
+
 
 <?php
 
@@ -1243,347 +1245,397 @@ require_once
 ?>
 
 
-<main class="page">
+<main class="report-page">
 
 
-<a
-  class="back"
-  href="https://llamascout.com/place.html?place=<?= urlencode(
-      $place['slug']
-  ) ?>"
->
-  ← Back to place
-</a>
-
-
-<section class="card">
-
-
-<p class="eyebrow">
-  Community Report
-</p>
-
-
-<h1>
-  Mark a Problem
-</h1>
-
-
-<p class="place-name">
-
-  <?= e(
-      $place['name']
-  ) ?>
-
-
-  <?php if (
-      $place['city'] ||
-      $place['state']
-  ): ?>
-
-    ·
-
-    <?= e(
-        implode(
-            ', ',
-            array_filter([
-                $place['city'],
-                $place['state']
-            ])
-        )
-    ) ?>
-
-  <?php endif; ?>
-
-</p>
-
-
-<?php if ($success): ?>
-
-
-  <div
-    class="
-      notice
-      notice-success
-    "
+  <a
+    class="report-back"
+    href="https://llamascout.com/place.html?place=<?= urlencode(
+        $place['slug']
+    ) ?>"
   >
 
-    <strong>
-      Report received.
-    </strong>
+    <i
+      class="fa-solid fa-arrow-left"
+      aria-hidden="true"
+    ></i>
 
-    <br><br>
+    Back to Scout Report
 
-    Thanks for flagging this place.
+  </a>
 
-    Your report is now waiting
-    for review.
+
+  <section class="report-card">
+
+
+    <p class="report-eyebrow">
+      Community Report
+    </p>
+
+
+    <h1>
+      Mark a Problem
+    </h1>
+
+
+    <p class="report-place-name">
+
+      <?= e(
+          $place['name']
+      ) ?>
+
+
+      <?php if (
+          $place['city']
+          ||
+          $place['state']
+      ): ?>
+
+        &middot;
+
+        <?= e(
+            implode(
+                ', ',
+                array_filter([
+                    $place['city'],
+                    $place['state']
+                ])
+            )
+        ) ?>
+
+      <?php endif; ?>
+
+    </p>
 
 
     <?php if (
-        $successfulPhotoCount > 0
+        $success
     ): ?>
 
-      <br><br>
 
-      <?= $successfulPhotoCount ?>
+      <div
+        class="
+          report-notice
+          report-notice-success
+        "
+      >
 
-      <?= $successfulPhotoCount === 1
-          ? 'photo was'
-          : 'photos were'
-      ?>
+        <strong>
+          Report received.
+        </strong>
 
-      attached successfully.
+        <br><br>
+
+        Thanks for flagging this place.
+
+        Your report is now waiting
+        for review.
+
+
+        <?php if (
+            $successfulPhotoCount > 0
+        ): ?>
+
+          <br><br>
+
+          <?= $successfulPhotoCount ?>
+
+          <?= $successfulPhotoCount === 1
+              ? 'photo was'
+              : 'photos were'
+          ?>
+
+          attached successfully.
+
+        <?php endif; ?>
+
+
+        <br><br>
+
+        The place has not been
+        automatically removed or
+        unlisted.
+
+      </div>
+
+
+      <?php if (
+          $submittedReportId
+      ): ?>
+
+        <div class="report-number">
+
+          Report #<?= (int)
+              $submittedReportId
+          ?>
+
+        </div>
+
+      <?php endif; ?>
+
+
+      <div class="report-success-actions">
+
+
+        <a
+          class="report-primary-link"
+          href="https://llamascout.com/place.html?place=<?= urlencode(
+              $place['slug']
+          ) ?>"
+        >
+
+          <i
+            class="fa-solid fa-binoculars"
+            aria-hidden="true"
+          ></i>
+
+          Return to Scout Report
+
+        </a>
+
+
+        <a
+          class="report-secondary-link"
+          href="/"
+        >
+
+          <i
+            class="fa-solid fa-user"
+            aria-hidden="true"
+          ></i>
+
+          My Account
+
+        </a>
+
+
+      </div>
+
+
+    <?php else: ?>
+
+
+      <p class="report-intro">
+
+        If something about this place
+        has changed, tell us what you
+        found.
+
+        Reports are reviewed before a
+        place is unlisted or removed.
+
+      </p>
+
+
+      <?php if (
+          $error
+      ): ?>
+
+        <div
+          class="
+            report-notice
+            report-notice-error
+          "
+        >
+
+          <?= e(
+              $error
+          ) ?>
+
+        </div>
+
+      <?php endif; ?>
+
+
+      <form
+        method="post"
+        enctype="multipart/form-data"
+      >
+
+
+        <input
+          type="hidden"
+          name="place_slug"
+          value="<?= e(
+              $place['slug']
+          ) ?>"
+        >
+
+
+        <input
+          type="hidden"
+          name="csrf_token"
+          value="<?= e(
+              $csrfToken
+          ) ?>"
+        >
+
+
+        <div class="report-field">
+
+
+          <label for="problem_type">
+            What's wrong?
+          </label>
+
+
+          <select
+            id="problem_type"
+            name="problem_type"
+            required
+          >
+
+            <option value="">
+              Choose a problem
+            </option>
+
+
+            <?php foreach (
+                $allowedTypes
+                as $value => $label
+            ): ?>
+
+              <option
+                value="<?= e(
+                    $value
+                ) ?>"
+                <?= (
+                    $problemType
+                    === $value
+                )
+                    ? 'selected'
+                    : ''
+                ?>
+              >
+
+                <?= e(
+                    $label
+                ) ?>
+
+              </option>
+
+            <?php endforeach; ?>
+
+
+          </select>
+
+
+        </div>
+
+
+        <div class="report-field">
+
+
+          <label for="details">
+            What did you find?
+          </label>
+
+
+          <textarea
+            id="details"
+            name="details"
+            maxlength="3000"
+            required
+            placeholder="Example: There is now a No Camping sign at the entrance, dated August 2026."
+          ><?= e(
+              $details
+          ) ?></textarea>
+
+
+          <p class="report-help">
+
+            Include anything that could
+            help verify the change, such
+            as signs, dates, road
+            conditions, or what you saw
+            while you were there.
+
+          </p>
+
+
+        </div>
+
+
+        <div class="report-field">
+
+
+          <label for="photos">
+            Photos
+          </label>
+
+
+          <input
+            id="photos"
+            name="photos[]"
+            type="file"
+            accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif"
+            multiple
+          >
+
+
+          <p class="report-help">
+
+            Optional. Upload up to
+            3 photos.
+
+            Photos directly from iPhone,
+            Android, Samsung Galaxy, and
+            most digital cameras are
+            supported.
+
+            Maximum 8 MB per photo.
+
+          </p>
+
+
+          <div class="report-photo-note">
+
+            Clear photos can help us
+            verify a report faster.
+
+            Signs, gates, closures,
+            road damage, access changes,
+            and other visible conditions
+            are especially useful.
+
+          </div>
+
+
+        </div>
+
+
+        <button
+          type="submit"
+          class="report-submit"
+        >
+
+          <i
+            class="fa-solid fa-paper-plane"
+            aria-hidden="true"
+          ></i>
+
+          Submit Report
+
+        </button>
+
+
+      </form>
+
 
     <?php endif; ?>
 
 
-    <br><br>
-
-    The place has not been
-    automatically removed or
-    unlisted.
-
-  </div>
-
-
-  <?php if (
-      $submittedReportId
-  ): ?>
-
-    <div class="report-number">
-
-      Report #<?= (int)
-          $submittedReportId
-      ?>
-
-    </div>
-
-  <?php endif; ?>
-
-
-  <div class="success-actions">
-
-    <a
-      class="primary-link"
-      href="https://llamascout.com/place.html?place=<?= urlencode(
-          $place['slug']
-      ) ?>"
-    >
-      Return to Place
-    </a>
-
-
-    <a
-      class="secondary-link"
-      href="/"
-    >
-      Account
-    </a>
-
-  </div>
-
-
-<?php else: ?>
-
-
-  <p class="intro">
-
-    If something about this place
-    has changed, tell us what you
-    found.
-
-    Reports are reviewed before a
-    place is unlisted or removed.
-
-  </p>
-
-
-  <?php if ($error): ?>
-
-    <div
-      class="
-        notice
-        notice-error
-      "
-    >
-      <?= e($error) ?>
-    </div>
-
-  <?php endif; ?>
-
-
-  <form
-    method="post"
-    enctype="multipart/form-data"
-  >
-
-
-    <input
-      type="hidden"
-      name="place_slug"
-      value="<?= e(
-          $place['slug']
-      ) ?>"
-    >
-
-
-    <input
-      type="hidden"
-      name="csrf_token"
-      value="<?= e(
-          $csrfToken
-      ) ?>"
-    >
-
-
-    <div class="field">
-
-      <label for="problem_type">
-        What’s wrong?
-      </label>
-
-
-      <select
-        id="problem_type"
-        name="problem_type"
-        required
-      >
-
-        <option value="">
-          Choose a problem
-        </option>
-
-
-        <?php foreach (
-            $allowedTypes as
-            $value => $label
-        ): ?>
-
-          <option
-            value="<?= e(
-                $value
-            ) ?>"
-            <?= (
-                $problemType
-                === $value
-            )
-                ? 'selected'
-                : ''
-            ?>
-          >
-
-            <?= e($label) ?>
-
-          </option>
-
-        <?php endforeach; ?>
-
-      </select>
-
-    </div>
-
-
-    <div class="field">
-
-      <label for="details">
-        What did you find?
-      </label>
-
-
-      <textarea
-        id="details"
-        name="details"
-        maxlength="3000"
-        required
-        placeholder="Example: There is now a No Camping sign at the entrance, dated August 2026."
-      ><?= e(
-          $details
-      ) ?></textarea>
-
-
-      <p class="report- help">
-
-        Include anything that could
-        help verify the change, such
-        as signs, dates, road
-        conditions, or what you saw
-        while you were there.
-
-      </p>
-
-    </div>
-
-
-    <div class="report-field">
-
-      <label for="photos">
-        Photos
-      </label>
-
-
-      <input
-        id="photos"
-        name="photos[]"
-        type="file"
-        accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif"
-        multiple
-      >
-
-
-      <p class="report-help">
-
-        Optional. Upload up to
-        3 photos.
-
-        Photos directly from iPhone,
-        Android, Samsung Galaxy, and
-        most digital cameras are
-        supported.
-
-        Maximum 8 MB per photo.
-
-      </p>
-
-
-      <div class="report-photo-note">
-
-        Clear photos can help us
-        verify a report faster.
-
-        Signs, gates, closures,
-        road damage, access changes,
-        and other visible conditions
-        are especially useful.
-
-      </div>
-
-    </div>
-
-
-<button
-  type="submit"
-  class="report-submit"
->
-  Submit Report
-</button>
-
-
-  </form>
-
-
-<?php endif; ?>
-
-
-</section>
+  </section>
 
 
 </main>
 
+
 <script
   src="https://llamascout.com/js/header.js"
 ></script>
-   
+
+
 </body>
 
 </html>
