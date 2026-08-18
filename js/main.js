@@ -273,11 +273,6 @@ async function initFeaturedLocations() {
       );
 
 
-    /*
-     * If nothing is explicitly featured,
-     * use active places as a fallback.
-     */
-
     if (!featuredPlaces.length) {
 
       featuredPlaces =
@@ -471,7 +466,7 @@ function renderFeaturedLocations(
           image
             ? `
               <a
-                href="/place.html?place=${encodeURIComponent(
+                href="/place.php?place=${encodeURIComponent(
                   place.slug
                 )}"
                 class="location-card-image-link"
@@ -499,7 +494,7 @@ function renderFeaturedLocations(
           <h3>
 
             <a
-              href="/place.html?place=${encodeURIComponent(
+              href="/place.php?place=${encodeURIComponent(
                 place.slug
               )}"
               class="location-card-title"
@@ -608,17 +603,6 @@ async function initHomepageMap() {
 
     }
 
-
-    /*
-     * Coordinates returned by the API
-     * are already access-aware:
-     *
-     * Visitor/free:
-     * approximate coordinates
-     *
-     * Paid member/Scout/Admin:
-     * exact coordinates
-     */
 
     const validPlaces =
       places.filter(
@@ -1055,7 +1039,7 @@ async function initHomepageMap() {
 
                 <a
                   class="map-popup-details"
-                  href="/place.html?place=${encodeURIComponent(
+                  href="/place.php?place=${encodeURIComponent(
                     place.slug
                   )}"
                 >
@@ -1274,14 +1258,6 @@ async function initHomepageMap() {
               .toLowerCase();
 
 
-            /*
-             * Road names intentionally do NOT
-             * participate in public search.
-             *
-             * They are protected location data.
-             */
-
-
             const difficulty =
               numericPlaceValue(
                 place.access
@@ -1354,16 +1330,6 @@ async function initHomepageMap() {
               return false;
             }
 
-
-            /*
-             * Protected ratings do not
-             * masquerade as numbers.
-             *
-             * If a filter requires protected
-             * information, that location does
-             * not match until the user has
-             * access to the actual value.
-             */
 
             if (
               road !== "all" &&
@@ -1588,10 +1554,6 @@ async function initHomepageMap() {
       }
     );
 
-
-    /*
-     * Initial map render.
-     */
 
     renderMarkers(
       validPlaces
