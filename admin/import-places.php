@@ -2148,260 +2148,920 @@ if (
 
 <head>
 
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
-<title>
-  Import Places | Llama Scout Admin
-</title>
+  <title>
+    Import Places | Llama Scout Admin
+  </title>
 
-<meta
-  name="robots"
-  content="noindex,nofollow"
->
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
 
-<style>
 
-body {
-  margin: 0;
-  background: #f4efe6;
-  color: #172822;
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
 
-main {
-  width: min(
-    850px,
-    calc(100% - 36px)
-  );
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
 
-  margin: 0 auto;
-  padding: 50px 0 80px;
-}
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
 
-h1 {
-  margin-bottom: 8px;
-}
 
-.intro {
-  color: #667069;
-  line-height: 1.6;
-}
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
 
-.warning {
-  margin: 26px 0;
-  padding: 18px;
 
-  background: #fff4d8;
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/style.css"
+  >
 
-  border-left:
-    5px solid #b68622;
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/admin.css"
+  >
 
-  border-radius: 8px;
-}
 
-.error {
-  margin: 14px 0;
-  padding: 14px;
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="https://llamascout.com/icons/apple-touch-icon.png"
+  >
 
-  background: #f8e3e0;
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="https://llamascout.com/icons/favicon-32x32.png"
+  >
 
-  border-radius: 8px;
-}
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="https://llamascout.com/icons/favicon-16x16.png"
+  >
 
-.result {
-  margin: 12px 0;
-  padding: 16px;
+  <link
+    rel="icon"
+    href="https://llamascout.com/icons/favicon.ico"
+    sizes="any"
+  >
 
-  background: #fff;
-
-  border:
-    1px solid rgba(0,0,0,.1);
-
-  border-radius: 8px;
-}
-
-.result strong {
-  display: block;
-  margin-bottom: 5px;
-}
-
-.result-success {
-  border-left:
-    5px solid #436d50;
-}
-
-.result-skipped {
-  border-left:
-    5px solid #777;
-}
-
-.result-error {
-  border-left:
-    5px solid #a9443d;
-}
-
-button {
-  padding: 13px 18px;
-
-  border: 0;
-  border-radius: 7px;
-
-  background: #172822;
-  color: #fff;
-
-  font: inherit;
-  font-weight: 800;
-
-  cursor: pointer;
-}
-
-.back {
-  display: inline-block;
-  margin-bottom: 25px;
-
-  color: inherit;
-  font-weight: 700;
-}
-
-</style>
+  <link
+    rel="manifest"
+    href="https://llamascout.com/icons/site.webmanifest"
+  >
 
 </head>
 
-<body>
 
-<main>
-
-<a
-  href="/"
-  class="back"
->
-  ← Back to Basecamp
-</a>
+<body class="admin-page">
 
 
-<h1>
-  Legacy Place Import
-</h1>
+<?php
+
+require_once
+    dirname(__DIR__)
+    . '/app/header.php';
+
+?>
 
 
-<p class="intro">
-
-  This temporary admin tool imports the existing
-  <code>data/places.json</code> records into the
-  new Llama Scout places database.
-
-</p>
+<main class="admin-main">
 
 
-<?php if ($errors): ?>
+  <!-- =====================================================
+       PAGE INTRO
+       ===================================================== -->
 
-  <?php foreach (
-      $errors as $error
-  ): ?>
+  <section class="admin-intro">
 
-    <div class="error">
+    <div class="admin-intro-row">
 
-      <?= e($error) ?>
+      <div class="admin-intro-copy">
+
+        <p class="admin-eyebrow">
+          Llama Scout Admin
+        </p>
+
+        <h1>
+          Import Places
+        </h1>
+
+        <p>
+          Import legacy place records from
+          <code>data/places.json</code>
+          into the Llama Scout database.
+        </p>
+
+      </div>
 
     </div>
 
-  <?php endforeach; ?>
+  </section>
 
 
-<?php elseif (
-    $_SERVER['REQUEST_METHOD']
-    !== 'POST'
-): ?>
+  <!-- =====================================================
+       ADMIN NAVIGATION
+       ===================================================== -->
+
+  <nav
+    class="admin-nav"
+    aria-label="Admin navigation"
+  >
+
+    <div class="admin-nav-inner">
+
+      <a href="/">
+
+        <i
+          class="fa-solid fa-campground"
+          aria-hidden="true"
+        ></i>
+
+        Basecamp
+
+      </a>
 
 
-  <div class="warning">
+      <a href="/places.php">
 
-    <strong>
-      Nothing has been imported yet.
-    </strong>
+        <i
+          class="fa-solid fa-location-dot"
+          aria-hidden="true"
+        ></i>
 
-    <br><br>
+        Places
 
-    Found
+      </a>
 
-    <strong>
-      <?= count($places) ?>
-    </strong>
 
-    place record<?= count($places) === 1
-        ? ''
-        : 's'
-    ?>
+      <a href="/submissions.php">
 
-    in the legacy JSON file.
+        <i
+          class="fa-solid fa-inbox"
+          aria-hidden="true"
+        ></i>
 
-    <br><br>
+        Submissions
 
-    The live site will continue using
-    <code>places.json</code> after this import.
+      </a>
+
+
+      <a href="/users.php">
+
+        <i
+          class="fa-solid fa-users"
+          aria-hidden="true"
+        ></i>
+
+        Users
+
+      </a>
+
+
+      <a
+        class="is-active"
+        href="/import-places.php"
+        aria-current="page"
+      >
+
+        <i
+          class="fa-solid fa-file-import"
+          aria-hidden="true"
+        ></i>
+
+        Import
+
+      </a>
+
+    </div>
+
+  </nav>
+
+
+  <!-- =====================================================
+       SOURCE STATUS
+       ===================================================== -->
+
+  <section class="admin-panel">
+
+    <div class="admin-panel-header">
+
+      <div>
+
+        <h2>
+          Legacy Place Import
+        </h2>
+
+        <p>
+          This tool migrates the existing JSON place
+          records into the current relational database.
+        </p>
+
+      </div>
+
+      <?php if (
+          !$errors
+      ): ?>
+
+        <span
+          class="
+            admin-badge
+            admin-badge--info
+          "
+        >
+
+          <?= count(
+              $places
+          ) ?>
+
+          Record<?= count(
+              $places
+          ) === 1
+              ? ''
+              : 's'
+          ?>
+
+        </span>
+
+      <?php endif; ?>
+
+    </div>
+
+
+    <?php if (
+        $errors
+    ): ?>
+
+
+      <?php foreach (
+          $errors as $error
+      ): ?>
+
+        <div
+          class="
+            admin-notice
+            admin-notice--error
+          "
+        >
+
+          <p>
+            <?= e(
+                $error
+            ) ?>
+          </p>
+
+        </div>
+
+      <?php endforeach; ?>
+
+
+    <?php elseif (
+        $_SERVER[
+            'REQUEST_METHOD'
+        ] !== 'POST'
+    ): ?>
+
+
+      <div
+        class="
+          admin-notice
+          admin-notice--warning
+        "
+      >
+
+        <p>
+
+          <strong>
+            Nothing has been imported by this run yet.
+          </strong>
+
+          <br><br>
+
+          The importer found
+
+          <strong>
+            <?= count(
+                $places
+            ) ?>
+          </strong>
+
+          place record<?= count(
+              $places
+          ) === 1
+              ? ''
+              : 's'
+          ?>
+
+          in
+          <code>data/places.json</code>.
+
+        </p>
+
+      </div>
+
+
+      <div class="admin-detail-list">
+
+
+        <div class="admin-detail-row">
+
+          <div class="admin-detail-label">
+            Source File
+          </div>
+
+          <div class="admin-detail-value">
+            <code>
+              data/places.json
+            </code>
+          </div>
+
+        </div>
+
+
+        <div class="admin-detail-row">
+
+          <div class="admin-detail-label">
+            Records Found
+          </div>
+
+          <div class="admin-detail-value">
+            <?= count(
+                $places
+            ) ?>
+          </div>
+
+        </div>
+
+
+        <div class="admin-detail-row">
+
+          <div class="admin-detail-label">
+            Existing Places
+          </div>
+
+          <div class="admin-detail-value">
+            Automatically skipped by slug
+          </div>
+
+        </div>
+
+
+        <div class="admin-detail-row">
+
+          <div class="admin-detail-label">
+            Import Method
+          </div>
+
+          <div class="admin-detail-value">
+            One database transaction per place
+          </div>
+
+        </div>
+
+
+      </div>
+
+
+      <div
+        class="
+          admin-notice
+          admin-notice--info
+        "
+        style="margin-top: 22px;"
+      >
+
+        <p>
+          Existing database records are not overwritten.
+          If a place with the same slug already exists,
+          that JSON record is skipped.
+        </p>
+
+      </div>
+
+
+      <form method="post">
+
+        <div class="admin-form-actions">
+
+          <button
+            type="submit"
+            class="admin-button"
+          >
+
+            <i
+              class="fa-solid fa-file-import"
+              aria-hidden="true"
+            ></i>
+
+            Import Places
+
+          </button>
+
+        </div>
+
+      </form>
+
+
+    <?php else: ?>
+
+
+      <!-- =================================================
+           IMPORT RESULTS
+           ================================================= -->
+
+      <?php
+
+      $successCount =
+          0;
+
+      $skippedCount =
+          0;
+
+      $errorCount =
+          0;
+
+
+      foreach (
+          $results as $result
+      ) {
+
+          if (
+              $result[
+                  'status'
+              ] === 'success'
+          ) {
+
+              $successCount++;
+
+          } elseif (
+              $result[
+                  'status'
+              ] === 'skipped'
+          ) {
+
+              $skippedCount++;
+
+          } elseif (
+              $result[
+                  'status'
+              ] === 'error'
+          ) {
+
+              $errorCount++;
+
+          }
+
+      }
+
+      ?>
+
+
+      <section
+        class="admin-stats"
+        aria-label="Import results"
+      >
+
+
+        <article class="admin-stat">
+
+          <span class="admin-stat-label">
+            Processed
+          </span>
+
+          <strong class="admin-stat-value">
+            <?= count(
+                $results
+            ) ?>
+          </strong>
+
+        </article>
+
+
+        <article class="admin-stat">
+
+          <span class="admin-stat-label">
+            Imported
+          </span>
+
+          <strong class="admin-stat-value">
+            <?= $successCount ?>
+          </strong>
+
+        </article>
+
+
+        <article class="admin-stat">
+
+          <span class="admin-stat-label">
+            Skipped
+          </span>
+
+          <strong class="admin-stat-value">
+            <?= $skippedCount ?>
+          </strong>
+
+        </article>
+
+
+        <article
+          class="
+            admin-stat
+            <?= $errorCount > 0
+                ? 'admin-stat--alert'
+                : ''
+            ?>
+          "
+        >
+
+          <span class="admin-stat-label">
+            Errors
+          </span>
+
+          <strong class="admin-stat-value">
+            <?= $errorCount ?>
+          </strong>
+
+        </article>
+
+
+      </section>
+
+
+      <div class="admin-section-header">
+
+        <div>
+
+          <h2>
+            Import Results
+          </h2>
+
+          <p>
+            Results from this import run.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <?php if (
+          $results
+      ): ?>
+
+
+        <div class="admin-detail-list">
+
+
+          <?php foreach (
+              $results as $result
+          ): ?>
+
+
+            <?php
+
+            $resultBadgeClass =
+                match (
+                    $result[
+                        'status'
+                    ]
+                ) {
+
+                    'success' =>
+                        'admin-badge--success',
+
+                    'skipped' =>
+                        'admin-badge--muted',
+
+                    'error' =>
+                        'admin-badge--danger',
+
+                    default =>
+                        'admin-badge--info',
+
+                };
+
+            ?>
+
+
+            <div class="admin-detail-row">
+
+              <div class="admin-detail-label">
+
+                <?= e(
+                    $result[
+                        'name'
+                    ]
+                ) ?>
+
+              </div>
+
+
+              <div class="admin-detail-value">
+
+                <span
+                  class="
+                    admin-badge
+                    <?= e(
+                        $resultBadgeClass
+                    ) ?>
+                  "
+                >
+
+                  <?= e(
+                      ucfirst(
+                          $result[
+                              'status'
+                          ]
+                      )
+                  ) ?>
+
+                </span>
+
+
+                <div
+                  style="margin-top: 7px;"
+                >
+
+                  <?= e(
+                      $result[
+                          'message'
+                      ]
+                  ) ?>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+          <?php endforeach; ?>
+
+
+        </div>
+
+
+      <?php else: ?>
+
+
+        <div class="admin-empty">
+
+          <p>
+            No import results were returned.
+          </p>
+
+        </div>
+
+
+      <?php endif; ?>
+
+
+      <div
+        class="admin-form-actions"
+        style="margin-top: 24px;"
+      >
+
+        <a
+          class="admin-button"
+          href="/places.php"
+        >
+
+          <i
+            class="fa-solid fa-location-dot"
+            aria-hidden="true"
+          ></i>
+
+          View Places
+
+        </a>
+
+
+        <a
+          class="
+            admin-button
+            admin-button--secondary
+          "
+          href="/import-places.php"
+        >
+
+          Run Import Again
+
+        </a>
+
+      </div>
+
+
+    <?php endif; ?>
+
+
+  </section>
+
+
+  <!-- =====================================================
+       IMPORT BEHAVIOR
+       ===================================================== -->
+
+  <section class="admin-panel">
+
+    <div class="admin-panel-header">
+
+      <div>
+
+        <h2>
+          What Gets Imported
+        </h2>
+
+        <p>
+          Each legacy place is migrated into the
+          current normalized place database.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div class="admin-detail-list">
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Place
+        </div>
+
+        <div class="admin-detail-value">
+          Identity, status, location, summaries,
+          land information, and verification date
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Site &amp; Access
+        </div>
+
+        <div class="admin-detail-value">
+          Site conditions, vehicle suitability,
+          road conditions, accessibility,
+          environment, safety, and warnings
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Sensory
+        </div>
+
+        <div class="admin-detail-value">
+          Daytime and nighttime ratings plus
+          detailed sensory conditions
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Connectivity
+        </div>
+
+        <div class="admin-detail-value">
+          Cell carriers, overall reception,
+          Starlink ratings, and testing notes
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Amenities
+        </div>
+
+        <div class="admin-detail-value">
+          Toilets, water, trash, fire rings,
+          tables, storage, showers, power,
+          and dump stations
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Experience
+        </div>
+
+        <div class="admin-detail-value">
+          Scenery, comfort, recommendations,
+          stargazing, remote work,
+          and sensory-retreat ratings
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Rules
+        </div>
+
+        <div class="admin-detail-value">
+          Seasons, camping rules, fees,
+          fire restrictions, land-use rules,
+          and nearby services
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Supporting Data
+        </div>
+
+        <div class="admin-detail-value">
+          Images, field notes, verification history,
+          and initial status history
+        </div>
+
+      </div>
+
+
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       FOOT ACTIONS
+       ===================================================== -->
+
+  <div class="admin-foot-actions">
+
+    <a href="/">
+      Basecamp
+    </a>
+
+    <a href="/places.php">
+      Places
+    </a>
+
+    <a href="/submissions.php">
+      Submissions
+    </a>
 
   </div>
 
 
-  <form method="post">
-
-    <button type="submit">
-      Import Places
-    </button>
-
-  </form>
-
-
-<?php else: ?>
-
-
-  <h2>
-    Import Results
-  </h2>
-
-
-  <?php foreach (
-      $results as $result
-  ): ?>
-
-    <div
-      class="
-        result
-        result-<?= e(
-            $result['status']
-        ) ?>
-      "
-    >
-
-      <strong>
-        <?= e(
-            $result['name']
-        ) ?>
-      </strong>
-
-      <?= e(
-          $result['message']
-      ) ?>
-
-    </div>
-
-  <?php endforeach; ?>
-
-
-<?php endif; ?>
-
-
 </main>
+
+
+<?php
+
+require_once
+    dirname(__DIR__)
+    . '/app/footer.php';
+
+?>
+
+
+<script
+  src="https://llamascout.com/js/header.js"
+></script>
+
 
 </body>
 
