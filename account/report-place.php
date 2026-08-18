@@ -1219,265 +1219,28 @@ if (
   href="https://llamascout.com/css/style.css"
 >
 
-<style>
-
-body {
-  margin: 0;
-
-  background: #f4efe6;
-  color: #172822;
-
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
-
-.page {
-  width: min(
-    760px,
-    calc(100% - 36px)
-  );
-
-  margin: 0 auto;
-
-  padding: 45px 0 80px;
-}
-
-.back {
-  display: inline-block;
-
-  margin-bottom: 24px;
-
-  color: inherit;
-
-  font-weight: 700;
-
-  text-decoration: none;
-}
-
-.card {
-  padding: 28px;
-
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(0,0,0,.09);
-
-  border-radius: 14px;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-
-  color: #707870;
-
-  font-size: .75rem;
-  font-weight: 800;
-
-  text-transform: uppercase;
-  letter-spacing: .06em;
-}
-
-h1 {
-  margin: 0 0 10px;
-}
-
-.place-name {
-  margin: 0 0 24px;
-
-  color: #667069;
-
-  line-height: 1.5;
-}
-
-.intro {
-  margin-bottom: 28px;
-
-  line-height: 1.65;
-}
-
-.notice {
-  padding: 15px 17px;
-
-  margin-bottom: 22px;
-
-  border-radius: 8px;
-
-  line-height: 1.55;
-}
-
-.notice-error {
-  background: #f8e3df;
-
-  border-left:
-    5px solid #9b443d;
-}
-
-.notice-success {
-  background: #e4f1e7;
-
-  border-left:
-    5px solid #436d50;
-}
-
-.field + .field {
-  margin-top: 20px;
-}
-
-label {
-  display: block;
-
-  margin-bottom: 7px;
-
-  font-weight: 800;
-}
-
-select,
-textarea,
-input[type="file"] {
-  width: 100%;
-
-  box-sizing: border-box;
-
-  font: inherit;
-}
-
-select,
-textarea {
-  padding: 12px 13px;
-
-  border:
-    1px solid
-    rgba(0,0,0,.2);
-
-  border-radius: 8px;
-
-  background: #fff;
-}
-
-textarea {
-  min-height: 160px;
-
-  resize: vertical;
-}
-
-input[type="file"] {
-  padding: 12px;
-
-  border:
-    1px dashed
-    rgba(0,0,0,.25);
-
-  border-radius: 8px;
-
-  background: #f9f7f2;
-}
-
-.help {
-  margin: 7px 0 0;
-
-  color: #737b76;
-
-  font-size: .82rem;
-
-  line-height: 1.5;
-}
-
-.photo-note {
-  margin: 10px 0 0;
-
-  padding: 12px 14px;
-
-  background: #f4f0e5;
-
-  border-radius: 7px;
-
-  font-size: .84rem;
-
-  line-height: 1.55;
-}
-
-button {
-  margin-top: 24px;
-
-  padding: 12px 17px;
-
-  border: 0;
-
-  border-radius: 8px;
-
-  background: #172822;
-  color: #fff;
-
-  font: inherit;
-  font-weight: 800;
-
-  cursor: pointer;
-}
-
-.success-actions {
-  display: flex;
-
-  flex-wrap: wrap;
-
-  gap: 10px;
-
-  margin-top: 20px;
-}
-
-.success-actions a {
-  display: inline-block;
-
-  padding: 10px 14px;
-
-  border-radius: 7px;
-
-  text-decoration: none;
-
-  font-weight: 800;
-}
-
-.primary-link {
-  background: #172822;
-
-  color: #fff;
-}
-
-.secondary-link {
-  color: #172822;
-
-  border:
-    1px solid
-    rgba(0,0,0,.15);
-}
-
-.report-number {
-  margin-top: 12px;
-
-  color: #68716c;
-
-  font-size: .84rem;
-}
-
-@media (
-  max-width: 600px
-) {
-
-  .card {
-    padding: 22px 18px;
-  }
-
-}
-
-</style>
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/account.css"
+>
+
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+>
+   
 
 </head>
 
-<body>
+<body class="account-body">
+
+<?php
+
+require_once
+    dirname(__DIR__)
+    . '/app/header.php';
+
+?>
 
 
 <main class="page">
@@ -1739,7 +1502,7 @@ button {
       ) ?></textarea>
 
 
-      <p class="help">
+      <p class="report- help">
 
         Include anything that could
         help verify the change, such
@@ -1752,7 +1515,7 @@ button {
     </div>
 
 
-    <div class="field">
+    <div class="report-field">
 
       <label for="photos">
         Photos
@@ -1768,7 +1531,7 @@ button {
       >
 
 
-      <p class="help">
+      <p class="report-help">
 
         Optional. Upload up to
         3 photos.
@@ -1783,7 +1546,7 @@ button {
       </p>
 
 
-      <div class="photo-note">
+      <div class="report-photo-note">
 
         Clear photos can help us
         verify a report faster.
@@ -1798,9 +1561,12 @@ button {
     </div>
 
 
-    <button type="submit">
-      Submit Report
-    </button>
+<button
+  type="submit"
+  class="report-submit"
+>
+  Submit Report
+</button>
 
 
   </form>
@@ -1814,7 +1580,10 @@ button {
 
 </main>
 
-
+<script
+  src="https://llamascout.com/js/header.js"
+></script>
+   
 </body>
 
 </html>
