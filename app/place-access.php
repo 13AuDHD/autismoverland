@@ -306,3 +306,47 @@ function visitor_place_view(array $place): array
 
     return $place;
 }
+
+/* =========================================================
+   LEGACY API COMPATIBILITY
+   ========================================================= */
+
+/*
+ * api/places.php still calls these two function names.
+ * Keep them as compatibility wrappers while the API is
+ * migrated to the three-level access model.
+ */
+
+function user_can_view_protected_place_data(
+    ?array $user = null
+): bool {
+
+    return place_access_level(
+        $user
+    ) === 'member';
+}
+
+
+function public_place_preview(
+    array $place
+): array {
+
+    $level =
+        place_access_level();
+
+    if ($level === 'free') {
+        return free_place_view(
+            $place
+        );
+    }
+
+    if ($level === 'member') {
+        return member_place_view(
+            $place
+        );
+    }
+
+    return visitor_place_view(
+        $place
+    );
+}
