@@ -48,18 +48,19 @@ async function initPlacePage() {
   try {
 
     const response =
-await fetch(
-  "/api/places.php",
-  {
-    cache: "no-store"
-  }
-);
+      await fetch(
+        "/api/places.php",
+        {
+          credentials: "include",
+          cache: "no-store"
+        }
+      );
 
 
     if (!response.ok) {
 
       throw new Error(
-        "Could not load places.json"
+        "Could not load places."
       );
 
     }
@@ -185,7 +186,7 @@ function renderPlace(
       <div class="container place-layout">
 
 
-       <div class="place-main">
+        <div class="place-main">
           
           ${renderAbout(place)}
           
@@ -223,12 +224,12 @@ function renderPlace(
 
           ${renderFieldNotes(place)}
 
-         ${renderGallery(
-           place,
-           remainingImages
-         )}
+          ${renderGallery(
+            place,
+            remainingImages
+          )}
          
-         ${renderReportProblem(place)}
+          ${renderReportProblem(place)}
 
         </div>
 
@@ -254,6 +255,8 @@ function renderPlace(
   initSavePlaceButton();
 
 }
+
+
 
 /* =========================================================
    MEMBERSHIP GATE
@@ -311,6 +314,7 @@ function renderMembershipGate(place) {
 }
 
 
+
 /* =========================================================
    REPORT A PROBLEM
    ========================================================= */
@@ -365,6 +369,7 @@ function renderReportProblem(place) {
     </section>
   `;
 }
+
 
 
 /* =========================================================
@@ -437,31 +442,32 @@ function renderHero(
 
 
           ${verified ? `
-  <span class="place-verified">
-    <i class="fa-solid fa-circle-check"></i>
-    Llama Scouted
-  </span>
-` : ""}
+            <span class="place-verified">
+              <i class="fa-solid fa-circle-check"></i>
+              Llama Scouted
+            </span>
+          ` : ""}
 
-<div class="place-save-area">
 
-  <button
-    type="button"
-    class="place-save-button"
-    data-save-place="${escapeHTML(
-      place.slug || place.id
-    )}"
-  >
+          <div class="place-save-area">
 
-    <i class="fa-regular fa-bookmark"></i>
+            <button
+              type="button"
+              class="place-save-button"
+              data-save-place="${escapeHTML(
+                place.slug || place.id
+              )}"
+            >
 
-    <span>
-      Save Place
-    </span>
+              <i class="fa-regular fa-bookmark"></i>
 
-  </button>
+              <span>
+                Save Place
+              </span>
 
-</div>
+            </button>
+
+          </div>
 
         </div>
 
@@ -604,10 +610,6 @@ function buildAutomaticWarnings(place) {
 
 
 
-  /* =======================================================
-     MANUAL WARNINGS
-     ======================================================= */
-
   const manualWarnings =
     place.warnings || {};
 
@@ -629,11 +631,6 @@ function buildAutomaticWarnings(place) {
       }
     );
 
-
-
-  /* =======================================================
-     CONNECTIVITY
-     ======================================================= */
 
   if (
     place.connectivity?.overall === 1
@@ -658,11 +655,6 @@ function buildAutomaticWarnings(place) {
 
   }
 
-
-
-  /* =======================================================
-     SITE / VEHICLE
-     ======================================================= */
 
   if (
     place.site?.tentCampingSuitable === false
@@ -710,11 +702,6 @@ function buildAutomaticWarnings(place) {
 
   }
 
-
-
-  /* =======================================================
-     ROAD ACCESS
-     ======================================================= */
 
   if (
     place.access?.sedanAccessible === false
@@ -796,11 +783,6 @@ function buildAutomaticWarnings(place) {
   }
 
 
-
-  /* =======================================================
-     SENSORY
-     ======================================================= */
-
   if (
     place.sensory?.daytime?.privacy === 1
   ) {
@@ -862,11 +844,6 @@ function buildAutomaticWarnings(place) {
   }
 
 
-
-  /* =======================================================
-     AMENITIES
-     ======================================================= */
-
   if (
     place.amenities?.toilets === false
   ) {
@@ -899,11 +876,6 @@ function buildAutomaticWarnings(place) {
 
   }
 
-
-
-  /* =======================================================
-     SAFETY
-     ======================================================= */
 
   if (
     place.safety?.cliffExposure === true
@@ -965,11 +937,6 @@ function buildAutomaticWarnings(place) {
   }
 
 
-
-  /* =======================================================
-     SORT HIGH PRIORITY FIRST
-     ======================================================= */
-
   warnings.sort(
     (a, b) => {
 
@@ -995,8 +962,6 @@ function buildAutomaticWarnings(place) {
   return warnings;
 
 }
-
-
 
 /* =========================================================
    SENSORY PROFILE
@@ -1160,11 +1125,11 @@ function renderSensory(place) {
       "fa-smog"
     ),
 
-   ratingCard(
-     "Strong odors",
-     sensory.strongOdors,
-     "fa-wind"
-   ),
+    ratingCard(
+      "Strong odors",
+      sensory.strongOdors,
+      "fa-wind"
+    ),
 
     ratingCard(
       "Visual exposure",
@@ -1734,8 +1699,6 @@ function renderConnectivity(place) {
   );
 
 }
-
-
 
 /* =========================================================
    AMENITIES
@@ -2382,8 +2345,6 @@ function renderRecommendedFor(place) {
 
 }
 
-
-
 /* =========================================================
    SEASON
    ========================================================= */
@@ -2865,8 +2826,6 @@ function renderGallery(
 
 }
 
-
-
 /* =========================================================
    SIDEBAR
    ========================================================= */
@@ -2881,6 +2840,20 @@ function renderQuickInfo(place) {
     place.regulations || {};
 
 
+  const elevation =
+    isLockedPlaceValueSafe(
+      location.elevationFeet
+    )
+      ? location.elevationFeet
+      : (
+          location.elevationFeet != null
+            ? `${Number(
+                location.elevationFeet
+              ).toLocaleString()} ft`
+            : null
+        );
+
+
   return `
 
     <div class="place-sidebar-card">
@@ -2892,11 +2865,7 @@ function renderQuickInfo(place) {
 
       ${fact(
         "Elevation",
-        location.elevationFeet != null
-          ? `${Number(
-              location.elevationFeet
-            ).toLocaleString()} ft`
-          : null
+        elevation
       )}
 
 
@@ -2953,14 +2922,25 @@ function renderQuickInfo(place) {
 
             <p class="place-coordinates">
 
-              <i class="fa-solid fa-location-crosshairs"></i>
+              <i
+                class="fa-solid fa-location-crosshairs"
+                aria-hidden="true"
+              ></i>
 
-              ${Number(
-                location.latitude
-              ).toFixed(5)},
-              ${Number(
-                location.longitude
-              ).toFixed(5)}
+              ${
+                place.exactLocationAvailable === true
+                  ? `
+                    ${Number(
+                      location.latitude
+                    ).toFixed(5)},
+                    ${Number(
+                      location.longitude
+                    ).toFixed(5)}
+                  `
+                  : `
+                    Approximate location
+                  `
+              }
 
             </p>
 
@@ -2971,7 +2951,7 @@ function renderQuickInfo(place) {
 
       <a
         class="btn place-sidebar-map"
-        href="map.html?place=${encodeURIComponent(
+        href="/map.php?place=${encodeURIComponent(
           place.slug
         )}"
       >
@@ -3278,8 +3258,6 @@ function makeDots(value) {
 
 }
 
-
-
 /* =========================================================
    FORMATTING HELPERS
    ========================================================= */
@@ -3540,11 +3518,38 @@ function hasAnyKnownValue(object) {
 
 
 
+function isLockedPlaceValueSafe(value) {
+
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    value.locked === true
+  );
+
+}
+
+
+
 function hasCoordinates(place) {
 
   return (
-    place.location?.latitude != null &&
-    place.location?.longitude != null
+    !isLockedPlaceValueSafe(
+      place.location?.latitude
+    ) &&
+    !isLockedPlaceValueSafe(
+      place.location?.longitude
+    ) &&
+    Number.isFinite(
+      Number(
+        place.location?.latitude
+      )
+    ) &&
+    Number.isFinite(
+      Number(
+        place.location?.longitude
+      )
+    )
   );
 
 }
@@ -3612,7 +3617,7 @@ function renderNotFound(page) {
 
       <a
         class="btn"
-        href="places.html"
+        href="/places.php"
       >
         Browse Places
       </a>
@@ -3622,7 +3627,6 @@ function renderNotFound(page) {
   `;
 
 }
-
 
 /* =========================================================
    SAVE PLACE
@@ -3710,6 +3714,7 @@ async function initSavePlaceButton() {
 }
 
 
+
 async function toggleSavedPlace(event) {
 
   const button =
@@ -3718,6 +3723,7 @@ async function toggleSavedPlace(event) {
 
   const placeId =
     button.dataset.savePlace;
+
 
   const csrf =
     button.dataset.csrf;
@@ -3736,10 +3742,12 @@ async function toggleSavedPlace(event) {
     const body =
       new URLSearchParams();
 
+
     body.set(
       "place",
       placeId
     );
+
 
     body.set(
       "csrf_token",
@@ -3752,6 +3760,7 @@ async function toggleSavedPlace(event) {
         "/save-place.php",
         {
           method: "POST",
+
           credentials: "include",
 
           headers: {
@@ -3791,6 +3800,7 @@ async function toggleSavedPlace(event) {
       error
     );
 
+
   } finally {
 
     button.disabled = false;
@@ -3798,6 +3808,7 @@ async function toggleSavedPlace(event) {
   }
 
 }
+
 
 
 function updateSavePlaceButton(
@@ -3811,16 +3822,19 @@ function updateSavePlaceButton(
       "is-saved"
     );
 
+
     button.innerHTML = `
       <i class="fa-solid fa-bookmark"></i>
       <span>Saved</span>
     `;
+
 
   } else {
 
     button.classList.remove(
       "is-saved"
     );
+
 
     button.innerHTML = `
       <i class="fa-regular fa-bookmark"></i>
