@@ -126,25 +126,25 @@ $adminBase =
     >
 
       <a
-        href="<?= $siteBase ?>/map.html"
+        href="<?= $siteBase ?>/map.php"
       >
         Map
       </a>
 
       <a
-        href="<?= $siteBase ?>/places.html"
+        href="<?= $siteBase ?>/places.php"
       >
         Places
       </a>
 
       <a
-        href="<?= $siteBase ?>/blog.html"
+        href="<?= $siteBase ?>/blog.php"
       >
         Blog
       </a>
 
       <a
-        href="<?= $siteBase ?>/about.html"
+        href="<?= $siteBase ?>/about.php"
       >
         About
       </a>
@@ -211,25 +211,25 @@ $adminBase =
     <!-- MAIN SITE -->
 
     <a
-      href="<?= $siteBase ?>/map.html"
+      href="<?= $siteBase ?>/map.php"
     >
       Map
     </a>
 
     <a
-      href="<?= $siteBase ?>/places.html"
+      href="<?= $siteBase ?>/places.php"
     >
       Places
     </a>
 
     <a
-      href="<?= $siteBase ?>/blog.html"
+      href="<?= $siteBase ?>/blog.php"
     >
       Blog
     </a>
 
     <a
-      href="<?= $siteBase ?>/about.html"
+      href="<?= $siteBase ?>/about.php"
     >
       About
     </a>
