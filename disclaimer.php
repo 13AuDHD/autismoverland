@@ -1,0 +1,571 @@
+<?php
+
+declare(strict_types=1);
+
+?>
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Outdoor Disclaimer | Llama Scout</title>
+
+  <meta
+    name="description"
+    content="Important safety and accuracy information about Llama Scout campsite, road, accessibility, sensory, connectivity, and outdoor travel information."
+  >
+
+
+  <script src="/js/privacy.js"></script>
+
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="/css/style.css"
+  >
+
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="/icons/apple-touch-icon.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="/icons/favicon-32x32.png"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="/icons/favicon-16x16.png"
+  >
+
+  <link
+    rel="icon"
+    href="/icons/favicon.ico"
+    sizes="any"
+  >
+
+  <link
+    rel="manifest"
+    href="/icons/site.webmanifest"
+  >
+
+</head>
+
+
+<body>
+
+
+<?php
+
+require_once
+    __DIR__
+    . '/app/header.php';
+
+?>
+
+
+<main class="legal-page">
+
+
+  <section class="legal-hero">
+
+    <div class="legal-container">
+
+      <p class="eyebrow">
+        Know Before You Go
+      </p>
+
+      <h1>
+        Outdoor Disclaimer
+      </h1>
+
+      <p class="legal-updated">
+        Last updated: August 13, 2026
+      </p>
+
+      <p class="legal-lede">
+        Llama Scout is designed to help you arrive better informed,
+        not to replace current conditions, official information,
+        personal judgment, or common sense.
+      </p>
+
+    </div>
+
+  </section>
+
+
+  <section class="legal-content">
+
+    <div class="legal-container">
+
+
+      <section class="legal-section">
+
+        <h2>
+          Conditions Can Change
+        </h2>
+
+        <p>
+          Outdoor places do not stay the same.
+        </p>
+
+        <p>
+          Roads can wash out, trees can fall, gates can close,
+          campsites can disappear, trails can erode, rivers can rise,
+          snow and mud can make roads impassable, and land-management
+          rules can change after a location was last scouted.
+        </p>
+
+        <p>
+          A Llama Scout report describes conditions that were observed
+          or known at a particular point in time. It is not a guarantee
+          that those same conditions exist when you arrive.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Check Current Information
+        </h2>
+
+        <p>
+          Before traveling, check current information from appropriate
+          official sources whenever it could affect your safety, access,
+          or legal use of an area.
+        </p>
+
+        <p>
+          This may include:
+        </p>
+
+        <ul>
+          <li>Weather forecasts and severe-weather alerts</li>
+          <li>Road and trail conditions</li>
+          <li>Seasonal closures</li>
+          <li>Wildfire activity and fire restrictions</li>
+          <li>Flooding or monsoon conditions</li>
+          <li>Permits and fees</li>
+          <li>Camping rules and stay limits</li>
+          <li>Vehicle restrictions</li>
+          <li>Land-management notices</li>
+          <li>Emergency alerts</li>
+        </ul>
+
+        <p>
+          The National Park Service similarly advises visitors to check
+          current conditions and alerts because weather, trails, access,
+          and hazards can change rapidly.
+
+          <a
+            href="https://home.nps.gov/romo/planyourvisit/trail_conditions.htm"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            NPS current conditions guidance
+          </a>
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          YOU Are Responsible for Your Own Safety!
+        </h2>
+
+        <p>
+          Camping, hiking, overlanding, driving forest roads, and
+          traveling in remote places involve real dangerous risks.
+        </p>
+
+        <p>
+          These can include becoming stranded, vehicle damage, severe
+          weather, wildfire, flash flooding, falling trees, falling
+          rocks, wildlife, altitude sickness, difficult terrain, lack of cell
+          service, and delayed emergency response.
+        </p>
+
+        <p>
+          You are soley responsible for deciding whether a place, route,
+          activity, or condition is appropriate for you, your vehicle,
+          your equipment, and the people traveling with you.
+        </p>
+
+        <p>
+          Public-land safety guidance likewise emphasizes that visitors
+          need to plan for changing conditions and be prepared to turn
+          around when conditions are not safe.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Road and Vehicle Ratings Are Not Guarantees
+        </h2>
+
+        <p>
+          Road difficulty, clearance, vehicle suitability, and stress
+          ratings are observations intended to help you understand what
+          a route was like when it was evaluated.
+        </p>
+
+        <p>
+          They are not guarantees that your vehicle can safely complete
+          the route.
+        </p>
+
+        <p>
+          Vehicle capability depends on many factors, including:
+        </p>
+
+        <ul>
+          <li>Ground clearance</li>
+          <li>Tires</li>
+          <li>Drivetrain</li>
+          <li>Wheelbase</li>
+          <li>Vehicle weight and load</li>
+          <li>Driver experience</li>
+          <li>Weather</li>
+          <li>Mud, snow, rocks, washouts, or erosion</li>
+          <li>Recent road maintenance or damage</li>
+        </ul>
+
+        <p>
+          If a road looks unsafe when you arrive, do not rely on an old
+          rating just because Llama Scout previously reported it as easy.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Connectivity Can Fail
+        </h2>
+
+        <p>
+          Cellular and satellite connectivity information can change
+          based on carrier, device, terrain, vegetation, weather,
+          network congestion, satellite visibility, equipment, and
+          changes made by the service provider.
+        </p>
+
+        <p>
+          A strong signal observed during one visit does not guarantee
+          service during another.
+        </p>
+
+        <p>
+          Do not rely on Llama Scout connectivity ratings as your only
+          emergency communication plan. The National Park Service also
+          warns visitors not to depend solely on cell service in remote
+          areas.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Accessibility Information Is Observational
+        </h2>
+
+        <p>
+          Llama Scout includes accessibility information because details
+          about terrain, parking, walking surfaces, toilets, mobility
+          devices, and step-free access can make a major difference when
+          deciding whether a place is usable.
+        </p>
+
+        <p>
+          Those observations are not formal accessibility certifications
+          and do not guarantee that a place will meet a particular
+          person's needs.
+        </p>
+
+        <p>
+          Weather, erosion, vegetation, temporary obstacles, maintenance, closures,
+          or changes to facilities can also alter accessibility after a
+          place is scouted.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Sensory Ratings Are Subjective
+        </h2>
+
+        <p>
+          Noise, privacy, odors, crowds, light, traffic, predictability,
+          and sensory comfort can vary greatly from one person to another.
+        </p>
+
+        <p>
+          They can also change by hour, day, season, weather, nearby
+          visitors, generators, wildlife, traffic, and other conditions.
+        </p>
+
+        <p>
+          Sensory ratings are intended to give you more information than
+          most outdoor guides provide. They are not promises that you will
+          experience a place the exact same way someone else did.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Coordinates and Maps Can Be Wrong
+        </h2>
+
+        <p>
+          Coordinates, maps, road names, boundaries, and directions may
+          contain errors or become outdated and change.
+        </p>
+
+        <p>
+          A map showing a road does not necessarily mean that road is open,
+          public, maintained, legal to travel, or suitable for your vehicle.
+        </p>
+
+        <p>
+          Respect signs, gates, closures, private property, permits, and
+          instructions from the land manager.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Water and Natural Resources
+        </h2>
+
+        <p>
+          Streams, springs, lakes, fountains, hoses, spigots, or other water sources
+          mentioned on Llama Scout should not automatically be assumed to
+          provide safe drinking water.
+        </p>
+
+        <p>
+          Treat or filter natural water appropriately and safely unless an official
+          source specifically identifies it as "potable" drinking water.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Wildlife
+        </h2>
+
+        <p>
+          Wildlife observations are never guarantees about what animals
+          will or will not be present.
+        </p>
+
+        <p>
+          Store food properly, maintain appropriate distance from wildlife,
+          and follow local food-storage and wildlife regulations.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Emergency Situations
+        </h2>
+
+        <p>
+          Llama Scout is not an emergency service and does not provide
+          emergency monitoring, rescue, dispatch, medical advice, or
+          real-time hazard warnings.
+        </p>
+
+        <p>
+          If you are traveling somewhere remote, have an emergency plan
+          before you go. Tell someone where you are going and when you
+          expect to return, and consider communication methods that do not
+          depend entirely on cellular coverage. This is also consistent
+          with current NPS backcountry safety guidance.
+
+          <a
+            href="https://www.nps.gov/articles/hiking-safety.htm"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            NPS hiking safety guidance
+          </a>
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Llama Scouted Does Not Mean Permanently Verified
+        </h2>
+
+        <p>
+          When Llama Scout marks a location as
+          <strong>Llama Scouted</strong>, it means the location was
+          personally visited by a Llama Scout team member and observations
+          were recorded by a trusted source.
+        </p>
+
+        <p>
+          It does not mean Llama Scout continuously monitors that place or
+          guarantees its current condition.
+        </p>
+
+        <p>
+          Check the Scout Report's visit or last-scouted date and consider
+          how much time has passed since that observation.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Use Your Judgment
+        </h2>
+
+        <p>
+          If what you see in person conflicts with what you read on Llama
+          Scout, trust the conditions in front of you.
+        </p>
+
+        <p>
+          Turn around, change plans, or leave whenever conditions do not
+          feel safe or appropriate.
+        </p>
+
+        <p>
+          The goal of Llama Scout is to reduce surprises, not pretend the
+          outdoors can ever be completely predictable.
+        </p>
+
+      </section>
+
+
+      <section class="legal-section">
+
+        <h2>
+          Relationship to the Terms of Use
+        </h2>
+
+        <p>
+          This Outdoor Disclaimer supplements the
+          <a href="/terms.php">Llama Scout Terms of Use</a>.
+        </p>
+
+        <p>
+          The Terms of Use contain additional provisions regarding website
+          use, user submissions, intellectual property, warranties, and
+          limitations of liability.
+        </p>
+
+      </section>
+
+
+      <div class="legal-related">
+
+        <a href="/terms.php">
+          Terms of Use
+        </a>
+
+        <a href="/privacy.php">
+          Privacy Policy
+        </a>
+
+        <a href="/privacy-choices.php">
+          Privacy Choices
+        </a>
+
+        <a href="/accessibility.php">
+          Accessibility
+        </a>
+
+      </div>
+
+
+    </div>
+
+  </section>
+
+
+</main>
+
+
+<?php
+
+require_once
+    __DIR__
+    . '/app/footer.php';
+
+?>
+
+
+<script src="/js/header.js"></script>
+
+
+</body>
+
+</html>
