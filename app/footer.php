@@ -134,19 +134,19 @@ $footerAccountBase =
           Explore
         </h2>
 
-        <a href="<?= $footerSiteBase ?>/map.html">
+        <a href="<?= $footerSiteBase ?>/map.php">
           Map
         </a>
 
-        <a href="<?= $footerSiteBase ?>/places.html">
+        <a href="<?= $footerSiteBase ?>/places.php">
           Places
         </a>
 
-        <a href="<?= $footerSiteBase ?>/blog.html">
+        <a href="<?= $footerSiteBase ?>/blog.php">
           Field Guide
         </a>
 
-        <a href="<?= $footerSiteBase ?>/about.html">
+        <a href="<?= $footerSiteBase ?>/about.php">
           About
         </a>
 
