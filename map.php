@@ -36,7 +36,13 @@
 
 <body>
 
-  <div id="site-header"></div>
+<?php
+
+require_once
+    __DIR__
+    . '/app/header.php';
+
+?>
 
 
   <main class="map-page">
@@ -82,7 +88,7 @@
             <input
               id="map-search"
               type="search"
-              placeholder="Search places, roads, towns..."
+              placeholder="Search places, towns, regions..."
             >
 
           </label>
@@ -1113,17 +1119,26 @@
   </main>
 
 
-  <div id="site-footer"></div>
+<?php
+
+require_once
+    __DIR__
+    . '/app/footer.php';
+
+?>
 
 
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  ></script>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+></script>
 
-  <script src="js/main.js"></script>
+<script
+  src="/js/header.js"
+></script>
 
-  <script src="js/map.js"></script>
-
+<script
+  src="/js/map.js"
+></script>
 </body>
 
 </html> 
