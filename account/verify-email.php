@@ -22,6 +22,10 @@ $token =
     );
 
 
+/* =========================================================
+   VERIFY TOKEN
+   ========================================================= */
+
 if ($token !== '') {
 
     $tokenHash =
@@ -76,10 +80,12 @@ if ($token !== '') {
         } else {
 
             /*
-             * Only a newly registered pending account
-             * becomes active here. Existing active,
-             * suspended, or disabled account states
-             * are preserved during an email change.
+             * Only newly registered pending accounts
+             * become active here.
+             *
+             * Existing active, suspended, or disabled
+             * account states are preserved during
+             * an email-address change.
              */
 
             $userStmt =
@@ -154,7 +160,6 @@ if ($token !== '') {
 
             $success =
                 'Your email has been verified.';
-
         }
 
 
@@ -170,8 +175,8 @@ if ($token !== '') {
 
 
         error_log(
-            'Llama Scout verification error: ' .
-            $exception->getMessage()
+            'Llama Scout verification error: '
+            . $exception->getMessage()
         );
 
 
@@ -180,6 +185,10 @@ if ($token !== '') {
     }
 }
 
+
+/* =========================================================
+   CURRENT STATE
+   ========================================================= */
 
 $user =
     current_user();
@@ -194,78 +203,109 @@ $alreadyVerified =
     );
 
 ?>
+
 <!doctype html>
 
 <html lang="en">
 
 <head>
 
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
-<title>
-  Verify Email | Llama Scout
-</title>
+  <title>
+    Verify Email | Llama Scout
+  </title>
 
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/style.css"
->
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
 
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/account.css"
->
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/style.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/account.css"
+  >
 
 </head>
 
+
 <body class="account-auth-body">
 
-<main class="verify-page">
 
-  <a href="https://llamascout.com">
+<main class="account-auth">
+
+
+  <a
+    href="https://llamascout.com"
+    aria-label="Llama Scout home"
+  >
 
     <img
       src="https://llamascout.com/images/logo.png"
       alt="Llama Scout"
-      class="verify-logo"
+      class="account-auth-logo"
     >
 
   </a>
 
 
-  <section class="verify-card">
+  <section class="account-auth-card">
+
 
     <h1>
       Verify your email
     </h1>
 
 
-    <?php if ($success): ?>
+    <?php if (
+        $success
+    ): ?>
 
-      <div class="verify-success">
+      <div
+        class="
+          account-status
+          account-status--success
+        "
+      >
+
         <?= htmlspecialchars(
             $success,
             ENT_QUOTES,
             'UTF-8'
         ) ?>
+
       </div>
 
     <?php endif; ?>
 
 
-    <?php if ($error): ?>
+    <?php if (
+        $error
+    ): ?>
 
-      <div class="verify-error">
+      <div
+        class="
+          account-status
+          account-status--error
+        "
+      >
+
         <?= htmlspecialchars(
             $error,
             ENT_QUOTES,
             'UTF-8'
         ) ?>
+
       </div>
 
     <?php endif; ?>
@@ -275,51 +315,67 @@ $alreadyVerified =
         $alreadyVerified
     ): ?>
 
-      <p>
+
+      <p class="account-auth-intro">
         Your email address is verified.
+        Your Llama Scout account is ready to use.
       </p>
 
+
       <a
-        class="verify-button"
+        class="primary-button"
         href="/"
       >
         Go to My Account
       </a>
 
 
-    <?php elseif (!$error): ?>
+    <?php elseif (
+        !$error
+    ): ?>
 
-      <p>
 
-        Check your inbox for the
-        verification link we sent you.
-
+      <p class="account-auth-intro">
+        Check your inbox for the verification
+        link we sent you.
       </p>
 
+
       <a
-        class="verify-button"
+        class="primary-button"
         href="resend-verification.php"
       >
         Resend Verification Email
       </a>
 
-    <?php endif; ?>
-
-
-    <?php if ($error): ?>
-
-      <a
-        class="verify-link"
-        href="resend-verification.php"
-      >
-        Send a new verification link
-      </a>
 
     <?php endif; ?>
+
+
+    <?php if (
+        $error
+    ): ?>
+
+
+      <p class="account-auth-footer">
+
+        <a
+          href="resend-verification.php"
+        >
+          Send a new verification link
+        </a>
+
+      </p>
+
+
+    <?php endif; ?>
+
 
   </section>
 
+
 </main>
+
 
 </body>
 
