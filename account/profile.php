@@ -722,6 +722,8 @@ require_once dirname(__DIR__) . '/app/header.php';
 
 </main>
 
+    <script src="https://llamascout.com/js/header.js"></script>
+    
 </body>
 
 </html>
