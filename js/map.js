@@ -2355,79 +2355,83 @@ function buildPopup(
     <article class="map-popup">
 
 
-<div class="map-popup-hero">
+      <div class="map-popup-hero">
 
-  ${imageHTML}
+        ${imageHTML}
 
-  <div class="map-popup-hero-overlay">
+        <div class="map-popup-hero-overlay">
 
-    <span class="map-popup-type">
+          <span class="map-popup-type">
 
-      ${escapeHTML(
-        formatLabel(
-          place.type
-        )
-      )}
+            ${escapeHTML(
+              formatLabel(
+                place.type
+              )
+            )}
 
-    </span>
+          </span>
 
-    <h2>
+          <h2>
 
-      ${escapeHTML(
-        place.name
-      )}
+            ${escapeHTML(
+              place.name
+            )}
 
-    </h2>
+          </h2>
 
-  </div>
+        </div>
 
-</div>
-
-
-<div class="map-popup-body">
-
-<div class="map-popup-meta">
-
-  ${locationName
-    ? `
-
-      <span>
-
-        <i
-          class="fa-solid fa-location-dot"
-          aria-hidden="true"
-        ></i>
-
-        ${escapeHTML(
-          locationName
-        )}
-
-      </span>
-
-    `
-    : ""
-  }
+      </div>
 
 
-  ${approximateLocation
-    ? `
+      <div class="map-popup-body">
 
-      <span>
 
-        <i
-          class="fa-solid fa-circle-info"
-          aria-hidden="true"
-        ></i>
+        <div class="map-popup-meta">
 
-        Approximate location
+          ${
+            locationName
+              ? `
 
-      </span>
+                <span>
 
-    `
-    : ""
-  }
+                  <i
+                    class="fa-solid fa-location-dot"
+                    aria-hidden="true"
+                  ></i>
 
-</div>
+                  ${escapeHTML(
+                    locationName
+                  )}
+
+                </span>
+
+              `
+              : ""
+          }
+
+
+          ${
+            approximateLocation
+              ? `
+
+                <span>
+
+                  <i
+                    class="fa-solid fa-circle-info"
+                    aria-hidden="true"
+                  ></i>
+
+                  Approximate location
+
+                </span>
+
+              `
+              : ""
+          }
+
+        </div>
+
 
         <div class="map-popup-ratings">
 
@@ -2499,7 +2503,6 @@ function buildPopup(
   `;
 
 }
-
 
 /* =========================================================
    POPUP RATINGS
