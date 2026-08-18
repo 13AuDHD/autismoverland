@@ -247,184 +247,14 @@ function e(string $value): string
   href="https://llamascout.com/css/style.css"
 >
 
-<style>
-
-body {
-  min-height: 100vh;
-  margin: 0;
-  background: #f4efe6;
-}
-
-.account-auth {
-  width: min(
-    520px,
-    calc(
-      100% - 36px
-    )
-  );
-
-  margin: 0 auto;
-
-  padding:
-    48px 0
-    70px;
-}
-
-.account-auth-logo {
-  display: block;
-
-  width: min(
-    340px,
-    90%
-  );
-
-  margin:
-    0 auto
-    28px;
-}
-
-.account-auth-card {
-  padding: 28px;
-  background: #fff;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .1
-    );
-
-  border-radius: 14px;
-
-  box-shadow:
-    0 12px 30px
-    rgba(
-      0,
-      0,
-      0,
-      .08
-    );
-}
-
-.account-auth h1 {
-  margin:
-    0 0
-    10px;
-
-  font-size: 2rem;
-}
-
-.account-auth-intro {
-  margin:
-    0 0
-    26px;
-
-  color: #666;
-
-  line-height: 1.6;
-}
-
-.account-field {
-  display: grid;
-  gap: 7px;
-  margin-bottom: 18px;
-}
-
-.account-field label {
-  font-weight: 700;
-}
-
-.account-field input {
-  width: 100%;
-  box-sizing: border-box;
-
-  padding:
-    13px 14px;
-
-  border:
-    1px solid
-    rgba(
-      0,
-      0,
-      0,
-      .18
-    );
-
-  border-radius: 7px;
-
-  font: inherit;
-}
-
-.account-error,
-.account-success {
-  margin:
-    0 0
-    22px;
-
-  padding:
-    14px 16px;
-
-  border-radius: 8px;
-
-  line-height: 1.55;
-}
-
-.account-error {
-  border:
-    1px solid
-    #b64b42;
-
-  background: #fff3f1;
-}
-
-.account-success {
-  border:
-    1px solid
-    #4f765d;
-
-  background: #eef7f0;
-}
-
-.account-submit {
-  width: 100%;
-
-  margin-top: 4px;
-
-  padding:
-    14px 18px;
-
-  border: 0;
-  border-radius: 7px;
-
-  background: #172822;
-  color: #fff;
-
-  font: inherit;
-  font-weight: 800;
-
-  cursor: pointer;
-}
-
-.account-auth-footer {
-  margin:
-    22px 0
-    0;
-
-  text-align: center;
-}
-
-.account-auth-footer a {
-  color: inherit;
-  font-weight: 700;
-}
-
-</style>
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/account.css"
+>
 
 </head>
 
-<body>
+<body class="account-auth-body">
 
 <main class="account-auth">
 
@@ -457,7 +287,7 @@ body {
         to a Llama Scout account, a
         password reset link has been sent.
 
-        Check your inbox and spam folder.
+        Check your inbox and spam/junk folder.
 
       </div>
 
