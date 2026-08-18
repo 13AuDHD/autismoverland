@@ -1758,22 +1758,12 @@ function buildPopup(place) {
           approximateLocation
             ? `
               <div class="map-popup-approximate">
-
-                <p>
-                  <i class="fa-solid fa-circle-info"></i>
-                  <strong>Approximate location</strong>
-                </p>
-
-                <span>
-                  This marker shows the general area only.
-                  Exact campsite location is available to members.
-                </span>
-
+                <i class="fa-solid fa-circle-info"></i>
+                <strong>Approximate location</strong>
               </div>
             `
             : ""
         }
-
 
         <div class="map-popup-ratings">
 
