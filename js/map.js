@@ -99,28 +99,12 @@ async function initMap() {
       );
 
 
-    /*
-     * Every place returned by the API
-     * is produced for the same current user,
-     * so accessLevel will be consistent.
-     */
-
     mapAccessLevel =
       allPlaces[0]
         ?.accessLevel
       ||
       "visitor";
 
-
-    /*
-     * Exact-location users may zoom all
-     * the way in.
-     *
-     * Visitors and free accounts receive
-     * approximate coordinates and are also
-     * prevented from zooming deeply enough
-     * to imply that the pin is exact.
-     */
 
     mapMaximumZoom =
       mapAccessLevel === "member"
@@ -719,12 +703,6 @@ function placeMatchesFilters(
   place
 ) {
 
-  /* =======================================================
-     SEARCH
-
-     Road name is deliberately excluded.
-     ======================================================= */
-
   const search =
     value(
       "map-search"
@@ -796,10 +774,6 @@ function placeMatchesFilters(
   }
 
 
-  /* =======================================================
-     LOCATION
-     ======================================================= */
-
   if (
     !matchesExact(
       place.location
@@ -852,10 +826,6 @@ function placeMatchesFilters(
   }
 
 
-  /* =======================================================
-     PLACE TYPE
-     ======================================================= */
-
   if (
     !matchesExact(
       place.type,
@@ -867,10 +837,6 @@ function placeMatchesFilters(
     return false;
   }
 
-
-  /* =======================================================
-     LAND
-     ======================================================= */
 
   if (
     !matchesExact(
@@ -897,10 +863,6 @@ function placeMatchesFilters(
     return false;
   }
 
-
-  /* =======================================================
-     VEHICLE + ACCESS
-     ======================================================= */
 
   if (
     !maxRatingMatch(
@@ -1039,10 +1001,6 @@ function placeMatchesFilters(
   }
 
 
-  /* =======================================================
-     SENSORY
-     ======================================================= */
-
   if (
     !maxRatingMatch(
       place.sensory
@@ -1153,10 +1111,6 @@ function placeMatchesFilters(
   }
 
 
-  /* =======================================================
-     CONNECTIVITY
-     ======================================================= */
-
   if (
     !minRatingMatch(
       place.connectivity
@@ -1234,12 +1188,6 @@ function placeMatchesFilters(
   }
 
 
-  /* =======================================================
-     AMENITIES
-
-     Amenities remain public yes/no/unknown data.
-     ======================================================= */
-
   if (
     !booleanFilterMatch(
       "filter-toilets",
@@ -1312,10 +1260,6 @@ function placeMatchesFilters(
   }
 
 
-  /* =======================================================
-     ENVIRONMENT
-     ======================================================= */
-
   if (
     !booleanFilterMatch(
       "filter-forest",
@@ -1380,10 +1324,6 @@ function placeMatchesFilters(
   }
 
 
-  /* =======================================================
-     ACCESSIBILITY
-     ======================================================= */
-
   if (
     !booleanFilterMatch(
       "filter-wheelchair",
@@ -1444,10 +1384,6 @@ function placeMatchesFilters(
   }
 
 
-  /* =======================================================
-     SAFETY
-     ======================================================= */
-
   if (
     !booleanFilterMatch(
       "filter-safe-night",
@@ -1495,10 +1431,6 @@ function placeMatchesFilters(
     return false;
   }
 
-
-  /* =======================================================
-     EXPERIENCE
-     ======================================================= */
 
   if (
     !minRatingMatch(
@@ -1551,10 +1483,6 @@ function placeMatchesFilters(
     return false;
   }
 
-
-  /* =======================================================
-     VERIFICATION
-     ======================================================= */
 
   if (
     checked(
@@ -1834,11 +1762,6 @@ function fitMapToPlaces(
       window.location.search
     );
 
-
-  /*
-   * Do not fight the manually requested
-   * place position.
-   */
 
   if (
     params.get(
@@ -2550,7 +2473,7 @@ function buildPopup(
 
         <a
           class="map-popup-details"
-          href="/place.html?place=${encodeURIComponent(
+          href="/place.php?place=${encodeURIComponent(
             place.slug
           )}"
         >
