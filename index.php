@@ -140,7 +140,7 @@ require_once
 
 
         <a
-          href="/map.html"
+          href="/map.php"
           class="primary-btn"
         >
           Explore the Map
@@ -153,7 +153,7 @@ require_once
 
         <img
           src="/images/hero-art.jpg"
-          alt="Mountain lake campsite with a black overland Suburban"
+          alt="Mountain campsite with a nearby stream"
         >
 
       </div>
