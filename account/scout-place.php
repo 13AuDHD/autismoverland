@@ -276,6 +276,11 @@ if (
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
 
+   <link
+  rel="stylesheet"
+  href="https://llamascout.com/css/account.css"
+>
+
   <link
     rel="apple-touch-icon"
     sizes="180x180"
@@ -307,56 +312,34 @@ if (
     href="https://llamascout.com/icons/site.webmanifest"
   >
 
-  <style>
-
-    .member-page-nav {
-      padding-top: 24px;
-      padding-bottom: 4px;
-    }
-
-    .member-page-nav a {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: inherit;
-      font-weight: 700;
-      text-decoration: none;
-    }
-
-    .member-page-nav a:hover {
-      text-decoration: underline;
-    }
-
-    .community-source-note {
-      padding: 16px 18px;
-      border: 1px solid rgba(0, 0, 0, .09);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, .7);
-      line-height: 1.6;
-    }
-
-    .community-source-note strong {
-      display: block;
-      margin-bottom: 4px;
-    }
-
-  </style>
 
 </head>
 
 
-<body>
+<body class="account-body">
 
-  <div class="container member-page-nav">
+<?php
 
-    <a href="/">
-      <i class="fa-solid fa-arrow-left"></i>
-      Back to My Account
-    </a>
+require_once
+    dirname(__DIR__)
+    . '/app/header.php';
 
-  </div>
+?>
 
+<div class="container member-page-nav">
 
+  <a href="/">
+
+    <i
+      class="fa-solid fa-arrow-left"
+      aria-hidden="true"
+    ></i>
+
+    Back to My Account
+
+  </a>
+
+</div>
   <main class="place-editor-page">
 
     <!-- ==================================================
@@ -3652,6 +3635,10 @@ if (
       }
       
       </script>
+
+   <script
+  src="https://llamascout.com/js/header.js"
+></script>
    
 </body>
 
