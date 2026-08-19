@@ -6,6 +6,10 @@ require_once
     dirname(__DIR__)
     . '/app/auth.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/place-editor-data.php';
+
 
 require_verified_email();
 
@@ -19,6 +23,72 @@ start_llama_session();
 
 $db =
     db();
+
+
+/* =========================================================
+   MODE
+   ========================================================= */
+
+$adminPlaceId =
+    (int) (
+        $_GET[
+            'admin_place'
+        ]
+        ??
+        $_POST[
+            'admin_place'
+        ]
+        ??
+        0
+    );
+
+
+$editSubmissionId =
+    (int) (
+        $_GET[
+            'edit'
+        ]
+        ?? 0
+    );
+
+
+$isAdminPlaceEditor =
+    $adminPlaceId > 0;
+
+
+$editSubmission =
+    null;
+
+
+$editPlace =
+    null;
+
+
+$adminPlace =
+    null;
+
+
+$editableStatuses = [
+
+    'needs-changes',
+    'rejected',
+
+];
+
+
+/* =========================================================
+   ADMIN ACCESS
+   ========================================================= */
+
+if (
+    $isAdminPlaceEditor
+) {
+
+    require_role(
+        'admin'
+    );
+
+}
 
 
 /* =========================================================
@@ -50,36 +120,55 @@ $csrfToken =
 
 
 /* =========================================================
-   EDIT MODE
-   ========================================================= */
-
-$editSubmissionId =
-    (int) (
-        $_GET['edit']
-        ?? 0
-    );
-
-
-$editSubmission =
-    null;
-
-
-$editPlace =
-    null;
-
-
-$editableStatuses = [
-    'needs-changes',
-    'rejected',
-];
-
-
-/* =========================================================
-   LOAD EXISTING SUBMISSION FOR EDITING
+   LOAD ADMIN PLACE
    ========================================================= */
 
 if (
-    $_SERVER['REQUEST_METHOD'] !== 'POST'
+    $_SERVER[
+        'REQUEST_METHOD'
+    ] !== 'POST'
+    &&
+    $isAdminPlaceEditor
+) {
+
+    try {
+
+        $adminPlace =
+            load_place_for_editor(
+                $db,
+                $adminPlaceId
+            );
+
+
+        $editPlace =
+            $adminPlace;
+
+
+    } catch (
+        Throwable $exception
+    ) {
+
+        http_response_code(404);
+
+        exit(
+            'Place not found.'
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   LOAD MEMBER SUBMISSION FOR EDITING
+   ========================================================= */
+
+if (
+    $_SERVER[
+        'REQUEST_METHOD'
+    ] !== 'POST'
+    &&
+    !$isAdminPlaceEditor
     &&
     $editSubmissionId > 0
 ) {
@@ -110,8 +199,13 @@ if (
 
 
     $stmt->execute([
+
         $editSubmissionId,
-        $user['id']
+
+        $user[
+            'id'
+        ]
+
     ]);
 
 
@@ -137,7 +231,9 @@ if (
     if (
         !in_array(
             (string)
-            $editSubmission['status'],
+            $editSubmission[
+                'status'
+            ],
             $editableStatuses,
             true
         )
@@ -182,11 +278,13 @@ if (
 
 
 /* =========================================================
-   HANDLE COMMUNITY SUBMISSION
+   HANDLE POST
    ========================================================= */
 
 if (
-    $_SERVER['REQUEST_METHOD'] === 'POST'
+    $_SERVER[
+        'REQUEST_METHOD'
+    ] === 'POST'
 ) {
 
     header(
@@ -210,10 +308,13 @@ if (
         http_response_code(400);
 
         echo json_encode([
-            'success' => false,
+
+            'success' =>
+                false,
 
             'message' =>
                 'The submission could not be read.'
+
         ]);
 
         exit;
@@ -246,10 +347,13 @@ if (
         http_response_code(403);
 
         echo json_encode([
-            'success' => false,
+
+            'success' =>
+                false,
 
             'message' =>
                 'Your session could not be verified. Reload the page and try again.'
+
         ]);
 
         exit;
@@ -275,10 +379,13 @@ if (
         http_response_code(400);
 
         echo json_encode([
-            'success' => false,
+
+            'success' =>
+                false,
 
             'message' =>
                 'No place information was received.'
+
         ]);
 
         exit;
@@ -304,10 +411,13 @@ if (
         http_response_code(422);
 
         echo json_encode([
-            'success' => false,
+
+            'success' =>
+                false,
 
             'message' =>
                 'A place name is required.'
+
         ]);
 
         exit;
@@ -316,10 +426,116 @@ if (
 
 
     /* =====================================================
-       SERVER-CONTROLLED COMMUNITY VALUES
+       ADMIN PLACE UPDATE
+       ===================================================== */
 
-       Never trust source, status, featured, or verification
-       values supplied by the browser.
+    $postedAdminPlaceId =
+        (int) (
+            $input[
+                'admin_place_id'
+            ]
+            ?? 0
+        );
+
+
+    if (
+        $postedAdminPlaceId > 0
+    ) {
+
+        require_role(
+            'admin'
+        );
+
+
+        $adminMeta =
+            $input[
+                'admin_meta'
+            ]
+            ?? [];
+
+
+        if (
+            !is_array(
+                $adminMeta
+            )
+        ) {
+
+            $adminMeta = [];
+
+        }
+
+
+        try {
+
+            save_place_from_editor(
+
+                $db,
+
+                $postedAdminPlaceId,
+
+                $place,
+
+                $adminMeta,
+
+                (int)
+                $user[
+                    'id'
+                ]
+
+            );
+
+
+            echo json_encode([
+
+                'success' =>
+                    true,
+
+                'place_id' =>
+                    $postedAdminPlaceId,
+
+                'message' =>
+                    'Place updated successfully.'
+
+            ]);
+
+            exit;
+
+
+        } catch (
+            Throwable $exception
+        ) {
+
+            error_log(
+                'Llama Scout admin place editor error: '
+                .
+                $exception
+                    ->getMessage()
+            );
+
+
+            http_response_code(500);
+
+            echo json_encode([
+
+                'success' =>
+                    false,
+
+                'message' =>
+                    'The place could not be updated.'
+
+            ]);
+
+            exit;
+
+        }
+
+    }
+
+
+    /* =====================================================
+       COMMUNITY SUBMISSIONS
+
+       Browser cannot choose its own moderation values.
        ===================================================== */
 
     $place[
@@ -373,17 +589,15 @@ if (
         null;
 
 
-    /* =====================================================
-       PREPARE JSON
-       ===================================================== */
-
     $submissionJson =
         json_encode(
+
             $place,
 
             JSON_UNESCAPED_SLASHES
             |
             JSON_UNESCAPED_UNICODE
+
         );
 
 
@@ -394,22 +608,19 @@ if (
         http_response_code(500);
 
         echo json_encode([
-            'success' => false,
+
+            'success' =>
+                false,
 
             'message' =>
                 'The submission could not be prepared.'
+
         ]);
 
         exit;
 
     }
 
-
-    /* =====================================================
-       EXISTING SUBMISSION ID
-
-       Zero means this is a brand new submission.
-       ===================================================== */
 
     $submissionId =
         (int) (
@@ -423,19 +634,12 @@ if (
     try {
 
         /* =================================================
-           EDIT + RESUBMIT EXISTING SUBMISSION
+           EDIT EXISTING SUBMISSION
            ================================================= */
 
         if (
             $submissionId > 0
         ) {
-
-            /*
-             * First confirm that:
-             *
-             * 1. The submission belongs to this user.
-             * 2. It is actually in an editable state.
-             */
 
             $check =
                 $db->prepare(
@@ -455,8 +659,13 @@ if (
 
 
             $check->execute([
+
                 $submissionId,
-                $user['id']
+
+                $user[
+                    'id'
+                ]
+
             ]);
 
 
@@ -473,10 +682,13 @@ if (
                 http_response_code(404);
 
                 echo json_encode([
-                    'success' => false,
+
+                    'success' =>
+                        false,
 
                     'message' =>
                         'That submission could not be found.'
+
                 ]);
 
                 exit;
@@ -498,26 +710,19 @@ if (
                 http_response_code(409);
 
                 echo json_encode([
-                    'success' => false,
+
+                    'success' =>
+                        false,
 
                     'message' =>
                         'That submission can no longer be edited.'
+
                 ]);
 
                 exit;
 
             }
 
-
-            /*
-             * Update the SAME submission.
-             *
-             * We deliberately do not create a duplicate.
-             *
-             * Returning it to pending also clears the old
-             * review decision because the member has now
-             * supplied a revised version.
-             */
 
             $stmt =
                 $db->prepare(
@@ -531,7 +736,8 @@ if (
                         review_notes = NULL,
                         reviewed_at = NULL,
                         reviewed_by = NULL,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at =
+                            CURRENT_TIMESTAMP
 
                     WHERE id = ?
                       AND user_id = ?
@@ -544,34 +750,26 @@ if (
 
 
             $stmt->execute([
+
                 $placeName,
+
                 $submissionJson,
+
                 'pending',
+
                 $submissionId,
-                $user['id']
+
+                $user[
+                    'id'
+                ]
+
             ]);
 
 
-            if (
-                $stmt->rowCount() < 1
-            ) {
-
-                http_response_code(409);
-
-                echo json_encode([
-                    'success' => false,
-
-                    'message' =>
-                        'The submission changed before it could be saved. Reload the page and try again.'
-                ]);
-
-                exit;
-
-            }
-
-
             echo json_encode([
-                'success' => true,
+
+                'success' =>
+                    true,
 
                 'submission_id' =>
                     $submissionId,
@@ -581,6 +779,7 @@ if (
 
                 'message' =>
                     'Your updated place has been resubmitted for review.'
+
             ]);
 
             exit;
@@ -589,13 +788,14 @@ if (
 
 
         /* =================================================
-           BRAND NEW SUBMISSION
+           NEW SUBMISSION
            ================================================= */
 
         $stmt =
             $db->prepare(
                 '
-                INSERT INTO place_submissions (
+                INSERT INTO place_submissions
+                (
                     user_id,
                     place_name,
                     source_type,
@@ -603,23 +803,28 @@ if (
                     submission_data
                 )
 
-                VALUES (
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?
+                VALUES
+                (
+                    ?, ?, ?, ?, ?
                 )
                 '
             );
 
 
         $stmt->execute([
-            $user['id'],
+
+            $user[
+                'id'
+            ],
+
             $placeName,
+
             'community-scouted',
+
             'pending',
+
             $submissionJson
+
         ]);
 
 
@@ -629,7 +834,9 @@ if (
 
 
         echo json_encode([
-            'success' => true,
+
+            'success' =>
+                true,
 
             'submission_id' =>
                 $newSubmissionId,
@@ -639,6 +846,7 @@ if (
 
             'message' =>
                 'Your Community Scouted place has been submitted for review.'
+
         ]);
 
         exit;
@@ -651,17 +859,21 @@ if (
         error_log(
             'Llama Scout place submission error: '
             .
-            $exception->getMessage()
+            $exception
+                ->getMessage()
         );
 
 
         http_response_code(500);
 
         echo json_encode([
-            'success' => false,
+
+            'success' =>
+                false,
 
             'message' =>
                 'Something went wrong while saving your submission.'
+
         ]);
 
         exit;
@@ -678,6 +890,7 @@ if (
 $editPlaceJson =
     $editPlace !== null
         ? json_encode(
+
             $editPlace,
 
             JSON_UNESCAPED_SLASHES
@@ -691,6 +904,7 @@ $editPlaceJson =
             JSON_HEX_APOS
             |
             JSON_HEX_QUOT
+
         )
         : 'null';
 
