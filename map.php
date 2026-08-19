@@ -124,8 +124,7 @@ require_once
 
         <div
           id="map-filter-panel"
-          class="map-filter-panel"
-          hidden
+          class="map-filter-panel is-collapsed"
         >
 
 
