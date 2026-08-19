@@ -321,8 +321,8 @@ img {
 
 .map-layout {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 14px;
+  grid-template-columns: 1fr;
+  gap: 0;
 }
 
 .map-filters {
