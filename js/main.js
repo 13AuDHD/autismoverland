@@ -1226,44 +1226,7 @@ marker.bindPopup(`
                   ?.nighttime
                   ?.noise
               );
-
-
-            const privacy =
-              numericPlaceValue(
-                place.sensory
-                  ?.daytime
-                  ?.privacy
-              );
-
-
-            const sensoryComfort =
-              numericPlaceValue(
-                place.sensory
-                  ?.nighttime
-                  ?.sensoryComfort
-              );
-
-
-            const cellRating =
-              numericPlaceValue(
-                place.connectivity
-                  ?.overall
-              );
-
-
-            const starlinkRating =
-              numericPlaceValue(
-                place.connectivity
-                  ?.starlink
-              );
-
-
-            const sedanAccessible =
-              booleanPlaceValue(
-                place.access
-                  ?.sedanAccessible
-              );
-
+             
 
             if (
               search &&
