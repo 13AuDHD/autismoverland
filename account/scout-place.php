@@ -1025,13 +1025,31 @@ require_once
       <div class="container">
 
         <p class="eyebrow">
-          Community Scouting
+
+          <?php if (
+              $isAdminPlaceEditor
+          ): ?>
+
+            Basecamp Administration
+
+          <?php else: ?>
+
+            Community Scouting
+
+          <?php endif; ?>
+
         </p>
 
 
         <h1>
 
           <?php if (
+              $isAdminPlaceEditor
+          ): ?>
+
+            Edit Place
+
+          <?php elseif (
               $editSubmission
           ): ?>
 
@@ -1047,6 +1065,17 @@ require_once
 
 
         <?php if (
+            $isAdminPlaceEditor
+        ): ?>
+
+          <p>
+            You are editing the live Llama Scout place record.
+            Changes saved here update the database used by the
+            map, Places directory, and Scout Report.
+          </p>
+
+
+        <?php elseif (
             $editSubmission
         ): ?>
 
@@ -1073,14 +1102,20 @@ require_once
               </strong>
 
               <p>
+
                 <?= htmlspecialchars(
+
                     (string)
                     $editSubmission[
                         'review_notes'
                     ],
+
                     ENT_QUOTES,
+
                     'UTF-8'
+
                 ) ?>
+
               </p>
 
             </div>
@@ -1132,6 +1167,256 @@ require_once
               ) ?>"
             >
 
+                      <?php if (
+              $isAdminPlaceEditor
+          ): ?>
+
+          <!-- ==================================================
+               ADMIN CONTROLS
+               ================================================== -->
+
+          <details
+            class="editor-section editor-collapsible"
+            open
+          >
+
+            <summary class="editor-summary">
+
+              <span>
+
+                <i class="fa-solid fa-screwdriver-wrench"></i>
+
+                Admin Controls
+
+              </span>
+
+              <small>
+                Publishing and record settings
+              </small>
+
+            </summary>
+
+
+            <div class="editor-section-content">
+
+
+              <div class="editor-grid">
+
+
+                <label
+                  class="editor-field editor-field-wide"
+                >
+
+                  <span>
+                    URL Slug
+                  </span>
+
+                  <input
+                    id="admin-place-slug"
+                    type="text"
+                    value="<?= htmlspecialchars(
+                        (string) (
+                            $adminPlace[
+                                '_admin'
+                            ][
+                                'slug'
+                            ]
+                            ?? ''
+                        ),
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                  >
+
+                  <small>
+                    Example: first-fork-riverside-camp
+                  </small>
+
+                </label>
+
+
+                <label class="editor-field">
+
+                  <span>
+                    Place Status
+                  </span>
+
+
+                  <select
+                    id="admin-place-status"
+                  >
+
+                    <?php
+
+                    $adminStatus =
+                        (string) (
+                            $adminPlace[
+                                '_admin'
+                            ][
+                                'status'
+                            ]
+                            ?? 'draft'
+                        );
+
+                    ?>
+
+
+                    <option
+                      value="draft"
+                      <?= $adminStatus === 'draft'
+                          ? 'selected'
+                          : ''
+                      ?>
+                    >
+                      Draft
+                    </option>
+
+
+                    <option
+                      value="active"
+                      <?= $adminStatus === 'active'
+                          ? 'selected'
+                          : ''
+                      ?>
+                    >
+                      Active
+                    </option>
+
+
+                    <option
+                      value="featured"
+                      <?= $adminStatus === 'featured'
+                          ? 'selected'
+                          : ''
+                      ?>
+                    >
+                      Featured
+                    </option>
+
+
+                    <option
+                      value="unlisted"
+                      <?= $adminStatus === 'unlisted'
+                          ? 'selected'
+                          : ''
+                      ?>
+                    >
+                      Unlisted
+                    </option>
+
+
+                    <option
+                      value="removed"
+                      <?= $adminStatus === 'removed'
+                          ? 'selected'
+                          : ''
+                      ?>
+                    >
+                      Removed
+                    </option>
+
+
+                    <option
+                      value="archived"
+                      <?= $adminStatus === 'archived'
+                          ? 'selected'
+                          : ''
+                      ?>
+                    >
+                      Archived
+                    </option>
+
+                  </select>
+
+                </label>
+
+
+                <label class="editor-field">
+
+                  <span>
+                    Source
+                  </span>
+
+
+                  <?php
+
+                  $adminSource =
+                      (string) (
+                          $adminPlace[
+                              '_admin'
+                          ][
+                              'sourceType'
+                          ]
+                          ?? 'llama-scouted'
+                      );
+
+                  ?>
+
+
+                  <select
+                    id="admin-source-type"
+                  >
+
+                    <option
+                      value="llama-scouted"
+                      <?= $adminSource === 'llama-scouted'
+                          ? 'selected'
+                          : ''
+                      ?>
+                    >
+                      Llama Scouted
+                    </option>
+
+
+                    <option
+                      value="community-scouted"
+                      <?= $adminSource === 'community-scouted'
+                          ? 'selected'
+                          : ''
+                      ?>
+                    >
+                      Community Scouted
+                    </option>
+
+
+                    <option
+                      value="public-source"
+                      <?= $adminSource === 'public-source'
+                          ? 'selected'
+                          : ''
+                      ?>
+                    >
+                      Public Source
+                    </option>
+
+                  </select>
+
+                </label>
+
+
+              </div>
+
+
+              <div class="community-source-note">
+
+                <strong>
+                  Administrator editing
+                </strong>
+
+                Changes made here update the actual place
+                record. Changing status to Active or Featured
+                makes the place available to the public API.
+
+              </div>
+
+
+            </div>
+
+          </details>
+
+          <?php endif; ?>
+
+            
           <!-- ==================================================
                BASIC INFO
                ================================================== -->
@@ -4163,21 +4448,32 @@ require_once
 
           <div class="place-editor-actions">
 
+
             <button
               class="primary-btn"
               type="button"
               id="submit-community-place"
             >
 
-              <i class="fa-solid fa-paper-plane"></i>
-
               <?php if (
+                  $isAdminPlaceEditor
+              ): ?>
+
+                <i class="fa-solid fa-floppy-disk"></i>
+
+                Save Place
+
+              <?php elseif (
                   $editSubmission
               ): ?>
+
+                <i class="fa-solid fa-paper-plane"></i>
 
                 Resubmit for Review
 
               <?php else: ?>
+
+                <i class="fa-solid fa-paper-plane"></i>
 
                 Submit for Review
 
@@ -4195,6 +4491,8 @@ require_once
               <i class="fa-solid fa-rotate-left"></i>
 
               <?php if (
+                  $isAdminPlaceEditor
+                  ||
                   $editSubmission
               ): ?>
 
@@ -4208,13 +4506,34 @@ require_once
 
             </button>
 
+
+            <?php if (
+                $isAdminPlaceEditor
+            ): ?>
+
+              <a
+                class="small-btn"
+                href="https://llamascout.com/admin/place.php?id=<?= (int)
+                    $adminPlaceId
+                ?>"
+              >
+
+                <i class="fa-solid fa-xmark"></i>
+
+                Cancel
+
+              </a>
+
+            <?php endif; ?>
+
+
           </div>
 
         </form>
 
 
         <!-- ==================================================
-             MESSAGE / HIDDEN JSON OUTPUT
+             MESSAGE / HIDDEN JSON
              ================================================== -->
 
         <div
@@ -4227,7 +4546,7 @@ require_once
         <pre
           hidden
           aria-hidden="true"
-        ><code id="place-json-output">Fill out the form, then choose Generate JSON.</code></pre>
+        ><code id="place-json-output"></code></pre>
 
 
       </div>
@@ -4245,8 +4564,15 @@ require_once
   <script>
 
   /* =========================================================
-     EXISTING SUBMISSION DATA
+     EDITOR MODE
      ========================================================= */
+
+  const scoutAdminPlaceId =
+    <?= $isAdminPlaceEditor
+        ? (int) $adminPlaceId
+        : 0
+    ?>;
+
 
   const scoutEditSubmissionId =
     <?= $editSubmission
@@ -4260,7 +4586,7 @@ require_once
 
 
   /* =========================================================
-     GENERIC FIELD LOADERS
+     FIELD HELPERS
      ========================================================= */
 
   function editorSetValue(
@@ -4299,7 +4625,9 @@ require_once
     }
 
 
-    if (value === true) {
+    if (
+      value === true
+    ) {
 
       element.value =
         "true";
@@ -4387,7 +4715,10 @@ require_once
       id,
       Array.isArray(values)
         ? values.join(", ")
-        : ""
+        : (
+            values
+            ?? ""
+          )
     );
 
   }
@@ -4398,8 +4729,10 @@ require_once
   ) {
 
     if (
-      !image ||
-      typeof image !== "object" ||
+      !image
+      ||
+      typeof image !== "object"
+      ||
       !image.src
     ) {
 
@@ -4424,7 +4757,7 @@ require_once
 
 
   /* =========================================================
-     LOAD PLACE JSON BACK INTO FORM
+     LOAD PLACE INTO FORM
      ========================================================= */
 
   function loadPlaceIntoEditor(
@@ -4432,7 +4765,8 @@ require_once
   ) {
 
     if (
-      !place ||
+      !place
+      ||
       typeof place !== "object"
     ) {
 
@@ -4441,9 +4775,7 @@ require_once
     }
 
 
-    /* =====================================================
-       CORE
-       ===================================================== */
+    /* CORE */
 
     editorSetValue(
       "place-name",
@@ -4456,25 +4788,7 @@ require_once
     );
 
 
-    /*
-     * Community status / featured values remain controlled
-     * by the server, but we keep the hidden controls sane.
-     */
-
-    editorSetValue(
-      "place-status",
-      "draft"
-    );
-
-    editorSetCheckbox(
-      "place-featured",
-      false
-    );
-
-
-    /* =====================================================
-       LOCATION
-       ===================================================== */
+    /* LOCATION */
 
     const location =
       place.location || {};
@@ -4531,9 +4845,7 @@ require_once
     );
 
 
-    /* =====================================================
-       SITE
-       ===================================================== */
+    /* SITE */
 
     const site =
       place.site || {};
@@ -4569,9 +4881,9 @@ require_once
       site.parkingSurface
     );
 
-    editorSetRating(
-      "levelness",
-      site.levelness
+    editorSetValue(
+      "ground-condition",
+      site.groundCondition
     );
 
     editorSetTriState(
@@ -4595,6 +4907,11 @@ require_once
     );
 
     editorSetRating(
+      "levelness",
+      site.levelness
+    );
+
+    editorSetRating(
       "openSky",
       site.openSky
     );
@@ -4609,15 +4926,8 @@ require_once
       site.shade
     );
 
-    editorSetValue(
-      "ground-condition",
-      site.groundCondition
-    );
 
-
-    /* =====================================================
-       ROAD ACCESS
-       ===================================================== */
+    /* ROAD */
 
     const access =
       place.access || {};
@@ -4637,31 +4947,6 @@ require_once
     editorSetRating(
       "roadStress",
       access.roadStress
-    );
-
-    editorSetTriState(
-      "sedan-accessible",
-      access.sedanAccessible
-    );
-
-    editorSetTriState(
-      "high-clearance",
-      access.highClearanceRecommended
-    );
-
-    editorSetTriState(
-      "four-wheel-drive",
-      access.fourWheelDriveRecommended
-    );
-
-    editorSetValue(
-      "road-surface",
-      access.roadSurface
-    );
-
-    editorSetValue(
-      "road-width",
-      access.roadWidth
     );
 
     editorSetRating(
@@ -4694,6 +4979,31 @@ require_once
       access.dropOffExposure
     );
 
+    editorSetValue(
+      "road-surface",
+      access.roadSurface
+    );
+
+    editorSetValue(
+      "road-width",
+      access.roadWidth
+    );
+
+    editorSetTriState(
+      "sedan-accessible",
+      access.sedanAccessible
+    );
+
+    editorSetTriState(
+      "high-clearance",
+      access.highClearanceRecommended
+    );
+
+    editorSetTriState(
+      "four-wheel-drive",
+      access.fourWheelDriveRecommended
+    );
+
     editorSetTriState(
       "water-crossings",
       access.waterCrossings
@@ -4710,153 +5020,117 @@ require_once
     );
 
 
-    /* =====================================================
-       SENSORY
-       ===================================================== */
+    /* SENSORY */
 
     const sensory =
       place.sensory || {};
 
 
-    const daytime =
+    const day =
       sensory.daytime || {};
 
 
-    const nighttime =
+    const night =
       sensory.nighttime || {};
 
 
     editorSetRating(
       "dayNoise",
-      daytime.noise
+      day.noise
     );
 
     editorSetRating(
       "dayTraffic",
-      daytime.traffic
+      day.traffic
     );
 
     editorSetRating(
       "dayCrowds",
-      daytime.crowds
+      day.crowds
     );
 
     editorSetRating(
       "dayPrivacy",
-      daytime.privacy
+      day.privacy
     );
 
     editorSetRating(
       "dayLightPollution",
-      daytime.lightPollution
+      day.lightPollution
     );
 
     editorSetRating(
       "daySensoryComfort",
-      daytime.sensoryComfort
+      day.sensoryComfort
     );
 
     editorSetRating(
       "daySocial",
-      daytime.socialInteractionLikelihood
+      day.socialInteractionLikelihood
     );
 
 
     editorSetRating(
       "nightNoise",
-      nighttime.noise
+      night.noise
     );
 
     editorSetRating(
       "nightTraffic",
-      nighttime.traffic
+      night.traffic
     );
 
     editorSetRating(
       "nightCrowds",
-      nighttime.crowds
+      night.crowds
     );
 
     editorSetRating(
       "nightPrivacy",
-      nighttime.privacy
+      night.privacy
     );
 
     editorSetRating(
       "nightLightPollution",
-      nighttime.lightPollution
+      night.lightPollution
     );
 
     editorSetRating(
       "nightSensoryComfort",
-      nighttime.sensoryComfort
+      night.sensoryComfort
     );
 
     editorSetRating(
       "nightSocial",
-      nighttime.socialInteractionLikelihood
+      night.socialInteractionLikelihood
     );
 
 
-    editorSetRating(
+    [
       "dustFromTraffic",
-      sensory.dustFromTraffic
-    );
-
-    editorSetRating(
       "generatorNoise",
-      sensory.generatorNoise
-    );
-
-    editorSetRating(
       "aircraftNoise",
-      sensory.aircraftNoise
-    );
-
-    editorSetRating(
       "roadNoise",
-      sensory.roadNoise
-    );
-
-    editorSetRating(
       "humanActivity",
-      sensory.humanActivity
-    );
-
-    editorSetRating(
       "wildlifeNoise",
-      sensory.wildlifeNoise
-    );
-
-    editorSetRating(
       "windNoise",
-      sensory.windNoise
-    );
-
-    editorSetRating(
       "smokeRisk",
-      sensory.smokeRisk
-    );
-
-    editorSetRating(
       "strongOdors",
-      sensory.strongOdors
-    );
-
-    editorSetRating(
       "visualExposure",
-      sensory.visualExposure
+      "predictability"
+    ].forEach(
+      key => {
+
+        editorSetRating(
+          key,
+          sensory[key]
+        );
+
+      }
     );
 
-    editorSetRating(
-      "predictability",
-      sensory.predictability
-    );
 
-
-    /* =====================================================
-       CONNECTIVITY
-       ===================================================== */
+    /* CONNECTIVITY */
 
     const connectivity =
       place.connectivity || {};
@@ -4903,68 +5177,62 @@ require_once
     );
 
 
-    /* =====================================================
-       AMENITIES
-       ===================================================== */
+    /* AMENITIES */
 
     const amenities =
       place.amenities || {};
 
 
-    editorSetTriState(
-      "toilets",
-      amenities.toilets
+    const amenityFields = {
+
+      "toilets":
+        "toilets",
+
+      "potable-water":
+        "potableWater",
+
+      "trash":
+        "trash",
+
+      "fire-ring":
+        "fireRing",
+
+      "picnic-table":
+        "picnicTable",
+
+      "bear-box":
+        "bearBox",
+
+      "showers":
+        "showers",
+
+      "electricity":
+        "electricity",
+
+      "dump-station":
+        "dumpStation",
+
+      "food-storage-required":
+        "foodStorageRequired"
+
+    };
+
+
+    Object.entries(
+      amenityFields
+    ).forEach(
+      ([id, key]) => {
+
+        editorSetTriState(
+          id,
+          amenities[key]
+        );
+
+      }
     );
 
-    editorSetTriState(
-      "potable-water",
-      amenities.potableWater
-    );
 
-    editorSetTriState(
-      "trash",
-      amenities.trash
-    );
-
-    editorSetTriState(
-      "fire-ring",
-      amenities.fireRing
-    );
-
-    editorSetTriState(
-      "picnic-table",
-      amenities.picnicTable
-    );
-
-    editorSetTriState(
-      "bear-box",
-      amenities.bearBox
-    );
-
-    editorSetTriState(
-      "showers",
-      amenities.showers
-    );
-
-    editorSetTriState(
-      "electricity",
-      amenities.electricity
-    );
-
-    editorSetTriState(
-      "dump-station",
-      amenities.dumpStation
-    );
-
-    editorSetTriState(
-      "food-storage-required",
-      amenities.foodStorageRequired
-    );
-
-
-    /* =====================================================
-       ENVIRONMENT
-       ===================================================== */
+    /* ENVIRONMENT */
 
     const environment =
       place.environment || {};
@@ -5021,78 +5289,38 @@ require_once
     );
 
 
-    /* =====================================================
-       EXPERIENCE
-       ===================================================== */
+    /* EXPERIENCE */
 
     const experience =
       place.experience || {};
 
 
-    editorSetRating(
+    [
       "sunriseView",
-      experience.sunriseView
-    );
-
-    editorSetRating(
       "sunsetView",
-      experience.sunsetView
-    );
-
-    editorSetRating(
       "mountainView",
-      experience.mountainView
-    );
-
-    editorSetRating(
       "forestView",
-      experience.forestView
-    );
-
-    editorSetRating(
       "nightSky",
-      experience.nightSky
-    );
-
-    editorSetRating(
       "stargazing",
-      experience.stargazing
-    );
-
-    editorSetRating(
       "quietEvening",
-      experience.quietEvening
-    );
-
-    editorSetRating(
       "overnightComfort",
-      experience.overnightComfort
-    );
-
-    editorSetRating(
       "extendedStayComfort",
-      experience.extendedStayComfort
-    );
-
-    editorSetRating(
       "sensoryRetreat",
-      experience.sensoryRetreat
-    );
-
-    editorSetRating(
       "remoteWork",
-      experience.remoteWork
+      "overallScenery"
+    ].forEach(
+      key => {
+
+        editorSetRating(
+          key,
+          experience[key]
+        );
+
+      }
     );
 
-    editorSetRating(
-      "overallScenery",
-      experience.overallScenery
-    );
 
-
-    /* =====================================================
-       ACCESSIBILITY
-       ===================================================== */
+    /* ACCESSIBILITY */
 
     const accessibility =
       place.accessibility || {};
@@ -5113,11 +5341,6 @@ require_once
       accessibility.flatWalkingSurface
     );
 
-    editorSetValue(
-      "walking-distance-from-vehicle",
-      accessibility.walkingDistanceFromVehicle
-    );
-
     editorSetTriState(
       "step-free-access",
       accessibility.stepFreeAccess
@@ -5133,128 +5356,123 @@ require_once
       accessibility.accessiblePicnicTable
     );
 
+    editorSetValue(
+      "walking-distance-from-vehicle",
+      accessibility.walkingDistanceFromVehicle
+    );
 
-    /* =====================================================
-       SAFETY
-       ===================================================== */
+
+    /* SAFETY */
 
     const safety =
       place.safety || {};
 
 
-    editorSetTriState(
-      "felt-safe-daytime",
-      safety.feltSafeDaytime
+    const safetyFields = {
+
+      "felt-safe-daytime":
+        "feltSafeDaytime",
+
+      "felt-safe-nighttime":
+        "feltSafeNighttime",
+
+      "flash-flood-risk":
+        "flashFloodRisk",
+
+      "wildfire-risk":
+        "wildfireRisk",
+
+      "fall-hazard":
+        "fallHazard",
+
+      "cliff-exposure":
+        "cliffExposure",
+
+      "rockfall-risk":
+        "rockfallRisk",
+
+      "wildlife-risk":
+        "wildlifeRisk",
+
+      "traffic-hazard":
+        "trafficHazard",
+
+      "emergency-access":
+        "emergencyAccess"
+
+    };
+
+
+    Object.entries(
+      safetyFields
+    ).forEach(
+      ([id, key]) => {
+
+        editorSetTriState(
+          id,
+          safety[key]
+        );
+
+      }
     );
 
-    editorSetTriState(
-      "felt-safe-nighttime",
-      safety.feltSafeNighttime
-    );
 
-    editorSetTriState(
-      "flash-flood-risk",
-      safety.flashFloodRisk
-    );
-
-    editorSetTriState(
-      "wildfire-risk",
-      safety.wildfireRisk
-    );
-
-    editorSetTriState(
-      "fall-hazard",
-      safety.fallHazard
-    );
-
-    editorSetTriState(
-      "cliff-exposure",
-      safety.cliffExposure
-    );
-
-    editorSetTriState(
-      "rockfall-risk",
-      safety.rockfallRisk
-    );
-
-    editorSetTriState(
-      "wildlife-risk",
-      safety.wildlifeRisk
-    );
-
-    editorSetTriState(
-      "traffic-hazard",
-      safety.trafficHazard
-    );
-
-    editorSetTriState(
-      "emergency-access",
-      safety.emergencyAccess
-    );
-
-
-    /* =====================================================
-       WARNINGS
-       ===================================================== */
+    /* WARNINGS */
 
     const warnings =
       place.warnings || {};
 
 
-    editorSetTriState(
-      "warning-road-exposed",
-      warnings.exposedToRoad
+    const warningFields = {
+
+      "warning-road-exposed":
+        "exposedToRoad",
+
+      "warning-zero-privacy":
+        "zeroPrivacy",
+
+      "warning-dust":
+        "passingVehicleDust",
+
+      "warning-trees":
+        "possibleDownedTrees",
+
+      "warning-no-tent":
+        "noTentCamping",
+
+      "warning-length":
+        "limitedVehicleLength",
+
+      "warning-leveling":
+        "levelingMayBeRequired",
+
+      "warning-no-amenities":
+        "noAmenities",
+
+      "warning-motorized":
+        "motorizedRecreationTraffic",
+
+      "warning-blind-turns":
+        "blindTurnTrafficNearby"
+
+    };
+
+
+    Object.entries(
+      warningFields
+    ).forEach(
+      ([id, key]) => {
+
+        editorSetTriState(
+          id,
+          warnings[key]
+        );
+
+      }
     );
 
-    editorSetTriState(
-      "warning-zero-privacy",
-      warnings.zeroPrivacy
-    );
 
-    editorSetTriState(
-      "warning-dust",
-      warnings.passingVehicleDust
-    );
-
-    editorSetTriState(
-      "warning-trees",
-      warnings.possibleDownedTrees
-    );
-
-    editorSetTriState(
-      "warning-no-tent",
-      warnings.noTentCamping
-    );
-
-    editorSetTriState(
-      "warning-length",
-      warnings.limitedVehicleLength
-    );
-
-    editorSetTriState(
-      "warning-leveling",
-      warnings.levelingMayBeRequired
-    );
-
-    editorSetTriState(
-      "warning-no-amenities",
-      warnings.noAmenities
-    );
-
-    editorSetTriState(
-      "warning-motorized",
-      warnings.motorizedRecreationTraffic
-    );
-
-    editorSetTriState(
-      "warning-blind-turns",
-      warnings.blindTurnTrafficNearby
-    );
-
-
-    /* =====================================================
-       RECOMMENDED FOR
-       ===================================================== */
+    /* RECOMMENDATIONS */
 
     const recommended =
       place.recommendedFor || {};
@@ -5305,16 +5523,13 @@ require_once
       recommended.largeGroups
     );
 
-
     editorSetLines(
       "not-recommended-for",
       place.notRecommendedFor
     );
 
 
-    /* =====================================================
-       SEASON
-       ===================================================== */
+    /* SEASON */
 
     const season =
       place.season || {};
@@ -5356,9 +5571,7 @@ require_once
     );
 
 
-    /* =====================================================
-       REGULATIONS
-       ===================================================== */
+    /* REGULATIONS */
 
     const regulations =
       place.regulations || {};
@@ -5410,9 +5623,7 @@ require_once
     );
 
 
-    /* =====================================================
-       LAND USE
-       ===================================================== */
+    /* LAND USE */
 
     const landUse =
       place.landUseRules || {};
@@ -5444,9 +5655,7 @@ require_once
     );
 
 
-    /* =====================================================
-       NEARBY
-       ===================================================== */
+    /* NEARBY */
 
     const nearby =
       place.nearby || {};
@@ -5483,9 +5692,7 @@ require_once
     );
 
 
-    /* =====================================================
-       HUMAN READABLE CONTENT
-       ===================================================== */
+    /* CONTENT */
 
     editorSetValue(
       "description",
@@ -5508,9 +5715,7 @@ require_once
     );
 
 
-    /* =====================================================
-       PHOTOS
-       ===================================================== */
+    /* IMAGES */
 
     const images =
       Array.isArray(
@@ -5536,9 +5741,7 @@ require_once
     }
 
 
-    /* =====================================================
-       COMMUNITY VERIFICATION
-       ===================================================== */
+    /* VERIFICATION DISPLAY */
 
     const verification =
       place.verification || {};
@@ -5547,41 +5750,41 @@ require_once
     editorSetValue(
       "visit-date",
       verification.visited
-      ?? verification.lastVerified
     );
 
 
     /*
-     * These remain locked to Community Scouted.
+     * Community submissions keep their locked values.
+     *
+     * Admin editing does NOT replace verification history.
      */
 
-    editorSetValue(
-      "last-verified",
-      verification.visited
-      ?? verification.lastVerified
-      ?? ""
-    );
+    if (
+      scoutAdminPlaceId < 1
+    ) {
 
-    editorSetValue(
-      "verification-status",
-      "community-scouted"
-    );
+      editorSetValue(
+        "verification-status",
+        "community-scouted"
+      );
 
-    editorSetValue(
-      "verification-source",
-      "Community Scouted member submission"
-    );
+      editorSetValue(
+        "verification-source",
+        "Community Scouted member submission"
+      );
 
-    editorSetValue(
-      "public-data-verified",
-      ""
-    );
+      editorSetValue(
+        "public-data-verified",
+        ""
+      );
+
+    }
 
   }
 
 
   /* =========================================================
-     LOAD EDITING DATA AFTER RATING CONTROLS EXIST
+     INITIALIZE SAVED DATA
      ========================================================= */
 
   document.addEventListener(
@@ -5589,8 +5792,6 @@ require_once
     () => {
 
       if (
-        scoutEditSubmissionId > 0
-        &&
         scoutEditPlace
       ) {
 
@@ -5605,13 +5806,13 @@ require_once
 
 
   /* =========================================================
-     RESET BUTTON
+     RESET
+
+     Existing record:
+       restore saved database/submission values.
 
      New submission:
-       normal blank/reset behavior.
-
-     Editing:
-       restore the previously submitted data.
+       normal browser reset.
      ========================================================= */
 
   document
@@ -5623,8 +5824,6 @@ require_once
       () => {
 
         if (
-          scoutEditSubmissionId < 1
-          ||
           !scoutEditPlace
         ) {
 
@@ -5632,11 +5831,6 @@ require_once
 
         }
 
-
-        /*
-         * Allow the browser + add-place.js reset handler
-         * to finish first, then reload the saved record.
-         */
 
         setTimeout(
           () => {
@@ -5647,7 +5841,7 @@ require_once
 
 
             showEditorMessage(
-              "Your previous submission has been restored.",
+              "Saved values restored.",
               "success"
             );
 
@@ -5660,7 +5854,7 @@ require_once
 
 
   /* =========================================================
-     SUBMIT BUTTON
+     SUBMIT
      ========================================================= */
 
   document
@@ -5669,11 +5863,11 @@ require_once
     )
     ?.addEventListener(
       "click",
-      submitCommunityPlace
+      submitPlaceEditor
     );
 
 
-  async function submitCommunityPlace() {
+  async function submitPlaceEditor() {
 
     const button =
       document.getElementById(
@@ -5706,16 +5900,14 @@ require_once
     }
 
 
-    /*
-     * Clear old generated JSON first.
-     *
-     * This prevents a previously generated version from
-     * accidentally being submitted if current validation fails.
-     */
-
     output.textContent =
       "";
 
+
+    /*
+     * Build the exact same JSON object used
+     * everywhere else on Llama Scout.
+     */
 
     generatePlaceJSON();
 
@@ -5759,6 +5951,43 @@ require_once
     }
 
 
+    /* =====================================================
+       ADMIN METADATA
+       ===================================================== */
+
+    const adminMeta =
+      scoutAdminPlaceId > 0
+        ? {
+
+            slug:
+              document
+                .getElementById(
+                  "admin-place-slug"
+                )
+                ?.value
+                ?.trim()
+              || place.slug,
+
+            status:
+              document
+                .getElementById(
+                  "admin-place-status"
+                )
+                ?.value
+              || "draft",
+
+            source_type:
+              document
+                .getElementById(
+                  "admin-source-type"
+                )
+                ?.value
+              || "llama-scouted"
+
+          }
+        : null;
+
+
     const originalText =
       button.innerHTML;
 
@@ -5767,12 +5996,26 @@ require_once
       true;
 
 
-    button.innerHTML =
+    if (
+      scoutAdminPlaceId > 0
+    ) {
+
+      button.innerHTML =
+        '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+    } else if (
       scoutEditSubmissionId > 0
+    ) {
 
-        ? '<i class="fa-solid fa-spinner fa-spin"></i> Resubmitting...'
+      button.innerHTML =
+        '<i class="fa-solid fa-spinner fa-spin"></i> Resubmitting...';
 
-        : '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+    } else {
+
+      button.innerHTML =
+        '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+
+    }
 
 
     try {
@@ -5800,6 +6043,12 @@ require_once
 
                 csrf_token:
                   csrf,
+
+                admin_place_id:
+                  scoutAdminPlaceId,
+
+                admin_meta:
+                  adminMeta,
 
                 submission_id:
                   scoutEditSubmissionId,
@@ -5841,7 +6090,7 @@ require_once
         throw new Error(
           result.message
           ||
-          "The submission could not be saved."
+          "The place could not be saved."
         );
 
       }
@@ -5856,12 +6105,26 @@ require_once
       setTimeout(
         () => {
 
-          window.location.href =
+          if (
+            scoutAdminPlaceId > 0
+          ) {
+
+            window.location.href =
+              `https://llamascout.com/admin/place.php?id=${scoutAdminPlaceId}&updated=1`;
+
+          } else if (
             scoutEditSubmissionId > 0
+          ) {
 
-              ? "submissions.php?resubmitted=1"
+            window.location.href =
+              "submissions.php?resubmitted=1";
 
-              : "submissions.php?submitted=1";
+          } else {
+
+            window.location.href =
+              "submissions.php?submitted=1";
+
+          }
 
         },
         700
@@ -5875,7 +6138,7 @@ require_once
       showEditorMessage(
         error.message
         ||
-        "Something went wrong while submitting the place.",
+        "Something went wrong while saving the place.",
         "error"
       );
 
