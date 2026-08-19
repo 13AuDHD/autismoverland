@@ -3419,7 +3419,45 @@ require_once
 
   </section>
 
+<section class="admin-card">
 
+  <div class="admin-card-header">
+
+    <div>
+
+      <h2>
+        Place Content
+      </h2>
+
+      <p>
+        Edit the information used by the public
+        Llama Scout listing.
+      </p>
+
+    </div>
+
+
+    <a
+      class="admin-button admin-button--primary"
+      href="https://account.llamascout.com/scout-place.php?admin_place=<?= (int)
+          $placeId
+      ?>"
+    >
+
+      <i
+        class="fa-solid fa-pen-to-square"
+        aria-hidden="true"
+      ></i>
+
+      Edit Place
+
+    </a>
+
+  </div>
+
+</section>
+
+    
   <!-- =====================================================
        ADMIN NAVIGATION
        ===================================================== -->
