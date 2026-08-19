@@ -2,10 +2,17 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
-require_once dirname(__DIR__) . '/app/timezone.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/timezone.php';
+
 
 require_login();
+
 
 $user =
     current_user();
@@ -61,14 +68,15 @@ $submissions =
    ========================================================= */
 
 function e(
-    string $value
+    mixed $value
 ): string {
 
     return htmlspecialchars(
-        $value,
+        (string) $value,
         ENT_QUOTES,
         'UTF-8'
     );
+
 }
 
 
@@ -76,7 +84,9 @@ function submission_status_label(
     string $status
 ): string {
 
-    return match ($status) {
+    return match (
+        $status
+    ) {
 
         'pending' =>
             'Pending Review',
@@ -98,7 +108,9 @@ function submission_status_label(
                     $status
                 )
             ),
+
     };
+
 }
 
 
@@ -106,7 +118,9 @@ function submission_status_class(
     string $status
 ): string {
 
-    return match ($status) {
+    return match (
+        $status
+    ) {
 
         'approved' =>
             'status-approved',
@@ -119,7 +133,9 @@ function submission_status_class(
 
         default =>
             'status-pending',
+
     };
+
 }
 
 
@@ -130,8 +146,12 @@ function format_submission_date(
     global $user;
 
 
-    if (!$date) {
+    if (
+        !$date
+    ) {
+
         return '';
+
     }
 
 
@@ -140,6 +160,7 @@ function format_submission_date(
         $user,
         'F j, Y'
     );
+
 }
 
 
@@ -155,6 +176,23 @@ function place_is_public(
         ],
         true
     );
+
+}
+
+
+function submission_is_editable(
+    string $status
+): bool {
+
+    return in_array(
+        $status,
+        [
+            'needs-changes',
+            'rejected',
+        ],
+        true
+    );
+
 }
 
 ?>
@@ -167,14 +205,17 @@ function place_is_public(
 
   <meta charset="utf-8">
 
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1"
   >
 
+
   <title>
     My Submissions | Llama Scout
   </title>
+
 
   <meta
     name="robots"
@@ -187,10 +228,12 @@ function place_is_public(
     href="https://llamascout.com/css/style.css"
   >
 
+
   <link
     rel="stylesheet"
     href="https://llamascout.com/css/account.css"
   >
+
 
   <link
     rel="stylesheet"
@@ -236,6 +279,7 @@ require_once
       My Submissions
     </h1>
 
+
     <p>
       Keep track of the places you've submitted
       to Llama Scout and see where they are in
@@ -244,6 +288,10 @@ require_once
 
   </header>
 
+
+  <!-- =====================================================
+       NEW SUBMISSION SUCCESS
+       ===================================================== -->
 
   <?php if (
       isset(
@@ -260,6 +308,32 @@ require_once
       </strong>
 
       Your Community Scouted place was sent
+      to Llama Scout for review.
+
+    </div>
+
+  <?php endif; ?>
+
+
+  <!-- =====================================================
+       RESUBMISSION SUCCESS
+       ===================================================== -->
+
+  <?php if (
+      isset(
+          $_GET['resubmitted']
+      )
+      &&
+      $_GET['resubmitted'] === '1'
+  ): ?>
+
+    <div class="submission-success">
+
+      <strong>
+        Changes submitted
+      </strong>
+
+      Your updated place has been returned
       to Llama Scout for review.
 
     </div>
@@ -292,7 +366,6 @@ require_once
               <h2>
 
                 <?= e(
-                    (string)
                     $submission[
                         'place_name'
                     ]
@@ -351,6 +424,10 @@ require_once
           </div>
 
 
+          <!-- =================================================
+               REVIEW NOTES
+               ================================================= -->
+
           <?php if (
               !empty(
                   $submission[
@@ -366,10 +443,10 @@ require_once
                 Llama Scout review
               </strong>
 
+
               <p>
 
                 <?= e(
-                    (string)
                     $submission[
                         'review_notes'
                     ]
@@ -382,6 +459,90 @@ require_once
 
           <?php endif; ?>
 
+
+          <!-- =================================================
+               EDIT + RESUBMIT
+               ================================================= -->
+
+          <?php if (
+              submission_is_editable(
+                  (string)
+                  $submission[
+                      'status'
+                  ]
+              )
+          ): ?>
+
+
+            <div class="submission-listing">
+
+              <strong>
+
+                <?php if (
+                    $submission[
+                        'status'
+                    ] === 'needs-changes'
+                ): ?>
+
+                  Changes requested
+
+                <?php else: ?>
+
+                  Want to revise it?
+
+                <?php endif; ?>
+
+              </strong>
+
+
+              <p>
+
+                <?php if (
+                    $submission[
+                        'status'
+                    ] === 'needs-changes'
+                ): ?>
+
+                  Update any of the information in your
+                  submission and send it back for another review.
+
+                <?php else: ?>
+
+                  You can update this submission and send
+                  a revised version back to Llama Scout.
+
+                <?php endif; ?>
+
+              </p>
+
+
+              <a
+                class="listing-button"
+                href="scout-place.php?edit=<?= (int)
+                    $submission[
+                        'id'
+                    ]
+                ?>"
+              >
+
+                <i
+                  class="fa-solid fa-pen-to-square"
+                  aria-hidden="true"
+                ></i>
+
+                Edit &amp; Resubmit
+
+              </a>
+
+            </div>
+
+
+          <?php endif; ?>
+
+
+          <!-- =================================================
+               APPROVED LISTING
+               ================================================= -->
 
           <?php if (
               $submission[
@@ -425,7 +586,7 @@ require_once
 
                 <a
                   class="listing-button"
-                  href="https://llamascout.com/place.html?place=<?= rawurlencode(
+                  href="https://llamascout.com/place.php?place=<?= rawurlencode(
                       (string)
                       $submission[
                           'place_slug'
@@ -472,7 +633,9 @@ require_once
             Submission
 
             #<?= (int)
-                $submission['id']
+                $submission[
+                    'id'
+                ]
             ?>
 
           </div>
