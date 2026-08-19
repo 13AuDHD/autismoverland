@@ -997,13 +997,17 @@ function require_membership(): void
 
 
     /*
-     * Owners always have full access regardless of
-     * Stripe or membership expiration.
+     * Owners and Admins always have full access
+     * while those roles are assigned.
      */
 
     if (
         user_has_role(
             'owner'
+        )
+        ||
+        user_has_role(
+            'admin'
         )
     ) {
 
@@ -1030,7 +1034,6 @@ function require_membership(): void
 
     exit;
 }
-
 
 /* =========================================================
    USER ROLES
