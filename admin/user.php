@@ -28,6 +28,21 @@ $db =
 
 
 /* =========================================================
+   CURRENT ADMIN AUTHORITY
+   ========================================================= */
+
+$currentAdminId =
+    (int)
+    $adminUser['id'];
+
+
+$currentAdminIsOwner =
+    user_is_owner(
+        $currentAdminId
+    );
+
+
+/* =========================================================
    HELPERS
    ========================================================= */
 
@@ -104,16 +119,41 @@ function role_label(
     string $role
 ): string {
 
-    return ucwords(
-        str_replace(
-            [
-                '_',
-                '-',
-            ],
-            ' ',
-            $role
-        )
-    );
+    return match (
+        $role
+    ) {
+
+        'owner' =>
+            'Owner',
+
+        'admin' =>
+            'Admin',
+
+        'master-scout' =>
+            'Master Scout',
+
+        'master_scout' =>
+            'Master Scout',
+
+        'scout' =>
+            'Scout',
+
+        'member' =>
+            'Member',
+
+        default =>
+            ucwords(
+                str_replace(
+                    [
+                        '_',
+                        '-',
+                    ],
+                    ' ',
+                    $role
+                )
+            ),
+
+    };
 
 }
 
@@ -282,27 +322,7 @@ if (
 
 
 /* =========================================================
-   AVAILABLE ROLES
-   ========================================================= */
-
-$availableRoles =
-    fetch_all(
-        $db,
-        '
-        SELECT
-            id,
-            slug
-
-        FROM roles
-
-        ORDER BY
-            slug ASC
-        '
-    );
-
-
-/* =========================================================
-   CURRENT USER ROLES
+   LOAD USER ROLES
    ========================================================= */
 
 function load_managed_roles(
@@ -340,6 +360,134 @@ $managedRoles =
         $db,
         $userId
     );
+
+
+$managedRoleSlugs =
+    array_column(
+        $managedRoles,
+        'slug'
+    );
+
+
+$managedUserIsOwner =
+    in_array(
+        'owner',
+        $managedRoleSlugs,
+        true
+    );
+
+
+$managedUserIsAdmin =
+    in_array(
+        'admin',
+        $managedRoleSlugs,
+        true
+    );
+
+
+/* =========================================================
+   AUTHORITY PROTECTION
+
+   OWNER:
+     Can open anyone.
+
+   ADMIN:
+     Cannot manage Owners.
+     Cannot manage other Admins.
+   ========================================================= */
+
+if (
+    !$currentAdminIsOwner
+    &&
+    (
+        $managedUserIsOwner
+        ||
+        $managedUserIsAdmin
+    )
+) {
+
+    http_response_code(
+        403
+    );
+
+
+    exit(
+        'This account is managed by a Llama Scout Owner.'
+    );
+
+}
+
+
+/* =========================================================
+   AVAILABLE ROLES
+
+   Owner is deliberately excluded.
+
+   It is not assignable or removable through Basecamp.
+   ========================================================= */
+
+$availableRoles =
+    fetch_all(
+        $db,
+        '
+        SELECT
+            id,
+            slug
+
+        FROM roles
+
+        WHERE slug <> \'owner\'
+
+        ORDER BY
+            CASE slug
+                WHEN \'admin\' THEN 1
+                WHEN \'master-scout\' THEN 2
+                WHEN \'master_scout\' THEN 2
+                WHEN \'scout\' THEN 3
+                WHEN \'member\' THEN 4
+                ELSE 10
+            END,
+            slug ASC
+        '
+    );
+
+
+/* =========================================================
+   ROLE LOOKUP
+   ========================================================= */
+
+$roleById = [];
+
+
+$roleIdBySlug = [];
+
+
+foreach (
+    $availableRoles as $role
+) {
+
+    $roleId =
+        (int)
+        $role['id'];
+
+
+    $roleSlug =
+        (string)
+        $role['slug'];
+
+
+    $roleById[
+        $roleId
+    ] =
+        $roleSlug;
+
+
+    $roleIdBySlug[
+        $roleSlug
+    ] =
+        $roleId;
+
+}
 
 
 /* =========================================================
@@ -381,7 +529,70 @@ if (
         $error =
             'Your session could not be verified. Reload the page and try again.';
 
+
     } else {
+
+        /*
+         * Reload target authority immediately before changing
+         * anything, so permissions are not based on stale data.
+         */
+
+        $managedRoles =
+            load_managed_roles(
+                $db,
+                $userId
+            );
+
+
+        $managedRoleSlugs =
+            array_column(
+                $managedRoles,
+                'slug'
+            );
+
+
+        $managedUserIsOwner =
+            in_array(
+                'owner',
+                $managedRoleSlugs,
+                true
+            );
+
+
+        $managedUserIsAdmin =
+            in_array(
+                'admin',
+                $managedRoleSlugs,
+                true
+            );
+
+
+        /*
+         * An Admin still cannot POST directly against
+         * an Owner or another Admin.
+         */
+
+        if (
+            !$currentAdminIsOwner
+            &&
+            (
+                $managedUserIsOwner
+                ||
+                $managedUserIsAdmin
+            )
+        ) {
+
+            http_response_code(
+                403
+            );
+
+
+            exit(
+                'This account is managed by a Llama Scout Owner.'
+            );
+
+        }
+
 
         $action =
             trim(
@@ -433,8 +644,22 @@ if (
                 $error =
                     'That account status is not valid.';
 
+
             } elseif (
-                (int) $adminUser['id']
+                $managedUserIsOwner
+            ) {
+
+                /*
+                 * Owner accounts cannot be disabled,
+                 * suspended, or otherwise changed here.
+                 */
+
+                $error =
+                    'Owner account status is protected and cannot be changed through Basecamp.';
+
+
+            } elseif (
+                $currentAdminId
                 === $userId
                 &&
                 in_array(
@@ -448,7 +673,8 @@ if (
             ) {
 
                 $error =
-                    'You cannot suspend or disable your own administrator account.';
+                    'You cannot suspend or disable your own account.';
+
 
             } elseif (
                 $newStatus ===
@@ -465,6 +691,7 @@ if (
                     )
                     .
                     '.';
+
 
             } else {
 
@@ -502,6 +729,7 @@ if (
                         'status'
                     ] =
                         $newStatus;
+
 
                 } catch (
                     Throwable $exception
@@ -568,29 +796,18 @@ if (
                 );
 
 
-            $validRoleIds =
-                array_map(
-                    static fn(
-                        array $role
-                    ): int =>
-                        (int)
-                        $role[
-                            'id'
-                        ],
-                    $availableRoles
-                );
-
+            /* =============================================
+               VALIDATE ROLE IDs
+               ============================================= */
 
             foreach (
-                $submittedRoleIds as
-                $roleId
+                $submittedRoleIds as $roleId
             ) {
 
                 if (
-                    !in_array(
+                    !array_key_exists(
                         $roleId,
-                        $validRoleIds,
-                        true
+                        $roleById
                     )
                 ) {
 
@@ -604,61 +821,70 @@ if (
             }
 
 
+            /* =============================================
+               ROLE SLUGS SELECTED
+               ============================================= */
+
+            $selectedRoleSlugs =
+                [];
+
+
             if (
                 $error === ''
             ) {
 
-                $selectedRoleSlugs =
-                    [];
-
-
                 foreach (
-                    $availableRoles as
-                    $role
+                    $submittedRoleIds as $roleId
                 ) {
 
-                    if (
-                        in_array(
-                            (int)
-                            $role[
-                                'id'
-                            ],
-                            $submittedRoleIds,
-                            true
-                        )
-                    ) {
-
-                        $selectedRoleSlugs[] =
-                            $role[
-                                'slug'
-                            ];
-
-                    }
-
-                }
-
-
-                if (
-                    (int)
-                    $adminUser[
-                        'id'
-                    ]
-                    === $userId
-                    &&
-                    !in_array(
-                        'admin',
-                        $selectedRoleSlugs,
-                        true
-                    )
-                ) {
-
-                    $error =
-                        'You cannot remove your own admin role.';
+                    $selectedRoleSlugs[] =
+                        $roleById[
+                            $roleId
+                        ];
 
                 }
 
             }
 
+
+            /* =============================================
+               ADMIN ROLE REQUIRES OWNER
+               ============================================= */
+
+            if (
+                $error === ''
+                &&
+                !$currentAdminIsOwner
+            ) {
+
+                $adminWasAssigned =
+                    $managedUserIsAdmin;
+
+
+                $adminRequested =
+                    in_array(
+                        'admin',
+                        $selectedRoleSlugs,
+                        true
+                    );
+
+
+                if (
+                    $adminWasAssigned
+                    !== $adminRequested
+                ) {
+
+                    $error =
+                        'Only a Llama Scout Owner can add or remove the Admin role.';
+
+                }
+
+            }
+
+
+            /* =============================================
+               OWNER ROLE IS NEVER EDITED HERE
+               ============================================= */
 
             if (
                 $error === ''
@@ -669,12 +895,25 @@ if (
                     $db->beginTransaction();
 
 
+                    /*
+                     * Delete only NON-OWNER roles.
+                     *
+                     * If this target is an Owner, their Owner
+                     * assignment stays untouched.
+                     */
+
                     $deleteRoles =
                         $db->prepare(
                             '
-                            DELETE FROM user_roles
+                            DELETE ur
 
-                            WHERE user_id = ?
+                            FROM user_roles ur
+
+                            INNER JOIN roles r
+                              ON r.id = ur.role_id
+
+                            WHERE ur.user_id = ?
+                              AND r.slug <> \'owner\'
                             '
                         );
 
@@ -697,14 +936,14 @@ if (
                                     user_id,
                                     role_id
                                 )
+
                                 VALUES (?, ?)
                                 '
                             );
 
 
                         foreach (
-                            $submittedRoleIds as
-                            $roleId
+                            $submittedRoleIds as $roleId
                         ) {
 
                             $insertRole
@@ -728,8 +967,32 @@ if (
                         );
 
 
+                    $managedRoleSlugs =
+                        array_column(
+                            $managedRoles,
+                            'slug'
+                        );
+
+
+                    $managedUserIsOwner =
+                        in_array(
+                            'owner',
+                            $managedRoleSlugs,
+                            true
+                        );
+
+
+                    $managedUserIsAdmin =
+                        in_array(
+                            'admin',
+                            $managedRoleSlugs,
+                            true
+                        );
+
+
                     $message =
                         'User roles updated.';
+
 
                 } catch (
                     Throwable $exception
@@ -758,6 +1021,7 @@ if (
                 }
 
             }
+
 
         } else {
 
@@ -970,6 +1234,25 @@ $displayName =
         )
     );
 
+
+/* =========================================================
+   UI AUTHORITY
+   ========================================================= */
+
+$canEditAccount =
+    $currentAdminIsOwner
+    ||
+    (
+        !$managedUserIsOwner
+        &&
+        !$managedUserIsAdmin
+    );
+
+
+$canEditStatus =
+    !$managedUserIsOwner;
+
+
 ?>
 <!doctype html>
 
@@ -1091,7 +1374,25 @@ require_once
       <div class="admin-intro-copy">
 
         <p class="admin-eyebrow">
-          User Management
+
+          <?php if (
+              $managedUserIsOwner
+          ): ?>
+
+            Protected Owner Account
+
+          <?php elseif (
+              $managedUserIsAdmin
+          ): ?>
+
+            Administrator Account
+
+          <?php else: ?>
+
+            User Management
+
+          <?php endif; ?>
+
         </p>
 
         <h1>
@@ -1164,22 +1465,52 @@ require_once
         </span>
 
 
-        <a
-          class="
-            admin-button
-            admin-button--secondary
-          "
-          href="/user-account.php?id=<?= $userId ?>"
-        >
+        <?php if (
+            $managedUserIsOwner
+        ): ?>
 
-          <i
-            class="fa-solid fa-user-pen"
-            aria-hidden="true"
-          ></i>
+          <span
+            class="
+              admin-user-badge
+              admin-user-role
+              admin-user-role--admin
+            "
+          >
 
-          Edit Account
+            <i
+              class="fa-solid fa-crown"
+              aria-hidden="true"
+            ></i>
 
-        </a>
+            Owner
+
+          </span>
+
+        <?php endif; ?>
+
+
+        <?php if (
+            $canEditAccount
+        ): ?>
+
+          <a
+            class="
+              admin-button
+              admin-button--secondary
+            "
+            href="/user-account.php?id=<?= $userId ?>"
+          >
+
+            <i
+              class="fa-solid fa-user-pen"
+              aria-hidden="true"
+            ></i>
+
+            Edit Account
+
+          </a>
+
+        <?php endif; ?>
 
       </div>
 
@@ -1307,6 +1638,54 @@ require_once
         <?= e(
             $error
         ) ?>
+      </p>
+
+    </div>
+
+  <?php endif; ?>
+
+
+  <?php if (
+      $managedUserIsOwner
+  ): ?>
+
+    <div
+      class="
+        admin-notice
+        admin-notice--success
+      "
+    >
+
+      <p>
+
+        <strong>
+          Protected Owner
+        </strong>
+
+        This account's Owner role and account status
+        cannot be changed through normal Basecamp controls.
+
+      </p>
+
+    </div>
+
+  <?php elseif (
+      $managedUserIsAdmin
+      &&
+      $currentAdminIsOwner
+  ): ?>
+
+    <div class="admin-notice">
+
+      <p>
+
+        <strong>
+          Administrator
+        </strong>
+
+        Only an Owner can add or remove this user's
+        Admin role.
+
       </p>
 
     </div>
@@ -1659,28 +2038,57 @@ require_once
                 <div class="admin-user-flags">
 
                   <?php foreach (
-                      $managedRoles as
-                      $role
+                      $managedRoles as $role
                   ): ?>
 
                     <span
                       class="
                         admin-user-badge
                         admin-user-role
-                        <?= $role[
-                            'slug'
-                        ] === 'admin'
+
+                        <?= in_array(
+                            $role[
+                                'slug'
+                            ],
+                            [
+                                'owner',
+                                'admin',
+                            ],
+                            true
+                        )
                             ? 'admin-user-role--admin'
                             : ''
                         ?>
-                        <?= $role[
-                            'slug'
-                        ] === 'scout'
+
+                        <?= in_array(
+                            $role[
+                                'slug'
+                            ],
+                            [
+                                'scout',
+                                'master-scout',
+                                'master_scout',
+                            ],
+                            true
+                        )
                             ? 'admin-user-role--scout'
                             : ''
                         ?>
                       "
                     >
+
+                      <?php if (
+                          $role[
+                              'slug'
+                          ] === 'owner'
+                      ): ?>
+
+                        <i
+                          class="fa-solid fa-crown"
+                          aria-hidden="true"
+                        ></i>
+
+                      <?php endif; ?>
 
                       <?= e(
                           role_label(
@@ -1744,8 +2152,7 @@ require_once
           <div class="admin-detail-list">
 
             <?php foreach (
-                $submissions as
-                $submission
+                $submissions as $submission
             ): ?>
 
               <div class="admin-detail-row">
@@ -1860,8 +2267,7 @@ require_once
           <div class="admin-detail-list">
 
             <?php foreach (
-                $reports as
-                $report
+                $reports as $report
             ): ?>
 
               <div class="admin-detail-row">
@@ -2001,8 +2407,7 @@ require_once
           <div class="admin-detail-list">
 
             <?php foreach (
-                $verifications as
-                $verification
+                $verifications as $verification
             ): ?>
 
               <div class="admin-detail-row">
@@ -2148,7 +2553,19 @@ require_once
             </h2>
 
             <p>
-              Control whether this account can sign in.
+
+              <?php if (
+                  $managedUserIsOwner
+              ): ?>
+
+                Owner account status is protected.
+
+              <?php else: ?>
+
+                Control whether this account can sign in.
+
+              <?php endif; ?>
+
             </p>
 
           </div>
@@ -2156,101 +2573,129 @@ require_once
         </div>
 
 
-        <form
-          method="post"
-          class="admin-form"
-        >
+        <?php if (
+            $canEditStatus
+        ): ?>
 
-          <input
-            type="hidden"
-            name="action"
-            value="update_status"
+          <form
+            method="post"
+            class="admin-form"
           >
 
-          <input
-            type="hidden"
-            name="user_id"
-            value="<?= $userId ?>"
-          >
-
-          <input
-            type="hidden"
-            name="csrf_token"
-            value="<?= e(
-                $csrfToken
-            ) ?>"
-          >
-
-
-          <div class="admin-field">
-
-            <label for="status">
-              Status
-            </label>
-
-            <select
-              id="status"
-              name="status"
+            <input
+              type="hidden"
+              name="action"
+              value="update_status"
             >
 
-              <?php foreach (
-                  [
-                      'active',
-                      'pending',
-                      'suspended',
-                      'disabled',
-                  ] as $status
-              ): ?>
+            <input
+              type="hidden"
+              name="user_id"
+              value="<?= $userId ?>"
+            >
 
-                <option
-                  value="<?= e(
-                      $status
-                  ) ?>"
-                  <?= $managedUser[
-                      'status'
-                  ] === $status
-                      ? 'selected'
-                      : ''
-                  ?>
-                >
+            <input
+              type="hidden"
+              name="csrf_token"
+              value="<?= e(
+                  $csrfToken
+              ) ?>"
+            >
 
-                  <?= e(
-                      status_label(
-                          $status
-                      )
-                  ) ?>
 
-                </option>
+            <div class="admin-field">
 
-              <?php endforeach; ?>
+              <label for="status">
+                Status
+              </label>
 
-            </select>
+              <select
+                id="status"
+                name="status"
+              >
 
+                <?php foreach (
+                    [
+                        'active',
+                        'pending',
+                        'suspended',
+                        'disabled',
+                    ] as $status
+                ): ?>
+
+                  <option
+                    value="<?= e(
+                        $status
+                    ) ?>"
+                    <?= $managedUser[
+                        'status'
+                    ] === $status
+                        ? 'selected'
+                        : ''
+                    ?>
+                  >
+
+                    <?= e(
+                        status_label(
+                            $status
+                        )
+                    ) ?>
+
+                  </option>
+
+                <?php endforeach; ?>
+
+              </select>
+
+
+              <p class="admin-field-help">
+
+                Suspended and disabled accounts
+                cannot sign in.
+
+              </p>
+
+            </div>
+
+
+            <div class="admin-form-actions">
+
+              <button
+                type="submit"
+                class="admin-button"
+              >
+
+                Update Status
+
+              </button>
+
+            </div>
+
+          </form>
+
+
+        <?php else: ?>
+
+
+          <div class="admin-form">
 
             <p class="admin-field-help">
 
-              Suspended and disabled accounts
-              cannot sign in.
+              <i
+                class="fa-solid fa-lock"
+                aria-hidden="true"
+              ></i>
+
+              Owner accounts cannot be suspended,
+              disabled, or otherwise restricted
+              through normal Basecamp controls.
 
             </p>
 
           </div>
 
 
-          <div class="admin-form-actions">
-
-            <button
-              type="submit"
-              class="admin-button"
-            >
-
-              Update Status
-
-            </button>
-
-          </div>
-
-        </form>
+        <?php endif; ?>
 
       </section>
 
@@ -2276,6 +2721,53 @@ require_once
           </div>
 
         </div>
+
+
+        <?php if (
+            $managedUserIsOwner
+        ): ?>
+
+          <div class="admin-form">
+
+            <div class="admin-field">
+
+              <label>
+                Protected Role
+              </label>
+
+              <p>
+
+                <span
+                  class="
+                    admin-user-badge
+                    admin-user-role
+                    admin-user-role--admin
+                  "
+                >
+
+                  <i
+                    class="fa-solid fa-crown"
+                    aria-hidden="true"
+                  ></i>
+
+                  Owner
+
+                </span>
+
+              </p>
+
+              <p class="admin-field-help">
+
+                The Owner role cannot be removed,
+                replaced, or assigned through this page.
+
+              </p>
+
+            </div>
+
+          </div>
+
+        <?php endif; ?>
 
 
         <form
@@ -2312,9 +2804,38 @@ require_once
 
 
             <?php foreach (
-                $availableRoles as
-                $role
+                $availableRoles as $role
             ): ?>
+
+
+              <?php
+
+              $roleSlug =
+                  (string)
+                  $role[
+                      'slug'
+                  ];
+
+
+              /*
+               * Admin checkbox is visible only to Owner.
+               *
+               * A normal Admin will never get a UI control
+               * that can create another Admin.
+               */
+
+              if (
+                  $roleSlug === 'admin'
+                  &&
+                  !$currentAdminIsOwner
+              ) {
+
+                  continue;
+
+              }
+
+              ?>
+
 
               <label
                 class="admin-checkbox"
@@ -2346,11 +2867,19 @@ require_once
 
                   <?= e(
                       role_label(
-                          $role[
-                              'slug'
-                          ]
+                          $roleSlug
                       )
                   ) ?>
+
+                  <?php if (
+                      $roleSlug === 'admin'
+                  ): ?>
+
+                    <small>
+                      Owner controlled
+                    </small>
+
+                  <?php endif; ?>
 
                 </span>
 
@@ -2361,9 +2890,19 @@ require_once
 
             <p class="admin-field-help">
 
-              Changes apply immediately.
-              Your own admin role cannot be removed
-              accidentally.
+              <?php if (
+                  $currentAdminIsOwner
+              ): ?>
+
+                Owner is permanently protected.
+                Only an Owner can add or remove Admin access.
+
+              <?php else: ?>
+
+                You may manage ordinary user and Scout roles.
+                Admin and Owner access are controlled by an Owner.
+
+              <?php endif; ?>
 
             </p>
 
@@ -2409,17 +2948,24 @@ require_once
 
         <div class="admin-form">
 
-          <a
-            class="
-              admin-button
-              admin-button--secondary
-            "
-            href="/user-account.php?id=<?= $userId ?>"
-          >
 
-            Edit Account
+          <?php if (
+              $canEditAccount
+          ): ?>
 
-          </a>
+            <a
+              class="
+                admin-button
+                admin-button--secondary
+              "
+              href="/user-account.php?id=<?= $userId ?>"
+            >
+
+              Edit Account
+
+            </a>
+
+          <?php endif; ?>
 
 
           <a
@@ -2473,6 +3019,7 @@ require_once
 
           </a>
 
+
         </div>
 
       </section>
@@ -2494,9 +3041,17 @@ require_once
       All Users
     </a>
 
-    <a href="/user-account.php?id=<?= $userId ?>">
-      Edit Account
-    </a>
+
+    <?php if (
+        $canEditAccount
+    ): ?>
+
+      <a href="/user-account.php?id=<?= $userId ?>">
+        Edit Account
+      </a>
+
+    <?php endif; ?>
+
 
     <a href="/">
       Basecamp
