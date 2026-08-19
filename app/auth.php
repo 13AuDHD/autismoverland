@@ -6,6 +6,442 @@ require_once __DIR__ . '/database.php';
 
 
 /* =========================================================
+   REMEMBER ME
+   ========================================================= */
+
+const LLAMA_REMEMBER_DAYS = 30;
+const LLAMA_REMEMBER_COOKIE = 'llamascout_remember';
+
+
+function create_remember_token(
+    int $userId
+): void {
+
+    if ($userId < 1) {
+        return;
+    }
+
+
+    $selector =
+        bin2hex(
+            random_bytes(16)
+        );
+
+
+    $validator =
+        bin2hex(
+            random_bytes(32)
+        );
+
+
+    $tokenHash =
+        password_hash(
+            $validator,
+            PASSWORD_DEFAULT
+        );
+
+
+    $expires =
+        time()
+        +
+        (
+            LLAMA_REMEMBER_DAYS
+            * 86400
+        );
+
+
+    $expiresSql =
+        date(
+            'Y-m-d H:i:s',
+            $expires
+        );
+
+
+    /*
+     * Remove expired tokens for this user.
+     */
+
+    $cleanup =
+        db()->prepare(
+            '
+            DELETE FROM user_remember_tokens
+
+            WHERE user_id = ?
+              AND expires_at < CURRENT_TIMESTAMP
+            '
+        );
+
+
+    $cleanup->execute([
+        $userId
+    ]);
+
+
+    /*
+     * Store only the HASH of the secret validator.
+     */
+
+    $stmt =
+        db()->prepare(
+            '
+            INSERT INTO user_remember_tokens
+            (
+                user_id,
+                selector,
+                token_hash,
+                expires_at
+            )
+
+            VALUES
+            (
+                ?, ?, ?, ?
+            )
+            '
+        );
+
+
+    $stmt->execute([
+        $userId,
+        $selector,
+        $tokenHash,
+        $expiresSql
+    ]);
+
+
+    /*
+     * Cookie contains:
+     *
+     * selector:validator
+     *
+     * The raw validator exists only in the browser.
+     */
+
+    setcookie(
+        LLAMA_REMEMBER_COOKIE,
+        $selector . ':' . $validator,
+        [
+            'expires' =>
+                $expires,
+
+            'path' =>
+                '/',
+
+            'domain' =>
+                '.llamascout.com',
+
+            'secure' =>
+                true,
+
+            'httponly' =>
+                true,
+
+            'samesite' =>
+                'Lax',
+        ]
+    );
+
+}
+
+
+function clear_remember_cookie(): void {
+
+    if (
+        !empty(
+            $_COOKIE[
+                LLAMA_REMEMBER_COOKIE
+            ]
+        )
+    ) {
+
+        $cookie =
+            (string)
+            $_COOKIE[
+                LLAMA_REMEMBER_COOKIE
+            ];
+
+
+        $parts =
+            explode(
+                ':',
+                $cookie,
+                2
+            );
+
+
+        if (
+            count($parts) === 2
+        ) {
+
+            $selector =
+                $parts[0];
+
+
+            if (
+                $selector !== ''
+            ) {
+
+                $stmt =
+                    db()->prepare(
+                        '
+                        DELETE FROM user_remember_tokens
+
+                        WHERE selector = ?
+                        '
+                    );
+
+
+                $stmt->execute([
+                    $selector
+                ]);
+
+            }
+
+        }
+
+    }
+
+
+    setcookie(
+        LLAMA_REMEMBER_COOKIE,
+        '',
+        [
+            'expires' =>
+                time() - 3600,
+
+            'path' =>
+                '/',
+
+            'domain' =>
+                '.llamascout.com',
+
+            'secure' =>
+                true,
+
+            'httponly' =>
+                true,
+
+            'samesite' =>
+                'Lax',
+        ]
+    );
+
+}
+
+
+function attempt_remembered_login(): bool {
+
+    if (
+        empty(
+            $_COOKIE[
+                LLAMA_REMEMBER_COOKIE
+            ]
+        )
+    ) {
+
+        return false;
+
+    }
+
+
+    $cookie =
+        (string)
+        $_COOKIE[
+            LLAMA_REMEMBER_COOKIE
+        ];
+
+
+    $parts =
+        explode(
+            ':',
+            $cookie,
+            2
+        );
+
+
+    if (
+        count($parts) !== 2
+    ) {
+
+        clear_remember_cookie();
+
+        return false;
+
+    }
+
+
+    [
+        $selector,
+        $validator
+    ] = $parts;
+
+
+    if (
+        $selector === ''
+        ||
+        $validator === ''
+    ) {
+
+        clear_remember_cookie();
+
+        return false;
+
+    }
+
+
+    $stmt =
+        db()->prepare(
+            '
+            SELECT
+                rt.id,
+                rt.user_id,
+                rt.token_hash,
+                rt.expires_at,
+                u.status
+
+            FROM user_remember_tokens rt
+
+            INNER JOIN users u
+                ON u.id = rt.user_id
+
+            WHERE rt.selector = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $selector
+    ]);
+
+
+    $remember =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    if (!$remember) {
+
+        clear_remember_cookie();
+
+        return false;
+
+    }
+
+
+    if (
+        strtotime(
+            (string)
+            $remember[
+                'expires_at'
+            ]
+        ) <= time()
+    ) {
+
+        clear_remember_cookie();
+
+        return false;
+
+    }
+
+
+    if (
+        in_array(
+            $remember[
+                'status'
+            ],
+            [
+                'suspended',
+                'disabled'
+            ],
+            true
+        )
+    ) {
+
+        clear_remember_cookie();
+
+        return false;
+
+    }
+
+
+    if (
+        !password_verify(
+            $validator,
+            $remember[
+                'token_hash'
+            ]
+        )
+    ) {
+
+        /*
+         * A selector matched but the secret did not.
+         *
+         * Delete it instead of continuing to accept
+         * attempts against that token.
+         */
+
+        clear_remember_cookie();
+
+        return false;
+
+    }
+
+
+    start_llama_session();
+
+
+    session_regenerate_id(
+        true
+    );
+
+
+    $_SESSION[
+        'user_id'
+    ] =
+        (int)
+        $remember[
+            'user_id'
+        ];
+
+
+    $_SESSION[
+        'logged_in_at'
+    ] =
+        time();
+
+
+    /*
+     * Record activity.
+     */
+
+    $update =
+        db()->prepare(
+            '
+            UPDATE user_remember_tokens
+
+            SET last_used_at =
+                CURRENT_TIMESTAMP
+
+            WHERE id = ?
+            '
+        );
+
+
+    $update->execute([
+        $remember[
+            'id'
+        ]
+    ]);
+
+
+    return true;
+
+}
+
+
+/* =========================================================
    SESSION SETUP
    ========================================================= */
 
@@ -38,50 +474,109 @@ function current_user(): ?array
 {
     start_llama_session();
 
-    $userId =
-        $_SESSION['user_id'] ?? null;
 
-    if (!$userId) {
-        return null;
+    $userId =
+        $_SESSION[
+            'user_id'
+        ]
+        ?? null;
+
+
+    /*
+     * PHP session disappeared, but the user selected
+     * Remember Me during login.
+     */
+
+    if (
+        !$userId
+        &&
+        attempt_remembered_login()
+    ) {
+
+        $userId =
+            $_SESSION[
+                'user_id'
+            ]
+            ?? null;
+
     }
 
-    $stmt = db()->prepare(
-        '
-        SELECT
-            id,
-            email,
-            username,
-            display_name,
-            timezone,
-            status,
-            email_verified_at,
-            stripe_customer_id,
-            stripe_subscription_id,
-            membership_status,
-            membership_interval,
-            membership_started_at,
-            membership_ends_at,
-            created_at
-        FROM users
-        WHERE id = ?
-        LIMIT 1
-        '
-    );
+
+    if (!$userId) {
+
+        return null;
+
+    }
+
+
+    $stmt =
+        db()->prepare(
+            '
+            SELECT
+                id,
+                email,
+                username,
+                display_name,
+                timezone,
+                status,
+                email_verified_at,
+                stripe_customer_id,
+                stripe_subscription_id,
+                membership_status,
+                membership_interval,
+                membership_started_at,
+                membership_ends_at,
+                created_at
+
+            FROM users
+
+            WHERE id = ?
+
+            LIMIT 1
+            '
+        );
+
 
     $stmt->execute([
         $userId
     ]);
 
+
     $user =
         $stmt->fetch();
 
+
     if (!$user) {
+
         logout_user();
+
         return null;
+
     }
 
+
+    if (
+        in_array(
+            $user[
+                'status'
+            ],
+            [
+                'suspended',
+                'disabled'
+            ],
+            true
+        )
+    ) {
+
+        logout_user();
+
+        return null;
+
+    }
+
+
     return $user;
-}
+},
 
 
 /* =========================================================
@@ -100,7 +595,8 @@ function is_logged_in(): bool
 
 function attempt_login(
     string $login,
-    string $password
+    string $password,
+    bool $remember = false
 ): bool {
 
     $login =
@@ -108,73 +604,129 @@ function attempt_login(
             trim($login)
         );
 
-    $stmt = db()->prepare(
-        '
-        SELECT *
-        FROM users
-        WHERE LOWER(email) = ?
-           OR LOWER(username) = ?
-        LIMIT 1
-        '
-    );
+
+    $stmt =
+        db()->prepare(
+            '
+            SELECT *
+
+            FROM users
+
+            WHERE LOWER(email) = ?
+               OR LOWER(username) = ?
+
+            LIMIT 1
+            '
+        );
+
 
     $stmt->execute([
         $login,
         $login
     ]);
 
+
     $user =
         $stmt->fetch();
 
+
     if (!$user) {
+
         return false;
+
     }
+
 
     if (
         !password_verify(
             $password,
-            $user['password_hash']
+            $user[
+                'password_hash'
+            ]
         )
     ) {
+
         return false;
+
     }
 
+
     if (
-        $user['status'] === 'suspended' ||
-        $user['status'] === 'disabled'
+        $user[
+            'status'
+        ] === 'suspended'
+        ||
+        $user[
+            'status'
+        ] === 'disabled'
     ) {
+
         return false;
+
     }
+
 
     start_llama_session();
 
-    session_regenerate_id(true);
 
-    $_SESSION['user_id'] =
-        (int) $user['id'];
+    session_regenerate_id(
+        true
+    );
 
-    $_SESSION['logged_in_at'] =
+
+    $_SESSION[
+        'user_id'
+    ] =
+        (int)
+        $user[
+            'id'
+        ];
+
+
+    $_SESSION[
+        'logged_in_at'
+    ] =
         time();
 
 
-    $loginStmt = db()->prepare(
-        '
-        UPDATE users
-        SET
-            last_login_at = CURRENT_TIMESTAMP,
-            dormancy_notice_sent_at = NULL
-        WHERE id = ?
-        '
-    );
+    $loginStmt =
+        db()->prepare(
+            '
+            UPDATE users
+
+            SET
+                last_login_at =
+                    CURRENT_TIMESTAMP,
+
+                dormancy_notice_sent_at =
+                    NULL
+
+            WHERE id = ?
+            '
+        );
+
 
     $loginStmt->execute([
-        $user['id']
+        $user[
+            'id'
+        ]
     ]);
+
+
+    if ($remember) {
+
+        create_remember_token(
+            (int)
+            $user[
+                'id'
+            ]
+        );
+
+    }
 
 
     return true;
 }
-
 
 /* =========================================================
    LOGOUT
@@ -183,6 +735,8 @@ function attempt_login(
 function logout_user(): void
 {
     start_llama_session();
+
+    clear_remember_cookie();
 
     $_SESSION = [];
 
