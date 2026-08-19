@@ -125,6 +125,7 @@ require_once
         <div
           id="map-filter-panel"
           class="map-filter-panel"
+          hidden
         >
 
 
