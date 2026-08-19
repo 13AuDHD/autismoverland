@@ -2,13 +2,23 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
+
 
 require_verified_email();
 
-$user = current_user();
+
+$user =
+    current_user();
+
 
 start_llama_session();
+
+
+$db =
+    db();
 
 
 /* =========================================================
@@ -16,16 +26,159 @@ start_llama_session();
    ========================================================= */
 
 if (
-    empty($_SESSION['scout_place_csrf'])
+    empty(
+        $_SESSION[
+            'scout_place_csrf'
+        ]
+    )
 ) {
-    $_SESSION['scout_place_csrf'] =
+
+    $_SESSION[
+        'scout_place_csrf'
+    ] =
         bin2hex(
             random_bytes(32)
         );
+
 }
 
+
 $csrfToken =
-    $_SESSION['scout_place_csrf'];
+    $_SESSION[
+        'scout_place_csrf'
+    ];
+
+
+/* =========================================================
+   EDIT MODE
+   ========================================================= */
+
+$editSubmissionId =
+    (int) (
+        $_GET['edit']
+        ?? 0
+    );
+
+
+$editSubmission =
+    null;
+
+
+$editPlace =
+    null;
+
+
+$editableStatuses = [
+    'needs-changes',
+    'rejected',
+];
+
+
+/* =========================================================
+   LOAD EXISTING SUBMISSION FOR EDITING
+   ========================================================= */
+
+if (
+    $_SERVER['REQUEST_METHOD'] !== 'POST'
+    &&
+    $editSubmissionId > 0
+) {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                user_id,
+                place_name,
+                source_type,
+                status,
+                submission_data,
+                submitted_at,
+                updated_at,
+                reviewed_at,
+                review_notes
+
+            FROM place_submissions
+
+            WHERE id = ?
+              AND user_id = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $editSubmissionId,
+        $user['id']
+    ]);
+
+
+    $editSubmission =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    if (
+        !$editSubmission
+    ) {
+
+        http_response_code(404);
+
+        exit(
+            'Submission not found.'
+        );
+
+    }
+
+
+    if (
+        !in_array(
+            (string)
+            $editSubmission['status'],
+            $editableStatuses,
+            true
+        )
+    ) {
+
+        http_response_code(409);
+
+        exit(
+            'This submission is not currently available for editing.'
+        );
+
+    }
+
+
+    $decoded =
+        json_decode(
+            (string)
+            $editSubmission[
+                'submission_data'
+            ],
+            true
+        );
+
+
+    if (
+        !is_array($decoded)
+    ) {
+
+        http_response_code(500);
+
+        exit(
+            'The saved submission data could not be loaded.'
+        );
+
+    }
+
+
+    $editPlace =
+        $decoded;
+
+}
 
 
 /* =========================================================
@@ -43,31 +196,47 @@ if (
 
     $input =
         json_decode(
-            file_get_contents('php://input'),
+            file_get_contents(
+                'php://input'
+            ),
             true
         );
 
 
-    if (!is_array($input)) {
+    if (
+        !is_array($input)
+    ) {
 
         http_response_code(400);
 
         echo json_encode([
             'success' => false,
+
             'message' =>
                 'The submission could not be read.'
         ]);
 
         exit;
+
     }
 
 
+    /* =====================================================
+       CSRF
+       ===================================================== */
+
     $submittedToken =
-        $input['csrf_token'] ?? '';
+        $input[
+            'csrf_token'
+        ]
+        ?? '';
 
 
     if (
-        !is_string($submittedToken) ||
+        !is_string(
+            $submittedToken
+        )
+        ||
         !hash_equals(
             $csrfToken,
             $submittedToken
@@ -78,110 +247,353 @@ if (
 
         echo json_encode([
             'success' => false,
+
             'message' =>
                 'Your session could not be verified. Reload the page and try again.'
         ]);
 
         exit;
+
     }
 
 
+    /* =====================================================
+       PLACE DATA
+       ===================================================== */
+
     $place =
-        $input['place'] ?? null;
+        $input[
+            'place'
+        ]
+        ?? null;
 
 
-    if (!is_array($place)) {
+    if (
+        !is_array($place)
+    ) {
 
         http_response_code(400);
 
         echo json_encode([
             'success' => false,
+
             'message' =>
                 'No place information was received.'
         ]);
 
         exit;
+
     }
 
 
     $placeName =
         trim(
             (string) (
-                $place['name']
+                $place[
+                    'name'
+                ]
                 ?? ''
             )
         );
 
 
-    if ($placeName === '') {
+    if (
+        $placeName === ''
+    ) {
 
         http_response_code(422);
 
         echo json_encode([
             'success' => false,
+
             'message' =>
                 'A place name is required.'
         ]);
 
         exit;
+
     }
 
 
-    /*
-     * Never trust source/status values from the browser.
-     * Community submissions are enforced here server-side.
-     */
+    /* =====================================================
+       SERVER-CONTROLLED COMMUNITY VALUES
 
-    $place['status'] =
+       Never trust source, status, featured, or verification
+       values supplied by the browser.
+       ===================================================== */
+
+    $place[
+        'status'
+    ] =
         'draft';
 
-    $place['featured'] =
+
+    $place[
+        'featured'
+    ] =
         false;
 
-    $place['verification'] =
+
+    $place[
+        'verification'
+    ] =
         is_array(
-            $place['verification'] ?? null
+            $place[
+                'verification'
+            ]
+            ?? null
         )
-            ? $place['verification']
+            ? $place[
+                'verification'
+            ]
             : [];
 
 
-    $place['verification']['status'] =
+    $place[
+        'verification'
+    ][
+        'status'
+    ] =
         'community-scouted';
 
-    $place['verification']['source'] =
+
+    $place[
+        'verification'
+    ][
+        'source'
+    ] =
         'Community Scouted member submission';
 
-    $place['verification']['publicDataVerified'] =
+
+    $place[
+        'verification'
+    ][
+        'publicDataVerified'
+    ] =
         null;
 
+
+    /* =====================================================
+       PREPARE JSON
+       ===================================================== */
 
     $submissionJson =
         json_encode(
             $place,
-            JSON_UNESCAPED_SLASHES |
+
+            JSON_UNESCAPED_SLASHES
+            |
             JSON_UNESCAPED_UNICODE
         );
 
 
-    if ($submissionJson === false) {
+    if (
+        $submissionJson === false
+    ) {
 
         http_response_code(500);
 
         echo json_encode([
             'success' => false,
+
             'message' =>
                 'The submission could not be prepared.'
         ]);
 
         exit;
+
     }
+
+
+    /* =====================================================
+       EXISTING SUBMISSION ID
+
+       Zero means this is a brand new submission.
+       ===================================================== */
+
+    $submissionId =
+        (int) (
+            $input[
+                'submission_id'
+            ]
+            ?? 0
+        );
 
 
     try {
 
+        /* =================================================
+           EDIT + RESUBMIT EXISTING SUBMISSION
+           ================================================= */
+
+        if (
+            $submissionId > 0
+        ) {
+
+            /*
+             * First confirm that:
+             *
+             * 1. The submission belongs to this user.
+             * 2. It is actually in an editable state.
+             */
+
+            $check =
+                $db->prepare(
+                    '
+                    SELECT
+                        id,
+                        status
+
+                    FROM place_submissions
+
+                    WHERE id = ?
+                      AND user_id = ?
+
+                    LIMIT 1
+                    '
+                );
+
+
+            $check->execute([
+                $submissionId,
+                $user['id']
+            ]);
+
+
+            $existing =
+                $check->fetch(
+                    PDO::FETCH_ASSOC
+                );
+
+
+            if (
+                !$existing
+            ) {
+
+                http_response_code(404);
+
+                echo json_encode([
+                    'success' => false,
+
+                    'message' =>
+                        'That submission could not be found.'
+                ]);
+
+                exit;
+
+            }
+
+
+            if (
+                !in_array(
+                    (string)
+                    $existing[
+                        'status'
+                    ],
+                    $editableStatuses,
+                    true
+                )
+            ) {
+
+                http_response_code(409);
+
+                echo json_encode([
+                    'success' => false,
+
+                    'message' =>
+                        'That submission can no longer be edited.'
+                ]);
+
+                exit;
+
+            }
+
+
+            /*
+             * Update the SAME submission.
+             *
+             * We deliberately do not create a duplicate.
+             *
+             * Returning it to pending also clears the old
+             * review decision because the member has now
+             * supplied a revised version.
+             */
+
+            $stmt =
+                $db->prepare(
+                    '
+                    UPDATE place_submissions
+
+                    SET
+                        place_name = ?,
+                        submission_data = ?,
+                        status = ?,
+                        review_notes = NULL,
+                        reviewed_at = NULL,
+                        reviewed_by = NULL,
+                        updated_at = CURRENT_TIMESTAMP
+
+                    WHERE id = ?
+                      AND user_id = ?
+                      AND status IN (
+                          \'needs-changes\',
+                          \'rejected\'
+                      )
+                    '
+                );
+
+
+            $stmt->execute([
+                $placeName,
+                $submissionJson,
+                'pending',
+                $submissionId,
+                $user['id']
+            ]);
+
+
+            if (
+                $stmt->rowCount() < 1
+            ) {
+
+                http_response_code(409);
+
+                echo json_encode([
+                    'success' => false,
+
+                    'message' =>
+                        'The submission changed before it could be saved. Reload the page and try again.'
+                ]);
+
+                exit;
+
+            }
+
+
+            echo json_encode([
+                'success' => true,
+
+                'submission_id' =>
+                    $submissionId,
+
+                'updated' =>
+                    true,
+
+                'message' =>
+                    'Your updated place has been resubmitted for review.'
+            ]);
+
+            exit;
+
+        }
+
+
+        /* =================================================
+           BRAND NEW SUBMISSION
+           ================================================= */
+
         $stmt =
-            db()->prepare(
+            $db->prepare(
                 '
                 INSERT INTO place_submissions (
                     user_id,
@@ -190,6 +602,7 @@ if (
                     status,
                     submission_data
                 )
+
                 VALUES (
                     ?,
                     ?,
@@ -210,14 +623,20 @@ if (
         ]);
 
 
-        $submissionId =
-            (int) db()->lastInsertId();
+        $newSubmissionId =
+            (int)
+            $db->lastInsertId();
 
 
         echo json_encode([
             'success' => true,
+
             'submission_id' =>
-                $submissionId,
+                $newSubmissionId,
+
+            'updated' =>
+                false,
+
             'message' =>
                 'Your Community Scouted place has been submitted for review.'
         ]);
@@ -225,10 +644,13 @@ if (
         exit;
 
 
-    } catch (Throwable $exception) {
+    } catch (
+        Throwable $exception
+    ) {
 
         error_log(
-            'Llama Scout place submission error: ' .
+            'Llama Scout place submission error: '
+            .
             $exception->getMessage()
         );
 
@@ -237,12 +659,49 @@ if (
 
         echo json_encode([
             'success' => false,
+
             'message' =>
                 'Something went wrong while saving your submission.'
         ]);
 
         exit;
+
     }
+
+}
+
+
+/* =========================================================
+   SAFE JSON FOR EDITOR
+   ========================================================= */
+
+$editPlaceJson =
+    $editPlace !== null
+        ? json_encode(
+            $editPlace,
+
+            JSON_UNESCAPED_SLASHES
+            |
+            JSON_UNESCAPED_UNICODE
+            |
+            JSON_HEX_TAG
+            |
+            JSON_HEX_AMP
+            |
+            JSON_HEX_APOS
+            |
+            JSON_HEX_QUOT
+        )
+        : 'null';
+
+
+if (
+    $editPlaceJson === false
+) {
+
+    $editPlaceJson =
+        'null';
+
 }
 
 ?>
@@ -342,6 +801,7 @@ require_once
 </div>
   <main class="place-editor-page">
 
+
     <!-- ==================================================
          INTRO
          ================================================== -->
@@ -354,22 +814,81 @@ require_once
           Community Scouting
         </p>
 
+
         <h1>
-          Scout a Place
+
+          <?php if (
+              $editSubmission
+          ): ?>
+
+            Edit &amp; Resubmit
+
+          <?php else: ?>
+
+            Scout a Place
+
+          <?php endif; ?>
+
         </h1>
 
-        <p>
-          Share a place you've personally visited and help other
-          members know what to expect before they go. Work through
-          one section at a time and fill out what you know. If you
-          genuinely do not know something, choose Unknown or leave
-          the field blank.
-        </p>
+
+        <?php if (
+            $editSubmission
+        ): ?>
+
+          <p>
+            Make whatever changes are needed below.
+            Your previous answers have been loaded back
+            into the Scout a Place form. When you're ready,
+            resubmit it and it will return to Pending Review.
+          </p>
+
+
+          <?php if (
+              !empty(
+                  $editSubmission[
+                      'review_notes'
+                  ]
+              )
+          ): ?>
+
+            <div class="submission-review">
+
+              <strong>
+                Llama Scout review
+              </strong>
+
+              <p>
+                <?= htmlspecialchars(
+                    (string)
+                    $editSubmission[
+                        'review_notes'
+                    ],
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+              </p>
+
+            </div>
+
+          <?php endif; ?>
+
+
+        <?php else: ?>
+
+          <p>
+            Share a place you've personally visited and help other
+            members know what to expect before they go. Work through
+            one section at a time and fill out what you know. If you
+            genuinely do not know something, choose Unknown or leave
+            the field blank.
+          </p>
+
+        <?php endif; ?>
 
       </div>
 
     </section>
-
 
     <!-- ==================================================
          MAIN EDITOR
