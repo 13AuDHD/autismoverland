@@ -172,6 +172,91 @@ function placeStringValue(
 
 }
 
+function truncatePlaceCardDescription(
+  text,
+  maxCharacters = 320
+) {
+
+  text =
+    String(
+      text || ""
+    )
+    .trim();
+
+
+  if (!text) {
+    return "";
+  }
+
+
+  if (
+    text.length <=
+      maxCharacters
+  ) {
+    return text;
+  }
+
+
+  let preview =
+    text.slice(
+      0,
+      maxCharacters
+    );
+
+
+  const sentenceEnd =
+    Math.max(
+      preview.lastIndexOf("."),
+      preview.lastIndexOf("!"),
+      preview.lastIndexOf("?")
+    );
+
+
+  if (
+    sentenceEnd >=
+      maxCharacters * 0.55
+  ) {
+
+    return preview
+      .slice(
+        0,
+        sentenceEnd + 1
+      )
+      .trim();
+
+  }
+
+
+  const lastSpace =
+    preview.lastIndexOf(
+      " "
+    );
+
+
+  if (
+    lastSpace !== -1
+  ) {
+
+    preview =
+      preview.slice(
+        0,
+        lastSpace
+      );
+
+  }
+
+
+  return (
+    preview
+      .replace(
+        /[\s,;:]+$/,
+        ""
+      )
+    +
+    "..."
+  );
+
+}
 
 function lockedPlaceText(
   value
@@ -612,11 +697,12 @@ function buildPlaceCard(
       "field-verified";
 
 
-  const description =
-    placeStringValue(
-      place.description
-    );
-
+   const description =
+     truncatePlaceCardDescription(
+       placeStringValue(
+         place.description
+       )
+     );
 
   article.innerHTML = `
 
