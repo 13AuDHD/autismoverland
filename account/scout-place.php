@@ -3947,53 +3947,75 @@ require_once
                ACTIONS
                ================================================== -->
 
-         <div class="place-editor-actions">
-         
-           <button
-             class="primary-btn"
-             type="button"
-             id="submit-community-place"
-           >
-         
-             <i class="fa-solid fa-paper-plane"></i>
-         
-             Submit for Review
-         
-           </button>
-         
-         
-           <button
-             class="small-btn"
-             type="reset"
-             id="reset-place"
-           >
-         
-             <i class="fa-solid fa-rotate-left"></i>
-         
-             Reset Form
-         
-           </button>
-         
-         </div>
+          <div class="place-editor-actions">
+
+            <button
+              class="primary-btn"
+              type="button"
+              id="submit-community-place"
+            >
+
+              <i class="fa-solid fa-paper-plane"></i>
+
+              <?php if (
+                  $editSubmission
+              ): ?>
+
+                Resubmit for Review
+
+              <?php else: ?>
+
+                Submit for Review
+
+              <?php endif; ?>
+
+            </button>
+
+
+            <button
+              class="small-btn"
+              type="reset"
+              id="reset-place"
+            >
+
+              <i class="fa-solid fa-rotate-left"></i>
+
+              <?php if (
+                  $editSubmission
+              ): ?>
+
+                Reset Changes
+
+              <?php else: ?>
+
+                Reset Form
+
+              <?php endif; ?>
+
+            </button>
+
+          </div>
 
         </form>
 
 
-
         <!-- ==================================================
-             JSON OUTPUT
+             MESSAGE / HIDDEN JSON OUTPUT
              ================================================== -->
 
-<div
-  id="place-editor-message"
-  class="place-editor-message"
-  aria-live="polite"
-></div>
+        <div
+          id="place-editor-message"
+          class="place-editor-message"
+          aria-live="polite"
+        ></div>
 
-<pre
-  hidden
-  aria-hidden="true"
-><code id="place-json-output">Fill out the form, then choose Generate JSON.</code></pre>
+
+        <pre
+          hidden
+          aria-hidden="true"
+        ><code id="place-json-output">Fill out the form, then choose Generate JSON.</code></pre>
+
+
       </div>
 
     </section>
@@ -4005,160 +4027,1665 @@ require_once
     src="https://llamascout.com/js/add-place.js"
   ></script>
 
-   <script>
-      
-      document
-        .getElementById(
-          "submit-community-place"
-        )
-        ?.addEventListener(
-          "click",
-          submitCommunityPlace
-        );
-      
-      
-      async function submitCommunityPlace() {
-      
-        const button =
-          document.getElementById(
-            "submit-community-place"
-          );
-      
-        const output =
-          document.getElementById(
-            "place-json-output"
-          );
-      
-        const csrf =
-          document.getElementById(
-            "scout-place-csrf"
-          )?.value;
-      
-      
-        if (!button || !output || !csrf) {
-          return;
-        }
-      
-      
-        /*
-         * Use the existing Llama Scout generator
-         * to build and validate the complete
-         * structured place object.
-         */
-      
-        generatePlaceJSON();
-      
-      
-        let place;
-      
-      
-        try {
-      
-          place =
-            JSON.parse(
-              output.textContent
-            );
-      
-        } catch (error) {
-      
-          /*
-           * generatePlaceJSON already displays
-           * the appropriate validation message.
-           */
-      
-          return;
-        }
-      
-      
-        const originalText =
-          button.innerHTML;
-      
-      
-        button.disabled = true;
-      
-        button.innerHTML =
-          '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
-      
-      
-        try {
-      
-          const response =
-            await fetch(
-              "scout-place.php",
-              {
-                method: "POST",
-      
-                headers: {
-                  "Content-Type":
-                    "application/json"
-                },
-      
-                credentials: "same-origin",
-      
-                body: JSON.stringify({
-                  csrf_token: csrf,
-                  place: place
-                })
-              }
-            );
-      
-      
-          const result =
-            await response.json();
-      
-      
-          if (
-            !response.ok ||
-            !result.success
-          ) {
-      
-            throw new Error(
-              result.message ||
-              "The submission could not be saved."
-            );
-      
-          }
-      
-      
-         showEditorMessage(
-           result.message,
-           "success"
-         );
-         
-         setTimeout(() => {
-         
-           window.location.href =
-             "submissions.php?submitted=1";
-         
-         }, 700);
-      
-      
-        } catch (error) {
-      
-          showEditorMessage(
-            error.message ||
-            "Something went wrong while submitting the place.",
-            "error"
-          );
-      
-      
-        } finally {
-      
-          button.disabled = false;
-      
-          button.innerHTML =
-            originalText;
-      
-        }
-      
-      }
-      
-      </script>
 
-   <script
-  src="https://llamascout.com/js/header.js"
-></script>
-   
+  <script>
+
+  /* =========================================================
+     EXISTING SUBMISSION DATA
+     ========================================================= */
+
+  const scoutEditSubmissionId =
+    <?= $editSubmission
+        ? (int) $editSubmission['id']
+        : 0
+    ?>;
+
+
+  const scoutEditPlace =
+    <?= $editPlaceJson ?>;
+
+
+  /* =========================================================
+     GENERIC FIELD LOADERS
+     ========================================================= */
+
+  function editorSetValue(
+    id,
+    value
+  ) {
+
+    const element =
+      document.getElementById(id);
+
+
+    if (!element) {
+      return;
+    }
+
+
+    element.value =
+      value == null
+        ? ""
+        : String(value);
+
+  }
+
+
+  function editorSetTriState(
+    id,
+    value
+  ) {
+
+    const element =
+      document.getElementById(id);
+
+
+    if (!element) {
+      return;
+    }
+
+
+    if (value === true) {
+
+      element.value =
+        "true";
+
+    } else if (
+      value === false
+    ) {
+
+      element.value =
+        "false";
+
+    } else {
+
+      element.value =
+        "";
+
+    }
+
+  }
+
+
+  function editorSetCheckbox(
+    id,
+    value
+  ) {
+
+    const element =
+      document.getElementById(id);
+
+
+    if (!element) {
+      return;
+    }
+
+
+    element.checked =
+      value === true;
+
+  }
+
+
+  function editorSetRating(
+    key,
+    value
+  ) {
+
+    document
+      .querySelectorAll(
+        `input[name="rating-${key}"]`
+      )
+      .forEach(
+        input => {
+
+          input.checked =
+            Number(input.value)
+            === Number(value);
+
+        }
+      );
+
+  }
+
+
+  function editorSetLines(
+    id,
+    values
+  ) {
+
+    editorSetValue(
+      id,
+      Array.isArray(values)
+        ? values.join("\n")
+        : ""
+    );
+
+  }
+
+
+  function editorSetCommaList(
+    id,
+    values
+  ) {
+
+    editorSetValue(
+      id,
+      Array.isArray(values)
+        ? values.join(", ")
+        : ""
+    );
+
+  }
+
+
+  function editorImageFilename(
+    image
+  ) {
+
+    if (
+      !image ||
+      typeof image !== "object" ||
+      !image.src
+    ) {
+
+      return "";
+
+    }
+
+
+    return String(
+      image.src
+    )
+      .replace(
+        /^\/?images\/places\//,
+        ""
+      )
+      .replace(
+        /^\/?images\//,
+        ""
+      );
+
+  }
+
+
+  /* =========================================================
+     LOAD PLACE JSON BACK INTO FORM
+     ========================================================= */
+
+  function loadPlaceIntoEditor(
+    place
+  ) {
+
+    if (
+      !place ||
+      typeof place !== "object"
+    ) {
+
+      return;
+
+    }
+
+
+    /* =====================================================
+       CORE
+       ===================================================== */
+
+    editorSetValue(
+      "place-name",
+      place.name
+    );
+
+    editorSetValue(
+      "place-type",
+      place.type
+    );
+
+
+    /*
+     * Community status / featured values remain controlled
+     * by the server, but we keep the hidden controls sane.
+     */
+
+    editorSetValue(
+      "place-status",
+      "draft"
+    );
+
+    editorSetCheckbox(
+      "place-featured",
+      false
+    );
+
+
+    /* =====================================================
+       LOCATION
+       ===================================================== */
+
+    const location =
+      place.location || {};
+
+
+    editorSetValue(
+      "latitude",
+      location.latitude
+    );
+
+    editorSetValue(
+      "longitude",
+      location.longitude
+    );
+
+    editorSetValue(
+      "elevation",
+      location.elevationFeet
+    );
+
+    editorSetValue(
+      "road",
+      location.road
+    );
+
+    editorSetValue(
+      "city",
+      location.city
+    );
+
+    editorSetValue(
+      "county",
+      location.county
+    );
+
+    editorSetValue(
+      "state",
+      location.state
+    );
+
+    editorSetValue(
+      "region",
+      location.region
+    );
+
+    editorSetValue(
+      "land-manager",
+      location.landManager
+    );
+
+    editorSetValue(
+      "land-type",
+      location.landType
+    );
+
+
+    /* =====================================================
+       SITE
+       ===================================================== */
+
+    const site =
+      place.site || {};
+
+
+    editorSetValue(
+      "vehicle-capacity",
+      site.vehicleCapacity
+    );
+
+    editorSetValue(
+      "max-vehicle-length",
+      site.maxVehicleLengthFeet
+    );
+
+    editorSetTriState(
+      "tent-suitable",
+      site.tentCampingSuitable
+    );
+
+    editorSetTriState(
+      "rv-suitable",
+      site.rvSuitable
+    );
+
+    editorSetTriState(
+      "trailer-suitable",
+      site.trailerSuitable
+    );
+
+    editorSetValue(
+      "parking-surface",
+      site.parkingSurface
+    );
+
+    editorSetRating(
+      "levelness",
+      site.levelness
+    );
+
+    editorSetTriState(
+      "leveling-required",
+      site.levelingRequired
+    );
+
+    editorSetTriState(
+      "turnaround-space",
+      site.turnaroundSpace
+    );
+
+    editorSetTriState(
+      "pull-through",
+      site.pullThrough
+    );
+
+    editorSetTriState(
+      "back-in",
+      site.backIn
+    );
+
+    editorSetRating(
+      "openSky",
+      site.openSky
+    );
+
+    editorSetRating(
+      "treeCover",
+      site.treeCover
+    );
+
+    editorSetRating(
+      "shade",
+      site.shade
+    );
+
+    editorSetValue(
+      "ground-condition",
+      site.groundCondition
+    );
+
+
+    /* =====================================================
+       ROAD ACCESS
+       ===================================================== */
+
+    const access =
+      place.access || {};
+
+
+    editorSetRating(
+      "siteAccessDifficulty",
+      access.siteAccessDifficulty
+    );
+
+    editorSetRating(
+      "roadOverallDifficulty",
+      access.roadOverallDifficulty
+      ?? access.roadDifficulty
+    );
+
+    editorSetRating(
+      "roadStress",
+      access.roadStress
+    );
+
+    editorSetTriState(
+      "sedan-accessible",
+      access.sedanAccessible
+    );
+
+    editorSetTriState(
+      "high-clearance",
+      access.highClearanceRecommended
+    );
+
+    editorSetTriState(
+      "four-wheel-drive",
+      access.fourWheelDriveRecommended
+    );
+
+    editorSetValue(
+      "road-surface",
+      access.roadSurface
+    );
+
+    editorSetValue(
+      "road-width",
+      access.roadWidth
+    );
+
+    editorSetRating(
+      "rocks",
+      access.rocks
+    );
+
+    editorSetRating(
+      "washboards",
+      access.washboards
+    );
+
+    editorSetRating(
+      "potholes",
+      access.potholes
+    );
+
+    editorSetRating(
+      "mudRisk",
+      access.mudRisk
+    );
+
+    editorSetRating(
+      "steepGrades",
+      access.steepGrades
+    );
+
+    editorSetRating(
+      "dropOffExposure",
+      access.dropOffExposure
+    );
+
+    editorSetTriState(
+      "water-crossings",
+      access.waterCrossings
+    );
+
+    editorSetTriState(
+      "downed-tree-risk",
+      access.downedTreeRisk
+    );
+
+    editorSetTriState(
+      "seasonal-closure",
+      access.seasonalClosure
+    );
+
+
+    /* =====================================================
+       SENSORY
+       ===================================================== */
+
+    const sensory =
+      place.sensory || {};
+
+
+    const daytime =
+      sensory.daytime || {};
+
+
+    const nighttime =
+      sensory.nighttime || {};
+
+
+    editorSetRating(
+      "dayNoise",
+      daytime.noise
+    );
+
+    editorSetRating(
+      "dayTraffic",
+      daytime.traffic
+    );
+
+    editorSetRating(
+      "dayCrowds",
+      daytime.crowds
+    );
+
+    editorSetRating(
+      "dayPrivacy",
+      daytime.privacy
+    );
+
+    editorSetRating(
+      "dayLightPollution",
+      daytime.lightPollution
+    );
+
+    editorSetRating(
+      "daySensoryComfort",
+      daytime.sensoryComfort
+    );
+
+    editorSetRating(
+      "daySocial",
+      daytime.socialInteractionLikelihood
+    );
+
+
+    editorSetRating(
+      "nightNoise",
+      nighttime.noise
+    );
+
+    editorSetRating(
+      "nightTraffic",
+      nighttime.traffic
+    );
+
+    editorSetRating(
+      "nightCrowds",
+      nighttime.crowds
+    );
+
+    editorSetRating(
+      "nightPrivacy",
+      nighttime.privacy
+    );
+
+    editorSetRating(
+      "nightLightPollution",
+      nighttime.lightPollution
+    );
+
+    editorSetRating(
+      "nightSensoryComfort",
+      nighttime.sensoryComfort
+    );
+
+    editorSetRating(
+      "nightSocial",
+      nighttime.socialInteractionLikelihood
+    );
+
+
+    editorSetRating(
+      "dustFromTraffic",
+      sensory.dustFromTraffic
+    );
+
+    editorSetRating(
+      "generatorNoise",
+      sensory.generatorNoise
+    );
+
+    editorSetRating(
+      "aircraftNoise",
+      sensory.aircraftNoise
+    );
+
+    editorSetRating(
+      "roadNoise",
+      sensory.roadNoise
+    );
+
+    editorSetRating(
+      "humanActivity",
+      sensory.humanActivity
+    );
+
+    editorSetRating(
+      "wildlifeNoise",
+      sensory.wildlifeNoise
+    );
+
+    editorSetRating(
+      "windNoise",
+      sensory.windNoise
+    );
+
+    editorSetRating(
+      "smokeRisk",
+      sensory.smokeRisk
+    );
+
+    editorSetRating(
+      "strongOdors",
+      sensory.strongOdors
+    );
+
+    editorSetRating(
+      "visualExposure",
+      sensory.visualExposure
+    );
+
+    editorSetRating(
+      "predictability",
+      sensory.predictability
+    );
+
+
+    /* =====================================================
+       CONNECTIVITY
+       ===================================================== */
+
+    const connectivity =
+      place.connectivity || {};
+
+
+    editorSetRating(
+      "overallCell",
+      connectivity.overall
+    );
+
+    editorSetRating(
+      "tMobile",
+      connectivity.tMobile
+    );
+
+    editorSetRating(
+      "verizon",
+      connectivity.verizon
+    );
+
+    editorSetRating(
+      "att",
+      connectivity.att
+    );
+
+    editorSetRating(
+      "otherCell",
+      connectivity.other
+    );
+
+    editorSetRating(
+      "starlink",
+      connectivity.starlink
+    );
+
+    editorSetTriState(
+      "starlink-tested",
+      connectivity.starlinkTested
+    );
+
+    editorSetValue(
+      "starlink-note",
+      connectivity.starlinkNote
+    );
+
+
+    /* =====================================================
+       AMENITIES
+       ===================================================== */
+
+    const amenities =
+      place.amenities || {};
+
+
+    editorSetTriState(
+      "toilets",
+      amenities.toilets
+    );
+
+    editorSetTriState(
+      "potable-water",
+      amenities.potableWater
+    );
+
+    editorSetTriState(
+      "trash",
+      amenities.trash
+    );
+
+    editorSetTriState(
+      "fire-ring",
+      amenities.fireRing
+    );
+
+    editorSetTriState(
+      "picnic-table",
+      amenities.picnicTable
+    );
+
+    editorSetTriState(
+      "bear-box",
+      amenities.bearBox
+    );
+
+    editorSetTriState(
+      "showers",
+      amenities.showers
+    );
+
+    editorSetTriState(
+      "electricity",
+      amenities.electricity
+    );
+
+    editorSetTriState(
+      "dump-station",
+      amenities.dumpStation
+    );
+
+    editorSetTriState(
+      "food-storage-required",
+      amenities.foodStorageRequired
+    );
+
+
+    /* =====================================================
+       ENVIRONMENT
+       ===================================================== */
+
+    const environment =
+      place.environment || {};
+
+
+    editorSetTriState(
+      "environment-forest",
+      environment.forest
+    );
+
+    editorSetTriState(
+      "environment-mountains",
+      environment.mountains
+    );
+
+    editorSetTriState(
+      "environment-water-nearby",
+      environment.waterNearby
+    );
+
+    editorSetTriState(
+      "environment-water-view",
+      environment.waterView
+    );
+
+    editorSetTriState(
+      "environment-wildlife",
+      environment.wildlife
+    );
+
+    editorSetTriState(
+      "environment-bugs",
+      environment.bugs
+    );
+
+    editorSetRating(
+      "environmentWindExposure",
+      environment.windExposure
+    );
+
+    editorSetRating(
+      "environmentSunExposure",
+      environment.sunExposure
+    );
+
+    editorSetRating(
+      "environmentShade",
+      environment.shade
+    );
+
+    editorSetRating(
+      "environmentOpenSky",
+      environment.openSky
+    );
+
+
+    /* =====================================================
+       EXPERIENCE
+       ===================================================== */
+
+    const experience =
+      place.experience || {};
+
+
+    editorSetRating(
+      "sunriseView",
+      experience.sunriseView
+    );
+
+    editorSetRating(
+      "sunsetView",
+      experience.sunsetView
+    );
+
+    editorSetRating(
+      "mountainView",
+      experience.mountainView
+    );
+
+    editorSetRating(
+      "forestView",
+      experience.forestView
+    );
+
+    editorSetRating(
+      "nightSky",
+      experience.nightSky
+    );
+
+    editorSetRating(
+      "stargazing",
+      experience.stargazing
+    );
+
+    editorSetRating(
+      "quietEvening",
+      experience.quietEvening
+    );
+
+    editorSetRating(
+      "overnightComfort",
+      experience.overnightComfort
+    );
+
+    editorSetRating(
+      "extendedStayComfort",
+      experience.extendedStayComfort
+    );
+
+    editorSetRating(
+      "sensoryRetreat",
+      experience.sensoryRetreat
+    );
+
+    editorSetRating(
+      "remoteWork",
+      experience.remoteWork
+    );
+
+    editorSetRating(
+      "overallScenery",
+      experience.overallScenery
+    );
+
+
+    /* =====================================================
+       ACCESSIBILITY
+       ===================================================== */
+
+    const accessibility =
+      place.accessibility || {};
+
+
+    editorSetTriState(
+      "wheelchair-friendly",
+      accessibility.wheelchairFriendly
+    );
+
+    editorSetTriState(
+      "mobility-device-friendly",
+      accessibility.mobilityDeviceFriendly
+    );
+
+    editorSetTriState(
+      "flat-walking-surface",
+      accessibility.flatWalkingSurface
+    );
+
+    editorSetValue(
+      "walking-distance-from-vehicle",
+      accessibility.walkingDistanceFromVehicle
+    );
+
+    editorSetTriState(
+      "step-free-access",
+      accessibility.stepFreeAccess
+    );
+
+    editorSetTriState(
+      "accessible-toilet",
+      accessibility.accessibleToilet
+    );
+
+    editorSetTriState(
+      "accessible-picnic-table",
+      accessibility.accessiblePicnicTable
+    );
+
+
+    /* =====================================================
+       SAFETY
+       ===================================================== */
+
+    const safety =
+      place.safety || {};
+
+
+    editorSetTriState(
+      "felt-safe-daytime",
+      safety.feltSafeDaytime
+    );
+
+    editorSetTriState(
+      "felt-safe-nighttime",
+      safety.feltSafeNighttime
+    );
+
+    editorSetTriState(
+      "flash-flood-risk",
+      safety.flashFloodRisk
+    );
+
+    editorSetTriState(
+      "wildfire-risk",
+      safety.wildfireRisk
+    );
+
+    editorSetTriState(
+      "fall-hazard",
+      safety.fallHazard
+    );
+
+    editorSetTriState(
+      "cliff-exposure",
+      safety.cliffExposure
+    );
+
+    editorSetTriState(
+      "rockfall-risk",
+      safety.rockfallRisk
+    );
+
+    editorSetTriState(
+      "wildlife-risk",
+      safety.wildlifeRisk
+    );
+
+    editorSetTriState(
+      "traffic-hazard",
+      safety.trafficHazard
+    );
+
+    editorSetTriState(
+      "emergency-access",
+      safety.emergencyAccess
+    );
+
+
+    /* =====================================================
+       WARNINGS
+       ===================================================== */
+
+    const warnings =
+      place.warnings || {};
+
+
+    editorSetTriState(
+      "warning-road-exposed",
+      warnings.exposedToRoad
+    );
+
+    editorSetTriState(
+      "warning-zero-privacy",
+      warnings.zeroPrivacy
+    );
+
+    editorSetTriState(
+      "warning-dust",
+      warnings.passingVehicleDust
+    );
+
+    editorSetTriState(
+      "warning-trees",
+      warnings.possibleDownedTrees
+    );
+
+    editorSetTriState(
+      "warning-no-tent",
+      warnings.noTentCamping
+    );
+
+    editorSetTriState(
+      "warning-length",
+      warnings.limitedVehicleLength
+    );
+
+    editorSetTriState(
+      "warning-leveling",
+      warnings.levelingMayBeRequired
+    );
+
+    editorSetTriState(
+      "warning-no-amenities",
+      warnings.noAmenities
+    );
+
+    editorSetTriState(
+      "warning-motorized",
+      warnings.motorizedRecreationTraffic
+    );
+
+    editorSetTriState(
+      "warning-blind-turns",
+      warnings.blindTurnTrafficNearby
+    );
+
+
+    /* =====================================================
+       RECOMMENDED FOR
+       ===================================================== */
+
+    const recommended =
+      place.recommendedFor || {};
+
+
+    editorSetRating(
+      "recommendedOvernightStop",
+      recommended.overnightStop
+    );
+
+    editorSetRating(
+      "recommendedQuietEvening",
+      recommended.quietEvening
+    );
+
+    editorSetRating(
+      "recommendedExtendedStay",
+      recommended.extendedStay
+    );
+
+    editorSetRating(
+      "recommendedSensoryRetreat",
+      recommended.sensoryRetreat
+    );
+
+    editorSetRating(
+      "recommendedStargazing",
+      recommended.stargazing
+    );
+
+    editorSetRating(
+      "recommendedRemoteWork",
+      recommended.remoteWork
+    );
+
+    editorSetTriState(
+      "recommended-solo",
+      recommended.soloTravel
+    );
+
+    editorSetTriState(
+      "recommended-families",
+      recommended.families
+    );
+
+    editorSetTriState(
+      "recommended-large-groups",
+      recommended.largeGroups
+    );
+
+
+    editorSetLines(
+      "not-recommended-for",
+      place.notRecommendedFor
+    );
+
+
+    /* =====================================================
+       SEASON
+       ===================================================== */
+
+    const season =
+      place.season || {};
+
+
+    editorSetCommaList(
+      "best-months",
+      season.bestMonths
+    );
+
+    editorSetTriState(
+      "winter-access",
+      season.winterAccess
+    );
+
+    editorSetRating(
+      "snowRisk",
+      season.snowRisk
+    );
+
+    editorSetRating(
+      "mudSeasonRisk",
+      season.mudSeasonRisk
+    );
+
+    editorSetRating(
+      "monsoonRisk",
+      season.monsoonRisk
+    );
+
+    editorSetValue(
+      "recommended-travel-season",
+      season.recommendedTravelSeason
+    );
+
+    editorSetValue(
+      "seasonal-access-note",
+      season.seasonalAccessNote
+    );
+
+
+    /* =====================================================
+       REGULATIONS
+       ===================================================== */
+
+    const regulations =
+      place.regulations || {};
+
+
+    editorSetTriState(
+      "overnight-camping-allowed",
+      regulations.overnightCampingAllowed
+    );
+
+    editorSetTriState(
+      "dispersed-camping-allowed",
+      regulations.dispersedCampingAllowed
+    );
+
+    editorSetValue(
+      "stay-limit-days",
+      regulations.stayLimitDays
+    );
+
+    editorSetValue(
+      "maximum-days-60",
+      regulations.maximumDaysPer60DayPeriod
+    );
+
+    editorSetValue(
+      "move-distance-after-stay",
+      regulations.moveDistanceAfterStayMiles
+    );
+
+    editorSetTriState(
+      "permit-required",
+      regulations.permitRequired
+    );
+
+    editorSetValue(
+      "fee",
+      regulations.fee
+    );
+
+    editorSetTriState(
+      "campfire-allowed",
+      regulations.campfireAllowed
+    );
+
+    editorSetValue(
+      "fire-restrictions-url",
+      regulations.currentFireRestrictionsUrl
+    );
+
+
+    /* =====================================================
+       LAND USE
+       ===================================================== */
+
+    const landUse =
+      place.landUseRules || {};
+
+
+    editorSetValue(
+      "vehicle-distance-road",
+      landUse.vehicleDistanceFromRoadMaxFeet
+    );
+
+    editorSetValue(
+      "minimum-water-distance",
+      landUse.minimumDistanceFromWaterFeet
+    );
+
+    editorSetTriState(
+      "existing-sites-encouraged",
+      landUse.existingSitesEncouraged
+    );
+
+    editorSetTriState(
+      "pack-it-out",
+      landUse.packItInPackItOut
+    );
+
+    editorSetTriState(
+      "residential-use-prohibited",
+      landUse.residentialUseProhibited
+    );
+
+
+    /* =====================================================
+       NEARBY
+       ===================================================== */
+
+    const nearby =
+      place.nearby || {};
+
+
+    editorSetValue(
+      "nearest-town",
+      nearby.nearestTown
+    );
+
+    editorSetValue(
+      "nearest-fuel",
+      nearby.nearestFuel
+    );
+
+    editorSetValue(
+      "nearest-grocery",
+      nearby.nearestGrocery
+    );
+
+    editorSetValue(
+      "nearest-water",
+      nearby.nearestWater
+    );
+
+    editorSetValue(
+      "nearest-toilet",
+      nearby.nearestToilet
+    );
+
+    editorSetValue(
+      "nearest-hospital",
+      nearby.nearestHospital
+    );
+
+
+    /* =====================================================
+       HUMAN READABLE CONTENT
+       ===================================================== */
+
+    editorSetValue(
+      "description",
+      place.description
+    );
+
+    editorSetValue(
+      "sensory-summary",
+      place.sensorySummary
+    );
+
+    editorSetValue(
+      "access-summary",
+      place.accessSummary
+    );
+
+    editorSetLines(
+      "notes",
+      place.notes
+    );
+
+
+    /* =====================================================
+       PHOTOS
+       ===================================================== */
+
+    const images =
+      Array.isArray(
+        place.images
+      )
+        ? place.images
+        : [];
+
+
+    for (
+      let index = 0;
+      index < 5;
+      index++
+    ) {
+
+      editorSetValue(
+        `image-${index + 1}`,
+        editorImageFilename(
+          images[index]
+        )
+      );
+
+    }
+
+
+    /* =====================================================
+       COMMUNITY VERIFICATION
+       ===================================================== */
+
+    const verification =
+      place.verification || {};
+
+
+    editorSetValue(
+      "visit-date",
+      verification.visited
+      ?? verification.lastVerified
+    );
+
+
+    /*
+     * These remain locked to Community Scouted.
+     */
+
+    editorSetValue(
+      "last-verified",
+      verification.visited
+      ?? verification.lastVerified
+      ?? ""
+    );
+
+    editorSetValue(
+      "verification-status",
+      "community-scouted"
+    );
+
+    editorSetValue(
+      "verification-source",
+      "Community Scouted member submission"
+    );
+
+    editorSetValue(
+      "public-data-verified",
+      ""
+    );
+
+  }
+
+
+  /* =========================================================
+     LOAD EDITING DATA AFTER RATING CONTROLS EXIST
+     ========================================================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+      if (
+        scoutEditSubmissionId > 0
+        &&
+        scoutEditPlace
+      ) {
+
+        loadPlaceIntoEditor(
+          scoutEditPlace
+        );
+
+      }
+
+    }
+  );
+
+
+  /* =========================================================
+     RESET BUTTON
+
+     New submission:
+       normal blank/reset behavior.
+
+     Editing:
+       restore the previously submitted data.
+     ========================================================= */
+
+  document
+    .getElementById(
+      "place-editor-form"
+    )
+    ?.addEventListener(
+      "reset",
+      () => {
+
+        if (
+          scoutEditSubmissionId < 1
+          ||
+          !scoutEditPlace
+        ) {
+
+          return;
+
+        }
+
+
+        /*
+         * Allow the browser + add-place.js reset handler
+         * to finish first, then reload the saved record.
+         */
+
+        setTimeout(
+          () => {
+
+            loadPlaceIntoEditor(
+              scoutEditPlace
+            );
+
+
+            showEditorMessage(
+              "Your previous submission has been restored.",
+              "success"
+            );
+
+          },
+          0
+        );
+
+      }
+    );
+
+
+  /* =========================================================
+     SUBMIT BUTTON
+     ========================================================= */
+
+  document
+    .getElementById(
+      "submit-community-place"
+    )
+    ?.addEventListener(
+      "click",
+      submitCommunityPlace
+    );
+
+
+  async function submitCommunityPlace() {
+
+    const button =
+      document.getElementById(
+        "submit-community-place"
+      );
+
+
+    const output =
+      document.getElementById(
+        "place-json-output"
+      );
+
+
+    const csrf =
+      document.getElementById(
+        "scout-place-csrf"
+      )?.value;
+
+
+    if (
+      !button
+      ||
+      !output
+      ||
+      !csrf
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Clear old generated JSON first.
+     *
+     * This prevents a previously generated version from
+     * accidentally being submitted if current validation fails.
+     */
+
+    output.textContent =
+      "";
+
+
+    generatePlaceJSON();
+
+
+    const generated =
+      output.textContent.trim();
+
+
+    if (
+      !generated
+      ||
+      !generated.startsWith("{")
+    ) {
+
+      return;
+
+    }
+
+
+    let place;
+
+
+    try {
+
+      place =
+        JSON.parse(
+          generated
+        );
+
+    } catch (
+      error
+    ) {
+
+      showEditorMessage(
+        "The place information could not be prepared.",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    const originalText =
+      button.innerHTML;
+
+
+    button.disabled =
+      true;
+
+
+    button.innerHTML =
+      scoutEditSubmissionId > 0
+
+        ? '<i class="fa-solid fa-spinner fa-spin"></i> Resubmitting...'
+
+        : '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+
+
+    try {
+
+      const response =
+        await fetch(
+          "scout-place.php",
+          {
+
+            method:
+              "POST",
+
+            headers: {
+
+              "Content-Type":
+                "application/json"
+
+            },
+
+            credentials:
+              "same-origin",
+
+            body:
+              JSON.stringify({
+
+                csrf_token:
+                  csrf,
+
+                submission_id:
+                  scoutEditSubmissionId,
+
+                place:
+                  place
+
+              })
+
+          }
+        );
+
+
+      let result;
+
+
+      try {
+
+        result =
+          await response.json();
+
+      } catch (
+        error
+      ) {
+
+        throw new Error(
+          "The server returned an unexpected response."
+        );
+
+      }
+
+
+      if (
+        !response.ok
+        ||
+        !result.success
+      ) {
+
+        throw new Error(
+          result.message
+          ||
+          "The submission could not be saved."
+        );
+
+      }
+
+
+      showEditorMessage(
+        result.message,
+        "success"
+      );
+
+
+      setTimeout(
+        () => {
+
+          window.location.href =
+            scoutEditSubmissionId > 0
+
+              ? "submissions.php?resubmitted=1"
+
+              : "submissions.php?submitted=1";
+
+        },
+        700
+      );
+
+
+    } catch (
+      error
+    ) {
+
+      showEditorMessage(
+        error.message
+        ||
+        "Something went wrong while submitting the place.",
+        "error"
+      );
+
+
+    } finally {
+
+      button.disabled =
+        false;
+
+
+      button.innerHTML =
+        originalText;
+
+    }
+
+  }
+
+  </script>
+
+
+  <script
+    src="https://llamascout.com/js/header.js"
+  ></script>
+
 </body>
 
 </html>
