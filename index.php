@@ -413,7 +413,7 @@ require_once
       </h2>
 
 
-      <a href="/blog.html">
+      <a href="/blog.php">
 
         View All Guides
 
