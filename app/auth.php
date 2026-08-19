@@ -78,7 +78,7 @@ function create_remember_token(
 
 
     /*
-     * Store only the HASH of the secret validator.
+     * Store only the hash of the secret validator.
      */
 
     $stmt =
@@ -142,6 +142,10 @@ function create_remember_token(
 
 }
 
+
+/* =========================================================
+   CLEAR REMEMBER ME
+   ========================================================= */
 
 function clear_remember_cookie(): void {
 
@@ -227,6 +231,10 @@ function clear_remember_cookie(): void {
 
 }
 
+
+/* =========================================================
+   REMEMBERED LOGIN
+   ========================================================= */
 
 function attempt_remembered_login(): bool {
 
@@ -375,13 +383,6 @@ function attempt_remembered_login(): bool {
         )
     ) {
 
-        /*
-         * A selector matched but the secret did not.
-         *
-         * Delete it instead of continuing to accept
-         * attempts against that token.
-         */
-
         clear_remember_cookie();
 
         return false;
@@ -447,11 +448,20 @@ function attempt_remembered_login(): bool {
 
 function start_llama_session(): void
 {
-    if (session_status() === PHP_SESSION_ACTIVE) {
+    if (
+        session_status()
+        === PHP_SESSION_ACTIVE
+    ) {
+
         return;
+
     }
 
-    session_name('llamascout_session');
+
+    session_name(
+        'llamascout_session'
+    );
+
 
     session_set_cookie_params([
         'lifetime' => 0,
@@ -461,6 +471,7 @@ function start_llama_session(): void
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
+
 
     session_start();
 }
@@ -585,7 +596,9 @@ function current_user(): ?array
 
 function is_logged_in(): bool
 {
-    return current_user() !== null;
+    return
+        current_user()
+        !== null;
 }
 
 
@@ -728,6 +741,7 @@ function attempt_login(
     return true;
 }
 
+
 /* =========================================================
    LOGOUT
    ========================================================= */
@@ -736,9 +750,12 @@ function logout_user(): void
 {
     start_llama_session();
 
+
     clear_remember_cookie();
 
+
     $_SESSION = [];
+
 
     if (
         ini_get(
@@ -749,6 +766,7 @@ function logout_user(): void
         $params =
             session_get_cookie_params();
 
+
         setcookie(
             session_name(),
             '',
@@ -758,7 +776,9 @@ function logout_user(): void
             $params['secure'],
             $params['httponly']
         );
+
     }
+
 
     session_destroy();
 }
@@ -770,13 +790,19 @@ function logout_user(): void
 
 function require_login(): void
 {
-    if (is_logged_in()) {
+    if (
+        is_logged_in()
+    ) {
+
         return;
+
     }
+
 
     header(
         'Location: https://account.llamascout.com/login.php'
     );
+
 
     exit;
 }
@@ -790,17 +816,29 @@ function is_email_verified(
     ?array $user = null
 ): bool {
 
-    if ($user === null) {
-        $user = current_user();
+    if (
+        $user === null
+    ) {
+
+        $user =
+            current_user();
+
     }
+
 
     if (!$user) {
+
         return false;
+
     }
 
-    return !empty(
-        $user['email_verified_at']
-    );
+
+    return
+        !empty(
+            $user[
+                'email_verified_at'
+            ]
+        );
 }
 
 
@@ -808,17 +846,26 @@ function require_verified_email(): void
 {
     require_login();
 
-    $user = current_user();
+
+    $user =
+        current_user();
+
 
     if (
-        is_email_verified($user)
+        is_email_verified(
+            $user
+        )
     ) {
+
         return;
+
     }
+
 
     header(
         'Location: https://account.llamascout.com/verify-email.php'
     );
+
 
     exit;
 }
@@ -832,24 +879,39 @@ function membership_status(
     ?array $user = null
 ): string {
 
-    if ($user === null) {
-        $user = current_user();
+    if (
+        $user === null
+    ) {
+
+        $user =
+            current_user();
+
     }
 
+
     if (!$user) {
+
         return 'none';
+
     }
+
 
     return strtolower(
         trim(
             (string) (
-                $user['membership_status']
+                $user[
+                    'membership_status'
+                ]
                 ?? 'none'
             )
         )
     );
 }
 
+
+/* =========================================================
+   ACTIVE MEMBERSHIP
+   ========================================================= */
 
 function user_has_membership(
     ?array $user = null
@@ -860,10 +922,10 @@ function user_has_membership(
             $user
         );
 
+
     /*
      * past_due keeps access temporarily while Stripe
-     * retries payment. Webhooks will move the account
-     * to canceled if the subscription ultimately ends.
+     * retries payment.
      */
 
     return in_array(
@@ -879,6 +941,10 @@ function user_has_membership(
 }
 
 
+/* =========================================================
+   PAID MEMBERSHIP
+   ========================================================= */
+
 function user_has_paid_membership(
     ?array $user = null
 ): bool {
@@ -887,6 +953,7 @@ function user_has_paid_membership(
         membership_status(
             $user
         );
+
 
     return in_array(
         $status,
@@ -900,33 +967,66 @@ function user_has_paid_membership(
 }
 
 
+/* =========================================================
+   COMPLIMENTARY MEMBERSHIP
+   ========================================================= */
+
 function user_has_complimentary_membership(
     ?array $user = null
 ): bool {
 
-    return membership_status(
-        $user
-    ) === 'complimentary';
+    return
+        membership_status(
+            $user
+        )
+        === 'complimentary';
 }
 
+
+/* =========================================================
+   REQUIRE MEMBERSHIP
+   ========================================================= */
 
 function require_membership(): void
 {
     require_login();
 
-    $user = current_user();
+
+    $user =
+        current_user();
+
+
+    /*
+     * Owners always have full access regardless of
+     * Stripe or membership expiration.
+     */
+
+    if (
+        user_has_role(
+            'owner'
+        )
+    ) {
+
+        return;
+
+    }
+
 
     if (
         user_has_membership(
             $user
         )
     ) {
+
         return;
+
     }
+
 
     header(
         'Location: https://account.llamascout.com/membership.php'
     );
+
 
     exit;
 }
@@ -940,35 +1040,57 @@ function user_roles(
     ?int $userId = null
 ): array {
 
-    if ($userId === null) {
+    if (
+        $userId === null
+    ) {
 
         $user =
             current_user();
 
+
         if (!$user) {
+
             return [];
+
         }
 
+
         $userId =
-            (int) $user['id'];
+            (int)
+            $user[
+                'id'
+            ];
+
     }
 
-    $stmt = db()->prepare(
-        '
-        SELECT r.slug
-        FROM roles r
-        INNER JOIN user_roles ur
-            ON ur.role_id = r.id
-        WHERE ur.user_id = ?
-        '
-    );
+
+    $stmt =
+        db()->prepare(
+            '
+            SELECT
+                r.slug
+
+            FROM roles r
+
+            INNER JOIN user_roles ur
+                ON ur.role_id = r.id
+
+            WHERE ur.user_id = ?
+
+            ORDER BY r.slug
+            '
+        );
+
 
     $stmt->execute([
         $userId
     ]);
 
+
     return array_column(
-        $stmt->fetchAll(),
+        $stmt->fetchAll(
+            PDO::FETCH_ASSOC
+        ),
         'slug'
     );
 }
@@ -983,10 +1105,88 @@ function user_has_role(
     ?int $userId = null
 ): bool {
 
-    return in_array(
-        $role,
-        user_roles($userId),
-        true
+    $roles =
+        user_roles(
+            $userId
+        );
+
+
+    /*
+     * Exact role match.
+     */
+
+    if (
+        in_array(
+            $role,
+            $roles,
+            true
+        )
+    ) {
+
+        return true;
+
+    }
+
+
+    /*
+     * OWNER INHERITANCE
+     *
+     * Owner automatically satisfies anything requiring
+     * the Admin role.
+     *
+     * An Admin does NOT satisfy anything requiring Owner.
+     */
+
+    if (
+        $role === 'admin'
+        &&
+        in_array(
+            'owner',
+            $roles,
+            true
+        )
+    ) {
+
+        return true;
+
+    }
+
+
+    return false;
+}
+
+
+/* =========================================================
+   OWNER CHECK
+   ========================================================= */
+
+function user_is_owner(
+    ?int $userId = null
+): bool {
+
+    return user_has_role(
+        'owner',
+        $userId
+    );
+}
+
+
+/* =========================================================
+   ADMIN CHECK
+   ========================================================= */
+
+function user_is_admin(
+    ?int $userId = null
+): bool {
+
+    /*
+     * Because Owner inherits Admin,
+     * this returns true for both Admins and Owners.
+     */
+
+    return user_has_role(
+        'admin',
+        $userId
     );
 }
 
@@ -1001,13 +1201,20 @@ function require_role(
 
     require_login();
 
+
     if (
-        user_has_role($role)
+        user_has_role(
+            $role
+        )
     ) {
+
         return;
+
     }
 
+
     http_response_code(403);
+
 
     exit(
         'You do not have permission to access this page.'
