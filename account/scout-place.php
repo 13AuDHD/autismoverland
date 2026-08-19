@@ -6062,23 +6062,36 @@ require_once
         );
 
 
-      let result;
-
-
-      try {
-
-        result =
-          await response.json();
-
-      } catch (
-        error
-      ) {
-
-        throw new Error(
-          "The server returned an unexpected response."
+    let result;
+    
+    const rawResponse =
+      await response.text();
+    
+    
+    try {
+    
+      result =
+        JSON.parse(
+          rawResponse
         );
-
-      }
+    
+    } catch (
+      error
+    ) {
+    
+      console.error(
+        "Llama Scout save response:",
+        rawResponse
+      );
+    
+    
+      throw new Error(
+        rawResponse
+          ? `Server error: ${rawResponse.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}`
+          : "The server returned an empty response."
+      );
+    
+    }
 
 
       if (
