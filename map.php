@@ -98,7 +98,7 @@ require_once
             id="toggle-map-filters"
             class="map-filter-toggle"
             type="button"
-            aria-expanded="true"
+            aria-expanded="false"
             aria-controls="map-filter-panel"
           >
 
@@ -125,6 +125,7 @@ require_once
         <div
           id="map-filter-panel"
           class="map-filter-panel"
+          hidden
         >
 
 
