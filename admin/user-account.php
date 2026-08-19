@@ -36,6 +36,21 @@ $db =
 
 
 /* =========================================================
+   CURRENT ADMIN AUTHORITY
+   ========================================================= */
+
+$currentAdminId =
+    (int)
+    $adminUser['id'];
+
+
+$currentAdminIsOwner =
+    user_is_owner(
+        $currentAdminId
+    );
+
+
+/* =========================================================
    HELPERS
    ========================================================= */
 
@@ -90,6 +105,44 @@ function fetch_user(
             PDO::FETCH_ASSOC
         )
         ?: [];
+
+}
+
+
+function fetch_role_slugs(
+    PDO $db,
+    int $userId
+): array {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                r.slug
+
+            FROM roles r
+
+            INNER JOIN user_roles ur
+              ON ur.role_id = r.id
+
+            WHERE ur.user_id = ?
+
+            ORDER BY r.slug
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    return array_column(
+        $stmt->fetchAll(
+            PDO::FETCH_ASSOC
+        ),
+        'slug'
+    );
 
 }
 
@@ -156,6 +209,7 @@ function create_verification(
                     token_hash,
                     expires_at
                 )
+
                 VALUES
                 (
                     ?,
@@ -182,6 +236,7 @@ function create_verification(
             $user,
             $token
         );
+
 
     } catch (
         Throwable $exception
@@ -264,6 +319,7 @@ function create_password_reset(
                     token_hash,
                     expires_at
                 )
+
                 VALUES
                 (
                     ?,
@@ -338,6 +394,7 @@ function create_password_reset(
             $message
         );
 
+
     } catch (
         Throwable $exception
     ) {
@@ -393,6 +450,112 @@ if (
 
 
 /* =========================================================
+   LOAD TARGET USER
+   ========================================================= */
+
+$managedUser =
+    fetch_user(
+        $db,
+        $userId
+    );
+
+
+if (
+    !$managedUser
+) {
+
+    http_response_code(
+        404
+    );
+
+
+    exit(
+        'User not found.'
+    );
+
+}
+
+
+/* =========================================================
+   TARGET AUTHORITY
+   ========================================================= */
+
+$managedRoleSlugs =
+    fetch_role_slugs(
+        $db,
+        $userId
+    );
+
+
+$managedUserIsOwner =
+    in_array(
+        'owner',
+        $managedRoleSlugs,
+        true
+    );
+
+
+$managedUserIsAdmin =
+    in_array(
+        'admin',
+        $managedRoleSlugs,
+        true
+    );
+
+
+/* =========================================================
+   OWNER ACCOUNT PROTECTION
+
+   Owner accounts cannot be edited through the administrative
+   account editor at all.
+
+   This applies even when the current user is also an Owner.
+
+   Owner account identity and credentials should be changed
+   only through the Owner's own account/security controls.
+   ========================================================= */
+
+if (
+    $managedUserIsOwner
+) {
+
+    http_response_code(
+        403
+    );
+
+
+    exit(
+        'Owner accounts are protected and cannot be edited through Basecamp.'
+    );
+
+}
+
+
+/* =========================================================
+   ADMIN ACCOUNT PROTECTION
+
+   Only an Owner may edit an Admin account.
+   ========================================================= */
+
+if (
+    $managedUserIsAdmin
+    &&
+    !$currentAdminIsOwner
+) {
+
+    http_response_code(
+        403
+    );
+
+
+    exit(
+        'Administrator accounts are managed by a Llama Scout Owner.'
+    );
+
+}
+
+
+/* =========================================================
    CSRF
    ========================================================= */
 
@@ -423,33 +586,6 @@ $csrfToken =
 
 
 /* =========================================================
-   LOAD USER
-   ========================================================= */
-
-$managedUser =
-    fetch_user(
-        $db,
-        $userId
-    );
-
-
-if (
-    !$managedUser
-) {
-
-    http_response_code(
-        404
-    );
-
-
-    exit(
-        'User not found.'
-    );
-
-}
-
-
-/* =========================================================
    POST ACTIONS
    ========================================================= */
 
@@ -466,6 +602,70 @@ if (
         'REQUEST_METHOD'
     ] === 'POST'
 ) {
+
+    /*
+     * Re-check the target roles on every POST.
+     *
+     * Someone could have been promoted after this page
+     * originally loaded.
+     */
+
+    $managedRoleSlugs =
+        fetch_role_slugs(
+            $db,
+            $userId
+        );
+
+
+    $managedUserIsOwner =
+        in_array(
+            'owner',
+            $managedRoleSlugs,
+            true
+        );
+
+
+    $managedUserIsAdmin =
+        in_array(
+            'admin',
+            $managedRoleSlugs,
+            true
+        );
+
+
+    if (
+        $managedUserIsOwner
+    ) {
+
+        http_response_code(
+            403
+        );
+
+
+        exit(
+            'Owner accounts are protected and cannot be edited through Basecamp.'
+        );
+
+    }
+
+
+    if (
+        $managedUserIsAdmin
+        &&
+        !$currentAdminIsOwner
+    ) {
+
+        http_response_code(
+            403
+        );
+
+
+        exit(
+            'Administrator accounts are managed by a Llama Scout Owner.'
+        );
+
+    }
+
 
     $submittedToken =
         $_POST[
@@ -487,6 +687,7 @@ if (
 
         $error =
             'Your session could not be verified. Reload the page and try again.';
+
 
     } else {
 
@@ -575,6 +776,7 @@ if (
                         'reason'
                     ];
 
+
             } elseif (
                 $displayName === ''
                 ||
@@ -589,6 +791,7 @@ if (
 
                 $error =
                     'Display name must be between 2 and 100 characters.';
+
 
             } elseif (
                 !filter_var(
@@ -749,6 +952,7 @@ if (
                             $userId
                         ]);
 
+
                     } else {
 
                         $stmt =
@@ -799,12 +1003,14 @@ if (
                                 ? 'Account updated. A verification email was sent to the new address.'
                                 : 'Account updated, but the verification email could not be sent.';
 
+
                     } else {
 
                         $message =
                             'Account information updated.';
 
                     }
+
 
                 } catch (
                     Throwable $exception
@@ -855,6 +1061,7 @@ if (
                           '.'
                         : 'The reset link was created, but the email could not be sent.';
 
+
             } catch (
                 Throwable $exception
             ) {
@@ -902,6 +1109,7 @@ if (
                           '.'
                         : 'A verification link was created, but the email could not be sent.';
 
+
             } catch (
                 Throwable $exception
             ) {
@@ -918,6 +1126,7 @@ if (
                     'The verification email could not be created.';
 
             }
+
 
         } else {
 
@@ -974,8 +1183,7 @@ $displayHeading =
   <title>
     Edit <?= e(
         $displayHeading
-    ) ?>
-    | Llama Scout Admin
+    ) ?> | Llama Scout Admin
   </title>
 
   <meta
@@ -1078,7 +1286,19 @@ require_once
       <div class="admin-intro-copy">
 
         <p class="admin-eyebrow">
-          User Management
+
+          <?php if (
+              $managedUserIsAdmin
+          ): ?>
+
+            Owner Managed Administrator
+
+          <?php else: ?>
+
+            User Management
+
+          <?php endif; ?>
+
         </p>
 
         <h1>
@@ -1086,6 +1306,7 @@ require_once
         </h1>
 
         <p>
+
           <?= e(
               $displayHeading
           ) ?>
@@ -1094,6 +1315,7 @@ require_once
 
           User
           #<?= $userId ?>
+
         </p>
 
       </div>
@@ -1206,6 +1428,32 @@ require_once
   <!-- =====================================================
        NOTICES
        ===================================================== -->
+
+  <?php if (
+      $managedUserIsAdmin
+  ): ?>
+
+    <div
+      class="
+        admin-notice
+        admin-notice--info
+      "
+    >
+
+      <p>
+
+        <strong>
+          Administrator account
+        </strong>
+
+        Only an Owner can edit this account.
+
+      </p>
+
+    </div>
+
+  <?php endif; ?>
+
 
   <?php if (
       $message
