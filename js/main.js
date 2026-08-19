@@ -1269,70 +1269,6 @@ marker.bindPopup(`
               return false;
             }
 
-
-            if (
-              quiet &&
-              (
-                nightNoise === null ||
-                nightNoise > 2
-              )
-            ) {
-              return false;
-            }
-
-
-            if (
-              privateEnough &&
-              (
-                privacy === null ||
-                privacy < 4
-              )
-            ) {
-              return false;
-            }
-
-
-            if (
-              sensory &&
-              (
-                sensoryComfort === null ||
-                sensoryComfort < 4
-              )
-            ) {
-              return false;
-            }
-
-
-            if (
-              cell &&
-              (
-                cellRating === null ||
-                cellRating < 4
-              )
-            ) {
-              return false;
-            }
-
-
-            if (
-              starlink &&
-              (
-                starlinkRating === null ||
-                starlinkRating < 4
-              )
-            ) {
-              return false;
-            }
-
-
-            if (
-              sedan &&
-              sedanAccessible !== true
-            ) {
-              return false;
-            }
-
-
             return true;
 
           }
@@ -1359,18 +1295,6 @@ marker.bindPopup(`
       "homepage-road-filter",
 
       "homepage-noise-filter",
-
-      "homepage-quiet-filter",
-
-      "homepage-private-filter",
-
-      "homepage-sensory-filter",
-
-      "homepage-cell-filter",
-
-      "homepage-starlink-filter",
-
-      "homepage-sedan-filter"
 
     ];
 
@@ -1399,71 +1323,6 @@ marker.bindPopup(`
         element.addEventListener(
           eventName,
           applyHomepageMapFilters
-        );
-
-      }
-    );
-
-
-    /* =====================================================
-       CLEAR FILTERS
-       ===================================================== */
-
-    const resetButton =
-      document.getElementById(
-        "homepage-filter-reset"
-      );
-
-
-    resetButton?.addEventListener(
-      "click",
-      () => {
-
-
-        document
-          .querySelectorAll(
-            ".homepage-map-controls select"
-          )
-          .forEach(
-            (select) => {
-
-              select.value =
-                "all";
-
-            }
-          );
-
-
-        const searchInput =
-          document.getElementById(
-            "homepage-map-search"
-          );
-
-
-        if (searchInput) {
-
-          searchInput.value =
-            "";
-
-        }
-
-
-        document
-          .querySelectorAll(
-            ".homepage-map-sidebar input[type='checkbox']"
-          )
-          .forEach(
-            (checkbox) => {
-
-              checkbox.checked =
-                false;
-
-            }
-          );
-
-
-        renderMarkers(
-          validPlaces
         );
 
       }
