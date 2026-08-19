@@ -25,6 +25,17 @@ $db =
 
 
 /* =========================================================
+   CURRENT ADMIN AUTHORITY
+   ========================================================= */
+
+$currentUserIsOwner =
+    user_is_owner(
+        (int)
+        $user['id']
+    );
+
+
+/* =========================================================
    HELPERS
    ========================================================= */
 
@@ -101,16 +112,41 @@ function role_label(
     string $role
 ): string {
 
-    return ucwords(
-        str_replace(
-            [
-                '_',
-                '-',
-            ],
-            ' ',
-            $role
-        )
-    );
+    return match (
+        $role
+    ) {
+
+        'owner' =>
+            'Owner',
+
+        'admin' =>
+            'Admin',
+
+        'master-scout' =>
+            'Master Scout',
+
+        'master_scout' =>
+            'Master Scout',
+
+        'scout' =>
+            'Scout',
+
+        'member' =>
+            'Member',
+
+        default =>
+            ucwords(
+                str_replace(
+                    [
+                        '_',
+                        '-',
+                    ],
+                    ' ',
+                    $role
+                )
+            ),
+
+    };
 
 }
 
@@ -199,6 +235,22 @@ foreach (
             ]
         );
 
+
+    $row['is_owner'] =
+        in_array(
+            'owner',
+            $row['roles'],
+            true
+        );
+
+
+    $row['is_admin'] =
+        in_array(
+            'admin',
+            $row['roles'],
+            true
+        );
+
 }
 
 
@@ -209,6 +261,12 @@ unset(
 
 /* =========================================================
    AVAILABLE ROLES
+
+   These are for FILTERING only.
+
+   Owner may appear in the filter because it is useful to
+   find Owner accounts. It is NOT being presented here as
+   an editable role.
    ========================================================= */
 
 $roles =
@@ -221,6 +279,15 @@ $roles =
         FROM roles
 
         ORDER BY
+            CASE slug
+                WHEN 'owner' THEN 1
+                WHEN 'admin' THEN 2
+                WHEN 'master-scout' THEN 3
+                WHEN 'master_scout' THEN 3
+                WHEN 'scout' THEN 4
+                WHEN 'member' THEN 5
+                ELSE 10
+            END,
             slug ASC
         "
     )
@@ -431,7 +498,19 @@ require_once
       <div class="admin-intro-copy">
 
         <p class="admin-eyebrow">
-          Llama Scout Admin
+
+          <?php if (
+              $currentUserIsOwner
+          ): ?>
+
+            Llama Scout Owner
+
+          <?php else: ?>
+
+            Llama Scout Admin
+
+          <?php endif; ?>
+
         </p>
 
         <h1>
@@ -934,6 +1013,45 @@ require_once
                 )
                 : 0;
 
+
+        /*
+         * Account authority protection.
+         *
+         * Owner:
+         *   may manage anyone.
+         *
+         * Admin:
+         *   may manage normal users, members, Scouts,
+         *   and eventually Master Scouts.
+         *
+         * Admin may NOT manage Owners or other Admins.
+         */
+
+        $rowIsOwner =
+            (bool)
+            $row[
+                'is_owner'
+            ];
+
+
+        $rowIsAdmin =
+            (bool)
+            $row[
+                'is_admin'
+            ];
+
+
+        $rowIsProtectedStaff =
+            $rowIsOwner
+            ||
+            $rowIsAdmin;
+
+
+        $canManageRow =
+            $currentUserIsOwner
+            ||
+            !$rowIsProtectedStaff;
+
         ?>
 
 
@@ -1079,16 +1197,34 @@ require_once
                   class="
                     admin-user-badge
                     admin-user-role
+
+                    <?= $role === 'owner'
+                        ? 'admin-user-role--admin'
+                        : ''
+                    ?>
+
                     <?= $role === 'admin'
                         ? 'admin-user-role--admin'
                         : ''
                     ?>
+
                     <?= $role === 'scout'
                         ? 'admin-user-role--scout'
                         : ''
                     ?>
                   "
                 >
+
+                  <?php if (
+                      $role === 'owner'
+                  ): ?>
+
+                    <i
+                      class="fa-solid fa-crown"
+                      aria-hidden="true"
+                    ></i>
+
+                  <?php endif; ?>
 
                   <?= e(
                       role_label(
@@ -1202,51 +1338,91 @@ require_once
           <div class="admin-user-actions">
 
 
-            <a
-              class="
-                admin-button
-                admin-button--small
-              "
-
-              href="/user.php?id=<?= (int)
-                  $row[
-                      'id'
-                  ]
-              ?>"
-            >
-
-              <i
-                class="fa-solid fa-gear"
-                aria-hidden="true"
-              ></i>
-
-              Manage
-
-            </a>
+            <?php if (
+                $canManageRow
+            ): ?>
 
 
-            <a
-              class="
-                admin-button
-                admin-button--secondary
-                admin-button--small
-              "
+              <a
+                class="
+                  admin-button
+                  admin-button--small
+                "
 
-              href="/user-account.php?id=<?= (int)
-                  $row[
-                      'id'
-                  ]
-              ?>"
-            >
+                href="/user.php?id=<?= (int)
+                    $row[
+                        'id'
+                    ]
+                ?>"
+              >
 
-              <i
-                class="fa-solid fa-user-pen"
-                aria-hidden="true"
-              ></i>
+                <i
+                  class="fa-solid fa-gear"
+                  aria-hidden="true"
+                ></i>
 
-              Edit Account
+                Manage
 
-            </a>
+              </a>
+
+
+              <a
+                class="
+                  admin-button
+                  admin-button--secondary
+                  admin-button--small
+                "
+
+                href="/user-account.php?id=<?= (int)
+                    $row[
+                        'id'
+                    ]
+                ?>"
+              >
+
+                <i
+                  class="fa-solid fa-user-pen"
+                  aria-hidden="true"
+                ></i>
+
+                Edit Account
+
+              </a>
+
+
+            <?php else: ?>
+
+
+              <span
+                class="
+                  admin-button
+                  admin-button--secondary
+                  admin-button--small
+                "
+                aria-disabled="true"
+              >
+
+                <i
+                  class="fa-solid fa-lock"
+                  aria-hidden="true"
+                ></i>
+
+                <?php if (
+                    $rowIsOwner
+                ): ?>
+
+                  Protected Owner
+
+                <?php else: ?>
+
+                  Owner Managed
+
+                <?php endif; ?>
+
+              </span>
+
+
+            <?php endif; ?>
 
 
           </div>
