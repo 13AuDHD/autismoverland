@@ -1164,66 +1164,6 @@ marker.bindPopup(`
         "all";
 
 
-      const quiet =
-        document
-          .getElementById(
-            "homepage-quiet-filter"
-          )
-          ?.checked
-        ||
-        false;
-
-
-      const privateEnough =
-        document
-          .getElementById(
-            "homepage-private-filter"
-          )
-          ?.checked
-        ||
-        false;
-
-
-      const sensory =
-        document
-          .getElementById(
-            "homepage-sensory-filter"
-          )
-          ?.checked
-        ||
-        false;
-
-
-      const cell =
-        document
-          .getElementById(
-            "homepage-cell-filter"
-          )
-          ?.checked
-        ||
-        false;
-
-
-      const starlink =
-        document
-          .getElementById(
-            "homepage-starlink-filter"
-          )
-          ?.checked
-        ||
-        false;
-
-
-      const sedan =
-        document
-          .getElementById(
-            "homepage-sedan-filter"
-          )
-          ?.checked
-        ||
-        false;
-
-
       const filteredPlaces =
         validPlaces.filter(
           (place) => {
