@@ -21,7 +21,7 @@ async function initHomepageBlog() {
         ${
           post.image
             ? `
-              <a href="post.html?post=${encodeURIComponent(post.slug)}">
+              <a href="post.php?post=${encodeURIComponent(post.slug)}">
                 <img src="${post.image}" alt="${escapeHomeHTML(post.imageAlt || post.title)}">
               </a>
             `
@@ -32,14 +32,14 @@ async function initHomepageBlog() {
           <p class="eyebrow">${escapeHomeHTML(post.category)}</p>
 
           <h3>
-            <a href="post.html?post=${encodeURIComponent(post.slug)}">
+            <a href="post.php?post=${encodeURIComponent(post.slug)}">
               ${escapeHomeHTML(post.title)}
             </a>
           </h3>
 
           <p>${escapeHomeHTML(post.excerpt)}</p>
 
-          <a class="small-btn" href="post.html?post=${encodeURIComponent(post.slug)}">
+          <a class="small-btn" href="post.php?post=${encodeURIComponent(post.slug)}">
             Read Guide
           </a>
         </div>
@@ -47,7 +47,7 @@ async function initHomepageBlog() {
     `).join("");
 
   } catch (error) {
-    console.error("AutismOverland homepage blog error:", error);
+    console.error("Llama Scout homepage blog error:", error);
   }
 }
 
