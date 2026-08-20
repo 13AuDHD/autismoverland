@@ -226,7 +226,7 @@ if (
    ALLOWED TRAINING STATES
    ========================================================= */
 
-$$allowedStates = [
+$allowedStates = [
     'application_submitted',
     'training',
     'pending_approval',
