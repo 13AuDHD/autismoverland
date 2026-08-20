@@ -12,8 +12,6 @@ require_once
 
 
 require_login();
-
-
 start_llama_session();
 
 
@@ -23,6 +21,11 @@ $db =
 
 $user =
     current_user();
+
+
+$userId =
+    (int)
+    $user['id'];
 
 
 /* =========================================================
@@ -57,7 +60,7 @@ $stmt =
 
 
 $stmt->execute([
-    $user['id']
+    $userId
 ]);
 
 
@@ -89,8 +92,7 @@ if (
 
 $roles =
     user_roles(
-        (int)
-        $user['id']
+        $userId
     );
 
 
@@ -141,9 +143,84 @@ $isMemberRole =
 
 
 /* =========================================================
-   PRIMARY ROLE
+   SCOUT PROFILE
 
-   Roles are hierarchical for display purposes.
+   Scout tenure is separate from membership history.
+
+   membership_started_at:
+       When the membership itself began.
+
+   scout_started_at:
+       When the user officially became a Scout.
+
+   active_through:
+       Current Scout activity/access period.
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            id,
+            status,
+            approved_at,
+            scout_started_at,
+            active_through,
+            inactive_at,
+            removed_at,
+            removal_reason
+
+        FROM scout_profiles
+
+        WHERE user_id = ?
+
+        LIMIT 1
+        '
+    );
+
+
+$stmt->execute([
+    $userId
+]);
+
+
+$scoutProfile =
+    $stmt->fetch(
+        PDO::FETCH_ASSOC
+    )
+    ?: null;
+
+
+$hasScoutProfile =
+    $scoutProfile !== null;
+
+
+$scoutStatus =
+    $hasScoutProfile
+        ? strtolower(
+            trim(
+                (string)
+                $scoutProfile[
+                    'status'
+                ]
+            )
+        )
+        : '';
+
+
+$hasActiveScoutAccess =
+    (
+        $isScout
+        ||
+        $isMasterScout
+    )
+    &&
+    $scoutStatus ===
+        'active';
+
+
+/* =========================================================
+   PRIMARY ROLE
 
    Owner
    Admin
@@ -202,46 +279,6 @@ if (
 
 
 /* =========================================================
-   ROLE-BASED ACCESS
-   ========================================================= */
-
-$hasPermanentRoleAccess =
-    $isOwner
-    ||
-    $isAdmin;
-
-
-/* =========================================================
-   CHECKOUT CSRF
-   ========================================================= */
-
-if (
-    empty(
-        $_SESSION[
-            'membership_checkout_csrf'
-        ]
-    )
-) {
-
-    $_SESSION[
-        'membership_checkout_csrf'
-    ] =
-        bin2hex(
-            random_bytes(
-                32
-            )
-        );
-
-}
-
-
-$csrfToken =
-    $_SESSION[
-        'membership_checkout_csrf'
-    ];
-
-
-/* =========================================================
    HELPERS
    ========================================================= */
 
@@ -250,7 +287,8 @@ function e(
 ): string {
 
     return htmlspecialchars(
-        (string) $value,
+        (string)
+        $value,
         ENT_QUOTES,
         'UTF-8'
     );
@@ -294,7 +332,8 @@ function membership_interval_label(
 ): string {
 
     return match (
-        (string) $interval
+        (string)
+        $interval
     ) {
 
         'monthly' =>
@@ -311,6 +350,83 @@ function membership_interval_label(
 }
 
 
+function scout_status_label(
+    string $status
+): string {
+
+    return match (
+        $status
+    ) {
+
+        'active' =>
+            'Active',
+
+        'inactive' =>
+            'Inactive',
+
+        'removed' =>
+            'Removed',
+
+        'pending_approval' =>
+            'Awaiting Approval',
+
+        'training' =>
+            'Training',
+
+        'application_submitted' =>
+            'Application Complete',
+
+        'application_started' =>
+            'Onboarding',
+
+        'invited' =>
+            'Invited',
+
+        'declined' =>
+            'Declined',
+
+        default =>
+            ucwords(
+                str_replace(
+                    [
+                        '_',
+                        '-',
+                    ],
+                    ' ',
+                    $status
+                )
+            ),
+
+    };
+
+}
+
+
+function format_membership_date(
+    ?string $date,
+    array $membership
+): string {
+
+    if (
+        !$date
+    ) {
+
+        return 'Not set';
+
+    }
+
+
+    return llama_format_datetime(
+        $date,
+        llama_user_timezone(
+            $membership
+        ),
+        'M j, Y'
+    );
+
+}
+
+
 /* =========================================================
    CURRENT MEMBERSHIP STATE
    ========================================================= */
@@ -322,7 +438,8 @@ $status =
                 $membership[
                     'membership_status'
                 ]
-                ?? 'none'
+                ??
+                'none'
             )
         )
     );
@@ -341,8 +458,8 @@ $isStripeMembership =
 
 
 $isComplimentary =
-    $status
-    === 'complimentary';
+    $status ===
+        'complimentary';
 
 
 $hasMembershipAccess =
@@ -351,182 +468,138 @@ $hasMembershipAccess =
     $isComplimentary;
 
 
+$hasPermanentRoleAccess =
+    $isOwner
+    ||
+    $isAdmin;
+
+
 /* =========================================================
-   EFFECTIVE ACCESS STATUS
+   EFFECTIVE ACCESS
+
+   Role-based Scout access is deliberately separate from
+   billing status.
    ========================================================= */
 
-if (
+$hasFullAccess =
     $hasPermanentRoleAccess
-) {
+    ||
+    $hasActiveScoutAccess
+    ||
+    $hasMembershipAccess;
 
-    $effectiveStatus =
-        'Full Access';
 
-
-} else {
-
-    $effectiveStatus =
-        membership_status_label(
-            $status
-        );
-
-}
+$effectiveStatus =
+    $hasFullAccess
+        ? 'Full Access'
+        : 'Free Access';
 
 
 /* =========================================================
-   PLAN LABEL
+   ACCESS SOURCE
    ========================================================= */
 
 if (
     $isOwner
 ) {
 
-    $planLabel =
-        'Owner Access';
+    $accessSource =
+        'Owner Role';
 
 
 } elseif (
     $isAdmin
 ) {
 
-    $planLabel =
-        'Staff Access';
+    $accessSource =
+        'Admin Role';
 
 
 } elseif (
     $isMasterScout
+    &&
+    $hasActiveScoutAccess
 ) {
 
-    /*
-     * Master Scout access rules will eventually come from
-     * the Scout activity system.
-     *
-     * Until that system exists, preserve the account's
-     * underlying membership information.
-     */
-
-    if (
-        !empty(
-            $membership[
-                'membership_interval'
-            ]
-        )
-    ) {
-
-        $planLabel =
-            membership_interval_label(
-                $membership[
-                    'membership_interval'
-                ]
-            );
-
-
-    } elseif (
-        $isComplimentary
-    ) {
-
-        $planLabel =
-            'Complimentary';
-
-
-    } else {
-
-        $planLabel =
-            'None';
-
-    }
+    $accessSource =
+        'Master Scout';
 
 
 } elseif (
     $isScout
+    &&
+    $hasActiveScoutAccess
 ) {
 
-    /*
-     * Scout tenure/access expiration will be added when
-     * the Scout application and activity system is built.
-     */
-
-    if (
-        !empty(
-            $membership[
-                'membership_interval'
-            ]
-        )
-    ) {
-
-        $planLabel =
-            membership_interval_label(
-                $membership[
-                    'membership_interval'
-                ]
-            );
-
-
-    } elseif (
-        $isComplimentary
-    ) {
-
-        $planLabel =
-            'Complimentary';
-
-
-    } else {
-
-        $planLabel =
-            'None';
-
-    }
-
-
-} elseif (
-    !empty(
-        $membership[
-            'membership_interval'
-        ]
-    )
-) {
-
-    $planLabel =
-        membership_interval_label(
-            $membership[
-                'membership_interval'
-            ]
-        );
+    $accessSource =
+        'Scout Role';
 
 
 } elseif (
     $isComplimentary
 ) {
 
-    $planLabel =
-        'Complimentary';
+    $accessSource =
+        'Complimentary Membership';
+
+
+} elseif (
+    $isStripeMembership
+) {
+
+    $accessSource =
+        'Paid Membership';
 
 
 } else {
 
-    $planLabel =
-        'None';
+    $accessSource =
+        'Free Account';
 
 }
 
 
 /* =========================================================
    ACCESS EXPIRATION
+
+   Important:
+   Scout expiration comes from scout_profiles.active_through,
+   not users.membership_ends_at.
    ========================================================= */
 
 if (
     $hasPermanentRoleAccess
 ) {
 
-    /*
-     * Owner and Admin access has no scheduled expiration.
-     *
-     * Removing the role immediately removes role-based
-     * access.
-     */
-
     $accessExpiration =
         'Never';
+
+
+} elseif (
+    $hasActiveScoutAccess
+    &&
+    !empty(
+        $scoutProfile[
+            'active_through'
+        ]
+    )
+) {
+
+    $accessExpiration =
+        format_membership_date(
+            $scoutProfile[
+                'active_through'
+            ],
+            $membership
+        );
+
+
+} elseif (
+    $hasActiveScoutAccess
+) {
+
+    $accessExpiration =
+        'Active while Scout status remains active';
 
 
 } elseif (
@@ -539,11 +612,6 @@ if (
     )
 ) {
 
-    /*
-     * Complimentary memberships may intentionally be
-     * lifetime access.
-     */
-
     $accessExpiration =
         'Never';
 
@@ -557,14 +625,11 @@ if (
 ) {
 
     $accessExpiration =
-        llama_format_datetime(
+        format_membership_date(
             $membership[
                 'membership_ends_at'
             ],
-            llama_user_timezone(
-                $membership
-            ),
-            'M j, Y'
+            $membership
         );
 
 
@@ -585,63 +650,142 @@ if (
 
 
 /* =========================================================
-   MEMBERSHIP START DATE
+   MEMBERSHIP / BILLING DISPLAY
    ========================================================= */
 
 $membershipStarted =
-    'Not applicable';
-
-
-if (
     !empty(
         $membership[
             'membership_started_at'
         ]
     )
-) {
-
-    $membershipStarted =
-        llama_format_datetime(
+        ? format_membership_date(
             $membership[
                 'membership_started_at'
             ],
-            llama_user_timezone(
-                $membership
-            ),
-            'M j, Y'
+            $membership
+        )
+        : 'Not applicable';
+
+
+$membershipInterval =
+    membership_interval_label(
+        $membership[
+            'membership_interval'
+        ]
+        ??
+        null
+    );
+
+
+$billingPlan =
+    $membershipInterval !== ''
+        ? $membershipInterval
+        : (
+            $isComplimentary
+                ? 'Complimentary'
+                : 'None'
+        );
+
+
+$billingStatus =
+    membership_status_label(
+        $status
+    );
+
+
+$scoutSince =
+    $hasScoutProfile
+    &&
+    !empty(
+        $scoutProfile[
+            'scout_started_at'
+        ]
+    )
+        ? format_membership_date(
+            $scoutProfile[
+                'scout_started_at'
+            ],
+            $membership
+        )
+        : 'Not yet';
+
+
+$scoutActiveThrough =
+    $hasScoutProfile
+    &&
+    !empty(
+        $scoutProfile[
+            'active_through'
+        ]
+    )
+        ? format_membership_date(
+            $scoutProfile[
+                'active_through'
+            ],
+            $membership
+        )
+        : 'Not scheduled';
+
+
+/* =========================================================
+   CHECKOUT CSRF
+   ========================================================= */
+
+if (
+    empty(
+        $_SESSION[
+            'membership_checkout_csrf'
+        ]
+    )
+) {
+
+    $_SESSION[
+        'membership_checkout_csrf'
+    ] =
+        bin2hex(
+            random_bytes(
+                32
+            )
         );
 
 }
 
 
+$csrfToken =
+    $_SESSION[
+        'membership_checkout_csrf'
+    ];
+
+
 /* =========================================================
-   SHOULD SHOW MEMBERSHIP PLANS?
+   MEMBERSHIP OPTIONS
    ========================================================= */
 
 /*
- * Owner/Admin already have role-based access and should
- * never be encouraged to purchase membership.
+ * Owner/Admin already have full role access.
  *
- * Paid/complimentary members also do not need the checkout
- * options.
+ * Active Scouts also have full access through Scout status
+ * and should not be encouraged to purchase a membership.
+ *
+ * Paid/complimentary members already have membership access.
  */
 
 $showMembershipPlans =
     !$hasPermanentRoleAccess
     &&
+    !$hasActiveScoutAccess
+    &&
     !$hasMembershipAccess;
 
 
-/* =========================================================
-   SHOULD SHOW STRIPE PORTAL?
-   ========================================================= */
-
 /*
- * Only show Stripe billing controls for an actual Stripe
- * membership.
+ * Keep Stripe billing controls visible whenever a real
+ * Stripe membership still exists.
  *
- * Owner/Admin role access is not a Stripe subscription.
- * Complimentary access is also not a Stripe subscription.
+ * This matters for Scouts who became Scouts while already
+ * subscribed. Their Scout access is separate from their
+ * current Stripe billing record.
  */
 
 $showBillingPortal =
@@ -695,6 +839,7 @@ if (
 
 }
 
+
 ?>
 <!doctype html>
 
@@ -733,6 +878,212 @@ if (
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
+
+
+  <style>
+
+    .membership-section {
+      margin-top: 24px;
+    }
+
+
+    .membership-subcard {
+      margin-top: 20px;
+
+      padding: 22px;
+
+      border:
+        1px solid
+        rgba(
+          23,
+          40,
+          34,
+          .12
+        );
+
+      border-radius: 16px;
+
+      background:
+        rgba(
+          255,
+          255,
+          255,
+          .72
+        );
+    }
+
+
+    .membership-subcard h2 {
+      margin:
+        0
+        0
+        8px;
+    }
+
+
+    .membership-subcard > p {
+      margin:
+        0
+        0
+        18px;
+
+      line-height: 1.6;
+    }
+
+
+    .membership-detail-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(
+          2,
+          minmax(
+            0,
+            1fr
+          )
+        );
+
+      gap: 12px;
+    }
+
+
+    .membership-detail {
+      padding: 15px;
+
+      border-radius: 12px;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .055
+        );
+    }
+
+
+    .membership-detail span {
+      display: block;
+
+      margin-bottom: 5px;
+
+      font-size: .8rem;
+
+      opacity: .65;
+    }
+
+
+    .membership-detail strong {
+      display: block;
+    }
+
+
+    .scout-access-card {
+      position: relative;
+      overflow: hidden;
+
+      background:
+        linear-gradient(
+          145deg,
+          rgba(
+            23,
+            40,
+            34,
+            .07
+          ),
+          rgba(
+            217,
+            196,
+            154,
+            .13
+          )
+        );
+    }
+
+
+    .scout-access-card::after {
+      content: "";
+
+      position: absolute;
+
+      width: 160px;
+      height: 160px;
+
+      right: -70px;
+      bottom: -95px;
+
+      border:
+        1px solid
+        rgba(
+          23,
+          40,
+          34,
+          .08
+        );
+
+      border-radius: 50%;
+    }
+
+
+    .scout-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+
+      margin-bottom: 14px;
+
+      padding:
+        7px
+        10px;
+
+      border-radius: 999px;
+
+      background: #172822;
+      color: #fff;
+
+      font-size: .8rem;
+      font-weight: 750;
+    }
+
+
+    .billing-transition-note {
+      display: flex;
+      gap: 11px;
+
+      margin-top: 16px;
+
+      padding: 15px;
+
+      border-radius: 12px;
+
+      background:
+        rgba(
+          217,
+          196,
+          154,
+          .18
+        );
+
+      line-height: 1.55;
+    }
+
+
+    .billing-transition-note i {
+      margin-top: 3px;
+    }
+
+
+    @media (
+      max-width: 650px
+    ) {
+
+      .membership-detail-grid {
+        grid-template-columns: 1fr;
+      }
+
+    }
+
+  </style>
 
 </head>
 
@@ -774,8 +1125,8 @@ require_once
     </h1>
 
     <p>
-      Your Llama Scout role, membership,
-      and access information all in one place.
+      Your Llama Scout role, access,
+      Scout status, and billing information.
     </p>
 
   </header>
@@ -797,13 +1148,13 @@ require_once
 
 
   <!-- =====================================================
-       CURRENT MEMBERSHIP
+       CURRENT ACCESS
        ===================================================== -->
 
   <section class="status-card">
 
     <h2>
-      Current Membership
+      Current Access
     </h2>
 
 
@@ -872,34 +1223,30 @@ require_once
       <div class="status-item">
 
         <span>
-          Status
+          Access Status
         </span>
 
         <strong>
-
           <?= e(
               $effectiveStatus
           ) ?>
-
         </strong>
 
       </div>
 
 
-      <!-- PLAN -->
+      <!-- ACCESS SOURCE -->
 
       <div class="status-item">
 
         <span>
-          Plan
+          Access Source
         </span>
 
         <strong>
-
           <?= e(
-              $planLabel
+              $accessSource
           ) ?>
-
         </strong>
 
       </div>
@@ -910,46 +1257,16 @@ require_once
       <div class="status-item">
 
         <span>
-          Access Expires
+          Access Through
         </span>
 
         <strong>
-
           <?= e(
               $accessExpiration
           ) ?>
-
         </strong>
 
       </div>
-
-
-      <!-- MEMBER SINCE -->
-
-      <?php if (
-          $membershipStarted
-          !== 'Not applicable'
-          &&
-          !$hasPermanentRoleAccess
-      ): ?>
-
-        <div class="status-item">
-
-          <span>
-            Membership Started
-          </span>
-
-          <strong>
-
-            <?= e(
-                $membershipStarted
-            ) ?>
-
-          </strong>
-
-        </div>
-
-      <?php endif; ?>
 
 
     </div>
@@ -982,9 +1299,23 @@ require_once
 
 
     <?php elseif (
+        $hasActiveScoutAccess
+    ): ?>
+
+      <p class="plan-note">
+
+        Your Scout role currently provides full Llama Scout
+        access. Scout access is tracked separately from any
+        paid membership or previous membership history.
+
+      </p>
+
+
+    <?php elseif (
         $isComplimentary
         &&
-        $accessExpiration === 'Never'
+        $accessExpiration ===
+            'Never'
     ): ?>
 
       <p class="plan-note">
@@ -992,6 +1323,286 @@ require_once
         This account has complimentary lifetime access.
 
       </p>
+
+    <?php endif; ?>
+
+
+  </section>
+
+
+  <!-- =====================================================
+       SCOUT ACCESS
+       ===================================================== -->
+
+  <?php if (
+      $hasScoutProfile
+  ): ?>
+
+
+    <section
+      class="
+        membership-subcard
+        scout-access-card
+      "
+    >
+
+
+      <span class="scout-status-pill">
+
+        <i
+          class="fa-solid fa-compass"
+          aria-hidden="true"
+        ></i>
+
+        Scout
+        <?= e(
+            scout_status_label(
+                $scoutStatus
+            )
+        ) ?>
+
+      </span>
+
+
+      <h2>
+        Scout Access
+      </h2>
+
+
+      <p>
+
+        Scout tenure and Scout access are tracked independently
+        from paid membership history.
+
+      </p>
+
+
+      <div class="membership-detail-grid">
+
+
+        <div class="membership-detail">
+
+          <span>
+            Scout Since
+          </span>
+
+          <strong>
+            <?= e(
+                $scoutSince
+            ) ?>
+          </strong>
+
+        </div>
+
+
+        <div class="membership-detail">
+
+          <span>
+            Scout Active Through
+          </span>
+
+          <strong>
+            <?= e(
+                $scoutActiveThrough
+            ) ?>
+          </strong>
+
+        </div>
+
+
+        <div class="membership-detail">
+
+          <span>
+            Scout Status
+          </span>
+
+          <strong>
+            <?= e(
+                scout_status_label(
+                    $scoutStatus
+                )
+            ) ?>
+          </strong>
+
+        </div>
+
+
+        <div class="membership-detail">
+
+          <span>
+            Scout Benefit
+          </span>
+
+          <strong>
+
+            <?= $hasActiveScoutAccess
+                ? 'Full membership access'
+                : 'Not currently active'
+            ?>
+
+          </strong>
+
+        </div>
+
+
+      </div>
+
+
+      <?php if (
+          $hasActiveScoutAccess
+      ): ?>
+
+        <p class="plan-note">
+
+          Active Scouts receive full Llama Scout access while
+          they remain in good standing and meet the Scout
+          activity requirement.
+
+        </p>
+
+      <?php endif; ?>
+
+
+    </section>
+
+
+  <?php endif; ?>
+
+
+  <!-- =====================================================
+       MEMBERSHIP / BILLING HISTORY
+       ===================================================== -->
+
+  <section class="membership-subcard">
+
+
+    <h2>
+      Membership &amp; Billing
+    </h2>
+
+
+    <p>
+
+      This section reflects the account's underlying membership
+      and billing history. It is separate from Scout tenure.
+
+    </p>
+
+
+    <div class="membership-detail-grid">
+
+
+      <div class="membership-detail">
+
+        <span>
+          Membership Status
+        </span>
+
+        <strong>
+          <?= e(
+              $billingStatus
+          ) ?>
+        </strong>
+
+      </div>
+
+
+      <div class="membership-detail">
+
+        <span>
+          Billing Plan
+        </span>
+
+        <strong>
+          <?= e(
+              $billingPlan
+          ) ?>
+        </strong>
+
+      </div>
+
+
+      <div class="membership-detail">
+
+        <span>
+          Membership Started
+        </span>
+
+        <strong>
+          <?= e(
+              $membershipStarted
+          ) ?>
+        </strong>
+
+      </div>
+
+
+      <div class="membership-detail">
+
+        <span>
+          Membership Ends
+        </span>
+
+        <strong>
+
+          <?= !empty(
+              $membership[
+                  'membership_ends_at'
+              ]
+          )
+              ? e(
+                  format_membership_date(
+                      $membership[
+                          'membership_ends_at'
+                      ],
+                      $membership
+                  )
+              )
+              : (
+                  $isStripeMembership
+                      ? 'Not scheduled'
+                      : 'Not applicable'
+              )
+          ?>
+
+        </strong>
+
+      </div>
+
+
+    </div>
+
+
+    <?php if (
+        $hasActiveScoutAccess
+        &&
+        $isStripeMembership
+    ): ?>
+
+
+      <div class="billing-transition-note">
+
+        <i
+          class="fa-solid fa-circle-info"
+          aria-hidden="true"
+        ></i>
+
+
+        <div>
+
+          <strong>
+            Scout access is active.
+          </strong>
+
+          Your paid Stripe membership is also still active.
+          Scout access and billing are currently being shown
+          separately so your original membership history is
+          preserved.
+
+        </div>
+
+      </div>
+
 
     <?php endif; ?>
 
@@ -1091,9 +1702,7 @@ require_once
             type="submit"
             class="plan-button"
           >
-
             Choose Monthly
-
           </button>
 
         </form>
@@ -1186,9 +1795,7 @@ require_once
             type="submit"
             class="plan-button"
           >
-
             Choose Annual
-
           </button>
 
         </form>
@@ -1208,26 +1815,34 @@ require_once
     </p>
 
 
-  <?php elseif (
+  <?php endif; ?>
+
+
+  <!-- =====================================================
+       STRIPE BILLING PORTAL
+
+       Keep visible even for Scouts if an actual paid Stripe
+       membership still exists.
+       ===================================================== -->
+
+  <?php if (
       $showBillingPortal
   ): ?>
 
 
-    <!-- ===================================================
-         STRIPE BILLING PORTAL
-         =================================================== -->
-
     <section class="portal-card">
 
       <h2>
-        Manage Membership
+        Manage Paid Membership
       </h2>
 
 
       <p>
-        Update your payment method, review invoices,
-        switch between monthly and annual billing,
-        or cancel your membership through Stripe.
+
+        Your Stripe membership is still associated with this
+        account. You can update payment information, review
+        invoices, or manage that subscription through Stripe.
+
       </p>
 
 
@@ -1235,9 +1850,7 @@ require_once
         href="billing-portal.php"
         class="portal-button"
       >
-
-        Manage Membership
-
+        Manage Paid Membership
       </a>
 
     </section>
@@ -1248,44 +1861,48 @@ require_once
   ): ?>
 
 
-    <!-- ===================================================
-         ROLE ACCESS
-         =================================================== -->
-
     <section class="portal-card">
 
       <h2>
 
-        <?php if (
-            $isOwner
-        ): ?>
-
-          Owner Access
-
-        <?php else: ?>
-
-          Staff Access
-
-        <?php endif; ?>
+        <?= $isOwner
+            ? 'Owner Access'
+            : 'Staff Access'
+        ?>
 
       </h2>
 
 
       <p>
 
-        <?php if (
-            $isOwner
-        ): ?>
+        <?= $isOwner
+            ? 'Your Owner role provides full Llama Scout access without requiring a paid membership.'
+            : 'Your Admin role provides full Llama Scout access without requiring a paid membership.'
+        ?>
 
-          Your Owner role provides full Llama Scout access
-          without a paid subscription.
+      </p>
 
-        <?php else: ?>
+    </section>
 
-          Your Admin role provides full Llama Scout access
-          without a paid subscription.
 
-        <?php endif; ?>
+  <?php elseif (
+      $hasActiveScoutAccess
+  ): ?>
+
+
+    <section class="portal-card">
+
+      <h2>
+        Scout Membership Benefit
+      </h2>
+
+
+      <p>
+
+        Your active Scout role provides full Llama Scout
+        access. Your Scout activity period is shown separately
+        above so membership history and Scout tenure do not get
+        mixed together.
 
       </p>
 
@@ -1296,10 +1913,6 @@ require_once
       $isComplimentary
   ): ?>
 
-
-    <!-- ===================================================
-         COMPLIMENTARY ACCESS
-         =================================================== -->
 
     <section class="portal-card">
 
