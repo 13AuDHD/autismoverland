@@ -2,167 +2,88 @@
 
 declare(strict_types=1);
 
-require_once
-    dirname(__DIR__)
-    . '/app/auth.php';
+require_once dirname(__DIR__) . '/app/auth.php';
+require_once dirname(__DIR__) . '/app/timezone.php';
 
-require_once
-    dirname(__DIR__)
-    . '/app/timezone.php';
-
-
-require_role(
-    'admin'
-);
-
+require_role('admin');
 
 start_llama_session();
 
-
-$db =
-    db();
-
-
-$adminUser =
-    current_user();
+$db = db();
+$adminUser = current_user();
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function e(
-    mixed $value
-): string {
-
+function e(mixed $value): string
+{
     return htmlspecialchars(
-        (string)
-        $value,
+        (string) $value,
         ENT_QUOTES,
         'UTF-8'
     );
-
 }
 
 
-function scout_status_label(
-    string $status
-): string {
+function scout_status_label(string $status): string
+{
+    return match ($status) {
+        'invited' => 'Invited',
+        'application_started' => 'About You',
+        'application_submitted' => 'Application Complete',
+        'training' => 'Training',
+        'pending_approval' => 'Awaiting Approval',
+        'active' => 'Active',
+        'inactive' => 'Inactive',
+        'declined' => 'Declined',
+        'removed' => 'Removed',
 
-    return match (
-        $status
-    ) {
-
-        'invited' =>
-            'Invited',
-
-        'application_started' =>
-            'About You',
-
-        'application_submitted' =>
-            'Application Complete',
-
-        'training' =>
-            'Training',
-
-        'pending_approval' =>
-            'Awaiting Approval',
-
-        'active' =>
-            'Active',
-
-        'inactive' =>
-            'Inactive',
-
-        'declined' =>
-            'Declined',
-
-        'removed' =>
-            'Removed',
-
-        default =>
-            ucwords(
-                str_replace(
-                    [
-                        '_',
-                        '-',
-                    ],
-                    ' ',
-                    $status
-                )
-            ),
-
+        default => ucwords(
+            str_replace(
+                ['_', '-'],
+                ' ',
+                $status
+            )
+        ),
     };
-
 }
 
 
-function scout_status_group(
-    string $status
-): string {
-
-    return match (
-        $status
-    ) {
-
+function scout_status_group(string $status): string
+{
+    return match ($status) {
         'invited',
         'application_started',
         'application_submitted',
-        'training' =>
-            'onboarding',
+        'training' => 'onboarding',
 
-        'pending_approval' =>
-            'review',
+        'pending_approval' => 'review',
+        'active' => 'active',
+        'inactive' => 'inactive',
+        'declined' => 'declined',
+        'removed' => 'removed',
 
-        'active' =>
-            'active',
-
-        'inactive' =>
-            'inactive',
-
-        'declined' =>
-            'declined',
-
-        'removed' =>
-            'removed',
-
-        default =>
-            'other',
-
+        default => 'other',
     };
-
 }
 
 
-function scout_step(
-    string $status
-): int {
-
-    return match (
-        $status
-    ) {
-
-        'invited' =>
-            1,
-
-        'application_started' =>
-            2,
+function scout_step(string $status): int
+{
+    return match ($status) {
+        'invited' => 1,
+        'application_started' => 2,
 
         'application_submitted',
-        'training' =>
-            3,
+        'training' => 3,
 
-        'pending_approval' =>
-            4,
+        'pending_approval' => 4,
+        'active' => 5,
 
-        'active' =>
-            5,
-
-        default =>
-            0,
-
+        default => 0,
     };
-
 }
 
 
@@ -172,25 +93,17 @@ function format_admin_date(
     bool $withTime = false
 ): string {
 
-    if (
-        !$date
-    ) {
-
+    if (!$date) {
         return 'Not set';
-
     }
-
 
     return llama_format_datetime(
         $date,
-        llama_user_timezone(
-            $adminUser
-        ),
+        llama_user_timezone($adminUser),
         $withTime
             ? 'M j, Y g:i A'
             : 'M j, Y'
     );
-
 }
 
 
@@ -198,18 +111,14 @@ function format_admin_date(
    FILTERS
    ========================================================= */
 
-$filter =
-    strtolower(
-        trim(
-            (string) (
-                $_GET[
-                    'status'
-                ]
-                ??
-                'all'
-            )
+$filter = strtolower(
+    trim(
+        (string) (
+            $_GET['status']
+            ?? 'all'
         )
-    );
+    )
+);
 
 
 $allowedFilters = [
@@ -230,31 +139,24 @@ if (
         true
     )
 ) {
-
-    $filter =
-        'all';
-
+    $filter = 'all';
 }
 
 
-$search =
-    trim(
-        (string) (
-            $_GET[
-                'q'
-            ]
-            ??
-            ''
-        )
-    );
+$search = trim(
+    (string) (
+        $_GET['q']
+        ?? ''
+    )
+);
 
 
 /* =========================================================
    DASHBOARD COUNTS
    ========================================================= */
 
-$countRows =
-    $db->query(
+$countRows = $db
+    ->query(
         '
         SELECT
             status,
@@ -273,86 +175,59 @@ $countRows =
 $statusCounts = [];
 
 
-foreach (
-    $countRows as $row
-) {
+foreach ($countRows as $row) {
 
     $statusCounts[
-        (string)
-        $row[
-            'status'
-        ]
-    ] =
-        (int)
-        $row[
-            'total'
-        ];
-
+        (string) $row['status']
+    ] = (int) $row['total'];
 }
 
 
-$totalScouts =
-    array_sum(
-        $statusCounts
-    );
+$totalScouts = array_sum(
+    $statusCounts
+);
 
 
 $onboardingCount =
     (
-        $statusCounts[
-            'invited'
-        ]
+        $statusCounts['invited']
         ?? 0
     )
     +
     (
-        $statusCounts[
-            'application_started'
-        ]
+        $statusCounts['application_started']
         ?? 0
     )
     +
     (
-        $statusCounts[
-            'application_submitted'
-        ]
+        $statusCounts['application_submitted']
         ?? 0
     )
     +
     (
-        $statusCounts[
-            'training'
-        ]
+        $statusCounts['training']
         ?? 0
     );
 
 
 $reviewCount =
-    $statusCounts[
-        'pending_approval'
-    ]
+    $statusCounts['pending_approval']
     ?? 0;
 
 
 $activeCount =
-    $statusCounts[
-        'active'
-    ]
+    $statusCounts['active']
     ?? 0;
 
 
 $inactiveCount =
     (
-        $statusCounts[
-            'inactive'
-        ]
+        $statusCounts['inactive']
         ?? 0
     )
     +
     (
-        $statusCounts[
-            'removed'
-        ]
+        $statusCounts['removed']
         ?? 0
     );
 
@@ -361,22 +236,15 @@ $inactiveCount =
    BUILD SCOUT LIST QUERY
    ========================================================= */
 
-$whereParts =
-    [];
-
-
-$params =
-    [];
+$whereParts = [];
+$params = [];
 
 
 /* =========================================================
    STATUS FILTER
    ========================================================= */
 
-if (
-    $filter ===
-    'onboarding'
-) {
+if ($filter === 'onboarding') {
 
     $whereParts[] =
         '
@@ -389,51 +257,30 @@ if (
         )
         ';
 
-
-} elseif (
-    $filter ===
-    'review'
-) {
+} elseif ($filter === 'review') {
 
     $whereParts[] =
         'sp.status = \'pending_approval\'';
 
-
-} elseif (
-    $filter ===
-    'active'
-) {
+} elseif ($filter === 'active') {
 
     $whereParts[] =
         'sp.status = \'active\'';
 
-
-} elseif (
-    $filter ===
-    'inactive'
-) {
+} elseif ($filter === 'inactive') {
 
     $whereParts[] =
         'sp.status = \'inactive\'';
 
-
-} elseif (
-    $filter ===
-    'declined'
-) {
+} elseif ($filter === 'declined') {
 
     $whereParts[] =
         'sp.status = \'declined\'';
 
-
-} elseif (
-    $filter ===
-    'removed'
-) {
+} elseif ($filter === 'removed') {
 
     $whereParts[] =
         'sp.status = \'removed\'';
-
 }
 
 
@@ -441,19 +288,14 @@ if (
    SEARCH
    ========================================================= */
 
-if (
-    $search !==
-    ''
-) {
+if ($search !== '') {
 
     $whereParts[] =
         '
         (
             u.display_name LIKE ?
-            OR
-            u.username LIKE ?
-            OR
-            u.email LIKE ?
+            OR u.username LIKE ?
+            OR u.email LIKE ?
         )
         ';
 
@@ -466,17 +308,9 @@ if (
         '%';
 
 
-    $params[] =
-        $searchLike;
-
-
-    $params[] =
-        $searchLike;
-
-
-    $params[] =
-        $searchLike;
-
+    $params[] = $searchLike;
+    $params[] = $searchLike;
+    $params[] = $searchLike;
 }
 
 
@@ -498,9 +332,17 @@ $whereSql =
 /* =========================================================
    SCOUT LIST
 
-   accepted_last_12_months:
-   Accepted reports reviewed in the rolling 12 months,
-   but never before the user actually became a Scout.
+   The annual Scout requirement uses FIXED Scout years.
+
+   Example:
+
+   Aug 20, 2026 through Aug 20, 2027
+
+   Only scout_activity rows with activity_type
+   place_approved inside that exact Scout year count toward
+   the three-report renewal requirement.
+
+   Extra reports do not stack future years.
    ========================================================= */
 
 $sql =
@@ -544,9 +386,43 @@ $sql =
         ) AS pending_reports,
 
         COALESCE(
-            requirement_stats.accepted_current_window,
+            (
+                SELECT COUNT(*)
+
+                FROM scout_activity sa_requirement
+
+                WHERE sa_requirement.scout_profile_id =
+                    sp.id
+
+                  AND sa_requirement.user_id =
+                    sp.user_id
+
+                  AND sa_requirement.activity_type =
+                    \'place_approved\'
+
+                  AND sp.active_through
+                      IS NOT NULL
+
+                  AND sa_requirement.occurred_at >=
+                      GREATEST(
+                          DATE_SUB(
+                              sp.active_through,
+                              INTERVAL 1 YEAR
+                          ),
+                          COALESCE(
+                              sp.scout_started_at,
+                              DATE_SUB(
+                                  sp.active_through,
+                                  INTERVAL 1 YEAR
+                              )
+                          )
+                      )
+
+                  AND sa_requirement.occurred_at <
+                      sp.active_through
+            ),
             0
-        ) AS accepted_current_window,
+        ) AS accepted_current_year,
 
         COALESCE(
             activity_stats.activity_count,
@@ -592,44 +468,8 @@ $sql =
         GROUP BY user_id
 
     ) report_stats
-      ON report_stats.user_id = sp.user_id
-
-
-    LEFT JOIN
-    (
-        SELECT
-            ps.user_id,
-
-            COUNT(*) AS accepted_current_window
-
-        FROM place_submissions ps
-
-        INNER JOIN scout_profiles sp2
-          ON sp2.user_id = ps.user_id
-
-        WHERE ps.status = \'approved\'
-
-          AND ps.reviewed_at IS NOT NULL
-
-          AND ps.reviewed_at >=
-          GREATEST(
-              DATE_SUB(
-                  CURRENT_TIMESTAMP,
-                  INTERVAL 12 MONTH
-              ),
-              COALESCE(
-                  sp2.scout_started_at,
-                  DATE_SUB(
-                      CURRENT_TIMESTAMP,
-                      INTERVAL 12 MONTH
-                  )
-              )
-          )
-
-        GROUP BY ps.user_id
-
-    ) requirement_stats
-      ON requirement_stats.user_id = sp.user_id
+      ON report_stats.user_id =
+         sp.user_id
 
 
     LEFT JOIN
@@ -652,8 +492,11 @@ $sql =
             user_id
 
     ) activity_stats
-      ON activity_stats.scout_profile_id = sp.id
-     AND activity_stats.user_id = sp.user_id
+      ON activity_stats.scout_profile_id =
+         sp.id
+
+     AND activity_stats.user_id =
+         sp.user_id
 
 
     '
@@ -698,15 +541,13 @@ $sql =
         END,
 
         sp.updated_at DESC,
-
         sp.id DESC
     ';
 
 
-$stmt =
-    $db->prepare(
-        $sql
-    );
+$stmt = $db->prepare(
+    $sql
+);
 
 
 $stmt->execute(
@@ -714,10 +555,9 @@ $stmt->execute(
 );
 
 
-$scouts =
-    $stmt->fetchAll(
-        PDO::FETCH_ASSOC
-    );
+$scouts = $stmt->fetchAll(
+    PDO::FETCH_ASSOC
+);
 
 
 /* =========================================================
@@ -725,17 +565,11 @@ $scouts =
    ========================================================= */
 
 $displayName =
-    $adminUser[
-        'display_name'
-    ]
+    $adminUser['display_name']
     ?:
-    $adminUser[
-        'username'
-    ]
+    $adminUser['username']
     ?:
-    $adminUser[
-        'email'
-    ];
+    $adminUser['email'];
 
 
 ?>
@@ -1389,6 +1223,21 @@ $displayName =
     }
 
 
+    .scout-requirement-met {
+      margin-top:
+        5px;
+
+      font-size:
+        .72rem;
+
+      font-weight:
+        700;
+
+      opacity:
+        .68;
+    }
+
+
     .scout-action {
       display:
         inline-flex;
@@ -1578,10 +1427,6 @@ require_once
 <main class="scouts-page">
 
 
-  <!-- =====================================================
-       BACK
-       ===================================================== -->
-
   <a
     href="/"
     class="scout-review-back"
@@ -1597,12 +1442,7 @@ require_once
   </a>
 
 
-  <!-- =====================================================
-       HERO
-       ===================================================== -->
-
   <section class="scouts-hero">
-
 
     <div>
 
@@ -1625,13 +1465,8 @@ require_once
 
     </div>
 
-
   </section>
 
-
-  <!-- =====================================================
-       STATS
-       ===================================================== -->
 
   <section class="scouts-stats">
 
@@ -1690,10 +1525,6 @@ require_once
 
   </section>
 
-
-  <!-- =====================================================
-       FILTER / SEARCH
-       ===================================================== -->
 
   <section class="scouts-controls">
 
@@ -1846,8 +1677,7 @@ require_once
 
 
       <?php if (
-          $filter !==
-          'all'
+          $filter !== 'all'
       ): ?>
 
         <input
@@ -1867,9 +1697,7 @@ require_once
       >
 
 
-      <button
-        type="submit"
-      >
+      <button type="submit">
 
         <i
           class="fa-solid fa-magnifying-glass"
@@ -1887,13 +1715,7 @@ require_once
   </section>
 
 
-  <!-- =====================================================
-       SCOUT LIST
-       ===================================================== -->
-
-  <?php if (
-      $scouts
-  ): ?>
+  <?php if ($scouts): ?>
 
 
     <section class="scouts-list">
@@ -1908,9 +1730,7 @@ require_once
 
         $status =
             (string)
-            $scout[
-                'status'
-            ];
+            $scout['status'];
 
 
         $statusGroup =
@@ -1928,39 +1748,42 @@ require_once
         $name =
             trim(
                 (string) (
-                    $scout[
-                        'display_name'
-                    ]
+                    $scout['display_name']
                     ?:
-                    $scout[
-                        'username'
-                    ]
+                    $scout['username']
                     ?:
-                    $scout[
-                        'email'
-                    ]
+                    $scout['email']
                 )
             );
 
 
         $acceptedCurrent =
-            (int)
-            $scout[
-                'accepted_current_window'
-            ];
+            (int) (
+                $scout[
+                    'accepted_current_year'
+                ]
+                ?? 0
+            );
 
 
         $progress =
             min(
                 100,
                 (
-                    $acceptedCurrent
+                    min(
+                        3,
+                        $acceptedCurrent
+                    )
                     /
                     3
                 )
                 *
                 100
             );
+
+
+        $requirementMet =
+            $acceptedCurrent >= 3;
 
 
         $actionLabel =
@@ -1975,8 +1798,6 @@ require_once
         <article class="scout-row">
 
 
-          <!-- NAME -->
-
           <div>
 
 
@@ -1989,16 +1810,12 @@ require_once
 
               <?php if (
                   !empty(
-                      $scout[
-                          'username'
-                      ]
+                      $scout['username']
                   )
               ): ?>
 
                 @<?= e(
-                    $scout[
-                        'username'
-                    ]
+                    $scout['username']
                 ) ?>
 
                 &middot;
@@ -2006,9 +1823,7 @@ require_once
               <?php endif; ?>
 
               <?= e(
-                  $scout[
-                      'email'
-                  ]
+                  $scout['email']
               ) ?>
 
             </div>
@@ -2016,8 +1831,6 @@ require_once
 
           </div>
 
-
-          <!-- STATUS -->
 
           <div>
 
@@ -2046,7 +1859,6 @@ require_once
                   aria-hidden="true"
                 ></i>
 
-
               <?php elseif (
                   $status ===
                   'active'
@@ -2056,7 +1868,6 @@ require_once
                   class="fa-solid fa-binoculars"
                   aria-hidden="true"
                 ></i>
-
 
               <?php else: ?>
 
@@ -2080,8 +1891,7 @@ require_once
             <?php if (
                 $step > 0
                 &&
-                $status !==
-                'active'
+                $status !== 'active'
             ): ?>
 
               <div
@@ -2100,19 +1910,16 @@ require_once
           </div>
 
 
-          <!-- ACTIVITY -->
-
           <div>
 
 
             <span class="scout-label">
-              Scout Requirement
+              Current Scout Year
             </span>
 
 
             <?php if (
-                $status ===
-                'active'
+                $status === 'active'
             ): ?>
 
 
@@ -2147,6 +1954,17 @@ require_once
               </div>
 
 
+              <?php if (
+                  $requirementMet
+              ): ?>
+
+                <div class="scout-requirement-met">
+                  Requirement met
+                </div>
+
+              <?php endif; ?>
+
+
             <?php else: ?>
 
 
@@ -2161,14 +1979,11 @@ require_once
           </div>
 
 
-          <!-- DETAILS -->
-
           <div>
 
 
             <?php if (
-                $status ===
-                'active'
+                $status === 'active'
             ): ?>
 
 
@@ -2200,11 +2015,10 @@ require_once
                 "
               >
 
-                <?= (int)
-                    $scout[
-                        'total_points'
-                    ]
-                ?>
+                <?= (int) (
+                    $scout['total_points']
+                    ?? 0
+                ) ?>
                 points
 
               </div>
@@ -2286,24 +2100,22 @@ require_once
           </div>
 
 
-          <!-- ACTION -->
-
           <div class="scout-row-action">
 
 
             <a
               class="scout-action"
               href="/scout.php?id=<?= (int)
-                  $scout[
-                      'id'
-                  ]
+                  $scout['id']
               ?>"
             >
 
               <i
-                class="<?= $status === 'pending_approval'
-                    ? 'fa-solid fa-clipboard-check'
-                    : 'fa-solid fa-arrow-right'
+                class="<?=
+                    $status ===
+                    'pending_approval'
+                        ? 'fa-solid fa-clipboard-check'
+                        : 'fa-solid fa-arrow-right'
                 ?>"
                 aria-hidden="true"
               ></i>
