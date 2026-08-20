@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/scout-maintenance.php';
 
 
 /* =========================================================
@@ -566,28 +567,57 @@ function current_user(): ?array
     }
 
 
-    if (
-        in_array(
-            $user[
-                'status'
-            ],
-            [
-                'suspended',
-                'disabled'
-            ],
-            true
-        )
-    ) {
+if (
+    in_array(
+        $user[
+            'status'
+        ],
+        [
+            'suspended',
+            'disabled'
+        ],
+        true
+    )
+) {
 
-        logout_user();
+    logout_user();
 
-        return null;
+    return null;
 
-    }
-
-
-    return $user;
 }
+
+
+/* =========================================================
+   DAILY APPLICATION MAINTENANCE
+
+   The first authenticated request after the maintenance
+   interval expires runs Scout renewal maintenance.
+
+   Failures are logged but must NEVER prevent someone from
+   accessing their account.
+   ========================================================= */
+
+try {
+
+    llama_run_scout_renewal_maintenance(
+        db()
+    );
+
+} catch (
+    Throwable $exception
+) {
+
+    error_log(
+        'Llama Scout daily maintenance bootstrap error: '
+        .
+        $exception
+            ->getMessage()
+    );
+
+}
+
+
+return $user;
 
 
 /* =========================================================
