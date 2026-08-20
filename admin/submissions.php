@@ -250,6 +250,353 @@ function display_value(
 
 
 /* =========================================================
+   SCOUT ACTIVITY
+   ========================================================= */
+
+/*
+ * Find the submitter's active Scout profile.
+ */
+
+function active_scout_profile_for_user(
+    PDO $db,
+    int $userId
+): ?array {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                user_id,
+                status,
+                scout_started_at,
+                active_through
+
+            FROM scout_profiles
+
+            WHERE user_id = ?
+              AND status = \'active\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    $row =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    return
+        $row
+            ?: null;
+
+}
+
+
+/*
+ * A submission only counts toward Scout activity if it was
+ * submitted AFTER the person officially became a Scout.
+ *
+ * This prevents an older Community Scouted submission from
+ * becoming Scout credit simply because it was reviewed after
+ * the user's promotion.
+ */
+
+function submission_qualifies_as_scout_report(
+    array $submission,
+    array $scoutProfile
+): bool {
+
+    $submittedAt =
+        strtotime(
+            (string) (
+                $submission[
+                    'submitted_at'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $scoutStartedAt =
+        strtotime(
+            (string) (
+                $scoutProfile[
+                    'scout_started_at'
+                ]
+                ?? ''
+            )
+        );
+
+
+    if (
+        $submittedAt === false
+        ||
+        $scoutStartedAt === false
+    ) {
+
+        return false;
+
+    }
+
+
+    return
+        $submittedAt
+        >=
+        $scoutStartedAt;
+
+}
+
+
+/*
+ * Record one accepted Scout Report.
+ *
+ * Points stay at zero for now because we have NOT designed
+ * the Scout point system yet.
+ *
+ * The unique database key prevents the same submission from
+ * being credited more than once.
+ */
+
+function record_scout_report_approval(
+    PDO $db,
+    array $scoutProfile,
+    int $submissionId
+): bool {
+
+    $stmt =
+        $db->prepare(
+            '
+            INSERT IGNORE INTO scout_activity
+            (
+                scout_profile_id,
+                user_id,
+                activity_type,
+                place_id,
+                submission_id,
+                points,
+                occurred_at
+            )
+
+            VALUES
+            (
+                ?,
+                ?,
+                \'place_approved\',
+                NULL,
+                ?,
+                0,
+                CURRENT_TIMESTAMP
+            )
+            '
+        );
+
+
+    $stmt->execute([
+
+        (int)
+        $scoutProfile[
+            'id'
+        ],
+
+        (int)
+        $scoutProfile[
+            'user_id'
+        ],
+
+        $submissionId
+
+    ]);
+
+
+    return
+        $stmt->rowCount()
+        > 0;
+
+}
+
+
+/*
+ * If approval is reversed before the Scout year is renewed,
+ * remove that report's Scout credit too.
+ */
+
+function remove_scout_report_approval(
+    PDO $db,
+    int $submissionId
+): void {
+
+    $stmt =
+        $db->prepare(
+            '
+            DELETE FROM scout_activity
+
+            WHERE submission_id = ?
+              AND activity_type = \'place_approved\'
+            '
+        );
+
+
+    $stmt->execute([
+        $submissionId
+    ]);
+
+}
+
+
+/*
+ * Count qualifying reports in the CURRENT Scout year.
+ *
+ * active_through marks the end of the Scout year.
+ * One year before active_through marks its beginning.
+ *
+ * Example:
+ *
+ * Aug 20 2026 → Aug 20 2027
+ *
+ * Reports outside that window do not count toward that
+ * particular year's 3-report requirement.
+ */
+
+function current_scout_year_progress(
+    PDO $db,
+    array $scoutProfile
+): array {
+
+    $scoutProfileId =
+        (int)
+        $scoutProfile[
+            'id'
+        ];
+
+
+    $activeThrough =
+        (string) (
+            $scoutProfile[
+                'active_through'
+            ]
+            ?? ''
+        );
+
+
+    if (
+        $scoutProfileId < 1
+        ||
+        $activeThrough === ''
+    ) {
+
+        return [
+            'accepted' => 0,
+            'required' => 3,
+            'met' => false,
+            'year_start' => null,
+            'year_end' => null,
+        ];
+
+    }
+
+
+    $endTimestamp =
+        strtotime(
+            $activeThrough
+        );
+
+
+    if (
+        $endTimestamp === false
+    ) {
+
+        return [
+            'accepted' => 0,
+            'required' => 3,
+            'met' => false,
+            'year_start' => null,
+            'year_end' => null,
+        ];
+
+    }
+
+
+    $startTimestamp =
+        strtotime(
+            '-1 year',
+            $endTimestamp
+        );
+
+
+    $yearStart =
+        date(
+            'Y-m-d H:i:s',
+            $startTimestamp
+        );
+
+
+    $yearEnd =
+        date(
+            'Y-m-d H:i:s',
+            $endTimestamp
+        );
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT COUNT(*)
+
+            FROM scout_activity
+
+            WHERE scout_profile_id = ?
+
+              AND activity_type =
+                  \'place_approved\'
+
+              AND occurred_at >= ?
+
+              AND occurred_at < ?
+            '
+        );
+
+
+    $stmt->execute([
+        $scoutProfileId,
+        $yearStart,
+        $yearEnd
+    ]);
+
+
+    $accepted =
+        (int)
+        $stmt->fetchColumn();
+
+
+    return [
+        'accepted' =>
+            $accepted,
+
+        'required' =>
+            3,
+
+        'met' =>
+            $accepted >= 3,
+
+        'year_start' =>
+            $yearStart,
+
+        'year_end' =>
+            $yearEnd,
+    ];
+
+}
+
+
+/* =========================================================
    HANDLE REVIEW ACTION
    ========================================================= */
 
@@ -287,6 +634,7 @@ if (
 
         $actionError =
             'Your session could not be verified. Reload the page and try again.';
+
 
     } else {
 
@@ -344,6 +692,7 @@ if (
             $actionError =
                 'That review action was not valid.';
 
+
         } elseif (
             in_array(
                 $newStatus,
@@ -360,60 +709,290 @@ if (
             $actionError =
                 'Add review notes before requesting changes or rejecting a submission.';
 
+
         } else {
+
+            $db =
+                db();
+
 
             try {
 
+                $db->beginTransaction();
+
+
+                /* =========================================
+                   LOCK SUBMISSION
+                   ========================================= */
+
                 $stmt =
-                    db()
-                    ->prepare(
+                    $db->prepare(
+                        '
+                        SELECT
+                            id,
+                            user_id,
+                            place_name,
+                            source_type,
+                            status,
+                            submitted_at,
+                            reviewed_at
+
+                        FROM place_submissions
+
+                        WHERE id = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        '
+                    );
+
+
+                $stmt->execute([
+                    $submissionId
+                ]);
+
+
+                $submission =
+                    $stmt->fetch(
+                        PDO::FETCH_ASSOC
+                    );
+
+
+                if (
+                    !$submission
+                ) {
+
+                    throw new RuntimeException(
+                        'Submission not found.'
+                    );
+
+                }
+
+
+                $submissionUserId =
+                    (int)
+                    $submission[
+                        'user_id'
+                    ];
+
+
+                $oldStatus =
+                    (string)
+                    $submission[
+                        'status'
+                    ];
+
+
+                /* =========================================
+                   SAVE REVIEW RESULT
+                   ========================================= */
+
+                $stmt =
+                    $db->prepare(
                         '
                         UPDATE place_submissions
+
                         SET
                             status = ?,
+
                             review_notes = ?,
+
                             reviewed_at =
                                 CURRENT_TIMESTAMP,
+
                             reviewed_by = ?
+
                         WHERE id = ?
                         '
                     );
 
 
                 $stmt->execute([
+
                     $newStatus,
+
                     $reviewNotes !== ''
                         ? $reviewNotes
                         : null,
-                    $user['id'],
+
+                    (int)
+                    $user[
+                        'id'
+                    ],
+
                     $submissionId
+
                 ]);
 
 
+                /* =========================================
+                   ACTIVE SCOUT
+                   ========================================= */
+
+                $scoutProfile =
+                    active_scout_profile_for_user(
+                        $db,
+                        $submissionUserId
+                    );
+
+
+                $newScoutCredit =
+                    false;
+
+
+                $scoutProgress =
+                    null;
+
+
+                /* =========================================
+                   NEW APPROVAL
+                   ========================================= */
+
                 if (
-                    $stmt->rowCount()
-                    > 0
+                    $newStatus ===
+                    'approved'
+                    &&
+                    $scoutProfile
+                    &&
+                    submission_qualifies_as_scout_report(
+                        $submission,
+                        $scoutProfile
+                    )
                 ) {
 
-                    $actionMessage =
-                        'Submission updated to '
-                        .
-                        admin_submission_status_label(
-                            $newStatus
-                        )
-                        .
-                        '.';
+                    $newScoutCredit =
+                        record_scout_report_approval(
+                            $db,
+                            $scoutProfile,
+                            $submissionId
+                        );
 
-                } else {
 
-                    $actionError =
-                        'The submission could not be found.';
+                    $scoutProgress =
+                        current_scout_year_progress(
+                            $db,
+                            $scoutProfile
+                        );
 
                 }
+
+
+                /* =========================================
+                   APPROVAL REVERSED
+                   ========================================= */
+
+                if (
+                    $oldStatus ===
+                    'approved'
+                    &&
+                    $newStatus !==
+                    'approved'
+                ) {
+
+                    remove_scout_report_approval(
+                        $db,
+                        $submissionId
+                    );
+
+
+                    if (
+                        $scoutProfile
+                    ) {
+
+                        $scoutProgress =
+                            current_scout_year_progress(
+                                $db,
+                                $scoutProfile
+                            );
+
+                    }
+
+                }
+
+
+                /* =========================================
+                   COMMIT
+                   ========================================= */
+
+                $db->commit();
+
+
+                /* =========================================
+                   MESSAGE
+                   ========================================= */
+
+                $actionMessage =
+                    'Submission updated to '
+                    .
+                    admin_submission_status_label(
+                        $newStatus
+                    )
+                    .
+                    '.';
+
+
+                if (
+                    $newScoutCredit
+                ) {
+
+                    $actionMessage .=
+                        ' This report was added to the Scout\'s current-year activity.';
+
+                }
+
+
+                if (
+                    is_array(
+                        $scoutProgress
+                    )
+                ) {
+
+                    $accepted =
+                        (int)
+                        $scoutProgress[
+                            'accepted'
+                        ];
+
+
+                    if (
+                        $accepted >= 3
+                    ) {
+
+                        $actionMessage .=
+                            ' Their Scout-year requirement is complete at '
+                            .
+                            $accepted
+                            .
+                            ' accepted reports.';
+
+
+                    } else {
+
+                        $actionMessage .=
+                            ' Scout-year progress: '
+                            .
+                            $accepted
+                            .
+                            ' of 3 accepted reports.';
+
+                    }
+
+                }
+
 
             } catch (
                 Throwable $exception
             ) {
+
+                if (
+                    $db->inTransaction()
+                ) {
+
+                    $db->rollBack();
+
+                }
+
 
                 error_log(
                     'Llama Scout admin submission review error: '
@@ -424,7 +1003,7 @@ if (
 
 
                 $actionError =
-                    'Something went wrong while saving the review.';
+                    'Something went wrong while saving the review. Nothing was changed.';
 
             }
 
