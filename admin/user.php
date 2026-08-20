@@ -2,491 +2,317 @@
 
 declare(strict_types=1);
 
-require_once
-    dirname(__DIR__)
-    . '/app/auth.php';
+require_once dirname(__DIR__) . '/app/auth.php';
+require_once dirname(__DIR__) . '/app/timezone.php';
 
-require_once
-    dirname(__DIR__)
-    . '/app/timezone.php';
-
-
-require_role(
-    'admin'
-);
-
-
-$adminUser =
-    current_user();
-
-
+require_role('admin');
 start_llama_session();
 
+$adminUser = current_user();
+$db = db();
 
-$db =
-    db();
-
-
-/* =========================================================
-   CURRENT ADMIN AUTHORITY
-   ========================================================= */
-
-$currentAdminId =
-    (int)
-    $adminUser['id'];
-
-
-$currentAdminIsOwner =
-    user_is_owner(
-        $currentAdminId
-    );
+$currentAdminId = (int) $adminUser['id'];
+$currentAdminIsOwner = user_is_owner($currentAdminId);
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function e(
-    mixed $value
-): string {
-
-    return htmlspecialchars(
-        (string) $value,
-        ENT_QUOTES,
-        'UTF-8'
-    );
-
+function e(mixed $value): string
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
-
-function format_date(
-    ?string $date,
-    bool $includeTime = false
-): string {
-
+function format_date(?string $date, bool $includeTime = false): string
+{
     global $adminUser;
 
+    if (!$date) {
+        return 'Not yet';
+    }
 
     return llama_format_user_datetime(
         $date,
         $adminUser,
-        $includeTime
-            ? 'M j, Y g:i A'
-            : 'M j, Y'
+        $includeTime ? 'M j, Y g:i A' : 'M j, Y'
     );
-
 }
 
+function status_label(?string $status): string
+{
+    return match ((string) $status) {
+        'active' => 'Active',
+        'pending' => 'Pending',
+        'suspended' => 'Suspended',
+        'disabled' => 'Disabled',
+        default => ucwords(str_replace(['_', '-'], ' ', (string) $status)),
+    };
+}
 
-function status_label(
-    ?string $status
-): string {
+function role_label(string $role): string
+{
+    return match ($role) {
+        'admin' => 'Admin',
+        'member' => 'Member',
+        'scout' => 'Scout',
+        'master-scout', 'master_scout' => 'Master Scout',
+        'owner' => 'Owner',
+        default => ucwords(str_replace(['_', '-'], ' ', $role)),
+    };
+}
 
-    return match (
-        (string) $status
-    ) {
+function scout_status_label(string $status): string
+{
+    return match ($status) {
+        'invited' => 'Invited',
+        'application_started' => 'About You',
+        'application_submitted', 'training' => 'Training',
+        'pending_approval' => 'Awaiting Approval',
+        'active' => 'Active Scout',
+        'inactive' => 'Inactive Scout',
+        'declined' => 'Declined',
+        'removed' => 'Removed',
+        default => ucwords(str_replace(['_', '-'], ' ', $status)),
+    };
+}
+
+function scout_step(string $status): int
+{
+    return match ($status) {
+        'invited' => 1,
+        'application_started' => 2,
+        'application_submitted', 'training' => 3,
+        'pending_approval' => 4,
+        'active' => 5,
+        default => 0,
+    };
+}
+
+function scout_status_description(string $status): string
+{
+    return match ($status) {
+        'invited' =>
+            'Scout invitation sent. Waiting for the user to respond.',
+
+        'application_started' =>
+            'The user accepted the invitation and is completing their About You section.',
+
+        'application_submitted', 'training' =>
+            'The user is completing Scout training.',
+
+        'pending_approval' =>
+            'About You and training are complete. This Scout is ready for review.',
 
         'active' =>
-            'Active',
+            'Scout onboarding is complete and Scout access is active.',
 
-        'pending' =>
-            'Pending',
+        'inactive' =>
+            'This Scout is currently inactive.',
 
-        'suspended' =>
-            'Suspended',
+        'declined' =>
+            'The Scout invitation or onboarding process was declined.',
 
-        'disabled' =>
-            'Disabled',
-
-        default =>
-            ucwords(
-                str_replace(
-                    [
-                        '_',
-                        '-',
-                    ],
-                    ' ',
-                    (string) $status
-                )
-            ),
-
-    };
-
-}
-
-
-function role_label(
-    string $role
-): string {
-
-    return match (
-        $role
-    ) {
-
-        'owner' =>
-            'Owner',
-
-        'admin' =>
-            'Admin',
-
-        'master-scout' =>
-            'Master Scout',
-
-        'master_scout' =>
-            'Master Scout',
-
-        'scout' =>
-            'Scout',
-
-        'member' =>
-            'Member',
+        'removed' =>
+            'Scout access has been removed.',
 
         default =>
-            ucwords(
-                str_replace(
-                    [
-                        '_',
-                        '-',
-                    ],
-                    ' ',
-                    $role
-                )
-            ),
-
+            'Scout status is available for review.',
     };
-
 }
 
+function fetch_one(PDO $db, string $sql, array $params = []): array
+{
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
 
-function fetch_one(
-    PDO $db,
-    string $sql,
-    array $params = []
-): array {
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $stmt =
-        $db->prepare(
-            $sql
-        );
-
-
-    $stmt->execute(
-        $params
-    );
-
-
-    $row =
-        $stmt->fetch(
-            PDO::FETCH_ASSOC
-        );
-
-
-    return
-        $row
-        ?: [];
-
+    return $row ?: [];
 }
 
+function fetch_all(PDO $db, string $sql, array $params = []): array
+{
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
 
-function fetch_all(
-    PDO $db,
-    string $sql,
-    array $params = []
-): array {
-
-    $stmt =
-        $db->prepare(
-            $sql
-        );
-
-
-    $stmt->execute(
-        $params
-    );
-
-
-    return
-        $stmt->fetchAll(
-            PDO::FETCH_ASSOC
-        );
-
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-
-/* =========================================================
-   USER ID
-   ========================================================= */
-
-$userId =
-    (int) (
-        $_GET['id']
-        ??
-        $_POST['user_id']
-        ??
-        0
-    );
-
-
-if (
-    $userId < 1
-) {
-
-    http_response_code(
-        400
-    );
-
-
-    exit(
-        'A valid user ID is required.'
-    );
-
-}
-
-
-/* =========================================================
-   CSRF
-   ========================================================= */
-
-if (
-    empty(
-        $_SESSION[
-            'admin_user_csrf'
-        ]
-    )
-) {
-
-    $_SESSION[
-        'admin_user_csrf'
-    ] =
-        bin2hex(
-            random_bytes(
-                32
-            )
-        );
-
-}
-
-
-$csrfToken =
-    $_SESSION[
-        'admin_user_csrf'
-    ];
-
-
-/* =========================================================
-   LOAD USER
-   ========================================================= */
-
-$managedUser =
-    fetch_one(
-        $db,
-        '
-        SELECT
-            id,
-            email,
-            username,
-            display_name,
-            timezone,
-            status,
-            email_verified_at,
-            created_at,
-            last_login_at,
-            dormancy_notice_sent_at
-
-        FROM users
-
-        WHERE id = ?
-
-        LIMIT 1
-        ',
-        [
-            $userId
-        ]
-    );
-
-
-if (
-    !$managedUser
-) {
-
-    http_response_code(
-        404
-    );
-
-
-    exit(
-        'User not found.'
-    );
-
-}
-
-
-/* =========================================================
-   LOAD USER ROLES
-   ========================================================= */
-
-function load_managed_roles(
-    PDO $db,
-    int $userId
-): array {
-
+function load_managed_roles(PDO $db, int $userId): array
+{
     return fetch_all(
         $db,
         '
         SELECT
             r.id,
             r.slug
-
         FROM roles r
-
         INNER JOIN user_roles ur
           ON ur.role_id = r.id
-
         WHERE ur.user_id = ?
-
-        ORDER BY
-            r.slug ASC
+        ORDER BY r.slug ASC
         ',
-        [
-            $userId
-        ]
+        [$userId]
     );
-
 }
 
 
-$managedRoles =
-    load_managed_roles(
-        $db,
-        $userId
-    );
+/* =========================================================
+   USER
+   ========================================================= */
 
+$userId = (int) (
+    $_GET['id']
+    ?? $_POST['user_id']
+    ?? 0
+);
 
-$managedRoleSlugs =
-    array_column(
-        $managedRoles,
-        'slug'
-    );
+if ($userId < 1) {
+    http_response_code(400);
+    exit('A valid user ID is required.');
+}
 
+if (empty($_SESSION['admin_user_csrf'])) {
+    $_SESSION['admin_user_csrf'] = bin2hex(random_bytes(32));
+}
 
-$managedUserIsOwner =
-    in_array(
-        'owner',
-        $managedRoleSlugs,
-        true
-    );
+$csrfToken = $_SESSION['admin_user_csrf'];
 
+$managedUser = fetch_one(
+    $db,
+    '
+    SELECT
+        id,
+        email,
+        username,
+        display_name,
+        timezone,
+        status,
+        email_verified_at,
+        created_at,
+        last_login_at,
+        dormancy_notice_sent_at
+    FROM users
+    WHERE id = ?
+    LIMIT 1
+    ',
+    [$userId]
+);
 
-$managedUserIsAdmin =
-    in_array(
-        'admin',
-        $managedRoleSlugs,
-        true
-    );
+if (!$managedUser) {
+    http_response_code(404);
+    exit('User not found.');
+}
+
+$managedRoles = load_managed_roles($db, $userId);
+$managedRoleSlugs = array_column($managedRoles, 'slug');
+
+$managedUserIsOwner = in_array('owner', $managedRoleSlugs, true);
+$managedUserIsAdmin = in_array('admin', $managedRoleSlugs, true);
 
 
 /* =========================================================
    AUTHORITY PROTECTION
-
-   OWNER:
-     Can open anyone.
-
-   ADMIN:
-     Cannot manage Owners.
-     Cannot manage other Admins.
    ========================================================= */
 
 if (
     !$currentAdminIsOwner
     &&
-    (
-        $managedUserIsOwner
-        ||
-        $managedUserIsAdmin
-    )
+    ($managedUserIsOwner || $managedUserIsAdmin)
 ) {
-
-    http_response_code(
-        403
-    );
-
-
-    exit(
-        'This account is managed by a Llama Scout Owner.'
-    );
-
+    http_response_code(403);
+    exit('This account is managed by a Llama Scout Owner.');
 }
 
 
 /* =========================================================
-   AVAILABLE ROLES
-
-   Owner is deliberately excluded.
-
-   It is not assignable or removable through Basecamp.
+   SCOUT PROFILE
    ========================================================= */
 
-$availableRoles =
-    fetch_all(
-        $db,
-        '
-        SELECT
-            id,
-            slug
+$scoutProfile = fetch_one(
+    $db,
+    '
+    SELECT
+        id,
+        user_id,
+        status,
+        invited_at,
+        invited_by,
+        invitation_expires_at,
+        application_started_at,
+        application_submitted_at,
+        training_started_at,
+        training_completed_at,
+        approved_at,
+        approved_by,
+        scout_started_at,
+        active_through,
+        inactive_at,
+        removed_at,
+        removed_by,
+        removal_reason,
+        created_at,
+        updated_at
+    FROM scout_profiles
+    WHERE user_id = ?
+    LIMIT 1
+    ',
+    [$userId]
+);
 
-        FROM roles
+$hasScoutProfile = !empty($scoutProfile);
+$scoutStatus = $hasScoutProfile
+    ? (string) $scoutProfile['status']
+    : '';
 
-        WHERE slug <> \'owner\'
-
-        ORDER BY
-            CASE slug
-                WHEN \'admin\' THEN 1
-                WHEN \'master-scout\' THEN 2
-                WHEN \'master_scout\' THEN 2
-                WHEN \'scout\' THEN 3
-                WHEN \'member\' THEN 4
-                ELSE 10
-            END,
-            slug ASC
-        '
-    );
+$scoutStep = $hasScoutProfile
+    ? scout_step($scoutStatus)
+    : 0;
 
 
 /* =========================================================
-   ROLE LOOKUP
+   MANUALLY MANAGED ROLES
+
+   Owner:
+     System controlled. Never shown or edited here.
+
+   Scout / Master Scout:
+     Controlled by the Scout system. Never manually assigned
+     through generic user-role controls.
+
+   Admin:
+     May only be changed by an Owner.
    ========================================================= */
+
+$availableRoles = fetch_all(
+    $db,
+    '
+    SELECT
+        id,
+        slug
+    FROM roles
+    WHERE slug NOT IN
+    (
+        \'owner\',
+        \'scout\',
+        \'master-scout\',
+        \'master_scout\'
+    )
+    ORDER BY
+        CASE slug
+            WHEN \'admin\' THEN 1
+            WHEN \'member\' THEN 2
+            ELSE 10
+        END,
+        slug ASC
+    '
+);
 
 $roleById = [];
 
-
-$roleIdBySlug = [];
-
-
-foreach (
-    $availableRoles as $role
-) {
-
-    $roleId =
-        (int)
-        $role['id'];
-
-
-    $roleSlug =
-        (string)
-        $role['slug'];
-
-
-    $roleById[
-        $roleId
-    ] =
-        $roleSlug;
-
-
-    $roleIdBySlug[
-        $roleSlug
-    ] =
-        $roleId;
-
+foreach ($availableRoles as $role) {
+    $roleById[(int) $role['id']] = (string) $role['slug'];
 }
 
 
@@ -494,136 +320,57 @@ foreach (
    POST ACTIONS
    ========================================================= */
 
-$message =
-    '';
+$message = '';
+$error = '';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-$error =
-    '';
-
-
-if (
-    $_SERVER[
-        'REQUEST_METHOD'
-    ] === 'POST'
-) {
-
-    $submittedToken =
-        $_POST[
-            'csrf_token'
-        ]
-        ?? '';
-
+    $submittedToken = $_POST['csrf_token'] ?? '';
 
     if (
-        !is_string(
-            $submittedToken
-        )
+        !is_string($submittedToken)
         ||
-        !hash_equals(
-            $csrfToken,
-            $submittedToken
-        )
+        !hash_equals($csrfToken, $submittedToken)
     ) {
-
         $error =
             'Your session could not be verified. Reload the page and try again.';
-
 
     } else {
 
         /*
          * Reload target authority immediately before changing
-         * anything, so permissions are not based on stale data.
+         * anything so permission checks are never stale.
          */
 
-        $managedRoles =
-            load_managed_roles(
-                $db,
-                $userId
-            );
-
-
-        $managedRoleSlugs =
-            array_column(
-                $managedRoles,
-                'slug'
-            );
-
+        $managedRoles = load_managed_roles($db, $userId);
+        $managedRoleSlugs = array_column($managedRoles, 'slug');
 
         $managedUserIsOwner =
-            in_array(
-                'owner',
-                $managedRoleSlugs,
-                true
-            );
-
+            in_array('owner', $managedRoleSlugs, true);
 
         $managedUserIsAdmin =
-            in_array(
-                'admin',
-                $managedRoleSlugs,
-                true
-            );
-
-
-        /*
-         * An Admin still cannot POST directly against
-         * an Owner or another Admin.
-         */
+            in_array('admin', $managedRoleSlugs, true);
 
         if (
             !$currentAdminIsOwner
             &&
-            (
-                $managedUserIsOwner
-                ||
-                $managedUserIsAdmin
-            )
+            ($managedUserIsOwner || $managedUserIsAdmin)
         ) {
-
-            http_response_code(
-                403
-            );
-
-
-            exit(
-                'This account is managed by a Llama Scout Owner.'
-            );
-
+            http_response_code(403);
+            exit('This account is managed by a Llama Scout Owner.');
         }
 
-
-        $action =
-            trim(
-                (string) (
-                    $_POST[
-                        'action'
-                    ]
-                    ?? ''
-                )
-            );
+        $action = trim((string) ($_POST['action'] ?? ''));
 
 
         /* =================================================
            ACCOUNT STATUS
            ================================================= */
 
-        if (
-            $action ===
-            'update_status'
-        ) {
+        if ($action === 'update_status') {
 
             $newStatus =
-                trim(
-                    (string) (
-                        $_POST[
-                            'status'
-                        ]
-                        ?? ''
-                    )
-                );
-
+                trim((string) ($_POST['status'] ?? ''));
 
             $allowedStatuses = [
                 'active',
@@ -632,42 +379,21 @@ if (
                 'disabled',
             ];
 
+            if (!in_array($newStatus, $allowedStatuses, true)) {
 
-            if (
-                !in_array(
-                    $newStatus,
-                    $allowedStatuses,
-                    true
-                )
-            ) {
+                $error = 'That account status is not valid.';
 
-                $error =
-                    'That account status is not valid.';
-
-
-            } elseif (
-                $managedUserIsOwner
-            ) {
-
-                /*
-                 * Owner accounts cannot be disabled,
-                 * suspended, or otherwise changed here.
-                 */
+            } elseif ($managedUserIsOwner) {
 
                 $error =
                     'Owner account status is protected and cannot be changed through Basecamp.';
 
-
             } elseif (
-                $currentAdminId
-                === $userId
+                $currentAdminId === $userId
                 &&
                 in_array(
                     $newStatus,
-                    [
-                        'suspended',
-                        'disabled',
-                    ],
+                    ['suspended', 'disabled'],
                     true
                 )
             ) {
@@ -675,191 +401,101 @@ if (
                 $error =
                     'You cannot suspend or disable your own account.';
 
-
-            } elseif (
-                $newStatus ===
-                $managedUser[
-                    'status'
-                ]
-            ) {
+            } elseif ($newStatus === $managedUser['status']) {
 
                 $error =
                     'The account is already '
-                    .
-                    status_label(
-                        $newStatus
-                    )
-                    .
-                    '.';
-
+                    . status_label($newStatus)
+                    . '.';
 
             } else {
 
                 try {
 
-                    $stmt =
-                        $db->prepare(
-                            '
-                            UPDATE users
-
-                            SET status = ?
-
-                            WHERE id = ?
-                            '
-                        );
-
+                    $stmt = $db->prepare(
+                        '
+                        UPDATE users
+                        SET status = ?
+                        WHERE id = ?
+                        '
+                    );
 
                     $stmt->execute([
                         $newStatus,
                         $userId,
                     ]);
 
+                    $managedUser['status'] = $newStatus;
 
                     $message =
                         'Account status updated to '
-                        .
-                        status_label(
-                            $newStatus
-                        )
-                        .
-                        '.';
+                        . status_label($newStatus)
+                        . '.';
 
-
-                    $managedUser[
-                        'status'
-                    ] =
-                        $newStatus;
-
-
-                } catch (
-                    Throwable $exception
-                ) {
+                } catch (Throwable $exception) {
 
                     error_log(
                         'Llama Scout admin user status error: '
-                        .
-                        $exception
-                            ->getMessage()
+                        . $exception->getMessage()
                     );
-
 
                     $error =
                         'The account status could not be updated.';
-
                 }
-
             }
 
 
         /* =================================================
-           ROLES
+           ACCESS ROLES
+
+           Protected roles are NEVER deleted or inserted here.
            ================================================= */
 
-        } elseif (
-            $action ===
-            'update_roles'
-        ) {
+        } elseif ($action === 'update_roles') {
 
             $submittedRoles =
-                $_POST[
-                    'roles'
-                ]
+                $_POST['roles']
                 ?? [];
 
+            if (!is_array($submittedRoles)) {
+                $submittedRoles = [];
+            }
 
-            if (
-                !is_array(
-                    $submittedRoles
+            $submittedRoleIds = array_values(
+                array_unique(
+                    array_filter(
+                        array_map(
+                            'intval',
+                            $submittedRoles
+                        ),
+                        static fn(int $id): bool => $id > 0
+                    )
                 )
-            ) {
+            );
 
-                $submittedRoles =
-                    [];
-
-            }
-
-
-            $submittedRoleIds =
-                array_values(
-                    array_unique(
-                        array_filter(
-                            array_map(
-                                'intval',
-                                $submittedRoles
-                            ),
-                            static fn(
-                                int $id
-                            ): bool =>
-                                $id > 0
-                        )
-                    )
-                );
-
-
-            /* =============================================
-               VALIDATE ROLE IDs
-               ============================================= */
-
-            foreach (
-                $submittedRoleIds as $roleId
-            ) {
-
-                if (
-                    !array_key_exists(
-                        $roleId,
-                        $roleById
-                    )
-                ) {
-
+            foreach ($submittedRoleIds as $roleId) {
+                if (!array_key_exists($roleId, $roleById)) {
                     $error =
-                        'One of the selected roles is not valid.';
-
+                        'One of the selected access roles is not valid.';
                     break;
-
                 }
-
             }
 
+            $selectedRoleSlugs = [];
 
-            /* =============================================
-               ROLE SLUGS SELECTED
-               ============================================= */
-
-            $selectedRoleSlugs =
-                [];
-
-
-            if (
-                $error === ''
-            ) {
-
-                foreach (
-                    $submittedRoleIds as $roleId
-                ) {
-
-                    $selectedRoleSlugs[] =
-                        $roleById[
-                            $roleId
-                        ];
-
+            if ($error === '') {
+                foreach ($submittedRoleIds as $roleId) {
+                    $selectedRoleSlugs[] = $roleById[$roleId];
                 }
-
             }
 
+            /*
+             * Only an Owner can add or remove Admin.
+             */
 
-            /* =============================================
-               ADMIN ROLE REQUIRES OWNER
-               ============================================= */
+            if ($error === '' && !$currentAdminIsOwner) {
 
-            if (
-                $error === ''
-                &&
-                !$currentAdminIsOwner
-            ) {
-
-                $adminWasAssigned =
-                    $managedUserIsAdmin;
-
+                $adminWasAssigned = $managedUserIsAdmin;
 
                 $adminRequested =
                     in_array(
@@ -868,97 +504,66 @@ if (
                         true
                     );
 
-
-                if (
-                    $adminWasAssigned
-                    !== $adminRequested
-                ) {
-
+                if ($adminWasAssigned !== $adminRequested) {
                     $error =
-                        'Only a Llama Scout Owner can add or remove the Admin role.';
-
+                        'Only a Llama Scout Owner can add or remove Admin access.';
                 }
-
             }
 
-
-            /* =============================================
-               OWNER ROLE IS NEVER EDITED HERE
-               ============================================= */
-
-            if (
-                $error === ''
-            ) {
+            if ($error === '') {
 
                 try {
 
                     $db->beginTransaction();
 
-
                     /*
-                     * Delete only NON-OWNER roles.
-                     *
-                     * If this target is an Owner, their Owner
-                     * assignment stays untouched.
+                     * Delete ONLY manually managed roles.
+                     * Owner / Scout / Master Scout survive untouched.
                      */
 
-                    $deleteRoles =
-                        $db->prepare(
+                    $deleteRoles = $db->prepare(
+                        '
+                        DELETE ur
+                        FROM user_roles ur
+                        INNER JOIN roles r
+                          ON r.id = ur.role_id
+                        WHERE ur.user_id = ?
+                          AND r.slug NOT IN
+                          (
+                              \'owner\',
+                              \'scout\',
+                              \'master-scout\',
+                              \'master_scout\'
+                          )
+                        '
+                    );
+
+                    $deleteRoles->execute([
+                        $userId,
+                    ]);
+
+                    if ($submittedRoleIds) {
+
+                        $insertRole = $db->prepare(
                             '
-                            DELETE ur
-
-                            FROM user_roles ur
-
-                            INNER JOIN roles r
-                              ON r.id = ur.role_id
-
-                            WHERE ur.user_id = ?
-                              AND r.slug <> \'owner\'
+                            INSERT INTO user_roles
+                            (
+                                user_id,
+                                role_id
+                            )
+                            VALUES (?, ?)
                             '
                         );
 
-
-                    $deleteRoles
-                        ->execute([
-                            $userId,
-                        ]);
-
-
-                    if (
-                        $submittedRoleIds
-                    ) {
-
-                        $insertRole =
-                            $db->prepare(
-                                '
-                                INSERT INTO user_roles
-                                (
-                                    user_id,
-                                    role_id
-                                )
-
-                                VALUES (?, ?)
-                                '
-                            );
-
-
-                        foreach (
-                            $submittedRoleIds as $roleId
-                        ) {
-
-                            $insertRole
-                                ->execute([
-                                    $userId,
-                                    $roleId,
-                                ]);
-
+                        foreach ($submittedRoleIds as $roleId) {
+                            $insertRole->execute([
+                                $userId,
+                                $roleId,
+                            ]);
                         }
-
                     }
 
-
                     $db->commit();
-
 
                     $managedRoles =
                         load_managed_roles(
@@ -966,13 +571,11 @@ if (
                             $userId
                         );
 
-
                     $managedRoleSlugs =
                         array_column(
                             $managedRoles,
                             'slug'
                         );
-
 
                     $managedUserIsOwner =
                         in_array(
@@ -981,7 +584,6 @@ if (
                             true
                         );
 
-
                     $managedUserIsAdmin =
                         in_array(
                             'admin',
@@ -989,49 +591,31 @@ if (
                             true
                         );
 
-
                     $message =
-                        'User roles updated.';
+                        'Access roles updated.';
 
+                } catch (Throwable $exception) {
 
-                } catch (
-                    Throwable $exception
-                ) {
-
-                    if (
-                        $db->inTransaction()
-                    ) {
-
+                    if ($db->inTransaction()) {
                         $db->rollBack();
-
                     }
 
-
                     error_log(
-                        'Llama Scout admin user role error: '
-                        .
-                        $exception
-                            ->getMessage()
+                        'Llama Scout admin access role error: '
+                        . $exception->getMessage()
                     );
 
-
                     $error =
-                        'The user roles could not be updated.';
-
+                        'The access roles could not be updated.';
                 }
-
             }
-
 
         } else {
 
             $error =
                 'That admin action is not supported.';
-
         }
-
     }
-
 }
 
 
@@ -1039,205 +623,126 @@ if (
    ACTIVITY COUNTS
    ========================================================= */
 
-$submissionCount =
-    (int)
+$submissionCount = (int) (
     fetch_one(
         $db,
         '
-        SELECT
-            COUNT(*) AS total
-
+        SELECT COUNT(*) AS total
         FROM place_submissions
-
         WHERE user_id = ?
         ',
-        [
-            $userId
-        ]
-    )[
-        'total'
-    ];
+        [$userId]
+    )['total']
+    ?? 0
+);
 
-
-$reportCount =
-    (int)
+$reportCount = (int) (
     fetch_one(
         $db,
         '
-        SELECT
-            COUNT(*) AS total
-
+        SELECT COUNT(*) AS total
         FROM place_reports
-
         WHERE user_id = ?
         ',
-        [
-            $userId
-        ]
-    )[
-        'total'
-    ];
+        [$userId]
+    )['total']
+    ?? 0
+);
 
-
-$verificationCount =
-    (int)
+$verificationCount = (int) (
     fetch_one(
         $db,
         '
-        SELECT
-            COUNT(*) AS total
-
+        SELECT COUNT(*) AS total
         FROM place_verifications
-
         WHERE verified_by = ?
         ',
-        [
-            $userId
-        ]
-    )[
-        'total'
-    ];
+        [$userId]
+    )['total']
+    ?? 0
+);
 
 
 /* =========================================================
-   RECENT SUBMISSIONS
+   RECENT ACTIVITY
    ========================================================= */
 
-$submissions =
-    fetch_all(
-        $db,
-        '
-        SELECT
-            id,
-            place_name,
-            source_type,
-            status,
-            submitted_at,
-            reviewed_at
+$submissions = fetch_all(
+    $db,
+    '
+    SELECT
+        id,
+        place_name,
+        source_type,
+        status,
+        submitted_at,
+        reviewed_at
+    FROM place_submissions
+    WHERE user_id = ?
+    ORDER BY submitted_at DESC, id DESC
+    LIMIT 10
+    ',
+    [$userId]
+);
 
-        FROM place_submissions
+$reports = fetch_all(
+    $db,
+    '
+    SELECT
+        pr.id,
+        pr.problem_type,
+        pr.status,
+        pr.created_at,
+        p.id AS place_id,
+        p.name AS place_name
+    FROM place_reports pr
+    LEFT JOIN places p
+      ON p.id = pr.place_id
+    WHERE pr.user_id = ?
+    ORDER BY pr.created_at DESC, pr.id DESC
+    LIMIT 10
+    ',
+    [$userId]
+);
 
-        WHERE user_id = ?
-
-        ORDER BY
-            submitted_at DESC,
-            id DESC
-
-        LIMIT 10
-        ',
-        [
-            $userId
-        ]
-    );
+$verifications = fetch_all(
+    $db,
+    '
+    SELECT
+        pv.id,
+        pv.verification_type,
+        pv.verified_at,
+        pv.visited_at,
+        pv.source,
+        p.id AS place_id,
+        p.name AS place_name
+    FROM place_verifications pv
+    LEFT JOIN places p
+      ON p.id = pv.place_id
+    WHERE pv.verified_by = ?
+    ORDER BY pv.verified_at DESC, pv.id DESC
+    LIMIT 10
+    ',
+    [$userId]
+);
 
 
 /* =========================================================
-   RECENT REPORTS
+   UI VALUES
    ========================================================= */
 
-$reports =
-    fetch_all(
-        $db,
-        '
-        SELECT
-            pr.id,
-            pr.problem_type,
-            pr.status,
-            pr.created_at,
-            p.id AS place_id,
-            p.name AS place_name
+$managedRoleIds = array_map(
+    static fn(array $role): int => (int) $role['id'],
+    $managedRoles
+);
 
-        FROM place_reports pr
-
-        LEFT JOIN places p
-          ON p.id = pr.place_id
-
-        WHERE pr.user_id = ?
-
-        ORDER BY
-            pr.created_at DESC,
-            pr.id DESC
-
-        LIMIT 10
-        ',
-        [
-            $userId
-        ]
-    );
-
-
-/* =========================================================
-   VERIFICATIONS PERFORMED
-   ========================================================= */
-
-$verifications =
-    fetch_all(
-        $db,
-        '
-        SELECT
-            pv.id,
-            pv.verification_type,
-            pv.verified_at,
-            pv.visited_at,
-            pv.source,
-            p.id AS place_id,
-            p.name AS place_name
-
-        FROM place_verifications pv
-
-        LEFT JOIN places p
-          ON p.id = pv.place_id
-
-        WHERE pv.verified_by = ?
-
-        ORDER BY
-            pv.verified_at DESC,
-            pv.id DESC
-
-        LIMIT 10
-        ',
-        [
-            $userId
-        ]
-    );
-
-
-/* =========================================================
-   ROLE IDS FOR FORM
-   ========================================================= */
-
-$managedRoleIds =
-    array_map(
-        static fn(
-            array $role
-        ): int =>
-            (int)
-            $role[
-                'id'
-            ],
-        $managedRoles
-    );
-
-
-$displayName =
-    trim(
-        (string) (
-            $managedUser[
-                'display_name'
-            ]
-            ?: $managedUser[
-                'username'
-            ]
-            ?: $managedUser[
-                'email'
-            ]
-        )
-    );
-
-
-/* =========================================================
-   UI AUTHORITY
-   ========================================================= */
+$displayName = trim(
+    (string) (
+        $managedUser['display_name']
+        ?: $managedUser['username']
+        ?: $managedUser['email']
+    )
+);
 
 $canEditAccount =
     $currentAdminIsOwner
@@ -1248,14 +753,11 @@ $canEditAccount =
         !$managedUserIsAdmin
     );
 
-
 $canEditStatus =
     !$managedUserIsOwner;
 
-
 ?>
 <!doctype html>
-
 <html lang="en">
 
 <head>
@@ -1268,17 +770,13 @@ $canEditStatus =
   >
 
   <title>
-    <?= e(
-        $displayName
-    ) ?>
-    | Llama Scout Admin
+    <?= e($displayName) ?> | Llama Scout Admin
   </title>
 
   <meta
     name="robots"
     content="noindex,nofollow"
   >
-
 
   <link
     rel="preconnect"
@@ -1296,12 +794,10 @@ $canEditStatus =
     rel="stylesheet"
   >
 
-
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
-
 
   <link
     rel="stylesheet"
@@ -1312,7 +808,6 @@ $canEditStatus =
     rel="stylesheet"
     href="https://llamascout.com/css/admin.css"
   >
-
 
   <link
     rel="apple-touch-icon"
@@ -1345,6 +840,52 @@ $canEditStatus =
     href="https://llamascout.com/icons/site.webmanifest"
   >
 
+  <style>
+
+    .admin-scout-status {
+      display: grid;
+      gap: 14px;
+    }
+
+    .admin-scout-step {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(23, 40, 34, .08);
+      font-weight: 700;
+      font-size: .82rem;
+    }
+
+    .admin-scout-step--active {
+      background: #172822;
+      color: #fff;
+    }
+
+    .admin-scout-progress {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+    }
+
+    .admin-scout-progress span {
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(23, 40, 34, .1);
+    }
+
+    .admin-scout-progress span.is-complete {
+      background: #172822;
+    }
+
+    .admin-role-note {
+      margin-top: 12px;
+    }
+
+  </style>
+
 </head>
 
 
@@ -1352,11 +893,9 @@ $canEditStatus =
 
 
 <?php
-
 require_once
     dirname(__DIR__)
     . '/app/header.php';
-
 ?>
 
 
@@ -1375,66 +914,34 @@ require_once
 
         <p class="admin-eyebrow">
 
-          <?php if (
-              $managedUserIsOwner
-          ): ?>
-
-            Protected Owner Account
-
-          <?php elseif (
-              $managedUserIsAdmin
-          ): ?>
-
+          <?php if ($managedUserIsAdmin): ?>
             Administrator Account
-
           <?php else: ?>
-
             User Management
-
           <?php endif; ?>
 
         </p>
 
+
         <h1>
-          <?= e(
-              $displayName
-          ) ?>
+          <?= e($displayName) ?>
         </h1>
+
 
         <p>
 
-          <?php if (
-              !empty(
-                  $managedUser[
-                      'username'
-                  ]
-              )
-          ): ?>
+          <?php if (!empty($managedUser['username'])): ?>
 
-            @<?= e(
-                $managedUser[
-                    'username'
-                ]
-            ) ?>
-
+            @<?= e($managedUser['username']) ?>
             &middot;
 
           <?php endif; ?>
 
-          <?= e(
-              $managedUser[
-                  'email'
-              ]
-          ) ?>
+          <?= e($managedUser['email']) ?>
 
           &middot;
 
-          User
-          #<?= (int)
-              $managedUser[
-                  'id'
-              ]
-          ?>
+          User #<?= (int) $managedUser['id'] ?>
 
         </p>
 
@@ -1446,58 +953,17 @@ require_once
         <span
           class="
             admin-user-badge
-            admin-user-status--<?= e(
-                $managedUser[
-                    'status'
-                ]
-            ) ?>
+            admin-user-status--<?= e($managedUser['status']) ?>
           "
         >
-
-          <?= e(
-              status_label(
-                  $managedUser[
-                      'status'
-                  ]
-              )
-          ) ?>
-
+          <?= e(status_label($managedUser['status'])) ?>
         </span>
 
 
-        <?php if (
-            $managedUserIsOwner
-        ): ?>
-
-          <span
-            class="
-              admin-user-badge
-              admin-user-role
-              admin-user-role--admin
-            "
-          >
-
-            <i
-              class="fa-solid fa-crown"
-              aria-hidden="true"
-            ></i>
-
-            Owner
-
-          </span>
-
-        <?php endif; ?>
-
-
-        <?php if (
-            $canEditAccount
-        ): ?>
+        <?php if ($canEditAccount): ?>
 
           <a
-            class="
-              admin-button
-              admin-button--secondary
-            "
+            class="admin-button admin-button--secondary"
             href="/user-account.php?id=<?= $userId ?>"
           >
 
@@ -1601,9 +1067,7 @@ require_once
        NOTICES
        ===================================================== -->
 
-  <?php if (
-      $message
-  ): ?>
+  <?php if ($message): ?>
 
     <div
       class="
@@ -1613,9 +1077,7 @@ require_once
     >
 
       <p>
-        <?= e(
-            $message
-        ) ?>
+        <?= e($message) ?>
       </p>
 
     </div>
@@ -1623,9 +1085,7 @@ require_once
   <?php endif; ?>
 
 
-  <?php if (
-      $error
-  ): ?>
+  <?php if ($error): ?>
 
     <div
       class="
@@ -1635,9 +1095,7 @@ require_once
     >
 
       <p>
-        <?= e(
-            $error
-        ) ?>
+        <?= e($error) ?>
       </p>
 
     </div>
@@ -1645,35 +1103,7 @@ require_once
   <?php endif; ?>
 
 
-  <?php if (
-      $managedUserIsOwner
-  ): ?>
-
-    <div
-      class="
-        admin-notice
-        admin-notice--success
-      "
-    >
-
-      <p>
-
-        <strong>
-          Protected Owner
-        </strong>
-
-        This account's Owner role and account status
-        cannot be changed through normal Basecamp controls.
-
-      </p>
-
-    </div>
-
-  <?php elseif (
-      $managedUserIsAdmin
-      &&
-      $currentAdminIsOwner
-  ): ?>
+  <?php if ($managedUserIsAdmin && $currentAdminIsOwner): ?>
 
     <div class="admin-notice">
 
@@ -1684,7 +1114,7 @@ require_once
         </strong>
 
         Only an Owner can add or remove this user's
-        Admin role.
+        Admin access.
 
       </p>
 
@@ -1701,7 +1131,6 @@ require_once
     class="admin-stats"
     aria-label="User activity statistics"
   >
-
 
     <article class="admin-stat">
 
@@ -1750,11 +1179,7 @@ require_once
 
       <strong class="admin-stat-value">
 
-        <?= !empty(
-            $managedUser[
-                'email_verified_at'
-            ]
-        )
+        <?= !empty($managedUser['email_verified_at'])
             ? 'Verified'
             : 'Unverified'
         ?>
@@ -1762,7 +1187,6 @@ require_once
       </strong>
 
     </article>
-
 
   </section>
 
@@ -1796,7 +1220,7 @@ require_once
             </h2>
 
             <p>
-              Core account details and assigned roles.
+              Core account details.
             </p>
 
           </div>
@@ -1814,14 +1238,7 @@ require_once
             </div>
 
             <div class="admin-detail-value">
-
-              <?= e(
-                  $managedUser[
-                      'display_name'
-                  ]
-                  ?: 'Not set'
-              ) ?>
-
+              <?= e($managedUser['display_name'] ?: 'Not set') ?>
             </div>
 
           </div>
@@ -1835,18 +1252,8 @@ require_once
 
             <div class="admin-detail-value">
 
-              <?= !empty(
-                  $managedUser[
-                      'username'
-                  ]
-              )
-                  ? '@'
-                    .
-                    e(
-                        $managedUser[
-                            'username'
-                        ]
-                    )
+              <?= !empty($managedUser['username'])
+                  ? '@' . e($managedUser['username'])
                   : 'Not set'
               ?>
 
@@ -1862,13 +1269,7 @@ require_once
             </div>
 
             <div class="admin-detail-value">
-
-              <?= e(
-                  $managedUser[
-                      'email'
-                  ]
-              ) ?>
-
+              <?= e($managedUser['email']) ?>
             </div>
 
           </div>
@@ -1882,13 +1283,7 @@ require_once
 
             <div class="admin-detail-value">
 
-              <?php if (
-                  !empty(
-                      $managedUser[
-                          'email_verified_at'
-                      ]
-                  )
-              ): ?>
+              <?php if (!empty($managedUser['email_verified_at'])): ?>
 
                 <span
                   class="
@@ -1896,16 +1291,12 @@ require_once
                     admin-badge--success
                   "
                 >
-
                   Verified
-
                 </span>
 
                 <?= e(
                     format_date(
-                        $managedUser[
-                            'email_verified_at'
-                        ],
+                        $managedUser['email_verified_at'],
                         true
                     )
                 ) ?>
@@ -1918,9 +1309,7 @@ require_once
                     admin-badge--warning
                   "
                 >
-
                   Unverified
-
                 </span>
 
               <?php endif; ?>
@@ -1937,14 +1326,7 @@ require_once
             </div>
 
             <div class="admin-detail-value">
-
-              <?= e(
-                  $managedUser[
-                      'timezone'
-                  ]
-                  ?: 'Not set'
-              ) ?>
-
+              <?= e($managedUser['timezone'] ?: 'Not set') ?>
             </div>
 
           </div>
@@ -1960,9 +1342,7 @@ require_once
 
               <?= e(
                   format_date(
-                      $managedUser[
-                          'created_at'
-                      ],
+                      $managedUser['created_at'],
                       true
                   )
               ) ?>
@@ -1982,9 +1362,7 @@ require_once
 
               <?= e(
                   format_date(
-                      $managedUser[
-                          'last_login_at'
-                      ],
+                      $managedUser['last_login_at'],
                       true
                   )
               ) ?>
@@ -2002,16 +1380,10 @@ require_once
 
             <div class="admin-detail-value">
 
-              <?= !empty(
-                  $managedUser[
-                      'dormancy_notice_sent_at'
-                  ]
-              )
+              <?= !empty($managedUser['dormancy_notice_sent_at'])
                   ? e(
                       format_date(
-                          $managedUser[
-                              'dormancy_notice_sent_at'
-                          ],
+                          $managedUser['dormancy_notice_sent_at'],
                           true
                       )
                   )
@@ -2026,91 +1398,78 @@ require_once
           <div class="admin-detail-row">
 
             <div class="admin-detail-label">
-              Roles
+              Access
             </div>
 
             <div class="admin-detail-value">
 
-              <?php if (
-                  $managedRoles
-              ): ?>
+              <div class="admin-user-flags">
 
-                <div class="admin-user-flags">
+                <?php
+                $displayedAccess = 0;
+                ?>
 
-                  <?php foreach (
-                      $managedRoles as $role
-                  ): ?>
+                <?php foreach ($managedRoles as $role): ?>
 
-                    <span
-                      class="
-                        admin-user-badge
-                        admin-user-role
+                  <?php
+                  $roleSlug = (string) $role['slug'];
 
-                        <?= in_array(
-                            $role[
-                                'slug'
-                            ],
-                            [
-                                'owner',
-                                'admin',
-                            ],
-                            true
+                  /*
+                   * Owner is deliberately not listed in the
+                   * generic Access display.
+                   */
+                  if ($roleSlug === 'owner') {
+                      continue;
+                  }
+
+                  $displayedAccess++;
+                  ?>
+
+                  <span
+                    class="
+                      admin-user-badge
+                      admin-user-role
+
+                      <?= $roleSlug === 'admin'
+                          ? 'admin-user-role--admin'
+                          : ''
+                      ?>
+
+                      <?= in_array(
+                          $roleSlug,
+                          [
+                              'scout',
+                              'master-scout',
+                              'master_scout',
+                          ],
+                          true
+                      )
+                          ? 'admin-user-role--scout'
+                          : ''
+                      ?>
+                    "
+                  >
+
+                    <?= e(
+                        role_label(
+                            $roleSlug
                         )
-                            ? 'admin-user-role--admin'
-                            : ''
-                        ?>
+                    ) ?>
 
-                        <?= in_array(
-                            $role[
-                                'slug'
-                            ],
-                            [
-                                'scout',
-                                'master-scout',
-                                'master_scout',
-                            ],
-                            true
-                        )
-                            ? 'admin-user-role--scout'
-                            : ''
-                        ?>
-                      "
-                    >
+                  </span>
 
-                      <?php if (
-                          $role[
-                              'slug'
-                          ] === 'owner'
-                      ): ?>
+                <?php endforeach; ?>
 
-                        <i
-                          class="fa-solid fa-crown"
-                          aria-hidden="true"
-                        ></i>
 
-                      <?php endif; ?>
+                <?php if ($displayedAccess === 0): ?>
 
-                      <?= e(
-                          role_label(
-                              $role[
-                                  'slug'
-                              ]
-                          )
-                      ) ?>
+                  <span class="admin-muted">
+                    No ordinary access roles assigned.
+                  </span>
 
-                    </span>
+                <?php endif; ?>
 
-                  <?php endforeach; ?>
-
-                </div>
-
-              <?php else: ?>
-
-                <span class="admin-muted">
-                  No roles assigned.
-                </span>
-
-              <?php endif; ?>
+              </div>
 
             </div>
 
@@ -2145,26 +1504,16 @@ require_once
         </div>
 
 
-        <?php if (
-            $submissions
-        ): ?>
+        <?php if ($submissions): ?>
 
           <div class="admin-detail-list">
 
-            <?php foreach (
-                $submissions as $submission
-            ): ?>
+            <?php foreach ($submissions as $submission): ?>
 
               <div class="admin-detail-row">
 
                 <div class="admin-detail-label">
-
-                  <?= e(
-                      $submission[
-                          'place_name'
-                      ]
-                  ) ?>
-
+                  <?= e($submission['place_name']) ?>
                 </div>
 
                 <div class="admin-detail-value">
@@ -2178,9 +1527,7 @@ require_once
                           str_replace(
                               '-',
                               ' ',
-                              $submission[
-                                  'status'
-                              ]
+                              $submission['status']
                           )
                       )
                   ) ?>
@@ -2193,9 +1540,7 @@ require_once
 
                   <?= e(
                       format_date(
-                          $submission[
-                              'submitted_at'
-                          ],
+                          $submission['submitted_at'],
                           true
                       )
                   ) ?>
@@ -2203,15 +1548,9 @@ require_once
                   <br>
 
                   <a
-                    href="/submissions.php?id=<?= (int)
-                        $submission[
-                            'id'
-                        ]
-                    ?>&status=all"
+                    href="/submissions.php?id=<?= (int) $submission['id'] ?>&status=all"
                   >
-
                     Review submission
-
                   </a>
 
                 </div>
@@ -2260,24 +1599,18 @@ require_once
         </div>
 
 
-        <?php if (
-            $reports
-        ): ?>
+        <?php if ($reports): ?>
 
           <div class="admin-detail-list">
 
-            <?php foreach (
-                $reports as $report
-            ): ?>
+            <?php foreach ($reports as $report): ?>
 
               <div class="admin-detail-row">
 
                 <div class="admin-detail-label">
 
                   <?= e(
-                      $report[
-                          'place_name'
-                      ]
+                      $report['place_name']
                       ?: 'Unknown place'
                   ) ?>
 
@@ -2288,14 +1621,9 @@ require_once
                   <?= e(
                       ucwords(
                           str_replace(
-                              [
-                                  '_',
-                                  '-',
-                              ],
+                              ['_', '-'],
                               ' ',
-                              $report[
-                                  'problem_type'
-                              ]
+                              $report['problem_type']
                           )
                       )
                   ) ?>
@@ -2307,9 +1635,7 @@ require_once
                           str_replace(
                               '-',
                               ' ',
-                              $report[
-                                  'status'
-                              ]
+                              $report['status']
                           )
                       )
                   ) ?>
@@ -2322,34 +1648,20 @@ require_once
 
                   <?= e(
                       format_date(
-                          $report[
-                              'created_at'
-                          ],
+                          $report['created_at'],
                           true
                       )
                   ) ?>
 
 
-                  <?php if (
-                      !empty(
-                          $report[
-                              'place_id'
-                          ]
-                      )
-                  ): ?>
+                  <?php if (!empty($report['place_id'])): ?>
 
                     <br>
 
                     <a
-                      href="/place.php?id=<?= (int)
-                          $report[
-                              'place_id'
-                          ]
-                      ?>#problem-reports"
+                      href="/place.php?id=<?= (int) $report['place_id'] ?>#problem-reports"
                     >
-
                       Review report
-
                     </a>
 
                   <?php endif; ?>
@@ -2400,24 +1712,18 @@ require_once
         </div>
 
 
-        <?php if (
-            $verifications
-        ): ?>
+        <?php if ($verifications): ?>
 
           <div class="admin-detail-list">
 
-            <?php foreach (
-                $verifications as $verification
-            ): ?>
+            <?php foreach ($verifications as $verification): ?>
 
               <div class="admin-detail-row">
 
                 <div class="admin-detail-label">
 
                   <?= e(
-                      $verification[
-                          'place_name'
-                      ]
+                      $verification['place_name']
                       ?: 'Unknown place'
                   ) ?>
 
@@ -2428,14 +1734,9 @@ require_once
                   <?= e(
                       ucwords(
                           str_replace(
-                              [
-                                  '_',
-                                  '-',
-                              ],
+                              ['_', '-'],
                               ' ',
-                              $verification[
-                                  'verification_type'
-                              ]
+                              $verification['verification_type']
                           )
                       )
                   ) ?>
@@ -2448,21 +1749,13 @@ require_once
 
                   <?= e(
                       format_date(
-                          $verification[
-                              'verified_at'
-                          ],
+                          $verification['verified_at'],
                           true
                       )
                   ) ?>
 
 
-                  <?php if (
-                      !empty(
-                          $verification[
-                              'visited_at'
-                          ]
-                      )
-                  ): ?>
+                  <?php if (!empty($verification['visited_at'])): ?>
 
                     <br>
 
@@ -2472,35 +1765,21 @@ require_once
 
                     <?= e(
                         format_date(
-                            $verification[
-                                'visited_at'
-                            ]
+                            $verification['visited_at']
                         )
                     ) ?>
 
                   <?php endif; ?>
 
 
-                  <?php if (
-                      !empty(
-                          $verification[
-                              'place_id'
-                          ]
-                      )
-                  ): ?>
+                  <?php if (!empty($verification['place_id'])): ?>
 
                     <br>
 
                     <a
-                      href="/place.php?id=<?= (int)
-                          $verification[
-                              'place_id'
-                          ]
-                      ?>"
+                      href="/place.php?id=<?= (int) $verification['place_id'] ?>"
                     >
-
                       View place
-
                     </a>
 
                   <?php endif; ?>
@@ -2554,17 +1833,10 @@ require_once
 
             <p>
 
-              <?php if (
-                  $managedUserIsOwner
-              ): ?>
-
-                Owner account status is protected.
-
-              <?php else: ?>
-
-                Control whether this account can sign in.
-
-              <?php endif; ?>
+              <?= $managedUserIsOwner
+                  ? 'This account status is protected.'
+                  : 'Control whether this account can sign in.'
+              ?>
 
             </p>
 
@@ -2573,9 +1845,7 @@ require_once
         </div>
 
 
-        <?php if (
-            $canEditStatus
-        ): ?>
+        <?php if ($canEditStatus): ?>
 
           <form
             method="post"
@@ -2597,9 +1867,7 @@ require_once
             <input
               type="hidden"
               name="csrf_token"
-              value="<?= e(
-                  $csrfToken
-              ) ?>"
+              value="<?= e($csrfToken) ?>"
             >
 
 
@@ -2624,22 +1892,14 @@ require_once
                 ): ?>
 
                   <option
-                    value="<?= e(
-                        $status
-                    ) ?>"
-                    <?= $managedUser[
-                        'status'
-                    ] === $status
+                    value="<?= e($status) ?>"
+                    <?= $managedUser['status'] === $status
                         ? 'selected'
                         : ''
                     ?>
                   >
 
-                    <?= e(
-                        status_label(
-                            $status
-                        )
-                    ) ?>
+                    <?= e(status_label($status)) ?>
 
                   </option>
 
@@ -2649,10 +1909,7 @@ require_once
 
 
               <p class="admin-field-help">
-
-                Suspended and disabled accounts
-                cannot sign in.
-
+                Suspended and disabled accounts cannot sign in.
               </p>
 
             </div>
@@ -2664,18 +1921,14 @@ require_once
                 type="submit"
                 class="admin-button"
               >
-
                 Update Status
-
               </button>
 
             </div>
 
           </form>
 
-
         <?php else: ?>
-
 
           <div class="admin-form">
 
@@ -2686,14 +1939,12 @@ require_once
                 aria-hidden="true"
               ></i>
 
-              Owner accounts cannot be suspended,
-              disabled, or otherwise restricted
-              through normal Basecamp controls.
+              This protected account cannot be suspended or
+              disabled through normal Basecamp controls.
 
             </p>
 
           </div>
-
 
         <?php endif; ?>
 
@@ -2701,7 +1952,7 @@ require_once
 
 
       <!-- ===============================================
-           ROLES
+           SCOUT STATUS
            =============================================== -->
 
       <section class="admin-panel">
@@ -2711,11 +1962,11 @@ require_once
           <div>
 
             <h2>
-              Roles
+              Scout Status
             </h2>
 
             <p>
-              Control permissions assigned to this user.
+              Scout onboarding, status, and access.
             </p>
 
           </div>
@@ -2723,51 +1974,247 @@ require_once
         </div>
 
 
-        <?php if (
-            $managedUserIsOwner
-        ): ?>
+        <?php if ($hasScoutProfile): ?>
 
-          <div class="admin-form">
+          <div class="admin-form admin-scout-status">
 
-            <div class="admin-field">
 
-              <label>
-                Protected Role
-              </label>
+            <div>
 
-              <p>
+              <span
+                class="
+                  admin-user-badge
+                  admin-user-role
+                  admin-user-role--scout
+                "
+              >
 
-                <span
-                  class="
-                    admin-user-badge
-                    admin-user-role
-                    admin-user-role--admin
-                  "
-                >
+                <i
+                  class="fa-solid fa-compass"
+                  aria-hidden="true"
+                ></i>
 
-                  <i
-                    class="fa-solid fa-crown"
-                    aria-hidden="true"
-                  ></i>
+                <?= e(
+                    scout_status_label(
+                        $scoutStatus
+                    )
+                ) ?>
 
-                  Owner
-
-                </span>
-
-              </p>
-
-              <p class="admin-field-help">
-
-                The Owner role cannot be removed,
-                replaced, or assigned through this page.
-
-              </p>
+              </span>
 
             </div>
+
+
+            <?php if ($scoutStep > 0): ?>
+
+              <div
+                class="
+                  admin-scout-step
+                  <?= $scoutStatus === 'pending_approval'
+                      ? 'admin-scout-step--active'
+                      : ''
+                  ?>
+                "
+              >
+
+                Step
+                <?= $scoutStep ?>
+                of 5
+
+              </div>
+
+
+              <div
+                class="admin-scout-progress"
+                aria-label="Scout onboarding progress"
+              >
+
+                <?php for ($i = 1; $i <= 5; $i++): ?>
+
+                  <span
+                    class="<?= $i <= $scoutStep
+                        ? 'is-complete'
+                        : ''
+                    ?>"
+                  ></span>
+
+                <?php endfor; ?>
+
+              </div>
+
+            <?php endif; ?>
+
+
+            <p class="admin-field-help">
+
+              <?= e(
+                  scout_status_description(
+                      $scoutStatus
+                  )
+              ) ?>
+
+            </p>
+
+
+            <?php if (!empty($scoutProfile['invited_at'])): ?>
+
+              <div class="admin-detail-row">
+
+                <div class="admin-detail-label">
+                  Invited
+                </div>
+
+                <div class="admin-detail-value">
+
+                  <?= e(
+                      format_date(
+                          $scoutProfile['invited_at'],
+                          true
+                      )
+                  ) ?>
+
+                </div>
+
+              </div>
+
+            <?php endif; ?>
+
+
+            <?php if (!empty($scoutProfile['training_completed_at'])): ?>
+
+              <div class="admin-detail-row">
+
+                <div class="admin-detail-label">
+                  Training
+                </div>
+
+                <div class="admin-detail-value">
+
+                  Completed
+
+                  <?= e(
+                      format_date(
+                          $scoutProfile['training_completed_at'],
+                          true
+                      )
+                  ) ?>
+
+                </div>
+
+              </div>
+
+            <?php endif; ?>
+
+
+            <?php if (!empty($scoutProfile['scout_started_at'])): ?>
+
+              <div class="admin-detail-row">
+
+                <div class="admin-detail-label">
+                  Scout Since
+                </div>
+
+                <div class="admin-detail-value">
+
+                  <?= e(
+                      format_date(
+                          $scoutProfile['scout_started_at']
+                      )
+                  ) ?>
+
+                </div>
+
+              </div>
+
+            <?php endif; ?>
+
+
+            <?php if (!empty($scoutProfile['active_through'])): ?>
+
+              <div class="admin-detail-row">
+
+                <div class="admin-detail-label">
+                  Active Through
+                </div>
+
+                <div class="admin-detail-value">
+
+                  <?= e(
+                      format_date(
+                          $scoutProfile['active_through']
+                      )
+                  ) ?>
+
+                </div>
+
+              </div>
+
+            <?php endif; ?>
+
+
+            <div class="admin-form-actions">
+
+              <a
+                class="admin-button"
+                href="/scout.php?id=<?= (int) $scoutProfile['id'] ?>"
+              >
+
+                <i
+                  class="<?= $scoutStatus === 'pending_approval'
+                      ? 'fa-solid fa-clipboard-check'
+                      : 'fa-solid fa-compass'
+                  ?>"
+                  aria-hidden="true"
+                ></i>
+
+                <?= $scoutStatus === 'pending_approval'
+                    ? 'Review Scout'
+                    : 'View Scout'
+                ?>
+
+              </a>
+
+            </div>
+
+
+          </div>
+
+        <?php else: ?>
+
+          <div class="admin-empty">
+
+            <p>
+              This user is not currently in the Scout program.
+            </p>
 
           </div>
 
         <?php endif; ?>
+
+      </section>
+
+
+      <!-- ===============================================
+           ACCESS ROLES
+           =============================================== -->
+
+      <section class="admin-panel">
+
+        <div class="admin-panel-header">
+
+          <div>
+
+            <h2>
+              Access Roles
+            </h2>
+
+            <p>
+              Manage ordinary account permissions.
+            </p>
+
+          </div>
+
+        </div>
 
 
         <form
@@ -2790,38 +2237,31 @@ require_once
           <input
             type="hidden"
             name="csrf_token"
-            value="<?= e(
-                $csrfToken
-            ) ?>"
+            value="<?= e($csrfToken) ?>"
           >
 
 
           <div class="admin-field">
 
             <label>
-              Assigned Roles
+              Assigned Access
             </label>
 
 
-            <?php foreach (
-                $availableRoles as $role
-            ): ?>
+            <?php
+            $visibleRoleCount = 0;
+            ?>
 
+
+            <?php foreach ($availableRoles as $role): ?>
 
               <?php
 
               $roleSlug =
-                  (string)
-                  $role[
-                      'slug'
-                  ];
-
+                  (string) $role['slug'];
 
               /*
-               * Admin checkbox is visible only to Owner.
-               *
-               * A normal Admin will never get a UI control
-               * that can create another Admin.
+               * Only an Owner gets an Admin checkbox.
                */
 
               if (
@@ -2829,10 +2269,10 @@ require_once
                   &&
                   !$currentAdminIsOwner
               ) {
-
                   continue;
-
               }
+
+              $visibleRoleCount++;
 
               ?>
 
@@ -2845,16 +2285,9 @@ require_once
                 <input
                   type="checkbox"
                   name="roles[]"
-                  value="<?= (int)
-                      $role[
-                          'id'
-                      ]
-                  ?>"
+                  value="<?= (int) $role['id'] ?>"
                   <?= in_array(
-                      (int)
-                      $role[
-                          'id'
-                      ],
+                      (int) $role['id'],
                       $managedRoleIds,
                       true
                   )
@@ -2865,15 +2298,9 @@ require_once
 
                 <span>
 
-                  <?= e(
-                      role_label(
-                          $roleSlug
-                      )
-                  ) ?>
+                  <?= e(role_label($roleSlug)) ?>
 
-                  <?php if (
-                      $roleSlug === 'admin'
-                  ): ?>
+                  <?php if ($roleSlug === 'admin'): ?>
 
                     <small>
                       Owner controlled
@@ -2888,20 +2315,23 @@ require_once
             <?php endforeach; ?>
 
 
-            <p class="admin-field-help">
+            <?php if ($visibleRoleCount === 0): ?>
 
-              <?php if (
-                  $currentAdminIsOwner
-              ): ?>
+              <p class="admin-field-help">
+                There are no manually managed access roles
+                available for this account.
+              </p>
 
-                Owner is permanently protected.
-                Only an Owner can add or remove Admin access.
+            <?php endif; ?>
 
-              <?php else: ?>
 
-                You may manage ordinary user and Scout roles.
-                Admin and Owner access are controlled by an Owner.
+            <p class="admin-field-help admin-role-note">
 
+              Scout and Master Scout access are managed through
+              the Scout system.
+
+              <?php if ($currentAdminIsOwner): ?>
+                Admin access is controlled by an Owner.
               <?php endif; ?>
 
             </p>
@@ -2909,18 +2339,21 @@ require_once
           </div>
 
 
-          <div class="admin-form-actions">
+          <?php if ($visibleRoleCount > 0): ?>
 
-            <button
-              type="submit"
-              class="admin-button"
-            >
+            <div class="admin-form-actions">
 
-              Save Roles
+              <button
+                type="submit"
+                class="admin-button"
+              >
+                Save Access Roles
+              </button>
 
-            </button>
+            </div>
 
-          </div>
+          <?php endif; ?>
+
 
         </form>
 
@@ -2949,9 +2382,7 @@ require_once
         <div class="admin-form">
 
 
-          <?php if (
-              $canEditAccount
-          ): ?>
+          <?php if ($canEditAccount): ?>
 
             <a
               class="
@@ -2960,9 +2391,7 @@ require_once
               "
               href="/user-account.php?id=<?= $userId ?>"
             >
-
               Edit Account
-
             </a>
 
           <?php endif; ?>
@@ -2975,9 +2404,7 @@ require_once
             "
             href="/users.php"
           >
-
             All Users
-
           </a>
 
 
@@ -2988,36 +2415,23 @@ require_once
             "
             href="/submissions.php?status=all"
           >
-
             Community Submissions
-
           </a>
 
 
-          <a
-            class="
-              admin-button
-              admin-button--secondary
-            "
-            href="/places.php"
-          >
+          <?php if ($hasScoutProfile): ?>
 
-            Places
+            <a
+              class="
+                admin-button
+                admin-button--secondary
+              "
+              href="/scout.php?id=<?= (int) $scoutProfile['id'] ?>"
+            >
+              Scout Record
+            </a>
 
-          </a>
-
-
-          <a
-            class="
-              admin-button
-              admin-button--secondary
-            "
-            href="/"
-          >
-
-            Basecamp
-
-          </a>
+          <?php endif; ?>
 
 
         </div>
@@ -3031,50 +2445,10 @@ require_once
   </div>
 
 
-  <!-- =====================================================
-       FOOT ACTIONS
-       ===================================================== -->
-
-  <div class="admin-foot-actions">
-
-    <a href="/users.php">
-      All Users
-    </a>
-
-
-    <?php if (
-        $canEditAccount
-    ): ?>
-
-      <a href="/user-account.php?id=<?= $userId ?>">
-        Edit Account
-      </a>
-
-    <?php endif; ?>
-
-
-    <a href="/">
-      Basecamp
-    </a>
-
-  </div>
-
-
 </main>
 
 
-<?php
-
-require_once
-    dirname(__DIR__)
-    . '/app/footer.php';
-
-?>
-
-
-<script
-  src="https://llamascout.com/js/header.js"
-></script>
+<script src="https://llamascout.com/js/header.js"></script>
 
 
 </body>
