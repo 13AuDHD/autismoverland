@@ -6,6 +6,10 @@ require_once
     dirname(__DIR__)
     . '/app/auth.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/stripe.php';
+
 
 require_role(
     'admin'
@@ -323,6 +327,7 @@ $scout =
 
             u.stripe_customer_id,
             u.stripe_subscription_id,
+            u.stripe_cancel_at_period_end,
 
             inviter.display_name
                 AS inviter_display_name,
@@ -1259,24 +1264,118 @@ if (
                     }
 
 
-                    $db->commit();
-
-
-                    if (
-                        $hasPaidMembership
+                $db->commit();
+                
+                
+                /* =========================================
+                   PAID MEMBER → SCOUT TRANSITION
+                
+                   Scout access begins immediately.
+                
+                   If the new Scout already has a Stripe
+                   subscription, schedule it to stop renewing
+                   at the end of the period they already paid
+                   for.
+                
+                   Failure here does NOT undo Scout approval.
+                   It leaves a visible warning so billing can
+                   be retried safely.
+                   ========================================= */
+                
+                if (
+                    $hasPaidMembership
+                ) {
+                
+                    try {
+                
+                        $billingTransition =
+                            llama_schedule_subscription_end_for_scout(
+                                $db,
+                                $scoutUserId
+                            );
+                
+                
+                        $billingReason =
+                            (string) (
+                                $billingTransition[
+                                    'reason'
+                                ]
+                                ?? ''
+                            );
+                
+                
+                        if (
+                            $billingReason ===
+                            'scheduled'
+                        ) {
+                
+                            $message =
+                                'Scout approved and activated. Their paid membership will remain active through the current billing period and will not renew. Scout access is already active.';
+                
+                
+                        } elseif (
+                            $billingReason ===
+                            'already_scheduled'
+                        ) {
+                
+                            $message =
+                                'Scout approved and activated. Their paid membership was already scheduled not to renew.';
+                
+                
+                        } elseif (
+                            $billingReason ===
+                            'already_ended'
+                        ) {
+                
+                            $message =
+                                'Scout approved and activated. Their previous paid subscription has already ended.';
+                
+                
+                        } elseif (
+                            $billingReason ===
+                            'no_subscription'
+                        ) {
+                
+                            $message =
+                                'Scout approved and activated. No active Stripe subscription required a billing change.';
+                
+                
+                        } else {
+                
+                            $message =
+                                'Scout approved and activated. Billing transition completed.';
+                
+                        }
+                
+                
+                    } catch (
+                        Throwable $billingException
                     ) {
-
+                
+                        error_log(
+                            'Llama Scout Scout billing transition error for user #'
+                            .
+                            $scoutUserId
+                            .
+                            ': '
+                            .
+                            $billingException
+                                ->getMessage()
+                        );
+                
+                
                         $message =
-                            'Scout approved and activated. Their existing paid Stripe membership was preserved so billing is not changed accidentally.';
-
-
-                    } else {
-
-                        $message =
-                            'Scout approved. Scout role and complimentary membership are now active.';
-
+                            'Scout approved and activated, but their paid Stripe subscription could not be scheduled to end. Scout access is active. Billing needs attention.';
+                
                     }
-
+                
+                
+                } else {
+                
+                    $message =
+                        'Scout approved. Scout role and complimentary membership are now active.';
+                
+                }
 
                 } catch (
                     Throwable $exception
@@ -1651,6 +1750,7 @@ if (
 
                 u.stripe_customer_id,
                 u.stripe_subscription_id,
+                u.stripe_cancel_at_period_end,
 
                 inviter.display_name
                     AS inviter_display_name,
@@ -3869,39 +3969,167 @@ require_once
 
       <?php else: ?>
 
-
+        
         <section class="scout-review-card">
-
-
+        
+        
           <h2>
             Scout Active
           </h2>
-
-
+        
+        
           <p>
-
+        
             This account has completed onboarding and has an
             active Scout role.
-
+        
           </p>
-
-
+        
+        
           <div class="review-check good">
-
+        
             <i
               class="fa-solid fa-circle-check"
               aria-hidden="true"
             ></i>
-
+        
             <span>
               Scout access active
             </span>
-
+        
           </div>
-
-
+        
+        
+          <?php
+        
+          $scoutHasStripeSubscription =
+              !empty(
+                  $scout[
+                      'stripe_subscription_id'
+                  ]
+              );
+        
+        
+          $scoutCancelScheduled =
+              !empty(
+                  $scout[
+                      'stripe_cancel_at_period_end'
+                  ]
+              );
+        
+          ?>
+        
+        
+          <?php if (
+              $scoutHasStripeSubscription
+              &&
+              !$scoutCancelScheduled
+          ): ?>
+        
+        
+            <div
+              style="
+                margin-top: 18px;
+                padding: 15px;
+                border-radius: 11px;
+                background: rgba(217, 196, 154, .18);
+              "
+            >
+        
+              <strong>
+                Paid membership still renewing
+              </strong>
+        
+              <p
+                style="
+                  margin: 7px 0 14px;
+                  line-height: 1.55;
+                "
+              >
+        
+                This Scout still has a paid Stripe subscription
+                that is currently set to renew.
+        
+                Scout access is already active, so the paid
+                subscription can be scheduled to end after the
+                current paid billing period.
+        
+              </p>
+        
+        
+              <form
+                method="post"
+                action="/scout-billing.php"
+              >
+        
+                <input
+                  type="hidden"
+                  name="csrf_token"
+                  value="<?= e($csrfToken) ?>"
+                >
+        
+                <input
+                  type="hidden"
+                  name="scout_profile_id"
+                  value="<?= $scoutProfileId ?>"
+                >
+        
+        
+                <button
+                  class="
+                    review-action-button
+                    approve
+                  "
+                  type="submit"
+                  onclick="
+                    return confirm(
+                      'Schedule this Scout paid membership to stop renewing at the end of the current billing period? Scout access will remain active.'
+                    );
+                  "
+                >
+        
+                  <i
+                    class="fa-solid fa-calendar-xmark"
+                    aria-hidden="true"
+                  ></i>
+        
+                  Stop Paid Membership Renewal
+        
+                </button>
+        
+              </form>
+        
+            </div>
+        
+        
+          <?php elseif (
+              $scoutHasStripeSubscription
+              &&
+              $scoutCancelScheduled
+          ): ?>
+        
+        
+            <div
+              class="review-check good"
+              style="margin-top: 12px;"
+            >
+        
+              <i
+                class="fa-solid fa-calendar-check"
+                aria-hidden="true"
+              ></i>
+        
+              <span>
+                Paid membership is scheduled not to renew
+              </span>
+        
+            </div>
+        
+        
+          <?php endif; ?>
+        
+        
         </section>
-
 
       <?php endif; ?>
 
