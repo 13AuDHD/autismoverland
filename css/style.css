@@ -4042,3 +4042,583 @@ img {
     font-size: .92rem;
   }
 }
+
+
+/* =========================================================
+   HOMEPAGE
+   RECENTLY SCOUTED CARDS
+   =========================================================
+
+   These rules intentionally override the older shared
+   .location-card mobile styles above.
+
+   Homepage place cards should:
+   - have consistent dimensions
+   - use consistent image crops
+   - align text predictably
+   - remain easy to scan on phones
+   ========================================================= */
+
+
+/* =========================================================
+   GRID
+   ========================================================= */
+
+#featured-locations-grid {
+  align-items: stretch;
+}
+
+
+#featured-locations-grid .location-card {
+  position: relative;
+
+  min-width: 0;
+
+  overflow: hidden;
+
+  border:
+    1px solid
+    rgba(
+      118,
+      103,
+      85,
+      .22
+    );
+
+  border-radius: 12px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      .84
+    );
+
+  box-shadow:
+    0
+    8px
+    22px
+    rgba(
+      44,
+      49,
+      45,
+      .08
+    );
+
+  backdrop-filter:
+    blur(5px);
+
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease;
+}
+
+
+#featured-locations-grid .location-card:hover {
+  transform:
+    translateY(-2px);
+
+  box-shadow:
+    0
+    13px
+    28px
+    rgba(
+      44,
+      49,
+      45,
+      .12
+    );
+}
+
+
+/* =========================================================
+   IMAGE
+   ========================================================= */
+
+#featured-locations-grid
+.location-card-image-link {
+  display: block;
+
+  overflow: hidden;
+
+  background:
+    #d7ddd8;
+}
+
+
+#featured-locations-grid
+.location-card-image-link img {
+  display: block;
+
+  width: 100%;
+
+  object-fit: cover;
+
+  object-position: center;
+}
+
+
+/* =========================================================
+   CARD BODY
+   ========================================================= */
+
+#featured-locations-grid
+.location-card
+.card-body {
+  min-width: 0;
+}
+
+
+#featured-locations-grid
+.location-card
+.card-body h3 {
+  margin:
+    0
+    0
+    11px;
+
+  color:
+    #1d251f;
+
+  font-weight: 800;
+
+  line-height: 1.18;
+
+  letter-spacing:
+    -.015em;
+}
+
+
+#featured-locations-grid
+.location-card-title {
+  color: inherit;
+
+  text-decoration: none;
+}
+
+
+/* =========================================================
+   META ROWS
+   ========================================================= */
+
+#featured-locations-grid
+.location-card
+.card-body p {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  align-items: center;
+
+  gap:
+    6px
+    13px;
+
+  margin:
+    7px
+    0;
+
+  color:
+    #58625b;
+
+  line-height: 1.35;
+}
+
+
+#featured-locations-grid
+.location-card
+.card-body span {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  margin-left: 0;
+}
+
+
+#featured-locations-grid
+.location-card
+.card-body span i {
+  flex:
+    0
+    0
+    auto;
+
+  width: 15px;
+
+  text-align: center;
+
+  color:
+    #59665e;
+}
+
+
+/* =========================================================
+   DESKTOP
+   ========================================================= */
+
+@media (
+  min-width:
+    901px
+) {
+
+  #featured-locations-grid {
+    grid-template-columns:
+      repeat(
+        3,
+        minmax(
+          0,
+          1fr
+        )
+      );
+  }
+
+
+  #featured-locations-grid
+  .location-card {
+    display: flex;
+
+    flex-direction: column;
+
+    height: 100%;
+
+    min-height: 330px;
+  }
+
+
+  #featured-locations-grid
+  .location-card-image-link {
+    flex:
+      0
+      0
+      168px;
+
+    height: 168px;
+  }
+
+
+  #featured-locations-grid
+  .location-card-image-link img {
+    width: 100%;
+    height: 168px;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body {
+    display: flex;
+
+    flex: 1;
+
+    flex-direction: column;
+
+    padding:
+      17px
+      18px
+      19px;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body h3 {
+    font-size: 1.12rem;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body p {
+    font-size: .84rem;
+  }
+
+}
+
+
+/* =========================================================
+   TABLET + MOBILE
+   ========================================================= */
+
+@media (
+  max-width:
+    900px
+) {
+
+  #featured-locations-grid {
+    display: grid;
+
+    grid-template-columns:
+      1fr;
+
+    gap: 13px;
+  }
+
+
+  /*
+   * Every homepage place card gets the same exact height.
+   */
+
+  #featured-locations-grid
+  .location-card {
+    display: grid;
+
+    grid-template-columns:
+      34%
+      minmax(
+        0,
+        1fr
+      );
+
+    width: 100%;
+
+    height: 154px;
+    min-height: 154px;
+    max-height: 154px;
+  }
+
+
+  /*
+   * Image area is also fixed so portrait and landscape
+   * photos all occupy exactly the same space.
+   */
+
+  #featured-locations-grid
+  .location-card-image-link {
+    width: 100%;
+    height: 154px;
+  }
+
+
+  #featured-locations-grid
+  .location-card-image-link img {
+    width: 100%;
+    height: 154px;
+
+    min-height: 0;
+
+    object-fit: cover;
+
+    object-position: center;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body {
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: flex-start;
+
+    min-width: 0;
+    height: 154px;
+
+    padding:
+      13px
+      15px;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body h3 {
+    display:
+      -webkit-box;
+
+    overflow: hidden;
+
+    margin:
+      0
+      0
+      8px;
+
+    font-size:
+      1.02rem;
+
+    line-height:
+      1.15;
+
+    -webkit-box-orient:
+      vertical;
+
+    -webkit-line-clamp:
+      2;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body p {
+    gap:
+      4px
+      10px;
+
+    margin:
+      4px
+      0;
+
+    font-size:
+      .75rem;
+
+    line-height:
+      1.3;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body span {
+    gap: 4px;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body span i {
+    width: 13px;
+
+    font-size:
+      .72rem;
+  }
+
+}
+
+
+/* =========================================================
+   SMALL PHONES
+   ========================================================= */
+
+@media (
+  max-width:
+    520px
+) {
+
+  #featured-locations-grid
+  .location-card {
+    grid-template-columns:
+      34%
+      minmax(
+        0,
+        1fr
+      );
+
+    height: 148px;
+    min-height: 148px;
+    max-height: 148px;
+
+    border-radius: 10px;
+  }
+
+
+  #featured-locations-grid
+  .location-card-image-link,
+  #featured-locations-grid
+  .location-card-image-link img {
+    height: 148px;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body {
+    height: 148px;
+
+    padding:
+      12px
+      13px;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body h3 {
+    margin-bottom:
+      7px;
+
+    font-size:
+      .96rem;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body p {
+    gap:
+      3px
+      8px;
+
+    margin:
+      3px
+      0;
+
+    font-size:
+      .7rem;
+  }
+
+}
+
+
+/* =========================================================
+   VERY SMALL PHONES
+   ========================================================= */
+
+@media (
+  max-width:
+    380px
+) {
+
+  #featured-locations-grid
+  .location-card {
+    grid-template-columns:
+      36%
+      minmax(
+        0,
+        1fr
+      );
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body h3 {
+    font-size:
+      .9rem;
+  }
+
+
+  #featured-locations-grid
+  .location-card
+  .card-body p {
+    font-size:
+      .67rem;
+  }
+
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (
+  prefers-reduced-motion:
+    reduce
+) {
+
+  #featured-locations-grid
+  .location-card {
+    transition: none;
+  }
+
+
+  #featured-locations-grid
+  .location-card:hover {
+    transform: none;
+  }
+
+}
