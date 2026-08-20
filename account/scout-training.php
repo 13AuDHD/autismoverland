@@ -28,13 +28,11 @@ $userId =
    TRAINING CONFIGURATION
 
    When the real training video is ready, upload it and set
-   the URL here.
+   TRAINING_VIDEO_URL below.
 
-   Example:
-   https://llamascout.com/media/scout-training-v1.mp4
-
-   Increment TRAINING_VERSION whenever the required training
-   materially changes.
+   TRAINING_VERSION should be increased whenever required
+   Scout training changes enough that existing Scouts should
+   complete the new version.
    ========================================================= */
 
 const TRAINING_VERSION =
@@ -47,6 +45,27 @@ const TRAINING_VIDEO_URL =
 
 const TRAINING_VIDEO_TITLE =
     'Welcome to the Llama Scout Team';
+
+
+/* =========================================================
+   TEMPORARY TESTING BYPASS
+
+   IMPORTANT:
+
+   true
+       Normal Scout candidates can temporarily mark the
+       missing training video complete so we can test the
+       entire onboarding workflow.
+
+   false
+       Only the real video reaching its end can satisfy the
+       video-completion requirement.
+
+   CHANGE THIS TO false AFTER ONBOARDING TESTING IS FINISHED.
+   ========================================================= */
+
+const ALLOW_TRAINING_TEST_BYPASS =
+    true;
 
 
 /* =========================================================
@@ -82,7 +101,17 @@ $isAdmin =
     );
 
 
+/*
+ * Owners/Admins can always use the testing control while
+ * developing the onboarding system.
+ *
+ * While ALLOW_TRAINING_TEST_BYPASS is true, ordinary Scout
+ * candidates can also use it.
+ */
+
 $canTestTraining =
+    ALLOW_TRAINING_TEST_BYPASS
+    ||
     $isOwner
     ||
     $isAdmin;
@@ -438,21 +467,26 @@ if (
 
 
 /* =========================================================
-   JSON ACTIONS
-
-   Used by the video player when playback starts or reaches
-   the end.
+   REQUEST CONTENT TYPE
    ========================================================= */
 
 $contentType =
-    (string) (
-        $_SERVER[
-            'CONTENT_TYPE'
-        ]
-        ??
-        ''
+    strtolower(
+        (string) (
+            $_SERVER[
+                'CONTENT_TYPE'
+            ]
+            ?? ''
+        )
     );
 
+
+/* =========================================================
+   JSON VIDEO EVENTS
+
+   The real HTML video player uses these actions to record
+   when playback begins and when playback reaches the end.
+   ========================================================= */
 
 if (
     $_SERVER[
@@ -460,9 +494,7 @@ if (
     ] === 'POST'
     &&
     str_contains(
-        strtolower(
-            $contentType
-        ),
+        $contentType,
         'application/json'
     )
 ) {
@@ -756,7 +788,7 @@ if (
 
 
 /* =========================================================
-   FORM SUBMISSION
+   CURRENT TRAINING VALUES
    ========================================================= */
 
 $errors =
@@ -803,15 +835,17 @@ $videoCompleted =
     );
 
 
+/* =========================================================
+   NORMAL FORM POST
+   ========================================================= */
+
 if (
     $_SERVER[
         'REQUEST_METHOD'
     ] === 'POST'
     &&
     !str_contains(
-        strtolower(
-            $contentType
-        ),
+        $contentType,
         'application/json'
     )
 ) {
@@ -852,12 +886,7 @@ if (
 
 
     /* =====================================================
-       OWNER / ADMIN TEST BYPASS
-
-       This exists only so the onboarding system can be tested
-       before the real video is produced.
-
-       Normal members cannot use it.
+       TEMPORARY VIDEO TEST BYPASS
        ===================================================== */
 
     if (
@@ -870,7 +899,7 @@ if (
         ) {
 
             $errors[] =
-                'You do not have permission to use the training test control.';
+                'The temporary training test control is disabled.';
 
 
         } elseif (
@@ -933,7 +962,7 @@ if (
             ) {
 
                 error_log(
-                    'Llama Scout training test completion error: '
+                    'Llama Scout temporary training bypass error: '
                     .
                     $exception
                         ->getMessage()
@@ -941,7 +970,7 @@ if (
 
 
                 $errors[] =
-                    'The test training completion could not be saved.';
+                    'The temporary video completion could not be saved.';
 
             }
 
@@ -960,8 +989,8 @@ if (
     ) {
 
         /*
-         * Re-read the video completion state in case JavaScript
-         * marked it complete immediately before this POST.
+         * Re-read video completion immediately before
+         * finalizing training.
          */
 
         $stmt =
@@ -1268,7 +1297,7 @@ $trainingCompleted =
 
 
 /* =========================================================
-   CURRENT PROFILE STATE
+   REFRESH PROFILE STATE
    ========================================================= */
 
 $stmt =
@@ -1689,7 +1718,7 @@ $videoAvailable =
         center;
 
       min-height:
-        360px;
+        340px;
 
       padding:
         40px;
@@ -1752,7 +1781,7 @@ $videoAvailable =
 
 
     /* =====================================================
-       COMPLETION
+       VIDEO STATUS
        ===================================================== */
 
     .scout-video-status {
@@ -1793,6 +1822,111 @@ $videoAvailable =
           72,
           .11
         );
+    }
+
+
+    /* =====================================================
+       TEMPORARY TEST CONTROL
+       ===================================================== */
+
+    .scout-training-test {
+      margin-top:
+        18px;
+
+      padding:
+        18px;
+
+      border:
+        1px dashed
+        rgba(
+          147,
+          111,
+          48,
+          .45
+        );
+
+      border-radius:
+        12px;
+
+      background:
+        rgba(
+          217,
+          196,
+          154,
+          .14
+        );
+    }
+
+
+    .scout-training-test-heading {
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      gap:
+        9px;
+
+      margin-bottom:
+        7px;
+
+      font-weight:
+        800;
+    }
+
+
+    .scout-training-test p {
+      margin:
+        0
+        0
+        13px;
+
+      line-height:
+        1.55;
+    }
+
+
+    .scout-training-test small {
+      display:
+        block;
+
+      margin-top:
+        10px;
+
+      line-height:
+        1.5;
+
+      opacity:
+        .68;
+    }
+
+
+    .scout-test-button {
+      padding:
+        11px
+        15px;
+
+      border:
+        0;
+
+      border-radius:
+        8px;
+
+      background:
+        #5d4b28;
+
+      color:
+        #fff;
+
+      font:
+        inherit;
+
+      font-weight:
+        750;
+
+      cursor:
+        pointer;
     }
 
 
@@ -1852,78 +1986,6 @@ $videoAvailable =
     .scout-training-agreement label {
       line-height:
         1.55;
-    }
-
-
-    /* =====================================================
-       TEST CONTROL
-       ===================================================== */
-
-    .scout-training-test {
-      margin-top:
-        18px;
-
-      padding:
-        16px;
-
-      border:
-        1px dashed
-        rgba(
-          23,
-          40,
-          34,
-          .22
-        );
-
-      border-radius:
-        12px;
-
-      background:
-        rgba(
-          217,
-          196,
-          154,
-          .12
-        );
-    }
-
-
-    .scout-training-test p {
-      margin:
-        0
-        0
-        12px;
-
-      line-height:
-        1.55;
-    }
-
-
-    .scout-test-button {
-      padding:
-        10px
-        14px;
-
-      border:
-        0;
-
-      border-radius:
-        8px;
-
-      background:
-        #5d4b28;
-
-      color:
-        #fff;
-
-      font:
-        inherit;
-
-      font-weight:
-        700;
-
-      cursor:
-        pointer;
     }
 
 
@@ -2066,7 +2128,7 @@ $videoAvailable =
 
 
     /* =====================================================
-       PENDING
+       PENDING REVIEW
        ===================================================== */
 
     .scout-pending {
@@ -2171,6 +2233,10 @@ require_once
   <div class="scout-training-shell">
 
 
+    <!-- ===================================================
+         PROGRESS
+         =================================================== -->
+
     <div
       class="scout-progress"
       aria-label="Scout onboarding progress"
@@ -2198,6 +2264,10 @@ require_once
 
     </div>
 
+
+    <!-- ===================================================
+         HERO
+         =================================================== -->
 
     <section class="scout-training-hero">
 
@@ -2257,6 +2327,10 @@ require_once
     <?php endif; ?>
 
 
+    <!-- ===================================================
+         PENDING REVIEW
+         =================================================== -->
+
     <?php if (
         $status ===
         'pending_approval'
@@ -2300,6 +2374,10 @@ require_once
     <?php else: ?>
 
 
+      <!-- =================================================
+           VIDEO
+           ================================================= -->
+
       <section class="scout-training-card">
 
 
@@ -2312,9 +2390,9 @@ require_once
 
           Watch the full orientation before continuing.
 
-          When the video reaches the end, this page will
-          automatically record completion and unlock the
-          final acknowledgements below.
+          When the finished training video reaches the end,
+          Llama Scout will automatically record completion and
+          unlock the final acknowledgements below.
 
         </p>
 
@@ -2364,7 +2442,7 @@ require_once
                 <p>
 
                   The Scout training system is ready, but the
-                  orientation video has not been uploaded yet.
+                  orientation video has not been produced yet.
 
                 </p>
 
@@ -2411,6 +2489,10 @@ require_once
         </div>
 
 
+        <!-- ===============================================
+             TEMPORARY TEST BYPASS
+             =============================================== -->
+
         <?php if (
             $canTestTraining
             &&
@@ -2421,15 +2503,24 @@ require_once
           <div class="scout-training-test">
 
 
+            <div class="scout-training-test-heading">
+
+              <i
+                class="fa-solid fa-flask"
+                aria-hidden="true"
+              ></i>
+
+              Temporary onboarding test
+
+            </div>
+
+
             <p>
 
-              <strong>
-                Owner/Admin testing control
-              </strong>
-
-              The real training video does not exist yet.
-              This button lets an Owner or Admin test the
-              rest of the Scout onboarding workflow.
+              The real Scout orientation video has not been
+              produced yet. For now, this control lets us
+              complete the video requirement and test the rest
+              of the onboarding process.
 
             </p>
 
@@ -2456,10 +2547,26 @@ require_once
                 class="scout-test-button"
                 type="submit"
               >
+
+                <i
+                  class="fa-solid fa-check"
+                  aria-hidden="true"
+                ></i>
+
                 Mark Video Complete for Testing
+
               </button>
 
             </form>
+
+
+            <small>
+
+              This is a temporary development control and will
+              be removed before Scout onboarding is opened for
+              normal use.
+
+            </small>
 
 
           </div>
@@ -2470,6 +2577,10 @@ require_once
 
       </section>
 
+
+      <!-- =================================================
+           ACKNOWLEDGEMENTS
+           ================================================= -->
 
       <form
         method="post"
@@ -2521,6 +2632,10 @@ require_once
                 name="acknowledged_tools"
                 type="checkbox"
                 value="1"
+                <?= $acknowledgedTools
+                    ? 'checked'
+                    : ''
+                ?>
                 required
               >
 
@@ -2547,6 +2662,10 @@ require_once
                 name="acknowledged_accuracy"
                 type="checkbox"
                 value="1"
+                <?= $acknowledgedAccuracy
+                    ? 'checked'
+                    : ''
+                ?>
                 required
               >
 
@@ -2572,6 +2691,10 @@ require_once
                 name="acknowledged_safety"
                 type="checkbox"
                 value="1"
+                <?= $acknowledgedSafety
+                    ? 'checked'
+                    : ''
+                ?>
                 required
               >
 
@@ -2597,6 +2720,10 @@ require_once
                 name="acknowledged_privacy"
                 type="checkbox"
                 value="1"
+                <?= $acknowledgedPrivacy
+                    ? 'checked'
+                    : ''
+                ?>
                 required
               >
 
@@ -2709,6 +2836,10 @@ let startRecorded =
   false;
 
 
+/* =========================================================
+   SAVE VIDEO EVENT
+   ========================================================= */
+
 async function sendTrainingAction(
   action
 ) {
@@ -2722,8 +2853,10 @@ async function sendTrainingAction(
           "POST",
 
         headers: {
+
           "Content-Type":
             "application/json"
+
         },
 
         credentials:
@@ -2795,6 +2928,10 @@ async function sendTrainingAction(
 
 }
 
+
+/* =========================================================
+   REAL VIDEO PLAYBACK TRACKING
+   ========================================================= */
 
 if (
   scoutTrainingVideo
