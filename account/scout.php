@@ -236,74 +236,133 @@ $scoutRank =
 
 
 /* =========================================================
-   SCOUT REPORT REQUIREMENT
+   CURRENT SCOUT YEAR
 
-   Current rule:
-   3 accepted Scout Reports during the rolling 12-month
-   activity window.
+   Scout access works in fixed one-year periods.
 
-   Reports accepted before the user became a Scout do not
-   count toward Scout maintenance.
+   Example:
+
+   Aug 20, 2026 -> Aug 20, 2027
+
+   A Scout must complete at least 3 accepted Scout Reports
+   during THAT Scout year.
+
+   Completing more than 3 is still valuable activity, but
+   does not stack additional years of complimentary access.
    ========================================================= */
 
 $requiredReports =
     3;
 
 
-/*
- * Use whichever date is later:
- *
- * 1. Twelve months ago
- * 2. The date this user became a Scout
- */
-
-$rollingWindowStart =
-    date(
-        'Y-m-d H:i:s',
-        strtotime(
-            '-12 months'
+$activeThroughRaw =
+    trim(
+        (string) (
+            $scout[
+                'active_through'
+            ]
+            ?? ''
         )
     );
 
 
-$scoutStartedAt =
-    (string) (
-        $scout[
-            'scout_started_at'
-        ]
-        ?? ''
+$scoutStartedAtRaw =
+    trim(
+        (string) (
+            $scout[
+                'scout_started_at'
+            ]
+            ?? ''
+        )
     );
 
 
+$scoutYearStart =
+    null;
+
+
+$scoutYearEnd =
+    null;
+
+
 if (
-    $scoutStartedAt !== ''
-    &&
-    strtotime(
-        $scoutStartedAt
-    )
-    >
-    strtotime(
-        $rollingWindowStart
-    )
+    $activeThroughRaw !== ''
 ) {
 
-    $activityWindowStart =
-        $scoutStartedAt;
+    $activeThroughTimestamp =
+        strtotime(
+            $activeThroughRaw
+        );
 
 
-} else {
+    if (
+        $activeThroughTimestamp !== false
+    ) {
 
-    $activityWindowStart =
-        $rollingWindowStart;
+        $yearStartTimestamp =
+            strtotime(
+                '-1 year',
+                $activeThroughTimestamp
+            );
+
+
+        /*
+         * During the first Scout year, the calculated
+         * one-year-back date should never be earlier than
+         * the date the person actually became a Scout.
+         */
+
+        if (
+            $scoutStartedAtRaw !== ''
+        ) {
+
+            $scoutStartedTimestamp =
+                strtotime(
+                    $scoutStartedAtRaw
+                );
+
+
+            if (
+                $scoutStartedTimestamp !== false
+                &&
+                $scoutStartedTimestamp
+                >
+                $yearStartTimestamp
+            ) {
+
+                $yearStartTimestamp =
+                    $scoutStartedTimestamp;
+
+            }
+
+        }
+
+
+        $scoutYearStart =
+            date(
+                'Y-m-d H:i:s',
+                $yearStartTimestamp
+            );
+
+
+        $scoutYearEnd =
+            date(
+                'Y-m-d H:i:s',
+                $activeThroughTimestamp
+            );
+
+    }
 
 }
 
 
 /* =========================================================
-   REPORT COUNTS
+   GENERAL SUBMISSION COUNTS
 
-   We use reviewed_at for accepted reports because that is
-   when Llama Scout actually accepted the contribution.
+   These are lifetime submission statistics.
+
+   The annual Scout requirement itself is counted separately
+   from scout_activity below.
    ========================================================= */
 
 $stmt =
@@ -400,37 +459,62 @@ $totalNeedsChanges =
 
 
 /* =========================================================
-   ACCEPTED REPORTS IN CURRENT ACTIVITY WINDOW
+   ACCEPTED SCOUT REPORTS THIS SCOUT YEAR
+
+   This deliberately counts scout_activity instead of raw
+   place_submissions.
+
+   That means only reports that actually qualified for Scout
+   credit count toward the annual requirement.
+
+   The database unique key prevents the same submission from
+   being credited more than once.
    ========================================================= */
 
-$stmt =
-    $db->prepare(
-        '
-        SELECT
-            COUNT(*) AS total
-
-        FROM place_submissions
-
-        WHERE user_id = ?
-
-          AND status = \'approved\'
-
-          AND reviewed_at IS NOT NULL
-
-          AND reviewed_at >= ?
-        '
-    );
+$acceptedThisScoutYear =
+    0;
 
 
-$stmt->execute([
-    $userId,
-    $activityWindowStart
-]);
+if (
+    $scoutYearStart !== null
+    &&
+    $scoutYearEnd !== null
+) {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT COUNT(*)
+
+            FROM scout_activity
+
+            WHERE scout_profile_id = ?
+
+              AND user_id = ?
+
+              AND activity_type =
+                  \'place_approved\'
+
+              AND occurred_at >= ?
+
+              AND occurred_at < ?
+            '
+        );
 
 
-$acceptedThisWindow =
-    (int)
-    $stmt->fetchColumn();
+    $stmt->execute([
+        $scoutProfileId,
+        $userId,
+        $scoutYearStart,
+        $scoutYearEnd
+    ]);
+
+
+    $acceptedThisScoutYear =
+        (int)
+        $stmt->fetchColumn();
+
+}
 
 
 $reportsRemaining =
@@ -438,31 +522,57 @@ $reportsRemaining =
         0,
         $requiredReports
         -
-        $acceptedThisWindow
+        $acceptedThisScoutYear
     );
 
 
 $requirementMet =
-    $acceptedThisWindow
+    $acceptedThisScoutYear
     >=
     $requiredReports;
 
 
-$progressPercent =
+$progressCount =
     min(
-        100,
-        (
-            $acceptedThisWindow
-            /
-            $requiredReports
-        )
-        *
-        100
+        $requiredReports,
+        $acceptedThisScoutYear
     );
 
 
+$progressPercent =
+    (
+        $progressCount
+        /
+        $requiredReports
+    )
+    *
+    100;
+
+
 /* =========================================================
-   SCOUT ACTIVITY POINTS
+   SCOUT YEAR DISPLAY
+   ========================================================= */
+
+$currentScoutYearStartLabel =
+    $scoutYearStart !== null
+        ? format_scout_date(
+            $scoutYearStart,
+            $user
+        )
+        : 'Not set';
+
+
+$currentScoutYearEndLabel =
+    $scoutYearEnd !== null
+        ? format_scout_date(
+            $scoutYearEnd,
+            $user
+        )
+        : 'Not set';
+
+
+/* =========================================================
+   SCOUT ACTIVITY
    ========================================================= */
 
 $stmt =
@@ -1016,6 +1126,21 @@ $activeThrough =
     }
 
 
+    .scout-year-label {
+      margin-top:
+        8px !important;
+
+      font-size:
+        .84rem;
+
+      font-weight:
+        750;
+
+      opacity:
+        1 !important;
+    }
+
+
     /* =====================================================
        REQUIREMENT
        ===================================================== */
@@ -1454,6 +1579,66 @@ $activeThrough =
     }
 
 
+    /* =====================================================
+       RECORD GRID
+       ===================================================== */
+
+    .scout-record-grid {
+      display:
+        grid;
+
+      grid-template-columns:
+        repeat(
+          3,
+          minmax(
+            0,
+            1fr
+          )
+        );
+
+      gap:
+        12px;
+    }
+
+
+    .scout-record-item {
+      padding:
+        15px;
+
+      border-radius:
+        12px;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .055
+        );
+    }
+
+
+    .scout-record-item span {
+      display:
+        block;
+
+      margin-bottom:
+        5px;
+
+      font-size:
+        .79rem;
+
+      opacity:
+        .64;
+    }
+
+
+    .scout-record-item strong {
+      display:
+        block;
+    }
+
+
     @media (
       max-width:
         820px
@@ -1485,6 +1670,18 @@ $activeThrough =
           96px;
       }
 
+
+      .scout-record-grid {
+        grid-template-columns:
+          repeat(
+            2,
+            minmax(
+              0,
+              1fr
+            )
+          );
+      }
+
     }
 
 
@@ -1493,7 +1690,8 @@ $activeThrough =
         620px
     ) {
 
-      .scout-tools-grid {
+      .scout-tools-grid,
+      .scout-record-grid {
         grid-template-columns:
           1fr;
       }
@@ -1576,7 +1774,7 @@ require_once
 
       This is your Scout home base.
 
-      Track your Scout status, contribution requirement,
+      Track your Scout year, contribution requirement,
       reports, activity, and the tools available to you
       in the field.
 
@@ -1643,11 +1841,11 @@ require_once
     <article class="scout-stat">
 
       <span>
-        Accepted This Year
+        Accepted This Scout Year
       </span>
 
       <strong>
-        <?= $acceptedThisWindow ?>
+        <?= $acceptedThisScoutYear ?>
       </strong>
 
     </article>
@@ -1669,7 +1867,7 @@ require_once
     <article class="scout-stat">
 
       <span>
-        Total Accepted
+        Lifetime Accepted
       </span>
 
       <strong>
@@ -1696,7 +1894,7 @@ require_once
 
 
   <!-- =====================================================
-       ACTIVITY REQUIREMENT
+       SCOUT YEAR REQUIREMENT
        ===================================================== -->
 
   <section class="scout-section">
@@ -1712,9 +1910,26 @@ require_once
 
         <p>
 
-          Three accepted Scout Reports during your
-          rolling 12-month Scout activity window keeps
-          your complimentary Scout access active.
+          Complete at least three accepted Scout Reports
+          during each Scout year to continue complimentary
+          Scout access for the following year.
+
+        </p>
+
+
+        <p class="scout-year-label">
+
+          Current Scout Year:
+
+          <?= e(
+              $currentScoutYearStartLabel
+          ) ?>
+
+          to
+
+          <?= e(
+              $currentScoutYearEndLabel
+          ) ?>
 
         </p>
 
@@ -1737,8 +1952,10 @@ require_once
 
           <span>
 
-            <?= $acceptedThisWindow ?>
+            <?= $acceptedThisScoutYear ?>
+
             of
+
             <?= $requiredReports ?>
 
           </span>
@@ -1748,7 +1965,7 @@ require_once
 
         <div
           class="scout-progress-track"
-          aria-label="Scout activity requirement progress"
+          aria-label="Scout-year requirement progress"
         >
 
           <div
@@ -1770,8 +1987,21 @@ require_once
               Requirement met.
             </strong>
 
-            You've completed the current activity
-            requirement.
+            You've completed the three-report requirement
+            for this Scout year.
+
+
+            <?php if (
+                $acceptedThisScoutYear > 3
+            ): ?>
+
+              You've actually completed
+
+              <?= $acceptedThisScoutYear ?>
+
+              accepted Scout Reports this year.
+
+            <?php endif; ?>
 
 
           <?php elseif (
@@ -1784,7 +2014,7 @@ require_once
             </strong>
 
             One additional accepted Scout Report completes
-            your current activity requirement.
+            your requirement for this Scout year.
 
 
           <?php else: ?>
@@ -1793,12 +2023,13 @@ require_once
             <strong>
 
               <?= $reportsRemaining ?>
+
               accepted reports to go.
 
             </strong>
 
-            Reports count after they are reviewed and
-            accepted by Llama Scout.
+            Reports count toward the requirement after
+            they are reviewed and accepted by Llama Scout.
 
 
           <?php endif; ?>
@@ -1814,9 +2045,11 @@ require_once
 
         <div>
 
+
           <?php if (
               $requirementMet
           ): ?>
+
 
             <i
               class="fa-solid fa-check"
@@ -1827,17 +2060,27 @@ require_once
               Complete
             </span>
 
+
           <?php else: ?>
 
+
             <strong>
-              <?= $acceptedThisWindow ?>/<?= $requiredReports ?>
+
+              <?= $acceptedThisScoutYear ?>
+
+              /
+
+              <?= $requiredReports ?>
+
             </strong>
 
             <span>
               Reports
             </span>
 
+
           <?php endif; ?>
+
 
         </div>
 
@@ -2262,10 +2505,10 @@ require_once
     </div>
 
 
-    <div class="membership-grid">
+    <div class="scout-record-grid">
 
 
-      <div class="membership-item">
+      <div class="scout-record-item">
 
         <span>
           Scout Rank
@@ -2278,7 +2521,7 @@ require_once
       </div>
 
 
-      <div class="membership-item">
+      <div class="scout-record-item">
 
         <span>
           Total Reports
@@ -2291,10 +2534,10 @@ require_once
       </div>
 
 
-      <div class="membership-item">
+      <div class="scout-record-item">
 
         <span>
-          Accepted Reports
+          Lifetime Accepted
         </span>
 
         <strong>
@@ -2304,7 +2547,7 @@ require_once
       </div>
 
 
-      <div class="membership-item">
+      <div class="scout-record-item">
 
         <span>
           Needs Changes
@@ -2317,7 +2560,7 @@ require_once
       </div>
 
 
-      <div class="membership-item">
+      <div class="scout-record-item">
 
         <span>
           Recorded Scout Activities
@@ -2330,7 +2573,7 @@ require_once
       </div>
 
 
-      <div class="membership-item">
+      <div class="scout-record-item">
 
         <span>
           Scout Points
