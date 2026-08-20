@@ -244,11 +244,11 @@ $scoutRank =
 
    Aug 20, 2026 -> Aug 20, 2027
 
-   A Scout must complete at least 3 accepted Scout Reports
+   The Scout must complete at least 3 accepted Scout Reports
    during THAT Scout year.
 
-   Completing more than 3 is still valuable activity, but
-   does not stack additional years of complimentary access.
+   Additional reports are valuable, but do not stack extra
+   years of complimentary membership.
    ========================================================= */
 
 $requiredReports =
@@ -285,6 +285,17 @@ $scoutYearEnd =
     null;
 
 
+/*
+ * active_through represents the end of the current Scout
+ * year.
+ *
+ * Normally the Scout year starts exactly one year before
+ * active_through.
+ *
+ * During the first year, the start can never be earlier than
+ * scout_started_at.
+ */
+
 if (
     $activeThroughRaw !== ''
 ) {
@@ -305,12 +316,6 @@ if (
                 $activeThroughTimestamp
             );
 
-
-        /*
-         * During the first Scout year, the calculated
-         * one-year-back date should never be earlier than
-         * the date the person actually became a Scout.
-         */
 
         if (
             $scoutStartedAtRaw !== ''
@@ -357,12 +362,7 @@ if (
 
 
 /* =========================================================
-   GENERAL SUBMISSION COUNTS
-
-   These are lifetime submission statistics.
-
-   The annual Scout requirement itself is counted separately
-   from scout_activity below.
+   LIFETIME SUBMISSION COUNTS
    ========================================================= */
 
 $stmt =
@@ -461,14 +461,12 @@ $totalNeedsChanges =
 /* =========================================================
    ACCEPTED SCOUT REPORTS THIS SCOUT YEAR
 
-   This deliberately counts scout_activity instead of raw
-   place_submissions.
+   Only scout_activity entries count toward the requirement.
 
-   That means only reports that actually qualified for Scout
-   credit count toward the annual requirement.
-
-   The database unique key prevents the same submission from
-   being credited more than once.
+   That means:
+   - report was approved
+   - report qualified as Scout activity
+   - duplicate credit is prevented
    ========================================================= */
 
 $acceptedThisScoutYear =
@@ -517,6 +515,10 @@ if (
 }
 
 
+/* =========================================================
+   REQUIREMENT PROGRESS
+   ========================================================= */
+
 $reportsRemaining =
     max(
         0,
@@ -531,6 +533,16 @@ $requirementMet =
     >=
     $requiredReports;
 
+
+/*
+ * The progress bar stops at 100%.
+ *
+ * 3 reports = 100%
+ * 6 reports = 100%
+ * 12 reports = 100%
+ *
+ * Extra reports still appear in the actual accepted count.
+ */
 
 $progressCount =
     min(
@@ -1908,6 +1920,7 @@ require_once
           Keep Your Scout Access
         </h2>
 
+
         <p>
 
           Complete at least three accepted Scout Reports
@@ -1949,6 +1962,7 @@ require_once
           <span>
             Current progress
           </span>
+
 
           <span>
 
