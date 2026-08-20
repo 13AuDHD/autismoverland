@@ -2,27 +2,601 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
 
-require_role('scout');
+require_once
+    dirname(__DIR__)
+    . '/app/timezone.php';
+
+
+require_role(
+    'scout'
+);
+
+
+start_llama_session();
+
+
+$db =
+    db();
+
 
 $user =
     current_user();
 
 
+$userId =
+    (int)
+    $user['id'];
+
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+
 function e(
-    string $value
+    mixed $value
 ): string {
 
     return htmlspecialchars(
+        (string)
         $value,
         ENT_QUOTES,
         'UTF-8'
     );
+
 }
 
-?>
 
+function format_scout_date(
+    ?string $date,
+    array $user,
+    bool $withTime = false
+): string {
+
+    if (
+        !$date
+    ) {
+
+        return 'Not set';
+
+    }
+
+
+    return llama_format_datetime(
+        $date,
+        llama_user_timezone(
+            $user
+        ),
+        $withTime
+            ? 'M j, Y g:i A'
+            : 'M j, Y'
+    );
+
+}
+
+
+function submission_status_label(
+    string $status
+): string {
+
+    return match (
+        $status
+    ) {
+
+        'approved' =>
+            'Accepted',
+
+        'pending' =>
+            'Pending Review',
+
+        'needs-changes' =>
+            'Needs Changes',
+
+        'rejected' =>
+            'Not Accepted',
+
+        default =>
+            ucwords(
+                str_replace(
+                    [
+                        '_',
+                        '-',
+                    ],
+                    ' ',
+                    $status
+                )
+            ),
+
+    };
+
+}
+
+
+/* =========================================================
+   SCOUT PROFILE
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            id,
+            user_id,
+            status,
+
+            approved_at,
+            approved_by,
+
+            scout_started_at,
+            active_through,
+
+            inactive_at,
+            removed_at,
+            removal_reason,
+
+            created_at,
+            updated_at
+
+        FROM scout_profiles
+
+        WHERE user_id = ?
+
+        LIMIT 1
+        '
+    );
+
+
+$stmt->execute([
+    $userId
+]);
+
+
+$scout =
+    $stmt->fetch(
+        PDO::FETCH_ASSOC
+    );
+
+
+if (
+    !$scout
+) {
+
+    http_response_code(
+        404
+    );
+
+
+    exit(
+        'Your Scout profile could not be found.'
+    );
+
+}
+
+
+$scoutProfileId =
+    (int)
+    $scout['id'];
+
+
+$scoutStatus =
+    strtolower(
+        trim(
+            (string)
+            $scout['status']
+        )
+    );
+
+
+if (
+    $scoutStatus !==
+    'active'
+) {
+
+    header(
+        'Location: scout-training.php'
+    );
+
+
+    exit;
+
+}
+
+
+/* =========================================================
+   ACCOUNT ROLES
+   ========================================================= */
+
+$roles =
+    user_roles(
+        $userId
+    );
+
+
+$isMasterScout =
+    in_array(
+        'master-scout',
+        $roles,
+        true
+    )
+    ||
+    in_array(
+        'master_scout',
+        $roles,
+        true
+    );
+
+
+$scoutRank =
+    $isMasterScout
+        ? 'Master Scout'
+        : 'Scout';
+
+
+/* =========================================================
+   SCOUT REPORT REQUIREMENT
+
+   Current rule:
+   3 accepted Scout Reports during the rolling 12-month
+   activity window.
+
+   Reports accepted before the user became a Scout do not
+   count toward Scout maintenance.
+   ========================================================= */
+
+$requiredReports =
+    3;
+
+
+/*
+ * Use whichever date is later:
+ *
+ * 1. Twelve months ago
+ * 2. The date this user became a Scout
+ */
+
+$rollingWindowStart =
+    date(
+        'Y-m-d H:i:s',
+        strtotime(
+            '-12 months'
+        )
+    );
+
+
+$scoutStartedAt =
+    (string) (
+        $scout[
+            'scout_started_at'
+        ]
+        ?? ''
+    );
+
+
+if (
+    $scoutStartedAt !== ''
+    &&
+    strtotime(
+        $scoutStartedAt
+    )
+    >
+    strtotime(
+        $rollingWindowStart
+    )
+) {
+
+    $activityWindowStart =
+        $scoutStartedAt;
+
+
+} else {
+
+    $activityWindowStart =
+        $rollingWindowStart;
+
+}
+
+
+/* =========================================================
+   REPORT COUNTS
+
+   We use reviewed_at for accepted reports because that is
+   when Llama Scout actually accepted the contribution.
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            COUNT(*) AS total,
+
+            SUM(
+                CASE
+                    WHEN status = \'approved\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS approved,
+
+            SUM(
+                CASE
+                    WHEN status = \'pending\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS pending,
+
+            SUM(
+                CASE
+                    WHEN status = \'needs-changes\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS needs_changes,
+
+            SUM(
+                CASE
+                    WHEN status = \'rejected\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS rejected
+
+        FROM place_submissions
+
+        WHERE user_id = ?
+        '
+    );
+
+
+$stmt->execute([
+    $userId
+]);
+
+
+$allSubmissionStats =
+    $stmt->fetch(
+        PDO::FETCH_ASSOC
+    )
+    ?: [];
+
+
+$totalReports =
+    (int) (
+        $allSubmissionStats[
+            'total'
+        ]
+        ?? 0
+    );
+
+
+$totalAccepted =
+    (int) (
+        $allSubmissionStats[
+            'approved'
+        ]
+        ?? 0
+    );
+
+
+$totalPending =
+    (int) (
+        $allSubmissionStats[
+            'pending'
+        ]
+        ?? 0
+    );
+
+
+$totalNeedsChanges =
+    (int) (
+        $allSubmissionStats[
+            'needs_changes'
+        ]
+        ?? 0
+    );
+
+
+/* =========================================================
+   ACCEPTED REPORTS IN CURRENT ACTIVITY WINDOW
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            COUNT(*) AS total
+
+        FROM place_submissions
+
+        WHERE user_id = ?
+
+          AND status = \'approved\'
+
+          AND reviewed_at IS NOT NULL
+
+          AND reviewed_at >= ?
+        '
+    );
+
+
+$stmt->execute([
+    $userId,
+    $activityWindowStart
+]);
+
+
+$acceptedThisWindow =
+    (int)
+    $stmt->fetchColumn();
+
+
+$reportsRemaining =
+    max(
+        0,
+        $requiredReports
+        -
+        $acceptedThisWindow
+    );
+
+
+$requirementMet =
+    $acceptedThisWindow
+    >=
+    $requiredReports;
+
+
+$progressPercent =
+    min(
+        100,
+        (
+            $acceptedThisWindow
+            /
+            $requiredReports
+        )
+        *
+        100
+    );
+
+
+/* =========================================================
+   SCOUT ACTIVITY POINTS
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            COUNT(*) AS activity_count,
+
+            COALESCE(
+                SUM(points),
+                0
+            ) AS total_points
+
+        FROM scout_activity
+
+        WHERE scout_profile_id = ?
+          AND user_id = ?
+        '
+    );
+
+
+$stmt->execute([
+    $scoutProfileId,
+    $userId
+]);
+
+
+$activityStats =
+    $stmt->fetch(
+        PDO::FETCH_ASSOC
+    )
+    ?: [];
+
+
+$activityCount =
+    (int) (
+        $activityStats[
+            'activity_count'
+        ]
+        ?? 0
+    );
+
+
+$totalPoints =
+    (int) (
+        $activityStats[
+            'total_points'
+        ]
+        ?? 0
+    );
+
+
+/* =========================================================
+   RECENT SCOUT REPORTS
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            id,
+            place_name,
+            source_type,
+            status,
+            submitted_at,
+            reviewed_at
+
+        FROM place_submissions
+
+        WHERE user_id = ?
+
+        ORDER BY
+            submitted_at DESC,
+            id DESC
+
+        LIMIT 6
+        '
+    );
+
+
+$stmt->execute([
+    $userId
+]);
+
+
+$recentReports =
+    $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
+
+
+/* =========================================================
+   DISPLAY VALUES
+   ========================================================= */
+
+$displayName =
+    trim(
+        (string) (
+            $user[
+                'display_name'
+            ]
+            ?:
+            $user[
+                'username'
+            ]
+            ?:
+            $user[
+                'email'
+            ]
+        )
+    );
+
+
+$scoutSince =
+    format_scout_date(
+        $scout[
+            'scout_started_at'
+        ]
+        ?? null,
+        $user
+    );
+
+
+$activeThrough =
+    format_scout_date(
+        $scout[
+            'active_through'
+        ]
+        ?? null,
+        $user
+    );
+
+
+?>
 <!doctype html>
 
 <html lang="en">
@@ -37,13 +611,14 @@ function e(
   >
 
   <title>
-    Scout Tools | Llama Scout
+    Scout Basecamp | Llama Scout
   </title>
 
   <meta
     name="robots"
     content="noindex,nofollow"
   >
+
 
   <link
     rel="stylesheet"
@@ -60,6 +635,885 @@ function e(
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
 
+
+  <style>
+
+    .scout-dashboard {
+      width:
+        min(
+          100%,
+          1080px
+        );
+
+      margin:
+        0
+        auto;
+
+      padding:
+        34px
+        18px
+        80px;
+    }
+
+
+    /* =====================================================
+       HERO
+       ===================================================== */
+
+    .scout-hero {
+      position:
+        relative;
+
+      overflow:
+        hidden;
+
+      margin-top:
+        18px;
+
+      padding:
+        clamp(
+          28px,
+          6vw,
+          54px
+        );
+
+      border-radius:
+        24px;
+
+      background:
+        linear-gradient(
+          145deg,
+          #10211b,
+          #1c342a
+        );
+
+      color:
+        #fff;
+    }
+
+
+    .scout-hero::after {
+      content:
+        "";
+
+      position:
+        absolute;
+
+      width:
+        280px;
+
+      height:
+        280px;
+
+      right:
+        -110px;
+
+      bottom:
+        -160px;
+
+      border:
+        1px solid
+        rgba(
+          255,
+          255,
+          255,
+          .09
+        );
+
+      border-radius:
+        50%;
+    }
+
+
+    .scout-eyebrow {
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      gap:
+        8px;
+
+      margin:
+        0
+        0
+        12px;
+
+      color:
+        #d9c49a;
+
+      font-size:
+        .78rem;
+
+      font-weight:
+        800;
+
+      letter-spacing:
+        .12em;
+
+      text-transform:
+        uppercase;
+    }
+
+
+    .scout-hero h1 {
+      position:
+        relative;
+
+      z-index:
+        1;
+
+      margin:
+        0
+        0
+        12px;
+
+      color:
+        #fff;
+
+      font-size:
+        clamp(
+          2.1rem,
+          6vw,
+          4rem
+        );
+
+      line-height:
+        1;
+
+      letter-spacing:
+        -.04em;
+    }
+
+
+    .scout-hero > p {
+      position:
+        relative;
+
+      z-index:
+        1;
+
+      max-width:
+        720px;
+
+      margin:
+        0;
+
+      color:
+        rgba(
+          255,
+          255,
+          255,
+          .78
+        );
+
+      line-height:
+        1.65;
+    }
+
+
+    .scout-hero-meta {
+      position:
+        relative;
+
+      z-index:
+        1;
+
+      display:
+        flex;
+
+      flex-wrap:
+        wrap;
+
+      gap:
+        10px;
+
+      margin-top:
+        22px;
+    }
+
+
+    .scout-hero-pill {
+      display:
+        inline-flex;
+
+      align-items:
+        center;
+
+      gap:
+        7px;
+
+      padding:
+        8px
+        11px;
+
+      border-radius:
+        999px;
+
+      background:
+        rgba(
+          255,
+          255,
+          255,
+          .11
+        );
+
+      font-size:
+        .8rem;
+
+      font-weight:
+        700;
+    }
+
+
+    /* =====================================================
+       STATS
+       ===================================================== */
+
+    .scout-stats {
+      display:
+        grid;
+
+      grid-template-columns:
+        repeat(
+          4,
+          minmax(
+            0,
+            1fr
+          )
+        );
+
+      gap:
+        12px;
+
+      margin-top:
+        20px;
+    }
+
+
+    .scout-stat {
+      padding:
+        19px;
+
+      border:
+        1px solid
+        rgba(
+          23,
+          40,
+          34,
+          .11
+        );
+
+      border-radius:
+        15px;
+
+      background:
+        rgba(
+          255,
+          255,
+          255,
+          .82
+        );
+    }
+
+
+    .scout-stat span {
+      display:
+        block;
+
+      margin-bottom:
+        6px;
+
+      font-size:
+        .78rem;
+
+      opacity:
+        .64;
+    }
+
+
+    .scout-stat strong {
+      display:
+        block;
+
+      font-size:
+        1.65rem;
+
+      line-height:
+        1;
+    }
+
+
+    /* =====================================================
+       SECTION
+       ===================================================== */
+
+    .scout-section {
+      margin-top:
+        24px;
+
+      padding:
+        24px;
+
+      border:
+        1px solid
+        rgba(
+          23,
+          40,
+          34,
+          .11
+        );
+
+      border-radius:
+        18px;
+
+      background:
+        rgba(
+          255,
+          255,
+          255,
+          .82
+        );
+    }
+
+
+    .scout-section-header {
+      display:
+        flex;
+
+      justify-content:
+        space-between;
+
+      align-items:
+        flex-start;
+
+      gap:
+        18px;
+
+      margin-bottom:
+        20px;
+    }
+
+
+    .scout-section-header h2 {
+      margin:
+        0
+        0
+        5px;
+    }
+
+
+    .scout-section-header p {
+      margin:
+        0;
+
+      line-height:
+        1.55;
+
+      opacity:
+        .68;
+    }
+
+
+    /* =====================================================
+       REQUIREMENT
+       ===================================================== */
+
+    .scout-requirement {
+      display:
+        grid;
+
+      grid-template-columns:
+        minmax(
+          0,
+          1fr
+        )
+        auto;
+
+      gap:
+        24px;
+
+      align-items:
+        center;
+    }
+
+
+    .scout-progress-label {
+      display:
+        flex;
+
+      justify-content:
+        space-between;
+
+      gap:
+        12px;
+
+      margin-bottom:
+        9px;
+
+      font-size:
+        .84rem;
+
+      font-weight:
+        700;
+    }
+
+
+    .scout-progress-track {
+      overflow:
+        hidden;
+
+      height:
+        12px;
+
+      border-radius:
+        999px;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .09
+        );
+    }
+
+
+    .scout-progress-fill {
+      height:
+        100%;
+
+      width:
+        <?= number_format(
+            $progressPercent,
+            2,
+            '.',
+            ''
+        ) ?>%;
+
+      border-radius:
+        inherit;
+
+      background:
+        #172822;
+    }
+
+
+    .scout-requirement-copy {
+      margin-top:
+        12px;
+
+      line-height:
+        1.6;
+    }
+
+
+    .scout-requirement-badge {
+      display:
+        grid;
+
+      place-items:
+        center;
+
+      width:
+        112px;
+
+      height:
+        112px;
+
+      border-radius:
+        50%;
+
+      background:
+        <?= $requirementMet
+            ? '#172822'
+            : 'rgba(23, 40, 34, .075)'
+        ?>;
+
+      color:
+        <?= $requirementMet
+            ? '#fff'
+            : '#172822'
+        ?>;
+
+      text-align:
+        center;
+    }
+
+
+    .scout-requirement-badge strong {
+      display:
+        block;
+
+      font-size:
+        2rem;
+
+      line-height:
+        1;
+    }
+
+
+    .scout-requirement-badge span {
+      display:
+        block;
+
+      margin-top:
+        4px;
+
+      font-size:
+        .72rem;
+
+      font-weight:
+        700;
+    }
+
+
+    /* =====================================================
+       TOOL CARDS
+       ===================================================== */
+
+    .scout-tools-grid {
+      display:
+        grid;
+
+      grid-template-columns:
+        repeat(
+          2,
+          minmax(
+            0,
+            1fr
+          )
+        );
+
+      gap:
+        14px;
+    }
+
+
+    .scout-tool {
+      display:
+        block;
+
+      position:
+        relative;
+
+      padding:
+        20px;
+
+      border:
+        1px solid
+        rgba(
+          23,
+          40,
+          34,
+          .11
+        );
+
+      border-radius:
+        14px;
+
+      color:
+        inherit;
+
+      text-decoration:
+        none;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .035
+        );
+    }
+
+
+    .scout-tool:hover {
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .065
+        );
+    }
+
+
+    .scout-tool-icon {
+      display:
+        grid;
+
+      place-items:
+        center;
+
+      width:
+        40px;
+
+      height:
+        40px;
+
+      margin-bottom:
+        14px;
+
+      border-radius:
+        10px;
+
+      background:
+        #172822;
+
+      color:
+        #fff;
+    }
+
+
+    .scout-tool h3 {
+      margin:
+        0
+        0
+        6px;
+    }
+
+
+    .scout-tool p {
+      margin:
+        0;
+
+      line-height:
+        1.55;
+
+      opacity:
+        .7;
+    }
+
+
+    .scout-tool--future {
+      opacity:
+        .58;
+
+      cursor:
+        default;
+    }
+
+
+    /* =====================================================
+       REPORT LIST
+       ===================================================== */
+
+    .scout-report-list {
+      display:
+        grid;
+
+      gap:
+        0;
+    }
+
+
+    .scout-report-row {
+      display:
+        grid;
+
+      grid-template-columns:
+        minmax(
+          0,
+          1fr
+        )
+        auto;
+
+      gap:
+        16px;
+
+      align-items:
+        center;
+
+      padding:
+        15px
+        0;
+
+      border-top:
+        1px solid
+        rgba(
+          23,
+          40,
+          34,
+          .09
+        );
+    }
+
+
+    .scout-report-row:first-child {
+      border-top:
+        0;
+    }
+
+
+    .scout-report-name {
+      font-weight:
+        750;
+    }
+
+
+    .scout-report-meta {
+      margin-top:
+        4px;
+
+      font-size:
+        .81rem;
+
+      opacity:
+        .62;
+    }
+
+
+    .scout-report-status {
+      padding:
+        7px
+        10px;
+
+      border-radius:
+        999px;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .07
+        );
+
+      font-size:
+        .76rem;
+
+      font-weight:
+        700;
+
+      white-space:
+        nowrap;
+    }
+
+
+    .scout-empty {
+      padding:
+        28px;
+
+      border-radius:
+        13px;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .04
+        );
+
+      text-align:
+        center;
+    }
+
+
+    .scout-empty p {
+      margin:
+        0
+        0
+        14px;
+    }
+
+
+    .scout-button {
+      display:
+        inline-flex;
+
+      align-items:
+        center;
+
+      justify-content:
+        center;
+
+      gap:
+        8px;
+
+      padding:
+        11px
+        16px;
+
+      border-radius:
+        9px;
+
+      background:
+        #172822;
+
+      color:
+        #fff;
+
+      text-decoration:
+        none;
+
+      font-weight:
+        750;
+    }
+
+
+    @media (
+      max-width:
+        820px
+    ) {
+
+      .scout-stats {
+        grid-template-columns:
+          repeat(
+            2,
+            minmax(
+              0,
+              1fr
+            )
+          );
+      }
+
+
+      .scout-requirement {
+        grid-template-columns:
+          1fr;
+      }
+
+
+      .scout-requirement-badge {
+        width:
+          96px;
+
+        height:
+          96px;
+      }
+
+    }
+
+
+    @media (
+      max-width:
+        620px
+    ) {
+
+      .scout-tools-grid {
+        grid-template-columns:
+          1fr;
+      }
+
+
+      .scout-report-row {
+        grid-template-columns:
+          1fr;
+      }
+
+
+      .scout-report-status {
+        width:
+          fit-content;
+      }
+
+    }
+
+  </style>
+
 </head>
 
 
@@ -75,7 +1529,7 @@ require_once
 ?>
 
 
-<main class="account-shell">
+<main class="scout-dashboard">
 
 
   <a
@@ -93,210 +1547,421 @@ require_once
   </a>
 
 
-  <header class="account-header">
+  <!-- =====================================================
+       HERO
+       ===================================================== -->
+
+  <section class="scout-hero">
+
+
+    <p class="scout-eyebrow">
+
+      <i
+        class="fa-solid fa-compass"
+        aria-hidden="true"
+      ></i>
+
+      Llama Scout Basecamp
+
+    </p>
+
 
     <h1>
-      Scout Tools
+      Welcome back,
+      <?= e($displayName) ?>.
     </h1>
 
-    <p>
-      Tools for Llama Scouts who visit,
-      document, verify, and re-check places
-      for Llama Scout.
-    </p>
-
-  </header>
-
-
-  <section
-    class="
-      account-status
-      account-status--verified
-    "
-  >
-
-    <strong>
-      Scout access active
-    </strong>
 
     <p>
-      You are signed in with the Llama Scout
-      Scout role.
+
+      This is your Scout home base.
+
+      Track your Scout status, contribution requirement,
+      reports, activity, and the tools available to you
+      in the field.
+
     </p>
+
+
+    <div class="scout-hero-meta">
+
+
+      <span class="scout-hero-pill">
+
+        <i
+          class="fa-solid fa-binoculars"
+          aria-hidden="true"
+        ></i>
+
+        <?= e($scoutRank) ?>
+
+      </span>
+
+
+      <span class="scout-hero-pill">
+
+        <i
+          class="fa-solid fa-calendar"
+          aria-hidden="true"
+        ></i>
+
+        Scout since
+        <?= e($scoutSince) ?>
+
+      </span>
+
+
+      <span class="scout-hero-pill">
+
+        <i
+          class="fa-solid fa-shield"
+          aria-hidden="true"
+        ></i>
+
+        Active through
+        <?= e($activeThrough) ?>
+
+      </span>
+
+
+    </div>
+
 
   </section>
 
 
-  <section class="account-section">
+  <!-- =====================================================
+       QUICK STATS
+       ===================================================== -->
 
-    <h2>
-      Field Work
-    </h2>
+  <section
+    class="scout-stats"
+    aria-label="Scout statistics"
+  >
 
 
-    <div class="account-dashboard-grid">
+    <article class="scout-stat">
+
+      <span>
+        Accepted This Year
+      </span>
+
+      <strong>
+        <?= $acceptedThisWindow ?>
+      </strong>
+
+    </article>
+
+
+    <article class="scout-stat">
+
+      <span>
+        Pending Review
+      </span>
+
+      <strong>
+        <?= $totalPending ?>
+      </strong>
+
+    </article>
+
+
+    <article class="scout-stat">
+
+      <span>
+        Total Accepted
+      </span>
+
+      <strong>
+        <?= $totalAccepted ?>
+      </strong>
+
+    </article>
+
+
+    <article class="scout-stat">
+
+      <span>
+        Scout Points
+      </span>
+
+      <strong>
+        <?= $totalPoints ?>
+      </strong>
+
+    </article>
+
+
+  </section>
+
+
+  <!-- =====================================================
+       ACTIVITY REQUIREMENT
+       ===================================================== -->
+
+  <section class="scout-section">
+
+
+    <div class="scout-section-header">
+
+      <div>
+
+        <h2>
+          Keep Your Scout Access
+        </h2>
+
+        <p>
+
+          Three accepted Scout Reports during your
+          rolling 12-month Scout activity window keeps
+          your complimentary Scout access active.
+
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div class="scout-requirement">
+
+
+      <div>
+
+
+        <div class="scout-progress-label">
+
+          <span>
+            Current progress
+          </span>
+
+          <span>
+
+            <?= $acceptedThisWindow ?>
+            of
+            <?= $requiredReports ?>
+
+          </span>
+
+        </div>
+
+
+        <div
+          class="scout-progress-track"
+          aria-label="Scout activity requirement progress"
+        >
+
+          <div
+            class="scout-progress-fill"
+          ></div>
+
+        </div>
+
+
+        <div class="scout-requirement-copy">
+
+
+          <?php if (
+              $requirementMet
+          ): ?>
+
+
+            <strong>
+              Requirement met.
+            </strong>
+
+            You've completed the current activity
+            requirement.
+
+
+          <?php elseif (
+              $reportsRemaining === 1
+          ): ?>
+
+
+            <strong>
+              One more accepted report.
+            </strong>
+
+            One additional accepted Scout Report completes
+            your current activity requirement.
+
+
+          <?php else: ?>
+
+
+            <strong>
+
+              <?= $reportsRemaining ?>
+              accepted reports to go.
+
+            </strong>
+
+            Reports count after they are reviewed and
+            accepted by Llama Scout.
+
+
+          <?php endif; ?>
+
+
+        </div>
+
+
+      </div>
+
+
+      <div class="scout-requirement-badge">
+
+        <div>
+
+          <?php if (
+              $requirementMet
+          ): ?>
+
+            <i
+              class="fa-solid fa-check"
+              aria-hidden="true"
+            ></i>
+
+            <span>
+              Complete
+            </span>
+
+          <?php else: ?>
+
+            <strong>
+              <?= $acceptedThisWindow ?>/<?= $requiredReports ?>
+            </strong>
+
+            <span>
+              Reports
+            </span>
+
+          <?php endif; ?>
+
+        </div>
+
+      </div>
+
+
+    </div>
+
+
+  </section>
+
+
+  <!-- =====================================================
+       SCOUT TOOLS
+       ===================================================== -->
+
+  <section class="scout-section">
+
+
+    <div class="scout-section-header">
+
+      <div>
+
+        <h2>
+          Scout Tools
+        </h2>
+
+        <p>
+          Everything you need to scout and track places.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div class="scout-tools-grid">
 
 
       <a
         href="scout-place.php"
-        class="account-dashboard-card"
+        class="scout-tool"
       >
+
+        <div class="scout-tool-icon">
+
+          <i
+            class="fa-solid fa-location-dot"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
 
         <h3>
           Scout a Place
         </h3>
 
+
         <p>
-          Record detailed field information
-          about a place you've personally visited.
+
+          Submit a detailed Scout Report for a place
+          you've personally visited.
+
         </p>
 
       </a>
-
-
-      <div class="account-dashboard-card">
-
-        <h3>
-          Places Needing Verification
-        </h3>
-
-        <p>
-          Future tool for finding places that
-          need a first visit or another field check.
-        </p>
-
-      </div>
-
-
-      <div class="account-dashboard-card">
-
-        <h3>
-          My Scout Assignments
-        </h3>
-
-        <p>
-          Future tool for places assigned to you
-          for scouting or re-verification.
-        </p>
-
-      </div>
-
-
-      <div class="account-dashboard-card">
-
-        <h3>
-          Re-verify a Place
-        </h3>
-
-        <p>
-          Future workflow for updating an existing
-          Scout Report after another visit.
-        </p>
-
-      </div>
-
-
-    </div>
-
-  </section>
-
-
-  <section class="account-section">
-
-    <h2>
-      My Scout Work
-    </h2>
-
-
-    <div class="account-dashboard-grid">
 
 
       <a
         href="submissions.php"
-        class="account-dashboard-card"
+        class="scout-tool"
       >
 
+        <div class="scout-tool-icon">
+
+          <i
+            class="fa-solid fa-clipboard-list"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
+
         <h3>
-          My Submissions
+          My Scout Reports
         </h3>
 
+
         <p>
-          Review places you've submitted
-          and their current status.
+
+          See your submissions, review status, and reports
+          that need changes.
+
         </p>
 
       </a>
 
 
-      <div class="account-dashboard-card">
-
-        <h3>
-          Places I've Verified
-        </h3>
-
-        <p>
-          Future history of places where you
-          are listed as the verifying Scout.
-        </p>
-
-      </div>
-
-
-      <div class="account-dashboard-card">
-
-        <h3>
-          Scout History
-        </h3>
-
-        <p>
-          Future timeline of scouting visits,
-          verifications, and updates.
-        </p>
-
-      </div>
-
-
-      <div class="account-dashboard-card">
-
-        <h3>
-          Scout Profile
-        </h3>
-
-        <p>
-          Future public-facing Scout identity,
-          verification history, and contribution record.
-        </p>
-
-      </div>
-
-
-    </div>
-
-  </section>
-
-
-  <section class="account-section">
-
-    <h2>
-      Planning
-    </h2>
-
-
-    <div class="account-dashboard-grid">
-
-
       <a
         href="saved-places.php"
-        class="account-dashboard-card"
+        class="scout-tool"
       >
+
+        <div class="scout-tool-icon">
+
+          <i
+            class="fa-solid fa-bookmark"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
 
         <h3>
           Saved Places
         </h3>
 
+
         <p>
-          Keep possible scouting locations
-          and follow-up visits together.
+
+          Keep possible Scout stops and places you want
+          to revisit together.
+
         </p>
 
       </a>
@@ -304,93 +1969,382 @@ require_once
 
       <a
         href="https://llamascout.com/map.html"
-        class="account-dashboard-card"
+        class="scout-tool"
       >
+
+        <div class="scout-tool-icon">
+
+          <i
+            class="fa-solid fa-map"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
 
         <h3>
           Explore Map
         </h3>
 
+
         <p>
-          Browse existing places and look
-          for areas that need more coverage.
+
+          Browse Llama Scout places and look for gaps
+          where more field information would help.
+
         </p>
 
       </a>
 
 
+      <div
+        class="
+          scout-tool
+          scout-tool--future
+        "
+      >
+
+        <div class="scout-tool-icon">
+
+          <i
+            class="fa-solid fa-rotate"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
+
+        <h3>
+          Places Needing Verification
+        </h3>
+
+
+        <p>
+
+          Coming later... find existing places that need
+          a Scout visit or updated information.
+
+        </p>
+
+      </div>
+
+
+      <div
+        class="
+          scout-tool
+          scout-tool--future
+        "
+      >
+
+        <div class="scout-tool-icon">
+
+          <i
+            class="fa-solid fa-award"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
+
+        <h3>
+          Master Scout
+        </h3>
+
+
+        <p>
+
+          Coming later... track progress toward advanced
+          Scout tools, badges, and Master Scout status.
+
+        </p>
+
+      </div>
+
+
     </div>
+
 
   </section>
 
 
-  <section class="account-section">
+  <!-- =====================================================
+       RECENT REPORTS
+       ===================================================== -->
 
-    <h2>
-      Coming Later
-    </h2>
-
-
-    <div class="account-dashboard-grid">
+  <section class="scout-section">
 
 
-      <div class="account-dashboard-card">
+    <div class="scout-section-header">
 
-        <h3>
-          Verification Queue
-        </h3>
+      <div>
+
+        <h2>
+          Recent Scout Reports
+        </h2>
 
         <p>
-          Review places submitted by members
-          that may need an in-person Scout visit.
+          Your latest place submissions and review status.
         </p>
 
       </div>
 
 
-      <div class="account-dashboard-card">
+      <?php if (
+          $recentReports
+      ): ?>
 
-        <h3>
-          Field Checklists
-        </h3>
+        <a
+          href="submissions.php"
+          class="scout-button"
+        >
+          View All
+        </a>
 
-        <p>
-          Guided checklists for access, sensory
-          conditions, connectivity, safety, and amenities.
-        </p>
+      <?php endif; ?>
+
+
+    </div>
+
+
+    <?php if (
+        $recentReports
+    ): ?>
+
+
+      <div class="scout-report-list">
+
+
+        <?php foreach (
+            $recentReports
+            as
+            $report
+        ): ?>
+
+
+          <div class="scout-report-row">
+
+
+            <div>
+
+
+              <div class="scout-report-name">
+
+                <?= e(
+                    $report[
+                        'place_name'
+                    ]
+                ) ?>
+
+              </div>
+
+
+              <div class="scout-report-meta">
+
+                Submitted
+
+                <?= e(
+                    format_scout_date(
+                        $report[
+                            'submitted_at'
+                        ],
+                        $user
+                    )
+                ) ?>
+
+
+                <?php if (
+                    !empty(
+                        $report[
+                            'reviewed_at'
+                        ]
+                    )
+                ): ?>
+
+                  &middot;
+
+                  Reviewed
+
+                  <?= e(
+                      format_scout_date(
+                          $report[
+                              'reviewed_at'
+                          ],
+                          $user
+                      )
+                  ) ?>
+
+                <?php endif; ?>
+
+
+              </div>
+
+
+            </div>
+
+
+            <span class="scout-report-status">
+
+              <?= e(
+                  submission_status_label(
+                      (string)
+                      $report[
+                          'status'
+                      ]
+                  )
+              ) ?>
+
+            </span>
+
+
+          </div>
+
+
+        <?php endforeach; ?>
+
 
       </div>
 
 
-      <div class="account-dashboard-card">
+    <?php else: ?>
 
-        <h3>
-          Scout Notes
-        </h3>
+
+      <div class="scout-empty">
 
         <p>
-          Private working notes for a place
-          before information is published.
+          You haven't submitted a Scout Report yet.
         </p>
+
+
+        <a
+          href="scout-place.php"
+          class="scout-button"
+        >
+
+          <i
+            class="fa-solid fa-location-dot"
+            aria-hidden="true"
+          ></i>
+
+          Scout Your First Place
+
+        </a>
 
       </div>
 
 
-      <div class="account-dashboard-card">
+    <?php endif; ?>
 
-        <h3>
-          Offline Field Mode
-        </h3>
+
+  </section>
+
+
+  <!-- =====================================================
+       SCOUT RECORD
+       ===================================================== -->
+
+  <section class="scout-section">
+
+
+    <div class="scout-section-header">
+
+      <div>
+
+        <h2>
+          Your Scout Record
+        </h2>
 
         <p>
-          Future workflow for recording information
-          when there is little or no service.
+          A quick lifetime snapshot of your Scout activity.
         </p>
+
+      </div>
+
+    </div>
+
+
+    <div class="membership-grid">
+
+
+      <div class="membership-item">
+
+        <span>
+          Scout Rank
+        </span>
+
+        <strong>
+          <?= e($scoutRank) ?>
+        </strong>
+
+      </div>
+
+
+      <div class="membership-item">
+
+        <span>
+          Total Reports
+        </span>
+
+        <strong>
+          <?= $totalReports ?>
+        </strong>
+
+      </div>
+
+
+      <div class="membership-item">
+
+        <span>
+          Accepted Reports
+        </span>
+
+        <strong>
+          <?= $totalAccepted ?>
+        </strong>
+
+      </div>
+
+
+      <div class="membership-item">
+
+        <span>
+          Needs Changes
+        </span>
+
+        <strong>
+          <?= $totalNeedsChanges ?>
+        </strong>
+
+      </div>
+
+
+      <div class="membership-item">
+
+        <span>
+          Recorded Scout Activities
+        </span>
+
+        <strong>
+          <?= $activityCount ?>
+        </strong>
+
+      </div>
+
+
+      <div class="membership-item">
+
+        <span>
+          Scout Points
+        </span>
+
+        <strong>
+          <?= $totalPoints ?>
+        </strong>
 
       </div>
 
 
     </div>
+
 
   </section>
 
@@ -399,6 +2353,10 @@ require_once
 
     <a href="/">
       My Account
+    </a>
+
+    <a href="membership.php">
+      Membership
     </a>
 
     <a href="logout.php">
