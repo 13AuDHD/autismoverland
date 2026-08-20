@@ -221,29 +221,16 @@ if (
 }
 
 
-if (
-    $status ===
-    'active'
-) {
-
-    header(
-        'Location: /'
-    );
-
-
-    exit;
-
-}
-
 
 /* =========================================================
    ALLOWED TRAINING STATES
    ========================================================= */
 
-$allowedStates = [
+$$allowedStates = [
     'application_submitted',
     'training',
     'pending_approval',
+    'active',
 ];
 
 
@@ -2237,141 +2224,235 @@ require_once
          PROGRESS
          =================================================== -->
 
-    <div
-      class="scout-progress"
-      aria-label="Scout onboarding progress"
-    >
+<?php
 
-      <div class="scout-progress-step done">
-        Invitation
-      </div>
+$isReviewStage =
+    $status ===
+    'pending_approval';
 
-      <div class="scout-progress-step done">
-        About You
-      </div>
 
-      <div class="scout-progress-step active">
-        Training
-      </div>
+$isScoutStage =
+    $status ===
+    'active';
 
-      <div class="scout-progress-step">
-        Review
-      </div>
 
-      <div class="scout-progress-step">
-        Scout
-      </div>
+$currentStep =
+    $isScoutStage
+        ? 5
+        : (
+            $isReviewStage
+                ? 4
+                : 3
+        );
 
-    </div>
+?>
 
+
+<div
+  class="scout-progress"
+  aria-label="Scout onboarding progress"
+>
+
+  <div class="scout-progress-step done">
+    Invitation
+  </div>
+
+  <div class="scout-progress-step done">
+    About You
+  </div>
+
+  <div
+    class="scout-progress-step
+      <?= $currentStep === 3
+          ? 'active'
+          : 'done'
+      ?>"
+  >
+    Training
+  </div>
+
+  <div
+    class="scout-progress-step
+      <?php
+      if ($currentStep === 4) {
+          echo 'active';
+      } elseif ($currentStep > 4) {
+          echo 'done';
+      }
+      ?>"
+  >
+    Review
+  </div>
+
+  <div
+    class="scout-progress-step
+      <?= $currentStep === 5
+          ? 'active'
+          : ''
+      ?>"
+  >
+    Scout
+  </div>
+
+</div>
 
     <!-- ===================================================
          HERO
          =================================================== -->
 
-    <section class="scout-training-hero">
+<section class="scout-training-hero">
 
+  <p class="scout-training-eyebrow">
 
-      <p class="scout-training-eyebrow">
+    <?php if ($isScoutStage): ?>
 
-        <i
-          class="fa-solid fa-compass"
-          aria-hidden="true"
-        ></i>
+      <i
+        class="fa-solid fa-binoculars"
+        aria-hidden="true"
+      ></i>
 
-        Step 3 of 5
+    <?php elseif ($isReviewStage): ?>
 
-      </p>
+      <i
+        class="fa-solid fa-clipboard-check"
+        aria-hidden="true"
+      ></i>
 
+    <?php else: ?>
 
-      <h1>
-        Welcome to the Scout team.
-      </h1>
-
-
-      <p>
-
-        <?= e($displayName) ?>, this short orientation covers
-        why Llama Scout exists, what makes Scout information
-        useful, how to handle trusted tools responsibly, and
-        what the path from Scout to Master Scout looks like.
-
-      </p>
-
-
-    </section>
-
-
-    <?php if ($errors): ?>
-
-      <div class="scout-errors">
-
-        <strong>
-          A few things need attention:
-        </strong>
-
-        <ul>
-
-          <?php foreach ($errors as $error): ?>
-
-            <li>
-              <?= e($error) ?>
-            </li>
-
-          <?php endforeach; ?>
-
-        </ul>
-
-      </div>
+      <i
+        class="fa-solid fa-compass"
+        aria-hidden="true"
+      ></i>
 
     <?php endif; ?>
 
+    Step <?= $currentStep ?> of 5
+
+  </p>
+
+
+  <?php if ($isScoutStage): ?>
+
+    <h1>
+      You're a Scout.
+    </h1>
+
+    <p>
+
+      Welcome to the Llama Scout team,
+      <?= e($displayName) ?>.
+
+      Your onboarding is complete and your Scout access
+      is active.
+
+    </p>
+
+
+  <?php elseif ($isReviewStage): ?>
+
+    <h1>
+      Your Scout profile is in review.
+    </h1>
+
+    <p>
+
+      You've finished everything we need from you,
+      <?= e($displayName) ?>.
+
+      Your introduction and training have been submitted
+      to the Llama Scout team for final review.
+
+    </p>
+
+
+  <?php else: ?>
+
+    <h1>
+      Welcome to the Scout team.
+    </h1>
+
+    <p>
+
+      <?= e($displayName) ?>, this short orientation covers
+      why Llama Scout exists, what makes Scout information
+      useful, how to handle trusted tools responsibly, and
+      what the path from Scout to Master Scout looks like.
+
+    </p>
+
+  <?php endif; ?>
+
+</section>
 
     <!-- ===================================================
          PENDING REVIEW
          =================================================== -->
 
-    <?php if (
-        $status ===
-        'pending_approval'
-        ||
-        $trainingCompleted
-    ): ?>
+<?php if ($isScoutStage): ?>
 
 
-      <section class="scout-training-card">
+  <section class="scout-training-card">
+
+    <div class="scout-pending">
+
+      <i
+        class="fa-solid fa-binoculars"
+        aria-hidden="true"
+      ></i>
+
+      <h2>
+        Scout onboarding complete.
+      </h2>
+
+      <p>
+
+        You've officially joined the Llama Scout team.
+
+        Your Scout role is active, your complimentary
+        membership is active, and you can now use the
+        Scout tools available to your account.
+
+      </p>
+
+    </div>
+
+  </section>
 
 
-        <div class="scout-pending">
-
-          <i
-            class="fa-solid fa-circle-check"
-            aria-hidden="true"
-          ></i>
+<?php elseif ($isReviewStage): ?>
 
 
-          <h2>
-            Training complete.
-          </h2>
+  <section class="scout-training-card">
+
+    <div class="scout-pending">
+
+      <i
+        class="fa-solid fa-clock"
+        aria-hidden="true"
+      ></i>
+
+      <h2>
+        Awaiting Scout approval.
+      </h2>
+
+      <p>
+
+        Your training is complete and your Scout information
+        has been submitted for review.
+
+        There's nothing else you need to do right now.
+        Once your Scout profile is approved, your Scout role
+        and complimentary membership will activate.
+
+      </p>
+
+    </div>
+
+  </section>
 
 
-          <p>
-
-            Your Scout introduction and training are finished.
-
-            Your information is now ready for Llama Scout
-            review. Once approved, your Scout role and
-            complimentary membership will activate.
-
-          </p>
-
-        </div>
-
-
-      </section>
-
-
-    <?php else: ?>
+<?php else: ?>
 
 
       <!-- =================================================
