@@ -1135,12 +1135,15 @@ if (
                             UPDATE scout_applications
 
                             SET
+                                submitted_at =
+                                    NULL,
+                            
                                 reviewed_at =
                                     CURRENT_TIMESTAMP,
-
+                            
                                 reviewed_by =
                                     ?,
-
+                            
                                 review_notes =
                                     ?
 
