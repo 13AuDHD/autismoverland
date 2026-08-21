@@ -158,6 +158,13 @@ $adminBase =
 
 
       <a
+        href="<?= $siteBase ?>/membership.php"
+      >
+        Membership
+      </a>
+
+
+      <a
         href="<?= $siteBase ?>/about.php"
       >
         About
@@ -285,6 +292,23 @@ $adminBase =
 
         <span>
           Field Guides
+        </span>
+
+      </a>
+
+
+      <a
+        class="mobile-nav-item"
+        href="<?= $siteBase ?>/membership.php"
+      >
+
+        <i
+          class="fa-solid fa-id-card"
+          aria-hidden="true"
+        ></i>
+
+        <span>
+          Membership
         </span>
 
       </a>
@@ -443,9 +467,7 @@ $adminBase =
           class="mobile-nav-create-account"
           href="<?= $accountBase ?>/register.php"
         >
-
           Create an Account
-
         </a>
 
 
