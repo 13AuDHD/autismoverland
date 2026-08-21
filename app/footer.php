@@ -146,6 +146,10 @@ $footerAccountBase =
           Field Guide
         </a>
 
+        <a href="<?= $footerSiteBase ?>/membership.php">
+          Membership
+        </a>
+
         <a href="<?= $footerSiteBase ?>/about.php">
           About
         </a>
