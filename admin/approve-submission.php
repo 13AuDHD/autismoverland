@@ -605,6 +605,39 @@ try {
                 'place_id'
             ];
 
+        $reapproveStmt =
+            $db->prepare(
+                '
+                UPDATE place_submissions
+        
+                SET
+                    status =
+                        \'approved\',
+        
+                    review_notes =
+                        ?,
+        
+                    reviewed_at =
+                        CURRENT_TIMESTAMP,
+        
+                    reviewed_by =
+                        ?
+        
+                WHERE id = ?
+                '
+            );
+        
+        
+        $reapproveStmt->execute([
+            $reviewNotes !== ''
+                ? $reviewNotes
+                : null,
+        
+            (int) $user['id'],
+        
+            $submissionId
+        ]);
+
     } else {
 
         /*
