@@ -803,7 +803,7 @@ if (
 
                             WHERE id = ?
                               AND user_id = ?
-                              AND status = 'pending_approval'
+                              AND status = \'pending_approval\'
                             '
                         );
 
