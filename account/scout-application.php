@@ -1026,8 +1026,9 @@ if (
                         updated_at =
                             CURRENT_TIMESTAMP
 
-                    WHERE id = ?
-                      AND user_id = ?
+                        WHERE id = ?
+                          AND user_id = ?
+                          AND status = 'application_started'
                     '
                 );
 
@@ -1036,6 +1037,17 @@ if (
                 $scoutProfileId,
                 $userId
             ]);
+
+            if (
+                $stmt->rowCount()
+                !==
+                1
+            ) {
+            
+                throw new RuntimeException(
+                    'Scout onboarding state changed before the application could be submitted.'
+                );
+            }
 
 
             $db->commit();
