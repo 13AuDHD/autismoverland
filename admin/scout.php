@@ -907,7 +907,7 @@ if (
                             $paidMembershipStatuses,
                             true
                         )
-                        ||
+                        &&
                         !empty(
                             $membershipRow[
                                 'stripe_subscription_id'
