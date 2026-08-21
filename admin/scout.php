@@ -3855,7 +3855,7 @@ require
 
                 <form
                   method="post"
-                  action="/admin/scout-billing.php"
+                  action="/scout-billing.php"
                 >
 
                 <input
