@@ -64,6 +64,10 @@ $headerIsAdmin =
 
 
 $headerIsScout =
+    false;
+
+
+if (
     $headerLoggedIn
     &&
     function_exists(
@@ -72,7 +76,37 @@ $headerIsScout =
     &&
     user_has_role(
         'scout'
-    );
+    )
+    &&
+    function_exists(
+        'db'
+    )
+) {
+
+    $headerScoutStmt =
+        db()->prepare(
+            '
+            SELECT 1
+
+            FROM scout_profiles
+
+            WHERE user_id = ?
+              AND status = \'active\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $headerScoutStmt->execute([
+        (int) $headerUser['id']
+    ]);
+
+
+    $headerIsScout =
+        (bool)
+        $headerScoutStmt->fetchColumn();
+}
 
 
 /* =========================================================
