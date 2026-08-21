@@ -296,6 +296,22 @@ $scoutStartedAtRaw =
     );
 
 
+if (
+    $scoutStartedAtRaw === ''
+) {
+
+    http_response_code(
+        500
+    );
+
+
+    exit(
+        'Your Scout start date could not be found.'
+    );
+
+}
+
+
 $scoutYearStart =
     null;
 
@@ -336,28 +352,22 @@ if (
             );
 
 
+        $scoutStartedTimestamp =
+            strtotime(
+                $scoutStartedAtRaw
+            );
+
+
         if (
-            $scoutStartedAtRaw !== ''
+            $scoutStartedTimestamp !== false
+            &&
+            $scoutStartedTimestamp
+            >
+            $yearStartTimestamp
         ) {
 
-            $scoutStartedTimestamp =
-                strtotime(
-                    $scoutStartedAtRaw
-                );
-
-
-            if (
-                $scoutStartedTimestamp !== false
-                &&
-                $scoutStartedTimestamp
-                >
-                $yearStartTimestamp
-            ) {
-
-                $yearStartTimestamp =
-                    $scoutStartedTimestamp;
-
-            }
+            $yearStartTimestamp =
+                $scoutStartedTimestamp;
 
         }
 
@@ -381,7 +391,13 @@ if (
 
 
 /* =========================================================
-   LIFETIME SUBMISSION COUNTS
+   LIFETIME SCOUT REPORT COUNTS
+
+   Only submissions originally made on or after the person's
+   Scout start date belong to their Scout record.
+
+   Earlier Community Scouted submissions remain part of their
+   general submission history but do not become Scout Reports.
    ========================================================= */
 
 $stmt =
@@ -425,16 +441,18 @@ $stmt =
         FROM place_submissions
 
         WHERE user_id = ?
+          AND submitted_at >= ?
         '
     );
 
 
 $stmt->execute([
-    $userId
+    $userId,
+    $scoutStartedAtRaw
 ]);
 
 
-$allSubmissionStats =
+$scoutReportStats =
     $stmt->fetch(
         PDO::FETCH_ASSOC
     )
@@ -443,7 +461,7 @@ $allSubmissionStats =
 
 $totalReports =
     (int) (
-        $allSubmissionStats[
+        $scoutReportStats[
             'total'
         ]
         ?? 0
@@ -452,7 +470,7 @@ $totalReports =
 
 $totalAccepted =
     (int) (
-        $allSubmissionStats[
+        $scoutReportStats[
             'approved'
         ]
         ?? 0
@@ -461,7 +479,7 @@ $totalAccepted =
 
 $totalPending =
     (int) (
-        $allSubmissionStats[
+        $scoutReportStats[
             'pending'
         ]
         ?? 0
@@ -470,7 +488,7 @@ $totalPending =
 
 $totalNeedsChanges =
     (int) (
-        $allSubmissionStats[
+        $scoutReportStats[
             'needs_changes'
         ]
         ?? 0
@@ -658,6 +676,9 @@ $totalPoints =
 
 /* =========================================================
    RECENT SCOUT REPORTS
+
+   Do not display Community Scouted submissions from before
+   the person's Scout start date as Scout Reports.
    ========================================================= */
 
 $stmt =
@@ -666,7 +687,6 @@ $stmt =
         SELECT
             id,
             place_name,
-            source_type,
             status,
             submitted_at,
             reviewed_at
@@ -674,6 +694,7 @@ $stmt =
         FROM place_submissions
 
         WHERE user_id = ?
+          AND submitted_at >= ?
 
         ORDER BY
             submitted_at DESC,
@@ -685,7 +706,8 @@ $stmt =
 
 
 $stmt->execute([
-    $userId
+    $userId,
+    $scoutStartedAtRaw
 ]);
 
 
@@ -2205,7 +2227,7 @@ require_once
 
         <p>
 
-          See your submissions, review status, and reports
+          See your Scout Reports, review status, and reports
           that need changes.
 
         </p>
@@ -2373,6 +2395,7 @@ require_once
 
       <?php endif; ?>
 
+
     </div>
 
 
@@ -2395,7 +2418,7 @@ require_once
         </h2>
 
         <p>
-          Your latest place submissions and review status.
+          Your latest Scout Reports and review status.
         </p>
 
       </div>
