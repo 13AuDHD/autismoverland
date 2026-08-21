@@ -1788,41 +1788,6 @@ $scoutCancelScheduled =
     }
       
 
-    .scout-review-notice {
-      margin-top:
-        20px;
-
-      padding:
-        15px
-        18px;
-
-      border-radius:
-        12px;
-    }
-
-
-    .scout-review-notice.success {
-      background:
-        rgba(
-          31,
-          122,
-          72,
-          .12
-        );
-    }
-
-
-    .scout-review-notice.error {
-      background:
-        rgba(
-          174,
-          52,
-          52,
-          .12
-        );
-    }
-
-
     .scout-review-grid {
       display:
         grid;
@@ -2517,7 +2482,7 @@ require
     
   <?php if ($message): ?>
 
-    <div class="scout-review-notice success">
+    <div class="admin-notice admin-notice--success">
       <?= e($message) ?>
     </div>
 
@@ -2526,7 +2491,7 @@ require
 
   <?php if ($error): ?>
 
-    <div class="scout-review-notice error">
+    <div class="admin-notice admin-notice--error">
       <?= e($error) ?>
     </div>
 
