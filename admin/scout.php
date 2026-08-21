@@ -1770,24 +1770,6 @@ $scoutCancelScheduled =
 
   <style>
 
-    .scout-review-back {
-      display:
-        inline-flex;
-
-      align-items:
-        center;
-
-      gap:
-        8px;
-
-      margin-bottom:
-        20px;
-
-      text-decoration:
-        none;
-    }
-      
-
     .scout-review-grid {
       display:
         grid;
@@ -2388,10 +2370,10 @@ require_once
 <main class="admin-main">
 
 
-  <a
-    class="scout-review-back"
-    href="/scouts.php"
-  >
+    <a
+      class="admin-button"
+      href="/scouts.php"
+    >
 
     <i
       class="fa-solid fa-arrow-left"
