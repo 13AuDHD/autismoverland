@@ -1712,7 +1712,7 @@ require
 
 
             <a
-              class="scout-action"
+              class="admin-button"
               href="/scout.php?id=<?= (int)
                   $scout['id']
               ?>"
