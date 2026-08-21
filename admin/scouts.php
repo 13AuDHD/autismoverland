@@ -817,6 +817,118 @@ $displayName =
         .68;
     }
 
+
+         .scout-filter-controls {
+      grid-template-columns:
+        minmax(
+          180px,
+          1fr
+        )
+        minmax(
+          280px,
+          2fr
+        )
+        auto;
+    }
+
+
+    .scout-filter-controls
+    .admin-place-control
+    input {
+      width: 100%;
+
+      box-sizing: border-box;
+
+      padding:
+        10px
+        11px;
+
+      border:
+        1px solid
+        rgba(
+          0,
+          0,
+          0,
+          .18
+        );
+
+      border-radius:
+        7px;
+
+      background:
+        #fff;
+
+      color:
+        #172822;
+
+      font:
+        inherit;
+
+      outline:
+        none;
+    }
+
+
+    .scout-filter-controls
+    .admin-place-control
+    input:focus {
+      border-color:
+        #426b59;
+
+      box-shadow:
+        0 0 0 3px
+        rgba(
+          66,
+          107,
+          89,
+          .14
+        );
+    }
+
+
+    @media (
+      max-width:
+        900px
+    ) {
+
+      .scout-filter-controls {
+        grid-template-columns:
+          1fr
+          1fr;
+      }
+
+
+      .scout-filter-controls
+      .scout-filter-action {
+        grid-column:
+          1
+          /
+          -1;
+      }
+
+    }
+
+
+    @media (
+      max-width:
+        600px
+    ) {
+
+      .scout-filter-controls {
+        grid-template-columns:
+          1fr;
+      }
+
+
+      .scout-filter-controls
+      .scout-filter-action {
+        grid-column:
+          auto;
+      }
+
+    }
+
+     
     @media (
       max-width:
         980px
