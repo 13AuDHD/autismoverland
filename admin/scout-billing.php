@@ -244,7 +244,7 @@ try {
 
 
     header(
-        'Location: /admin/scout.php?id='
+        'Location: /scout.php?id='
         . $scoutProfileId
         . '&'
         . $query
@@ -268,7 +268,7 @@ try {
 
 
     header(
-        'Location: /admin/scout.php?id='
+        'Location: /scout.php?id='
         . $scoutProfileId
         . '&billing=scout-error'
     );
