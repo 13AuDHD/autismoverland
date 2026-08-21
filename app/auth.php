@@ -1033,19 +1033,26 @@ function require_membership(): void
      * while those roles are assigned.
      */
 
-    if (
-        user_has_role(
-            'owner'
-        )
-        ||
-        user_has_role(
-            'admin'
-        )
-    ) {
+if (
+    user_has_role(
+        'owner'
+    )
+    ||
+    user_has_role(
+        'admin'
+    )
+    ||
+    user_has_role(
+        'master-scout'
+    )
+    ||
+    user_has_role(
+        'scout'
+    )
+) {
 
-        return;
-
-    }
+    return;
+}
 
 
     if (
