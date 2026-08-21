@@ -877,43 +877,6 @@ $displayName =
     }
 
 
-    .scout-action {
-      display:
-        inline-flex;
-
-      align-items:
-        center;
-
-      gap:
-        7px;
-
-      padding:
-        9px
-        12px;
-
-      border-radius:
-        9px;
-
-      background:
-        #172822;
-
-      color:
-        #fff;
-
-      text-decoration:
-        none;
-
-      font-size:
-        .82rem;
-
-      font-weight:
-        750;
-
-      white-space:
-        nowrap;
-    }
-
-
     .scouts-empty {
       margin-top:
         18px;
