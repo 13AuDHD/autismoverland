@@ -1802,57 +1802,6 @@ $scoutCancelScheduled =
     }
 
 
-    .scout-review-card {
-      padding:
-        24px;
-
-      border:
-        1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .12
-        );
-
-      border-radius:
-        16px;
-
-      background:
-        rgba(
-          255,
-          255,
-          255,
-          .84
-        );
-    }
-
-
-    .scout-review-card h2 {
-      margin:
-        0
-        0
-        6px;
-
-      font-size:
-        1.3rem;
-    }
-
-
-    .scout-review-card > p {
-      margin:
-        0
-        0
-        20px;
-
-      line-height:
-        1.55;
-
-      opacity:
-        .75;
-    }
-
-
     .review-answer {
       padding:
         16px
@@ -3785,7 +3734,7 @@ require
              ACTIVE SCOUT / BILLING
              =============================================== -->
 
-    <section class="admin-card">
+        <section class="admin-card">
 
 
           <h2>
