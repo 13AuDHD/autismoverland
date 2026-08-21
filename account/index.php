@@ -93,6 +93,21 @@ $scoutProfile =
     ?: null;
 
 
+$hasActiveScoutAccess =
+    $isScout
+    &&
+    $scoutProfile
+    &&
+    (
+        $scoutProfile[
+            'status'
+        ]
+        ?? ''
+    )
+    ===
+    'active';
+
+
 /* =========================================================
    ONBOARDING CARD
    ========================================================= */
@@ -729,9 +744,9 @@ require_once
        SCOUT TOOLS
        ===================================================== -->
 
-  <?php if (
-      $isScout
-  ): ?>
+<?php if (
+    $hasActiveScoutAccess
+): ?>
 
 
     <section class="account-section">
