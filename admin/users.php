@@ -1362,49 +1362,17 @@ require_once
   </section>
 
 
-  <!-- =====================================================
-       NAV
-       ===================================================== -->
+<!-- =====================================================
+     BASECAMP NAVIGATION
+     ===================================================== -->
 
-  <nav
-    class="admin-nav"
-    aria-label="Admin navigation"
-  >
+<?php
 
-    <div class="admin-nav-inner">
+require
+    dirname(__DIR__)
+    . '/app/admin-nav.php';
 
-      <a href="/">
-        <i class="fa-solid fa-campground"></i>
-        Basecamp
-      </a>
-
-      <a href="/places.php">
-        <i class="fa-solid fa-location-dot"></i>
-        Places
-      </a>
-
-      <a href="/submissions.php">
-        <i class="fa-solid fa-inbox"></i>
-        Submissions
-      </a>
-
-      <a
-        class="is-active"
-        href="/users.php"
-        aria-current="page"
-      >
-        <i class="fa-solid fa-users"></i>
-        Users
-      </a>
-
-      <a href="/import-places.php">
-        <i class="fa-solid fa-file-import"></i>
-        Import
-      </a>
-
-    </div>
-
-  </nav>
+?>
 
 
   <!-- =====================================================
