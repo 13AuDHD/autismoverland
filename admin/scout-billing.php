@@ -268,7 +268,7 @@ try {
 
 
     header(
-        'Location: /scout.php?id='
+        'Location: /admin/scout.php?id='
         . $scoutProfileId
         . '&billing=scout-error'
     );
