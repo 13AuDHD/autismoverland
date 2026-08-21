@@ -1105,10 +1105,13 @@ require
      SCOUT FILTERS
      ===================================================== -->
 
-   <section
-     class="admin-place-controls"
-     aria-label="Scout filters"
-   >
+<section
+  class="
+    admin-place-controls
+    scout-filter-controls
+  "
+  aria-label="Scout filters"
+>
    
      <form
        method="get"
