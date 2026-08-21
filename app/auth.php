@@ -1041,17 +1041,44 @@ if (
     user_has_role(
         'admin'
     )
-    ||
-    user_has_role(
-        'master-scout'
-    )
-    ||
+) {
+
+    return;
+}
+
+
+if (
     user_has_role(
         'scout'
     )
 ) {
 
-    return;
+    $scoutStmt =
+        db()->prepare(
+            '
+            SELECT 1
+
+            FROM scout_profiles
+
+            WHERE user_id = ?
+              AND status = \'active\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $scoutStmt->execute([
+        (int) $user['id']
+    ]);
+
+
+    if (
+        $scoutStmt->fetchColumn()
+    ) {
+
+        return;
+    }
 }
 
 
