@@ -244,7 +244,7 @@ try {
 
 
     header(
-        'Location: /scout.php?id='
+        'Location: /admin/scout.php?id='
         . $scoutProfileId
         . '&'
         . $query
