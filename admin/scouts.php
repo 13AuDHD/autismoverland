@@ -1332,15 +1332,9 @@ require
                 $status !== 'active'
             ): ?>
 
-              <div
-                style="
-                  margin-top: 6px;
-                  font-size: .75rem;
-                  opacity: .62;
-                "
-              >
-                Step <?= $step ?> of 5
-              </div>
+            <div class="scout-meta">
+              Step <?= $step ?> of 5
+            </div>
 
             <?php endif; ?>
 
@@ -1445,22 +1439,15 @@ require
               </span>
 
 
-              <div
-                style="
-                  margin-top: 5px;
-                  font-size: .75rem;
-                  opacity: .62;
-                "
-              >
-
-                <?= (int) (
-                    $scout['total_points']
-                    ?? 0
-                ) ?>
-                points
-
-              </div>
-
+            <div class="scout-meta">
+            
+              <?= (int) (
+                  $scout['total_points']
+                  ?? 0
+              ) ?>
+              points
+            
+            </div>
 
             <?php elseif (
                 $status ===
