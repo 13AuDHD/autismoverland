@@ -6,14 +6,30 @@ require_once
     dirname(__DIR__)
     . '/app/auth.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/role-display.php';
+
 
 require_role(
     'admin'
 );
 
-
 $user =
     current_user();
+
+$primaryRoleLabel =
+    llama_primary_role_label(
+        (int)
+        $user['id']
+    );
+
+
+$primaryRoleIcon =
+    llama_primary_role_icon(
+        (int)
+        $user['id']
+    );
 
 
 start_llama_session();
@@ -1410,7 +1426,15 @@ require_once
       <div class="admin-intro-copy">
 
         <p class="admin-eyebrow">
-          Llama Scout Admin
+        
+          <i
+            class="<?= e($primaryRoleIcon) ?>"
+            aria-hidden="true"
+          ></i>
+        
+          Llama Scout
+          <?= e($primaryRoleLabel) ?>
+        
         </p>
 
         <h1>
