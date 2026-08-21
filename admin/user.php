@@ -912,16 +912,33 @@ require_once
 
       <div class="admin-intro-copy">
 
-        <p class="admin-eyebrow">
-
-          <?php if ($managedUserIsAdmin): ?>
-            Administrator Account
-          <?php else: ?>
-            User Management
-          <?php endif; ?>
-
-        </p>
-
+         <p class="admin-eyebrow">
+         
+           <?php if ($managedUserIsOwner): ?>
+         
+             <i
+               class="fa-solid fa-crown"
+               aria-hidden="true"
+             ></i>
+         
+             Owner Account
+         
+           <?php elseif ($managedUserIsAdmin): ?>
+         
+             <i
+               class="fa-solid fa-shield-halved"
+               aria-hidden="true"
+             ></i>
+         
+             Administrator Account
+         
+           <?php else: ?>
+         
+             User Management
+         
+           <?php endif; ?>
+         
+         </p>
 
         <h1>
           <?= e($displayName) ?>
@@ -1103,7 +1120,13 @@ require_once
   <?php endif; ?>
 
 
-  <?php if ($managedUserIsAdmin && $currentAdminIsOwner): ?>
+   <?php if (
+       $managedUserIsAdmin
+       &&
+       !$managedUserIsOwner
+       &&
+       $currentAdminIsOwner
+   ): ?>
 
     <div class="admin-notice">
 
