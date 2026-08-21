@@ -478,124 +478,17 @@ require_once
   </section>
 
 
-  <!-- =====================================================
-       ADMIN NAVIGATION
-       ===================================================== -->
+<!-- =====================================================
+     BASECAMP NAVIGATION
+     ===================================================== -->
 
-  <nav
-    class="admin-nav"
-    aria-label="Admin navigation"
-  >
+<?php
 
+require
+    dirname(__DIR__)
+    . '/app/admin-nav.php';
 
-    <div class="admin-nav-inner">
-
-
-      <a
-        class="is-active"
-        href="/"
-        aria-current="page"
-      >
-
-        <i
-          class="fa-solid fa-campground"
-          aria-hidden="true"
-        ></i>
-
-        Basecamp
-
-      </a>
-
-
-      <a href="/places.php">
-
-        <i
-          class="fa-solid fa-location-dot"
-          aria-hidden="true"
-        ></i>
-
-        Places
-
-      </a>
-
-
-      <a href="/submissions.php">
-
-        <i
-          class="fa-solid fa-inbox"
-          aria-hidden="true"
-        ></i>
-
-        Submissions
-
-      </a>
-
-
-      <a href="/users.php">
-
-        <i
-          class="fa-solid fa-users"
-          aria-hidden="true"
-        ></i>
-
-        Users
-
-      </a>
-
-
-      <a href="/scouts.php">
-
-        <i
-          class="fa-solid fa-binoculars"
-          aria-hidden="true"
-        ></i>
-
-        Scouts
-
-        <?php if (
-            $scoutsAwaitingReview > 0
-        ): ?>
-
-          <span
-            style="
-              display: inline-grid;
-              place-items: center;
-              min-width: 20px;
-              height: 20px;
-              padding: 0 5px;
-              border-radius: 999px;
-              background: #172822;
-              color: #fff;
-              font-size: .7rem;
-              font-weight: 800;
-            "
-          >
-
-            <?= $scoutsAwaitingReview ?>
-
-          </span>
-
-        <?php endif; ?>
-
-      </a>
-
-
-      <a href="/import-places.php">
-
-        <i
-          class="fa-solid fa-file-import"
-          aria-hidden="true"
-        ></i>
-
-        Import
-
-      </a>
-
-
-    </div>
-
-
-  </nav>
+?>
 
 
   <!-- =====================================================
