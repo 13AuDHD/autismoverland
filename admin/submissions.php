@@ -781,6 +781,7 @@ if (
                         SELECT
                             id,
                             user_id,
+                            place_id,
                             place_name,
                             source_type,
                             status,
@@ -833,6 +834,19 @@ if (
                         'status'
                     ];
 
+                    if (
+                        !empty(
+                            $submission[
+                                'place_id'
+                            ]
+                        )
+                    ) {
+    
+                        throw new RuntimeException(
+                            'This submission has already been published as a Place and can no longer be moved backward through the submission review workflow.'
+                        );
+    
+                    }
 
                 /* =========================================
                    SAVE REVIEW RESULT
