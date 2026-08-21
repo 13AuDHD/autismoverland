@@ -407,6 +407,94 @@ if (
 
 
 /* =========================================================
+   RESET OUTDATED TRAINING VERSION
+   ========================================================= */
+
+if (
+    (string) (
+        $training[
+            'training_version'
+        ]
+        ?? ''
+    )
+    !==
+    TRAINING_VERSION
+) {
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE scout_training
+
+            SET
+                training_version = ?,
+                video_started_at = NULL,
+                video_completed_at = NULL,
+                acknowledged_tools = 0,
+                acknowledged_accuracy = 0,
+                acknowledged_safety = 0,
+                acknowledged_privacy = 0,
+                completed_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+
+            WHERE id = ?
+              AND scout_profile_id = ?
+              AND user_id = ?
+            '
+        );
+
+
+    $stmt->execute([
+        TRAINING_VERSION,
+        (int) $training['id'],
+        $scoutProfileId,
+        $userId
+    ]);
+
+
+    $training[
+        'training_version'
+    ] =
+        TRAINING_VERSION;
+
+    $training[
+        'video_started_at'
+    ] =
+        null;
+
+    $training[
+        'video_completed_at'
+    ] =
+        null;
+
+    $training[
+        'acknowledged_tools'
+    ] =
+        0;
+
+    $training[
+        'acknowledged_accuracy'
+    ] =
+        0;
+
+    $training[
+        'acknowledged_safety'
+    ] =
+        0;
+
+    $training[
+        'acknowledged_privacy'
+    ] =
+        0;
+
+    $training[
+        'completed_at'
+    ] =
+        null;
+}
+
+
+/* =========================================================
    MOVE PROFILE INTO TRAINING
    ========================================================= */
 
