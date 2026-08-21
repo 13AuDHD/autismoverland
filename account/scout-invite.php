@@ -440,6 +440,10 @@ if (
                                 WHERE id = ?
                                   AND user_id = ?
                                   AND status = \'invited\'
+                                  AND (
+                                  invitation_expires_at IS NULL
+                                  OR invitation_expires_at >= CURRENT_TIMESTAMP
+                                  )
                                 '
                             );
 
