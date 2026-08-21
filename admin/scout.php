@@ -1745,11 +1745,31 @@ $scoutIsActive =
     'active';
 
 
+$scoutMembershipStatus =
+    strtolower(
+        trim(
+            (string) (
+                $scout['membership_status']
+                ?? ''
+            )
+        )
+    );
+
+
 $scoutHasStripeSubscription =
     !empty(
         $scout['stripe_subscription_id']
+    )
+    &&
+    in_array(
+        $scoutMembershipStatus,
+        [
+            'active',
+            'trialing',
+            'past_due'
+        ],
+        true
     );
-
 
 $scoutCancelScheduled =
     !empty(
