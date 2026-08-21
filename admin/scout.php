@@ -1341,6 +1341,18 @@ if (
                     ]);
 
 
+                    if (
+                        $profileUpdate->rowCount()
+                        !==
+                        1
+                    ) {
+                    
+                        throw new RuntimeException(
+                            'Scout onboarding state changed before the decline could be completed.'
+                        );
+                    }
+                    
+
                     $applicationUpdate =
                         $db->prepare(
                             '
