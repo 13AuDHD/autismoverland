@@ -1198,6 +1198,40 @@ function user_has_role(
 
 
     /*
+     * MASTER SCOUT LEGACY SLUG
+     *
+     * Older accounts may still use master_scout.
+     * Treat it exactly like master-scout.
+     */
+
+    if (
+        (
+            $role === 'master-scout'
+            &&
+            in_array(
+                'master_scout',
+                $roles,
+                true
+            )
+        )
+        ||
+        (
+            $role === 'master_scout'
+            &&
+            in_array(
+                'master-scout',
+                $roles,
+                true
+            )
+        )
+    ) {
+
+        return true;
+
+    }
+
+   
+    /*
      * OWNER INHERITANCE
      *
      * Owner automatically satisfies anything requiring
