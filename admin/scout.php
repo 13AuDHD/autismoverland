@@ -1143,6 +1143,18 @@ if (
                     ]);
 
 
+                    if (
+                        $profileUpdate->rowCount()
+                        !==
+                        1
+                    ) {
+                    
+                        throw new RuntimeException(
+                            'Scout onboarding state changed before the candidate could be returned for changes.'
+                        );
+                    }
+
+
                     $applicationUpdate =
                         $db->prepare(
                             '
