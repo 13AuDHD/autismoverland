@@ -362,6 +362,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user['id']
             ]);
 
+                        if (
+                $stmt->rowCount()
+                !==
+                1
+            ) {
+
+                http_response_code(
+                    409
+                );
+
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'That submission changed before your update could be saved. Reload the page and try again.'
+                ]);
+
+                exit;
+            }
+
             echo json_encode([
                 'success' => true,
                 'submission_id' => $submissionId,
@@ -6378,8 +6396,8 @@ async function submitPlaceEditor() {
           scoutAdminPlaceId > 0
         ) {
 
-          window.location.href =
-            `https://llamascout.com/admin/place.php?id=${scoutAdminPlaceId}&updated=1`;
+            window.location.href =
+            `https://admin.llamascout.com/place.php?id=${scoutAdminPlaceId}&updated=1`;
 
 
         } else if (
