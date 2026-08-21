@@ -2673,7 +2673,7 @@ require
            ABOUT YOU
            =============================================== -->
 
-      <section class="scout-review-card">
+    <section class="admin-card">
 
 
         <h2>
