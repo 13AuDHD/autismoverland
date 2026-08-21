@@ -135,7 +135,12 @@ if (
 
 /* =========================================================
    HELPER
-   FIND ACTIVE SCOUT PROFILE
+   FIND + LOCK ACTIVE SCOUT PROFILE
+
+   This is called only while the approval transaction is open.
+   Locking the profile prevents Scout status from changing
+   while the same approval is deciding whether Scout credit
+   should be recorded.
    ========================================================= */
 
 function approval_active_scout_profile(
@@ -159,6 +164,8 @@ function approval_active_scout_profile(
               AND status = \'active\'
 
             LIMIT 1
+
+            FOR UPDATE
             '
         );
 
@@ -249,9 +256,9 @@ function approval_record_scout_activity(
 
     /*
      * INSERT IGNORE works with the unique Scout activity key
-     * so the same report cannot be credited twice.
+     * so the same report cannot be credited more than once.
      *
-     * Points remain zero until a Scout points system is
+     * Points remain zero until the Scout points system is
      * deliberately designed.
      */
 
@@ -400,22 +407,12 @@ function approval_current_scout_year_progress(
     }
 
 
-    /*
-     * Current Scout year normally begins one year before
-     * active_through.
-     */
-
     $startTimestamp =
         strtotime(
             '-1 year',
             $endTimestamp
         );
 
-
-    /*
-     * During the first Scout year, never allow the year to
-     * begin before the Scout actually became a Scout.
-     */
 
     if (
         $scoutStartedAt !== ''
@@ -568,8 +565,67 @@ try {
         !$submission
     ) {
 
-        throw new RuntimeException(
+        throw new DomainException(
             'The submission could not be found.'
+        );
+    }
+
+
+    /* =====================================================
+       APPROVAL STATE GUARD
+
+       Only a currently pending submission may enter the
+       approval/publishing workflow.
+
+       needs-changes and rejected submissions must first be
+       edited and resubmitted by the member, which returns
+       them to pending.
+       ===================================================== */
+
+    $submissionStatus =
+        strtolower(
+            trim(
+                (string) (
+                    $submission[
+                        'status'
+                    ]
+                    ?? ''
+                )
+            )
+        );
+
+
+    if (
+        $submissionStatus !==
+        'pending'
+    ) {
+
+        throw new DomainException(
+            'This submission is no longer pending review. Reload the submission before taking another action.'
+        );
+    }
+
+
+    /* =====================================================
+       PUBLISHED PLACE GUARD
+
+       Once a submission has a place_id, it has already been
+       converted into a normal Llama Scout Place.
+
+       Future changes belong in the Place editor, not back in
+       the submission approval workflow.
+       ===================================================== */
+
+    if (
+        !empty(
+            $submission[
+                'place_id'
+            ]
+        )
+    ) {
+
+        throw new DomainException(
+            'This submission is already linked to a Llama Scout Place. Make further changes from the Place editor.'
         );
     }
 
@@ -581,82 +637,58 @@ try {
         ];
 
 
-    /* =====================================================
-       CREATE OR REUSE PLACE
-       ===================================================== */
-
     if (
-        !empty(
-            $submission[
-                'place_id'
-            ]
-        )
+        $submissionUserId < 1
     ) {
 
-        /*
-         * Already published.
-         *
-         * Do not create a duplicate place.
-         */
+        throw new RuntimeException(
+            'The submission is missing its submitting user.'
+        );
+    }
 
-        $placeId =
+
+    /* =====================================================
+       LOCK SCOUT PROFILE BEFORE PUBLISHING
+
+       This keeps the Scout-credit decision stable throughout
+       the same approval transaction.
+       ===================================================== */
+
+    $scoutProfile =
+        approval_active_scout_profile(
+            $db,
+            $submissionUserId
+        );
+
+
+    /* =====================================================
+       CREATE DRAFT PLACE
+
+       publish_place_submission() creates the relational Place,
+       links the submission, and marks the submission approved.
+       ===================================================== */
+
+    $placeId =
+        publish_place_submission(
+            $db,
+            $submissionId,
             (int)
-            $submission[
-                'place_id'
-            ];
-
-        $reapproveStmt =
-            $db->prepare(
-                '
-                UPDATE place_submissions
-        
-                SET
-                    status =
-                        \'approved\',
-        
-                    review_notes =
-                        ?,
-        
-                    reviewed_at =
-                        CURRENT_TIMESTAMP,
-        
-                    reviewed_by =
-                        ?
-        
-                WHERE id = ?
-                '
-            );
-        
-        
-        $reapproveStmt->execute([
+            $user[
+                'id'
+            ],
             $reviewNotes !== ''
                 ? $reviewNotes
-                : null,
-        
-            (int) $user['id'],
-        
-            $submissionId
-        ]);
+                : null
+        );
 
-    } else {
 
-        /*
-         * publish_place_submission() creates the draft place
-         * and marks the submission approved.
-         */
+    if (
+        $placeId < 1
+    ) {
 
-        $placeId =
-            publish_place_submission(
-                $db,
-                $submissionId,
-                (int)
-                $user[
-                    'id'
-                ],
-                $reviewNotes !== ''
-                    ? $reviewNotes
-                    : null
-            );
+        throw new RuntimeException(
+            'The approved submission did not create a valid Place.'
+        );
     }
 
 
@@ -705,6 +737,40 @@ try {
     }
 
 
+    if (
+        (
+            $approvedSubmission[
+                'status'
+            ]
+            ?? ''
+        )
+        !==
+        'approved'
+    ) {
+
+        throw new RuntimeException(
+            'The submission was not marked approved.'
+        );
+    }
+
+
+    if (
+        (int) (
+            $approvedSubmission[
+                'place_id'
+            ]
+            ?? 0
+        )
+        !==
+        $placeId
+    ) {
+
+        throw new RuntimeException(
+            'The approved submission was not linked to the expected Place.'
+        );
+    }
+
+
     /* =====================================================
        SCOUT ACTIVITY CREDIT
        ===================================================== */
@@ -717,24 +783,8 @@ try {
         null;
 
 
-    $scoutProfile =
-        approval_active_scout_profile(
-            $db,
-            $submissionUserId
-        );
-
-
     if (
         $scoutProfile
-        &&
-        (
-            $approvedSubmission[
-                'status'
-            ]
-            ?? ''
-        )
-        ===
-        'approved'
         &&
         approval_submission_qualifies(
             $approvedSubmission,
@@ -743,12 +793,9 @@ try {
     ) {
 
         /*
-         * Use the actual approval timestamp as occurred_at.
-         *
-         * This is important if an older approved submission
-         * is ever revisited after this feature was added.
-         * It prevents a historical approval from being
-         * incorrectly credited to the current Scout year.
+         * Credit occurs when the Scout Report is accepted.
+         * reviewed_at is written by the publisher during this
+         * same transaction.
          */
 
         $approvalOccurredAt =
@@ -766,10 +813,9 @@ try {
             $approvalOccurredAt === ''
         ) {
 
-            $approvalOccurredAt =
-                date(
-                    'Y-m-d H:i:s'
-                );
+            throw new RuntimeException(
+                'The approval timestamp could not be determined.'
+            );
         }
 
 
@@ -800,6 +846,9 @@ try {
 
     /* =====================================================
        REDIRECT TO PLACE EDITOR
+
+       admin.llamascout.com uses /admin as its document root,
+       so place.php is the correct Basecamp-relative route.
        ===================================================== */
 
     $redirectUrl =
@@ -878,8 +927,16 @@ try {
     );
 
 
+    $isConflict =
+        $exception
+        instanceof
+        DomainException;
+
+
     http_response_code(
-        500
+        $isConflict
+            ? 409
+            : 500
     );
 
     ?>
@@ -897,7 +954,7 @@ try {
 >
 
 <title>
-  Submission Publish Error | Llama Scout Admin
+  Submission Publish Error | Llama Scout Basecamp
 </title>
 
 <style>
@@ -970,14 +1027,19 @@ a {
 
 
     <h1>
-      The submission was not published.
+
+      <?= $isConflict
+          ? 'The submission changed before approval.'
+          : 'The submission was not published.'
+      ?>
+
     </h1>
 
 
     <p>
 
-      Nothing was committed to the database.
-      The submission is still available for review.
+      Nothing from this approval attempt was committed to the
+      database.
 
     </p>
 
