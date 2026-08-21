@@ -1302,6 +1302,7 @@ a.admin-card:focus-visible {
 }
 
 
+.admin-place-control input,
 .admin-place-control select {
   width: 100%;
 
@@ -1323,6 +1324,7 @@ a.admin-card:focus-visible {
 }
 
 
+.admin-place-control input:focus,
 .admin-place-control select:focus {
   border-color: #426b59;
 
