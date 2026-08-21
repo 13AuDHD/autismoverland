@@ -586,9 +586,9 @@ $displayName =
     content="width=device-width, initial-scale=1"
   >
 
-  <title>
-    Llama Scouts | Admin Basecamp
-  </title>
+<title>
+  Llama Scouts | Admin Basecamp
+</title>
 
   <meta
     name="robots"
