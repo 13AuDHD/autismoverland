@@ -2375,7 +2375,16 @@ require_once
 
     <div>
 
-      <span class="admin-badge admin-badge--info">
+    <span
+      class="
+        admin-badge
+        <?=
+          $scoutIsActive
+            ? 'admin-badge--success'
+            : 'admin-badge--warning'
+        ?>
+      "
+    >
 
         <i
           class="fa-solid fa-compass"
