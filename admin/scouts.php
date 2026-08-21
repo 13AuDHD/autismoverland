@@ -876,57 +876,6 @@ $displayName =
         .68;
     }
 
-
-    .scouts-empty {
-      margin-top:
-        18px;
-
-      padding:
-        42px
-        20px;
-
-      border:
-        1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .11
-        );
-
-      border-radius:
-        14px;
-
-      background:
-        rgba(
-          255,
-          255,
-          255,
-          .84
-        );
-
-      text-align:
-        center;
-    }
-
-
-    .scouts-empty h2 {
-      margin:
-        0
-        0
-        7px;
-    }
-
-
-    .scouts-empty p {
-      margin:
-        0;
-
-      opacity:
-        .68;
-    }
-
-
     @media (
       max-width:
         980px
@@ -946,15 +895,6 @@ $displayName =
           -1;
       }
 
-
-      .scout-action {
-        width:
-          100%;
-
-        justify-content:
-          center;
-      }
-
     }
 
 
@@ -962,38 +902,6 @@ $displayName =
       max-width:
         700px
     ) {
-
-      .scouts-stats {
-        grid-template-columns:
-          repeat(
-            2,
-            minmax(
-              0,
-              1fr
-            )
-          );
-      }
-
-
-      .scouts-controls {
-        flex-direction:
-          column;
-      }
-
-
-      .scouts-search {
-        width:
-          100%;
-      }
-
-
-      .scouts-search input {
-        min-width:
-          0;
-
-        flex:
-          1;
-      }
 
 
       .scout-row {
