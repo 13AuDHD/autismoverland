@@ -3324,7 +3324,7 @@ require
            ACCOUNT
            =============================================== -->
 
-      <section class="scout-review-card">
+    <section class="admin-card">
 
 
         <h2>
