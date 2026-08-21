@@ -4,26 +4,32 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/stripe.php';
+require_once dirname(__DIR__) . '/app/timezone.php';
 
 require_role('admin');
-
 start_llama_session();
 
 $adminUser = current_user();
 $db = db();
+$adminUserId = (int) $adminUser['id'];
 
-$adminUserId =
-    (int) $adminUser['id'];
+
+/* =========================================================
+   TRAINING CONFIGURATION
+
+   Keep this value synchronized with TRAINING_VERSION in
+   account/scout-training.php.
+   ========================================================= */
+
+const SCOUT_REQUIRED_TRAINING_VERSION = '1';
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function e(
-    mixed $value
-): string {
-
+function e(mixed $value): string
+{
     return htmlspecialchars(
         (string) $value,
         ENT_QUOTES,
@@ -75,8 +81,30 @@ function scout_status_label(
                     ' ',
                     $status
                 )
-            )
+            ),
+    };
+}
 
+
+function scout_status_badge_class(
+    string $status
+): string {
+
+    return match ($status) {
+
+        'active' =>
+            'admin-badge--success',
+
+        'pending_approval' =>
+            'admin-badge--warning',
+
+        'inactive',
+        'declined',
+        'removed' =>
+            'admin-badge--danger',
+
+        default =>
+            'admin-badge--muted',
     };
 }
 
@@ -86,24 +114,23 @@ function format_admin_date(
     bool $withTime = false
 ): string {
 
+    global $adminUser;
+
+
     if (!$value) {
+
         return 'Not yet';
     }
 
-    $timestamp =
-        strtotime(
-            $value
-        );
 
-    if ($timestamp === false) {
-        return $value;
-    }
-
-    return date(
+    return llama_format_datetime(
+        $value,
+        llama_user_timezone(
+            $adminUser
+        ),
         $withTime
             ? 'M j, Y g:i A'
-            : 'M j, Y',
-        $timestamp
+            : 'M j, Y'
     );
 }
 
@@ -119,16 +146,17 @@ function fetch_one(
             $sql
         );
 
+
     $stmt->execute(
         $params
     );
 
-    $row =
+
+    return
         $stmt->fetch(
             PDO::FETCH_ASSOC
-        );
-
-    return $row ?: [];
+        )
+        ?: [];
 }
 
 
@@ -143,68 +171,18 @@ function fetch_all(
             $sql
         );
 
+
     $stmt->execute(
         $params
     );
 
-    return $stmt->fetchAll(
-        PDO::FETCH_ASSOC
-    );
-}
 
-
-/* =========================================================
-   SCOUT PROFILE ID
-   ========================================================= */
-
-$scoutProfileId =
-    (int) (
-        $_GET['id']
-        ??
-        $_POST['scout_profile_id']
-        ??
-        0
-    );
-
-
-if ($scoutProfileId < 1) {
-
-    http_response_code(
-        400
-    );
-
-    exit(
-        'A valid Scout profile ID is required.'
-    );
-}
-
-
-/* =========================================================
-   CSRF
-   ========================================================= */
-
-if (
-    empty(
-        $_SESSION['admin_scout_csrf']
-    )
-) {
-
-    $_SESSION['admin_scout_csrf'] =
-        bin2hex(
-            random_bytes(
-                32
-            )
+    return
+        $stmt->fetchAll(
+            PDO::FETCH_ASSOC
         );
 }
 
-
-$csrfToken =
-    $_SESSION['admin_scout_csrf'];
-
-
-/* =========================================================
-   LOAD SCOUT
-   ========================================================= */
 
 function load_scout(
     PDO $db,
@@ -274,33 +252,6 @@ function load_scout(
 }
 
 
-$scout =
-    load_scout(
-        $db,
-        $scoutProfileId
-    );
-
-
-if (!$scout) {
-
-    http_response_code(
-        404
-    );
-
-    exit(
-        'Scout profile not found.'
-    );
-}
-
-
-$scoutUserId =
-    (int) $scout['user_id'];
-
-
-/* =========================================================
-   LOAD ROLES
-   ========================================================= */
-
 function load_role_slugs(
     PDO $db,
     int $userId
@@ -320,12 +271,14 @@ function load_role_slugs(
 
             WHERE ur.user_id = ?
 
-            ORDER BY r.slug ASC
+            ORDER BY
+                r.slug ASC
             ',
             [
                 $userId
             ]
         );
+
 
     return array_column(
         $roles,
@@ -333,17 +286,6 @@ function load_role_slugs(
     );
 }
 
-
-$currentRoleSlugs =
-    load_role_slugs(
-        $db,
-        $scoutUserId
-    );
-
-
-/* =========================================================
-   LOAD APPLICATION
-   ========================================================= */
 
 function load_application(
     PDO $db,
@@ -371,18 +313,6 @@ function load_application(
 }
 
 
-$application =
-    load_application(
-        $db,
-        $scoutProfileId,
-        $scoutUserId
-    );
-
-
-/* =========================================================
-   LOAD TRAINING
-   ========================================================= */
-
 function load_training(
     PDO $db,
     int $scoutProfileId,
@@ -409,25 +339,31 @@ function load_training(
 }
 
 
-$training =
-    load_training(
-        $db,
-        $scoutProfileId,
-        $scoutUserId
-    );
-
-
-/* =========================================================
-   READINESS
-   ========================================================= */
-
 function scout_application_submitted(
     array $application
 ): bool {
 
     return !empty(
-        $application['submitted_at']
+        $application[
+            'submitted_at'
+        ]
     );
+}
+
+
+function scout_training_version_current(
+    array $training
+): bool {
+
+    return
+        (string) (
+            $training[
+                'training_version'
+            ]
+            ?? ''
+        )
+        ===
+        SCOUT_REQUIRED_TRAINING_VERSION;
 }
 
 
@@ -436,12 +372,20 @@ function scout_training_completed(
 ): bool {
 
     return
-        !empty(
-            $training['completed_at']
+        scout_training_version_current(
+            $training
         )
         &&
         !empty(
-            $training['video_completed_at']
+            $training[
+                'completed_at'
+            ]
+        )
+        &&
+        !empty(
+            $training[
+                'video_completed_at'
+            ]
         );
 }
 
@@ -452,26 +396,196 @@ function scout_acknowledgements_complete(
 
     return
         !empty(
-            $training['acknowledged_tools']
+            $training[
+                'acknowledged_tools'
+            ]
         )
         &&
         !empty(
-            $training['acknowledged_accuracy']
+            $training[
+                'acknowledged_accuracy'
+            ]
         )
         &&
         !empty(
-            $training['acknowledged_safety']
+            $training[
+                'acknowledged_safety'
+            ]
         )
         &&
         !empty(
-            $training['acknowledged_privacy']
+            $training[
+                'acknowledged_privacy'
+            ]
         );
 }
+
+
+function scout_is_ready_for_approval(
+    array $scout,
+    array $application,
+    array $training
+): bool {
+
+    return
+        (
+            (string) (
+                $scout[
+                    'status'
+                ]
+                ?? ''
+            )
+            ===
+            'pending_approval'
+        )
+        &&
+        !empty(
+            $scout[
+                'email_verified_at'
+            ]
+        )
+        &&
+        scout_application_submitted(
+            $application
+        )
+        &&
+        scout_training_completed(
+            $training
+        )
+        &&
+        scout_acknowledgements_complete(
+            $training
+        );
+}
+
+
+/* =========================================================
+   SCOUT PROFILE ID
+   ========================================================= */
+
+$scoutProfileId =
+    (int) (
+        $_GET[
+            'id'
+        ]
+        ??
+        $_POST[
+            'scout_profile_id'
+        ]
+        ??
+        0
+    );
+
+
+if (
+    $scoutProfileId
+    <
+    1
+) {
+
+    http_response_code(
+        400
+    );
+
+
+    exit(
+        'A valid Scout profile ID is required.'
+    );
+}
+
+
+/* =========================================================
+   CSRF
+   ========================================================= */
+
+if (
+    empty(
+        $_SESSION[
+            'admin_scout_csrf'
+        ]
+    )
+) {
+
+    $_SESSION[
+        'admin_scout_csrf'
+    ] =
+        bin2hex(
+            random_bytes(
+                32
+            )
+        );
+}
+
+
+$csrfToken =
+    $_SESSION[
+        'admin_scout_csrf'
+    ];
+
+
+/* =========================================================
+   INITIAL LOAD
+   ========================================================= */
+
+$scout =
+    load_scout(
+        $db,
+        $scoutProfileId
+    );
+
+
+if (!$scout) {
+
+    http_response_code(
+        404
+    );
+
+
+    exit(
+        'Scout profile not found.'
+    );
+}
+
+
+$scoutUserId =
+    (int)
+    $scout[
+        'user_id'
+    ];
+
+
+$application =
+    load_application(
+        $db,
+        $scoutProfileId,
+        $scoutUserId
+    );
+
+
+$training =
+    load_training(
+        $db,
+        $scoutProfileId,
+        $scoutUserId
+    );
+
+
+$currentRoleSlugs =
+    load_role_slugs(
+        $db,
+        $scoutUserId
+    );
 
 
 $applicationSubmitted =
     scout_application_submitted(
         $application
+    );
+
+
+$trainingVersionCurrent =
+    scout_training_version_current(
+        $training
     );
 
 
@@ -487,19 +601,20 @@ $allTrainingAcknowledgements =
     );
 
 
+$emailVerified =
+    !empty(
+        $scout[
+            'email_verified_at'
+        ]
+    );
+
+
 $isReadyForApproval =
-    (
-        $scout['status']
-        ?? ''
-    )
-    ===
-    'pending_approval'
-    &&
-    $applicationSubmitted
-    &&
-    $trainingCompleted
-    &&
-    $allTrainingAcknowledgements;
+    scout_is_ready_for_approval(
+        $scout,
+        $application,
+        $training
+    );
 
 
 /* =========================================================
@@ -508,59 +623,91 @@ $isReadyForApproval =
 
 $message = '';
 $error = '';
+
+
 $billingResult =
     trim(
         (string) (
-            $_GET['billing']
+            $_GET[
+                'billing'
+            ]
             ?? ''
         )
     );
 
 
-if ($billingResult !== '') {
+if (
+    $billingResult
+    !==
+    ''
+) {
 
-    switch ($billingResult) {
+    switch (
+        $billingResult
+    ) {
 
         case 'scout-scheduled':
+
             $message =
                 'Paid membership is now scheduled not to renew at the end of the current billing period.';
+
             break;
+
 
         case 'scout-already-scheduled':
+
             $message =
                 'Paid membership was already scheduled not to renew.';
+
             break;
+
 
         case 'scout-already-ended':
+
             $message =
                 'The previous paid membership has already ended.';
+
             break;
+
 
         case 'scout-no-subscription':
+
             $message =
                 'There is no active Stripe subscription to change.';
+
             break;
+
 
         case 'scout-ok':
+
             $message =
                 'Scout billing was updated successfully.';
+
             break;
 
+
         case 'scout-error':
+
             $error =
                 'The Scout billing change could not be completed. Check the server error log for details.';
+
             break;
     }
 }
 
+
 if (
-    $_SERVER['REQUEST_METHOD']
+    $_SERVER[
+        'REQUEST_METHOD'
+    ]
     ===
     'POST'
 ) {
 
     $submittedToken =
-        $_POST['csrf_token']
+        $_POST[
+            'csrf_token'
+        ]
         ?? '';
 
 
@@ -578,12 +725,15 @@ if (
         $error =
             'Your session could not be verified. Reload the page and try again.';
 
+
     } else {
 
         $action =
             trim(
                 (string) (
-                    $_POST['action']
+                    $_POST[
+                        'action'
+                    ]
                     ?? ''
                 )
             );
@@ -592,7 +742,9 @@ if (
         $reviewNotes =
             trim(
                 (string) (
-                    $_POST['review_notes']
+                    $_POST[
+                        'review_notes'
+                    ]
                     ?? ''
                 )
             );
@@ -602,479 +754,513 @@ if (
            APPROVE
            ================================================= */
 
-        if ($action === 'approve') {
+        if (
+            $action
+            ===
+            'approve'
+        ) {
 
-            $freshProfile =
-                fetch_one(
-                    $db,
-                    '
-                    SELECT
-                        status
+            try {
 
-                    FROM scout_profiles
+                $db->beginTransaction();
 
-                    WHERE id = ?
-                      AND user_id = ?
 
-                    LIMIT 1
-                    ',
-                    [
-                        $scoutProfileId,
-                        $scoutUserId
-                    ]
-                );
+                /*
+                 * Lock every row whose state determines
+                 * whether approval is valid.
+                 */
 
+                $freshProfile =
+                    fetch_one(
+                        $db,
+                        '
+                        SELECT
+                            status
 
-            $freshApplication =
-                load_application(
-                    $db,
-                    $scoutProfileId,
-                    $scoutUserId
-                );
+                        FROM scout_profiles
 
+                        WHERE id = ?
+                          AND user_id = ?
 
-            $freshTraining =
-                load_training(
-                    $db,
-                    $scoutProfileId,
-                    $scoutUserId
-                );
+                        LIMIT 1
 
-
-            $freshReady =
-                (
-                    (
-                        $freshProfile['status']
-                        ?? ''
-                    )
-                    ===
-                    'pending_approval'
-                )
-                &&
-                scout_application_submitted(
-                    $freshApplication
-                )
-                &&
-                scout_training_completed(
-                    $freshTraining
-                )
-                &&
-                scout_acknowledgements_complete(
-                    $freshTraining
-                );
-
-
-            if (!$freshReady) {
-
-                $error =
-                    'This Scout candidate has not completed all onboarding requirements.';
-
-            } else {
-
-                try {
-
-                    $db->beginTransaction();
-
-
-                    /* =====================================
-                       FIND SCOUT ROLE
-                       ===================================== */
-
-                    $roleStmt =
-                        $db->prepare(
-                            '
-                            SELECT id
-
-                            FROM roles
-
-                            WHERE slug = \'scout\'
-
-                            LIMIT 1
-                            '
-                        );
-
-
-                    $roleStmt->execute();
-
-
-                    $scoutRoleId =
-                        (int)
-                        $roleStmt
-                            ->fetchColumn();
-
-
-                    if ($scoutRoleId < 1) {
-
-                        throw new RuntimeException(
-                            'The Scout role does not exist.'
-                        );
-                    }
-
-
-                    /* =====================================
-                       ASSIGN SCOUT ROLE
-                       ===================================== */
-
-                    $roleInsert =
-                        $db->prepare(
-                            '
-                            INSERT INTO user_roles
-                            (
-                                user_id,
-                                role_id
-                            )
-
-                            SELECT
-                                ?,
-                                ?
-
-                            WHERE NOT EXISTS
-                            (
-                                SELECT 1
-
-                                FROM user_roles
-
-                                WHERE user_id = ?
-                                  AND role_id = ?
-                            )
-                            '
-                        );
-
-
-                    $roleInsert->execute([
-                        $scoutUserId,
-                        $scoutRoleId,
-                        $scoutUserId,
-                        $scoutRoleId
-                    ]);
-
-
-                    /* =====================================
-                       ACTIVATE SCOUT
-
-                       First Scout year begins now and ends
-                       exactly one year later.
-                       ===================================== */
-
-                    $profileUpdate =
-                        $db->prepare(
-                            '
-                            UPDATE scout_profiles
-
-                            SET
-                                status =
-                                    \'active\',
-
-                                approved_at =
-                                    COALESCE(
-                                        approved_at,
-                                        CURRENT_TIMESTAMP
-                                    ),
-
-                                approved_by =
-                                    ?,
-
-                                scout_started_at =
-                                    COALESCE(
-                                        scout_started_at,
-                                        CURRENT_TIMESTAMP
-                                    ),
-
-                                active_through =
-                                    DATE_ADD(
-                                        CURRENT_TIMESTAMP,
-                                        INTERVAL 1 YEAR
-                                    ),
-
-                                inactive_at =
-                                    NULL,
-
-                                removed_at =
-                                    NULL,
-
-                                removal_reason =
-                                    NULL,
-
-                                removed_by =
-                                    NULL,
-
-                                updated_at =
-                                    CURRENT_TIMESTAMP
-
-                            WHERE id = ?
-                              AND user_id = ?
-                              AND status = \'pending_approval\'
-                            '
-                        );
-
-
-                    $profileUpdate->execute([
-                        $adminUserId,
-                        $scoutProfileId,
-                        $scoutUserId
-                    ]);
-
-                        if (
-                            $profileUpdate->rowCount()
-                            !==
-                            1
-                        ) {
-                        
-                            throw new RuntimeException(
-                                'Scout onboarding state changed before approval could be completed.'
-                            );
-                        }
-
-                    
-                    /* =====================================
-                       APPLICATION REVIEW
-                       ===================================== */
-
-                    $applicationUpdate =
-                        $db->prepare(
-                            '
-                            UPDATE scout_applications
-
-                            SET
-                                reviewed_at =
-                                    CURRENT_TIMESTAMP,
-
-                                reviewed_by =
-                                    ?,
-
-                                review_notes =
-                                    ?
-
-                            WHERE scout_profile_id = ?
-                              AND user_id = ?
-                            '
-                        );
-
-
-                    $applicationUpdate->execute([
-                        $adminUserId,
-                        $reviewNotes !== ''
-                            ? $reviewNotes
-                            : null,
-                        $scoutProfileId,
-                        $scoutUserId
-                    ]);
-
-
-                    /* =====================================
-                       MEMBERSHIP STATE
-                       ===================================== */
-
-                    $membershipStmt =
-                        $db->prepare(
-                            '
-                            SELECT
-                                membership_status,
-                                stripe_subscription_id
-
-                            FROM users
-
-                            WHERE id = ?
-
-                            LIMIT 1
-                            '
-                        );
-
-
-                    $membershipStmt->execute([
-                        $scoutUserId
-                    ]);
-
-
-                    $membershipRow =
-                        $membershipStmt->fetch(
-                            PDO::FETCH_ASSOC
-                        )
-                        ?: [];
-
-
-                    $existingMembershipStatus =
-                        strtolower(
-                            trim(
-                                (string) (
-                                    $membershipRow[
-                                        'membership_status'
-                                    ]
-                                    ?? 'none'
-                                )
-                            )
-                        );
-
-
-                    $paidMembershipStatuses = [
-                        'active',
-                        'trialing',
-                        'past_due'
-                    ];
-
-
-                    $hasPaidMembership =
-                        in_array(
-                            $existingMembershipStatus,
-                            $paidMembershipStatuses,
-                            true
-                        )
-                        &&
-                        !empty(
-                            $membershipRow[
-                                'stripe_subscription_id'
-                            ]
-                        );
-
-
-                    if (!$hasPaidMembership) {
-
-                        $membershipUpdate =
-                            $db->prepare(
-                                '
-                                UPDATE users
-
-                                SET
-                                    membership_status =
-                                        \'complimentary\',
-
-                                    membership_interval =
-                                        NULL,
-
-                                    membership_started_at =
-                                        COALESCE(
-                                            membership_started_at,
-                                            CURRENT_TIMESTAMP
-                                        ),
-
-                                    membership_ends_at =
-                                        DATE_ADD(
-                                            CURRENT_TIMESTAMP,
-                                            INTERVAL 1 YEAR
-                                        )
-
-                                WHERE id = ?
-                                '
-                            );
-
-
-                        $membershipUpdate->execute([
+                        FOR UPDATE
+                        ',
+                        [
+                            $scoutProfileId,
                             $scoutUserId
-                        ]);
-                    }
-
-
-                    $db->commit();
-
-
-                    /* =====================================
-                       PAID MEMBER TO SCOUT TRANSITION
-                       ===================================== */
-
-                    if ($hasPaidMembership) {
-
-                        try {
-
-                            $billingTransition =
-                                llama_schedule_subscription_end_for_scout(
-                                    $db,
-                                    $scoutUserId
-                                );
-
-
-                            $billingReason =
-                                (string) (
-                                    $billingTransition['reason']
-                                    ?? ''
-                                );
-
-
-                            if (
-                                $billingReason ===
-                                'scheduled'
-                            ) {
-
-                                $message =
-                                    'Scout approved and activated. Their paid membership will remain active through the current billing period and will not renew. Scout access is already active.';
-
-                            } elseif (
-                                $billingReason ===
-                                'already_scheduled'
-                            ) {
-
-                                $message =
-                                    'Scout approved and activated. Their paid membership was already scheduled not to renew.';
-
-                            } elseif (
-                                $billingReason ===
-                                'already_ended'
-                            ) {
-
-                                $message =
-                                    'Scout approved and activated. Their previous paid subscription has already ended.';
-
-                            } elseif (
-                                $billingReason ===
-                                'no_subscription'
-                            ) {
-
-                                $message =
-                                    'Scout approved and activated. No active Stripe subscription required a billing change.';
-
-                            } else {
-
-                                $message =
-                                    'Scout approved and activated. Billing transition completed.';
-                            }
-
-                        } catch (
-                            Throwable $billingException
-                        ) {
-
-                            error_log(
-                                'Llama Scout Scout billing transition error for user #'
-                                .
-                                $scoutUserId
-                                .
-                                ': '
-                                .
-                                $billingException
-                                    ->getMessage()
-                            );
-
-
-                            $message =
-                                'Scout approved and activated, but their paid Stripe subscription could not be scheduled to end. Scout access is active. Billing needs attention.';
-                        }
-
-                    } else {
-
-                        $message =
-                            'Scout approved. Scout role and complimentary membership are now active.';
-                    }
-
-                } catch (
-                    Throwable $exception
-                ) {
-
-                    if (
-                        $db->inTransaction()
-                    ) {
-                        $db->rollBack();
-                    }
-
-
-                    error_log(
-                        'Llama Scout Scout approval error: '
-                        .
-                        $exception
-                            ->getMessage()
+                        ]
                     );
 
 
-                    $error =
-                        'The Scout could not be approved.';
+                $freshApplication =
+                    fetch_one(
+                        $db,
+                        '
+                        SELECT *
+
+                        FROM scout_applications
+
+                        WHERE scout_profile_id = ?
+                          AND user_id = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        ',
+                        [
+                            $scoutProfileId,
+                            $scoutUserId
+                        ]
+                    );
+
+
+                $freshTraining =
+                    fetch_one(
+                        $db,
+                        '
+                        SELECT *
+
+                        FROM scout_training
+
+                        WHERE scout_profile_id = ?
+                          AND user_id = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        ',
+                        [
+                            $scoutProfileId,
+                            $scoutUserId
+                        ]
+                    );
+
+
+                $freshUser =
+                    fetch_one(
+                        $db,
+                        '
+                        SELECT
+                            email_verified_at,
+                            membership_status,
+                            stripe_subscription_id
+
+                        FROM users
+
+                        WHERE id = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        ',
+                        [
+                            $scoutUserId
+                        ]
+                    );
+
+
+                $freshScoutForReadiness = [
+
+                    'status' =>
+                        $freshProfile[
+                            'status'
+                        ]
+                        ?? '',
+
+                    'email_verified_at' =>
+                        $freshUser[
+                            'email_verified_at'
+                        ]
+                        ?? null,
+                ];
+
+
+                if (
+                    !scout_is_ready_for_approval(
+                        $freshScoutForReadiness,
+                        $freshApplication,
+                        $freshTraining
+                    )
+                ) {
+
+                    throw new RuntimeException(
+                        'This Scout candidate has not completed all current onboarding requirements.'
+                    );
                 }
+
+
+                /* =========================================
+                   FIND SCOUT ROLE
+                   ========================================= */
+
+                $roleStmt =
+                    $db->prepare(
+                        '
+                        SELECT
+                            id
+
+                        FROM roles
+
+                        WHERE slug =
+                            \'scout\'
+
+                        LIMIT 1
+                        '
+                    );
+
+
+                $roleStmt->execute();
+
+
+                $scoutRoleId =
+                    (int)
+                    $roleStmt
+                        ->fetchColumn();
+
+
+                if (
+                    $scoutRoleId
+                    <
+                    1
+                ) {
+
+                    throw new RuntimeException(
+                        'The Scout role does not exist.'
+                    );
+                }
+
+
+                /* =========================================
+                   ACTIVATE SCOUT
+                   ========================================= */
+
+                $profileUpdate =
+                    $db->prepare(
+                        '
+                        UPDATE scout_profiles
+
+                        SET
+                            status =
+                                \'active\',
+
+                            approved_at =
+                                COALESCE(
+                                    approved_at,
+                                    CURRENT_TIMESTAMP
+                                ),
+
+                            approved_by =
+                                ?,
+
+                            scout_started_at =
+                                COALESCE(
+                                    scout_started_at,
+                                    CURRENT_TIMESTAMP
+                                ),
+
+                            active_through =
+                                DATE_ADD(
+                                    CURRENT_TIMESTAMP,
+                                    INTERVAL 1 YEAR
+                                ),
+
+                            inactive_at =
+                                NULL,
+
+                            removed_at =
+                                NULL,
+
+                            removal_reason =
+                                NULL,
+
+                            removed_by =
+                                NULL,
+
+                            updated_at =
+                                CURRENT_TIMESTAMP
+
+                        WHERE id = ?
+                          AND user_id = ?
+                          AND status =
+                              \'pending_approval\'
+                        '
+                    );
+
+
+                $profileUpdate->execute([
+                    $adminUserId,
+                    $scoutProfileId,
+                    $scoutUserId
+                ]);
+
+
+                if (
+                    $profileUpdate->rowCount()
+                    !==
+                    1
+                ) {
+
+                    throw new RuntimeException(
+                        'Scout onboarding state changed before approval could be completed.'
+                    );
+                }
+
+
+                /* =========================================
+                   ASSIGN SCOUT ROLE
+                   ========================================= */
+
+                $roleInsert =
+                    $db->prepare(
+                        '
+                        INSERT INTO user_roles
+                        (
+                            user_id,
+                            role_id
+                        )
+
+                        SELECT
+                            ?,
+                            ?
+
+                        WHERE NOT EXISTS
+                        (
+                            SELECT 1
+
+                            FROM user_roles
+
+                            WHERE user_id = ?
+                              AND role_id = ?
+                        )
+                        '
+                    );
+
+
+                $roleInsert->execute([
+                    $scoutUserId,
+                    $scoutRoleId,
+                    $scoutUserId,
+                    $scoutRoleId
+                ]);
+
+
+                /* =========================================
+                   APPLICATION REVIEW
+                   ========================================= */
+
+                $applicationUpdate =
+                    $db->prepare(
+                        '
+                        UPDATE scout_applications
+
+                        SET
+                            reviewed_at =
+                                CURRENT_TIMESTAMP,
+
+                            reviewed_by =
+                                ?,
+
+                            review_notes =
+                                ?
+
+                        WHERE scout_profile_id = ?
+                          AND user_id = ?
+                        '
+                    );
+
+
+                $applicationUpdate->execute([
+                    $adminUserId,
+
+                    $reviewNotes !== ''
+                        ? $reviewNotes
+                        : null,
+
+                    $scoutProfileId,
+                    $scoutUserId
+                ]);
+
+
+                /* =========================================
+                   MEMBERSHIP STATE
+                   ========================================= */
+
+                $existingMembershipStatus =
+                    strtolower(
+                        trim(
+                            (string) (
+                                $freshUser[
+                                    'membership_status'
+                                ]
+                                ?? 'none'
+                            )
+                        )
+                    );
+
+
+                $hasPaidMembership =
+                    in_array(
+                        $existingMembershipStatus,
+                        [
+                            'active',
+                            'trialing',
+                            'past_due'
+                        ],
+                        true
+                    )
+                    &&
+                    !empty(
+                        $freshUser[
+                            'stripe_subscription_id'
+                        ]
+                    );
+
+
+                if (
+                    !$hasPaidMembership
+                ) {
+
+                    $membershipUpdate =
+                        $db->prepare(
+                            '
+                            UPDATE users
+
+                            SET
+                                membership_status =
+                                    \'complimentary\',
+
+                                membership_interval =
+                                    NULL,
+
+                                membership_started_at =
+                                    COALESCE(
+                                        membership_started_at,
+                                        CURRENT_TIMESTAMP
+                                    ),
+
+                                membership_ends_at =
+                                    DATE_ADD(
+                                        CURRENT_TIMESTAMP,
+                                        INTERVAL 1 YEAR
+                                    )
+
+                            WHERE id = ?
+                            '
+                        );
+
+
+                    $membershipUpdate->execute([
+                        $scoutUserId
+                    ]);
+                }
+
+
+                $db->commit();
+
+
+                /* =========================================
+                   PAID MEMBER TO SCOUT TRANSITION
+                   ========================================= */
+
+                if (
+                    $hasPaidMembership
+                ) {
+
+                    try {
+
+                        $billingTransition =
+                            llama_schedule_subscription_end_for_scout(
+                                $db,
+                                $scoutUserId
+                            );
+
+
+                        $billingReason =
+                            (string) (
+                                $billingTransition[
+                                    'reason'
+                                ]
+                                ?? ''
+                            );
+
+
+                        $message =
+                            match (
+                                $billingReason
+                            ) {
+
+                                'scheduled' =>
+                                    'Scout approved and activated. Their paid membership will remain active through the current billing period and will not renew. Scout access is already active.',
+
+                                'already_scheduled' =>
+                                    'Scout approved and activated. Their paid membership was already scheduled not to renew.',
+
+                                'already_ended' =>
+                                    'Scout approved and activated. Their previous paid subscription has already ended.',
+
+                                'no_subscription' =>
+                                    'Scout approved and activated. No active Stripe subscription required a billing change.',
+
+                                default =>
+                                    'Scout approved and activated. Billing transition completed.',
+                            };
+
+
+                    } catch (
+                        Throwable $billingException
+                    ) {
+
+                        error_log(
+                            'Llama Scout Scout billing transition error for user #'
+                            .
+                            $scoutUserId
+                            .
+                            ': '
+                            .
+                            $billingException
+                                ->getMessage()
+                        );
+
+
+                        $message =
+                            'Scout approved and activated, but their paid Stripe subscription could not be scheduled to end. Scout access is active. Billing needs attention.';
+                    }
+
+
+                } else {
+
+                    $message =
+                        'Scout approved. Scout role and complimentary membership are now active.';
+                }
+
+
+            } catch (
+                Throwable $exception
+            ) {
+
+                if (
+                    $db->inTransaction()
+                ) {
+
+                    $db->rollBack();
+                }
+
+
+                error_log(
+                    'Llama Scout Scout approval error: '
+                    .
+                    $exception
+                        ->getMessage()
+                );
+
+
+                $error =
+                    $exception->getMessage()
+                    ===
+                    'This Scout candidate has not completed all current onboarding requirements.'
+                        ? $exception->getMessage()
+                        : 'The Scout could not be approved.';
             }
 
 
@@ -1082,37 +1268,77 @@ if (
            RETURN FOR CHANGES
            ================================================= */
 
-        } elseif ($action === 'return') {
+        } elseif (
+            $action
+            ===
+            'return'
+        ) {
 
-            if ($reviewNotes === '') {
+            $returnableStates = [
+                'application_started',
+                'application_submitted',
+                'training',
+                'pending_approval',
+            ];
+
+
+            if (
+                $reviewNotes
+                ===
+                ''
+            ) {
 
                 $error =
                     'Add a note explaining what needs to be changed.';
 
-            } elseif (
-                !in_array(
-                    (string) (
-                        $scout['status']
-                        ?? ''
-                    ),
-                    [
-                        'invited',
-                        'application_started',
-                        'application_submitted',
-                        'training',
-                        'pending_approval'
-                    ],
-                    true
-                )
-            ) {
-            
-                $error =
-                    'This Scout is not currently in onboarding and cannot be returned for changes.';
+
             } else {
 
                 try {
 
                     $db->beginTransaction();
+
+
+                    $lockedProfile =
+                        fetch_one(
+                            $db,
+                            '
+                            SELECT
+                                status
+
+                            FROM scout_profiles
+
+                            WHERE id = ?
+                              AND user_id = ?
+
+                            LIMIT 1
+
+                            FOR UPDATE
+                            ',
+                            [
+                                $scoutProfileId,
+                                $scoutUserId
+                            ]
+                        );
+
+
+                    if (
+                        !in_array(
+                            (string) (
+                                $lockedProfile[
+                                    'status'
+                                ]
+                                ?? ''
+                            ),
+                            $returnableStates,
+                            true
+                        )
+                    ) {
+
+                        throw new RuntimeException(
+                            'This Scout is no longer in a state that can be returned for changes.'
+                        );
+                    }
 
 
                     $profileUpdate =
@@ -1138,13 +1364,6 @@ if (
 
                             WHERE id = ?
                               AND user_id = ?
-                              AND status IN (
-                                  \'invited\',
-                                  \'application_started\',
-                                  \'application_submitted\',
-                                  \'training\',
-                                  \'pending_approval\'
-                              )
                             '
                         );
 
@@ -1155,18 +1374,6 @@ if (
                     ]);
 
 
-                    if (
-                        $profileUpdate->rowCount()
-                        !==
-                        1
-                    ) {
-                    
-                        throw new RuntimeException(
-                            'Scout onboarding state changed before the candidate could be returned for changes.'
-                        );
-                    }
-
-
                     $applicationUpdate =
                         $db->prepare(
                             '
@@ -1175,13 +1382,13 @@ if (
                             SET
                                 submitted_at =
                                     NULL,
-                            
+
                                 reviewed_at =
                                     CURRENT_TIMESTAMP,
-                            
+
                                 reviewed_by =
                                     ?,
-                            
+
                                 review_notes =
                                     ?
 
@@ -1247,6 +1454,7 @@ if (
                     $message =
                         'The Scout candidate has been returned to the About You step with your review note.';
 
+
                 } catch (
                     Throwable $exception
                 ) {
@@ -1254,6 +1462,7 @@ if (
                     if (
                         $db->inTransaction()
                     ) {
+
                         $db->rollBack();
                     }
 
@@ -1276,38 +1485,78 @@ if (
            DECLINE
            ================================================= */
 
-        } elseif ($action === 'decline') {
+        } elseif (
+            $action
+            ===
+            'decline'
+        ) {
 
-            if ($reviewNotes === '') {
+            $declinableStates = [
+                'invited',
+                'application_started',
+                'application_submitted',
+                'training',
+                'pending_approval',
+            ];
+
+
+            if (
+                $reviewNotes
+                ===
+                ''
+            ) {
 
                 $error =
                     'Add a review note before declining the Scout invitation.';
 
-            } elseif (
-                !in_array(
-                    (string) (
-                        $scout['status']
-                        ?? ''
-                    ),
-                    [
-                        'invited',
-                        'application_started',
-                        'application_submitted',
-                        'training',
-                        'pending_approval'
-                    ],
-                    true
-                )
-            ) {
-            
-                $error =
-                    'This Scout is not currently in onboarding and cannot be declined.';
-                
+
             } else {
 
                 try {
 
                     $db->beginTransaction();
+
+
+                    $lockedProfile =
+                        fetch_one(
+                            $db,
+                            '
+                            SELECT
+                                status
+
+                            FROM scout_profiles
+
+                            WHERE id = ?
+                              AND user_id = ?
+
+                            LIMIT 1
+
+                            FOR UPDATE
+                            ',
+                            [
+                                $scoutProfileId,
+                                $scoutUserId
+                            ]
+                        );
+
+
+                    if (
+                        !in_array(
+                            (string) (
+                                $lockedProfile[
+                                    'status'
+                                ]
+                                ?? ''
+                            ),
+                            $declinableStates,
+                            true
+                        )
+                    ) {
+
+                        throw new RuntimeException(
+                            'This Scout is no longer in a state that can be declined.'
+                        );
+                    }
 
 
                     $profileUpdate =
@@ -1324,13 +1573,6 @@ if (
 
                             WHERE id = ?
                               AND user_id = ?
-                              AND status IN (
-                                  \'invited\',
-                                  \'application_started\',
-                                  \'application_submitted\',
-                                  \'training\',
-                                  \'pending_approval\'
-                              )
                             '
                         );
 
@@ -1342,44 +1584,37 @@ if (
 
 
                     if (
-                        $profileUpdate->rowCount()
-                        !==
-                        1
+                        $application
                     ) {
-                    
-                        throw new RuntimeException(
-                            'Scout onboarding state changed before the decline could be completed.'
-                        );
+
+                        $applicationUpdate =
+                            $db->prepare(
+                                '
+                                UPDATE scout_applications
+
+                                SET
+                                    reviewed_at =
+                                        CURRENT_TIMESTAMP,
+
+                                    reviewed_by =
+                                        ?,
+
+                                    review_notes =
+                                        ?
+
+                                WHERE scout_profile_id = ?
+                                  AND user_id = ?
+                                '
+                            );
+
+
+                        $applicationUpdate->execute([
+                            $adminUserId,
+                            $reviewNotes,
+                            $scoutProfileId,
+                            $scoutUserId
+                        ]);
                     }
-                    
-
-                    $applicationUpdate =
-                        $db->prepare(
-                            '
-                            UPDATE scout_applications
-
-                            SET
-                                reviewed_at =
-                                    CURRENT_TIMESTAMP,
-
-                                reviewed_by =
-                                    ?,
-
-                                review_notes =
-                                    ?
-
-                            WHERE scout_profile_id = ?
-                              AND user_id = ?
-                            '
-                        );
-
-
-                    $applicationUpdate->execute([
-                        $adminUserId,
-                        $reviewNotes,
-                        $scoutProfileId,
-                        $scoutUserId
-                    ]);
 
 
                     $db->commit();
@@ -1388,6 +1623,7 @@ if (
                     $message =
                         'Scout onboarding declined. Their regular Llama Scout account is unchanged.';
 
+
                 } catch (
                     Throwable $exception
                 ) {
@@ -1395,6 +1631,7 @@ if (
                     if (
                         $db->inTransaction()
                     ) {
+
                         $db->rollBack();
                     }
 
@@ -1411,6 +1648,7 @@ if (
                         'The Scout onboarding could not be declined.';
                 }
             }
+
 
         } else {
 
@@ -1460,6 +1698,12 @@ if (
         );
 
 
+    $trainingVersionCurrent =
+        scout_training_version_current(
+            $training
+        );
+
+
     $trainingCompleted =
         scout_training_completed(
             $training
@@ -1472,19 +1716,20 @@ if (
         );
 
 
+    $emailVerified =
+        !empty(
+            $scout[
+                'email_verified_at'
+            ]
+        );
+
+
     $isReadyForApproval =
-        (
-            $scout['status']
-            ?? ''
-        )
-        ===
-        'pending_approval'
-        &&
-        $applicationSubmitted
-        &&
-        $trainingCompleted
-        &&
-        $allTrainingAcknowledgements;
+        scout_is_ready_for_approval(
+            $scout,
+            $application,
+            $training
+        );
 }
 
 
@@ -1497,39 +1742,48 @@ $submissionStats =
         $db,
         '
         SELECT
-            COUNT(*) AS total,
+            COUNT(*)
+                AS total,
 
             SUM(
                 CASE
-                    WHEN status = \'approved\'
+                    WHEN status =
+                        \'approved\'
                     THEN 1
                     ELSE 0
                 END
-            ) AS approved,
+            )
+                AS approved,
 
             SUM(
                 CASE
-                    WHEN status = \'pending\'
+                    WHEN status =
+                        \'pending\'
                     THEN 1
                     ELSE 0
                 END
-            ) AS pending,
+            )
+                AS pending,
 
             SUM(
                 CASE
-                    WHEN status = \'needs-changes\'
+                    WHEN status =
+                        \'needs-changes\'
                     THEN 1
                     ELSE 0
                 END
-            ) AS needs_changes,
+            )
+                AS needs_changes,
 
             SUM(
                 CASE
-                    WHEN status = \'rejected\'
+                    WHEN status =
+                        \'rejected\'
                     THEN 1
                     ELSE 0
                 END
-            ) AS rejected
+            )
+                AS rejected
 
         FROM place_submissions
 
@@ -1543,21 +1797,27 @@ $submissionStats =
 
 $totalSubmissions =
     (int) (
-        $submissionStats['total']
+        $submissionStats[
+            'total'
+        ]
         ?? 0
     );
 
 
 $approvedSubmissions =
     (int) (
-        $submissionStats['approved']
+        $submissionStats[
+            'approved'
+        ]
         ?? 0
     );
 
 
 $pendingSubmissions =
     (int) (
-        $submissionStats['pending']
+        $submissionStats[
+            'pending'
+        ]
         ?? 0
     );
 
@@ -1577,7 +1837,8 @@ $recentSubmissions =
 
         WHERE user_id = ?
 
-        ORDER BY submitted_at DESC
+        ORDER BY
+            submitted_at DESC
 
         LIMIT 8
         ',
@@ -1587,21 +1848,19 @@ $recentSubmissions =
     );
 
 
-/* =========================================================
-   SCOUT ACTIVITY
-   ========================================================= */
-
 $activityStats =
     fetch_one(
         $db,
         '
         SELECT
-            COUNT(*) AS activity_count,
+            COUNT(*)
+                AS activity_count,
 
             COALESCE(
                 SUM(points),
                 0
-            ) AS total_points
+            )
+                AS total_points
 
         FROM scout_activity
 
@@ -1631,32 +1890,44 @@ $requirementProgress = 0;
 
 if (
     !empty(
-        $scout['scout_started_at']
+        $scout[
+            'scout_started_at'
+        ]
     )
     &&
     !empty(
-        $scout['active_through']
+        $scout[
+            'active_through'
+        ]
     )
 ) {
 
     $yearEndTimestamp =
         strtotime(
             (string)
-            $scout['active_through']
+            $scout[
+                'active_through'
+            ]
         );
 
 
     $scoutStartedTimestamp =
         strtotime(
             (string)
-            $scout['scout_started_at']
+            $scout[
+                'scout_started_at'
+            ]
         );
 
 
     if (
-        $yearEndTimestamp !== false
+        $yearEndTimestamp
+        !==
+        false
         &&
-        $scoutStartedTimestamp !== false
+        $scoutStartedTimestamp
+        !==
+        false
     ) {
 
         $yearStartTimestamp =
@@ -1667,7 +1938,8 @@ if (
 
 
         if (
-            $yearStartTimestamp <
+            $yearStartTimestamp
+            <
             $scoutStartedTimestamp
         ) {
 
@@ -1695,19 +1967,18 @@ if (
                 $db,
                 '
                 SELECT
-                    COUNT(*) AS accepted_reports
+                    COUNT(*)
+                        AS accepted_reports
 
                 FROM scout_activity
 
                 WHERE scout_profile_id = ?
-
                   AND user_id = ?
 
                   AND activity_type =
                       \'place_approved\'
 
                   AND occurred_at >= ?
-
                   AND occurred_at < ?
                 ',
                 [
@@ -1768,11 +2039,17 @@ if (
 $displayName =
     trim(
         (string) (
-            $scout['display_name']
+            $scout[
+                'display_name'
+            ]
             ?:
-            $scout['username']
+            $scout[
+                'username'
+            ]
             ?:
-            $scout['email']
+            $scout[
+                'email'
+            ]
         )
     );
 
@@ -1780,9 +2057,13 @@ $displayName =
 $inviterName =
     trim(
         (string) (
-            $scout['inviter_display_name']
+            $scout[
+                'inviter_display_name'
+            ]
             ?:
-            $scout['inviter_username']
+            $scout[
+                'inviter_username'
+            ]
             ?:
             ''
         )
@@ -1792,32 +2073,52 @@ $inviterName =
 $approverName =
     trim(
         (string) (
-            $scout['approver_display_name']
+            $scout[
+                'approver_display_name'
+            ]
             ?:
-            $scout['approver_username']
+            $scout[
+                'approver_username'
+            ]
             ?:
             ''
         )
     );
 
 
-$scoutIsActive =
-    (
-        $scout['status']
+$scoutStatus =
+    (string) (
+        $scout[
+            'status'
+        ]
         ?? ''
-    )
+    );
+
+
+$scoutIsActive =
+    $scoutStatus
     ===
     'active';
 
 
 $scoutIsInOnboarding =
     in_array(
-        (string) (
-            $scout['status']
-            ?? ''
-        ),
+        $scoutStatus,
         [
             'invited',
+            'application_started',
+            'application_submitted',
+            'training',
+            'pending_approval'
+        ],
+        true
+    );
+
+
+$canReturnForChanges =
+    in_array(
+        $scoutStatus,
+        [
             'application_started',
             'application_submitted',
             'training',
@@ -1831,7 +2132,9 @@ $scoutMembershipStatus =
     strtolower(
         trim(
             (string) (
-                $scout['membership_status']
+                $scout[
+                    'membership_status'
+                ]
                 ?? ''
             )
         )
@@ -1840,7 +2143,9 @@ $scoutMembershipStatus =
 
 $scoutHasStripeSubscription =
     !empty(
-        $scout['stripe_subscription_id']
+        $scout[
+            'stripe_subscription_id'
+        ]
     )
     &&
     in_array(
@@ -1853,12 +2158,33 @@ $scoutHasStripeSubscription =
         true
     );
 
+
 $scoutCancelScheduled =
     !empty(
         $scout[
             'stripe_cancel_at_period_end'
         ]
     );
+
+
+$introEyebrow =
+    $scoutIsActive
+        ? 'Scout Management'
+        : (
+            $scoutIsInOnboarding
+                ? 'Scout Review'
+                : 'Scout Record'
+        );
+
+
+$introCopy =
+    $scoutIsActive
+        ? "Review this Scout's current year, contribution progress, account, activity, and access."
+        : (
+            $scoutIsInOnboarding
+                ? "Review the candidate's account, contributions, About You responses, training completion, and Scout agreements before activating Scout access."
+                : 'Review this Scout record, account history, contributions, and previous onboarding information.'
+        );
 
 
 ?>
@@ -1875,14 +2201,15 @@ $scoutCancelScheduled =
     content="width=device-width, initial-scale=1"
   >
 
-<title>
-  <?= e($displayName) ?> | Scout | Llama Scout Basecamp
-</title>
+  <title>
+    <?= e($displayName) ?> | Scout | Llama Scout Basecamp
+  </title>
 
   <meta
     name="robots"
     content="noindex,nofollow"
   >
+
 
   <link
     rel="preconnect"
@@ -1900,10 +2227,12 @@ $scoutCancelScheduled =
     rel="stylesheet"
   >
 
+
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
+
 
   <link
     rel="stylesheet"
@@ -1919,8 +2248,7 @@ $scoutCancelScheduled =
   <style>
 
     .scout-review-grid {
-      display:
-        grid;
+      display: grid;
 
       grid-template-columns:
         minmax(
@@ -1929,24 +2257,19 @@ $scoutCancelScheduled =
         )
         330px;
 
-      gap:
-        22px;
+      gap: 22px;
 
-      margin-top:
-        22px;
+      margin-top: 22px;
     }
 
 
     .scout-review-main,
     .scout-review-side {
-      display:
-        grid;
+      display: grid;
 
-      gap:
-        18px;
+      gap: 18px;
 
-      align-content:
-        start;
+      align-content: start;
     }
 
 
@@ -1967,44 +2290,35 @@ $scoutCancelScheduled =
 
 
     .review-answer:first-of-type {
-      border-top:
-        0;
+      border-top: 0;
     }
 
 
     .review-answer strong {
-      display:
-        block;
+      display: block;
 
-      margin-bottom:
-        6px;
+      margin-bottom: 6px;
     }
 
 
     .review-answer p {
-      margin:
-        0;
+      margin: 0;
 
-      white-space:
-        pre-wrap;
+      white-space: pre-wrap;
 
-      line-height:
-        1.65;
+      line-height: 1.65;
     }
 
 
     .review-answer-empty {
-      opacity:
-        .55;
+      opacity: .55;
 
-      font-style:
-        italic;
+      font-style: italic;
     }
 
 
     .review-facts {
-      display:
-        grid;
+      display: grid;
 
       grid-template-columns:
         repeat(
@@ -2015,17 +2329,14 @@ $scoutCancelScheduled =
           )
         );
 
-      gap:
-        12px;
+      gap: 12px;
     }
 
 
     .review-fact {
-      padding:
-        14px;
+      padding: 14px;
 
-      border-radius:
-        11px;
+      border-radius: 11px;
 
       background:
         rgba(
@@ -2038,50 +2349,38 @@ $scoutCancelScheduled =
 
 
     .review-fact span {
-      display:
-        block;
+      display: block;
 
-      margin-bottom:
-        4px;
+      margin-bottom: 4px;
 
-      font-size:
-        .76rem;
+      font-size: .76rem;
 
-      opacity:
-        .65;
+      opacity: .65;
     }
 
 
     .review-fact strong {
-      display:
-        block;
+      display: block;
     }
 
 
     .review-checklist {
-      display:
-        grid;
+      display: grid;
 
-      gap:
-        10px;
+      gap: 10px;
     }
 
 
     .review-check {
-      display:
-        flex;
+      display: flex;
 
-      align-items:
-        flex-start;
+      align-items: flex-start;
 
-      gap:
-        10px;
+      gap: 10px;
 
-      padding:
-        12px;
+      padding: 12px;
 
-      border-radius:
-        10px;
+      border-radius: 10px;
 
       background:
         rgba(
@@ -2094,50 +2393,39 @@ $scoutCancelScheduled =
 
 
     .review-check.good i {
-      color:
-        #267447;
+      color: #267447;
     }
 
 
     .review-check.bad i {
-      color:
-        #9b3434;
+      color: #9b3434;
     }
 
 
     .scout-year-progress {
-      margin-top:
-        17px;
+      margin-top: 17px;
     }
 
 
     .scout-year-progress-top {
-      display:
-        flex;
+      display: flex;
 
-      justify-content:
-        space-between;
+      justify-content: space-between;
 
-      gap:
-        12px;
+      gap: 12px;
 
-      margin-bottom:
-        8px;
+      margin-bottom: 8px;
 
-      font-weight:
-        750;
+      font-weight: 750;
     }
 
 
     .scout-year-track {
-      overflow:
-        hidden;
+      overflow: hidden;
 
-      height:
-        10px;
+      height: 10px;
 
-      border-radius:
-        999px;
+      border-radius: 999px;
 
       background:
         rgba(
@@ -2150,27 +2438,22 @@ $scoutCancelScheduled =
 
 
     .scout-year-fill {
-      height:
-        100%;
+      height: 100%;
 
-      border-radius:
-        inherit;
+      border-radius: inherit;
 
-      background:
-        #172822;
+      background: #172822;
     }
 
 
     .scout-year-result {
-      margin-top:
-        11px;
+      margin-top: 11px;
 
       padding:
         11px
         12px;
 
-      border-radius:
-        10px;
+      border-radius: 10px;
 
       background:
         rgba(
@@ -2180,8 +2463,7 @@ $scoutCancelScheduled =
           .055
         );
 
-      line-height:
-        1.5;
+      line-height: 1.5;
     }
 
 
@@ -2197,14 +2479,11 @@ $scoutCancelScheduled =
 
 
     .review-submission {
-      display:
-        flex;
+      display: flex;
 
-      justify-content:
-        space-between;
+      justify-content: space-between;
 
-      gap:
-        14px;
+      gap: 14px;
 
       padding:
         12px
@@ -2222,38 +2501,30 @@ $scoutCancelScheduled =
 
 
     .review-submission:first-of-type {
-      border-top:
-        0;
+      border-top: 0;
     }
 
 
     .review-submission-name {
-      font-weight:
-        700;
+      font-weight: 700;
     }
 
 
     .review-submission-meta {
-      margin-top:
-        3px;
+      margin-top: 3px;
 
-      font-size:
-        .82rem;
+      font-size: .82rem;
 
-      opacity:
-        .67;
+      opacity: .67;
     }
 
 
     .review-role-list {
-      display:
-        flex;
+      display: flex;
 
-      flex-wrap:
-        wrap;
+      flex-wrap: wrap;
 
-      gap:
-        8px;
+      gap: 8px;
     }
 
 
@@ -2262,8 +2533,7 @@ $scoutCancelScheduled =
         7px
         10px;
 
-      border-radius:
-        999px;
+      border-radius: 999px;
 
       background:
         rgba(
@@ -2273,23 +2543,20 @@ $scoutCancelScheduled =
           .07
         );
 
-      font-size:
-        .82rem;
+      font-size: .82rem;
 
-      font-weight:
-        700;
+      font-weight: 700;
     }
 
 
     .review-actions textarea {
-      width:
-        100%;
+      width: 100%;
 
-      min-height:
-        130px;
+      box-sizing: border-box;
 
-      padding:
-        12px;
+      min-height: 130px;
+
+      padding: 12px;
 
       border:
         1px solid
@@ -2300,111 +2567,84 @@ $scoutCancelScheduled =
           .18
         );
 
-      border-radius:
-        10px;
+      border-radius: 10px;
 
-      font:
-        inherit;
+      font: inherit;
 
-      line-height:
-        1.55;
+      line-height: 1.55;
 
-      resize:
-        vertical;
+      resize: vertical;
     }
 
 
     .review-action-buttons {
-      display:
-        grid;
+      display: grid;
 
-      gap:
-        10px;
+      gap: 10px;
 
-      margin-top:
-        12px;
+      margin-top: 12px;
     }
 
 
     .review-action-button {
-      width:
-        100%;
+      width: 100%;
 
-      min-height:
-        44px;
+      min-height: 44px;
 
       padding:
         10px
         14px;
 
-      border:
-        0;
+      border: 0;
 
-      border-radius:
-        9px;
+      border-radius: 9px;
 
-      font:
-        inherit;
+      font: inherit;
 
-      font-weight:
-        750;
+      font-weight: 750;
 
-      cursor:
-        pointer;
+      cursor: pointer;
     }
 
 
     .review-action-button.approve {
-      background:
-        #172822;
+      background: #172822;
 
-      color:
-        #fff;
+      color: #fff;
     }
 
 
     .review-action-button.return {
-      background:
-        #e7dcc4;
+      background: #e7dcc4;
 
-      color:
-        #392e1c;
+      color: #392e1c;
     }
 
 
     .review-action-button.decline {
-      background:
-        #8c3232;
+      background: #8c3232;
 
-      color:
-        #fff;
+      color: #fff;
     }
 
 
     .review-action-button:disabled {
-      opacity:
-        .45;
+      opacity: .45;
 
-      cursor:
-        not-allowed;
+      cursor: not-allowed;
     }
 
 
     .review-private {
-      display:
-        flex;
+      display: flex;
 
-      gap:
-        9px;
+      gap: 9px;
 
-      margin-bottom:
-        15px;
+      margin-bottom: 15px;
 
-      padding:
-        12px;
+      padding: 12px;
 
-      border-radius:
-        10px;
+      border-radius: 10px;
 
       background:
         rgba(
@@ -2414,11 +2654,9 @@ $scoutCancelScheduled =
           .055
         );
 
-      font-size:
-        .85rem;
+      font-size: .85rem;
 
-      line-height:
-        1.45;
+      line-height: 1.45;
     }
 
 
@@ -2467,10 +2705,10 @@ require_once
 <main class="admin-main">
 
 
-    <a
-      class="admin-button"
-      href="/scouts.php"
-    >
+  <a
+    class="admin-button"
+    href="/scouts.php"
+  >
 
     <i
       class="fa-solid fa-arrow-left"
@@ -2482,82 +2720,63 @@ require_once
   </a>
 
 
-<section class="admin-intro">
+  <section class="admin-intro">
 
-  <div class="admin-intro-row">
+    <div class="admin-intro-row">
 
-    <div class="admin-intro-copy">
+      <div class="admin-intro-copy">
 
-      <p class="admin-eyebrow">
+        <p class="admin-eyebrow">
+          <?= e($introEyebrow) ?>
+        </p>
 
-        <?= $scoutIsActive
-            ? 'Scout Management'
-            : 'Scout Review'
-        ?>
+        <h1>
+          <?= e($displayName) ?>
+        </h1>
 
-      </p>
+        <p>
+          <?= e($introCopy) ?>
+        </p>
 
-      <h1>
-        <?= e($displayName) ?>
-      </h1>
-
-      <p>
-
-        <?php if ($scoutIsActive): ?>
-
-          Review this Scout's current year, contribution
-          progress, account, activity, and access.
-
-        <?php else: ?>
-
-          Review the candidate's account, contributions,
-          About You responses, training completion, and Scout
-          agreements before activating Scout access.
-
-        <?php endif; ?>
-
-      </p>
-
-    </div>
+      </div>
 
 
-    <div>
+      <div>
 
-    <span
-      class="
-        admin-badge
-        <?=
-          $scoutIsActive
-            ? 'admin-badge--success'
-            : 'admin-badge--warning'
-        ?>
-      "
-    >
+        <span
+          class="
+            admin-badge
+            <?= e(
+                scout_status_badge_class(
+                    $scoutStatus
+                )
+            ) ?>
+          "
+        >
 
-        <i
-          class="fa-solid fa-compass"
-          aria-hidden="true"
-        ></i>
+          <i
+            class="fa-solid fa-compass"
+            aria-hidden="true"
+          ></i>
 
-        <?= e(
-            scout_status_label(
-                (string)
-                $scout['status']
-            )
-        ) ?>
+          <?= e(
+              scout_status_label(
+                  $scoutStatus
+              )
+          ) ?>
 
-      </span>
+        </span>
+
+      </div>
 
     </div>
 
-  </div>
+  </section>
 
-</section>
 
-    
-<!-- =====================================================
-     BASECAMP NAVIGATION
-     ===================================================== -->
+  <!-- =====================================================
+       BASECAMP NAVIGATION
+       ===================================================== -->
 
 <?php
 
@@ -2567,10 +2786,15 @@ require
 
 ?>
 
-    
+
   <?php if ($message): ?>
 
-    <div class="admin-notice admin-notice--success">
+    <div
+      class="
+        admin-notice
+        admin-notice--success
+      "
+    >
       <?= e($message) ?>
     </div>
 
@@ -2579,7 +2803,12 @@ require
 
   <?php if ($error): ?>
 
-    <div class="admin-notice admin-notice--error">
+    <div
+      class="
+        admin-notice
+        admin-notice--error
+      "
+    >
       <?= e($error) ?>
     </div>
 
@@ -2599,13 +2828,11 @@ require
              CURRENT SCOUT YEAR
              =============================================== -->
 
-    <section class="admin-card">
-
+        <section class="admin-card">
 
           <h2>
             Current Scout Year
           </h2>
-
 
           <p>
 
@@ -2684,7 +2911,6 @@ require
 
           <div class="scout-year-progress">
 
-
             <div class="scout-year-progress-top">
 
               <span>
@@ -2736,7 +2962,9 @@ require
                 reports for this Scout year.
 
                 <?php if (
-                    $acceptedCurrentYear > 3
+                    $acceptedCurrentYear
+                    >
+                    3
                 ): ?>
 
                   They have completed
@@ -2749,13 +2977,17 @@ require
               <?php else: ?>
 
                 <strong>
+
                   <?= $reportsRemaining ?>
                   more accepted
+
                   <?= $reportsRemaining === 1
                       ? 'report is'
                       : 'reports are'
                   ?>
+
                   required.
+
                 </strong>
 
                 The requirement must be completed before the
@@ -2765,9 +2997,7 @@ require
 
             </div>
 
-
           </div>
-
 
         </section>
 
@@ -2779,16 +3009,19 @@ require
            ABOUT YOU
            =============================================== -->
 
-    <section class="admin-card">
-
+      <section class="admin-card">
 
         <h2>
           About You
         </h2>
 
-
         <p>
-          What the candidate shared during Scout onboarding.
+
+          <?= $scoutIsInOnboarding
+              ? 'What the candidate shared during Scout onboarding.'
+              : 'Information shared during Scout onboarding.'
+          ?>
+
         </p>
 
 
@@ -2801,39 +3034,50 @@ require
 
               'Why are they interested in becoming a Scout?'
                   =>
-                  $application['why_scout']
+                  $application[
+                      'why_scout'
+                  ]
                   ?? '',
 
               'What does travel usually look like for them?'
                   =>
-                  $application['travel_experience']
+                  $application[
+                      'travel_experience'
+                  ]
                   ?? '',
 
               'What kinds of things do they naturally notice?'
                   =>
-                  $application['field_experience']
+                  $application[
+                      'field_experience'
+                  ]
                   ?? '',
 
               'Accessibility perspective'
                   =>
-                  $application['accessibility_experience']
+                  $application[
+                      'accessibility_experience'
+                  ]
                   ?? '',
 
               'Sensory perspective'
                   =>
-                  $application['sensory_experience']
-                  ?? ''
-
+                  $application[
+                      'sensory_experience'
+                  ]
+                  ?? '',
           ];
 
           ?>
 
 
           <?php foreach (
-              $answers as
-              $question => $answer
+              $answers
+              as
+              $question
+              =>
+              $answer
           ): ?>
-
 
             <div class="review-answer">
 
@@ -2841,12 +3085,13 @@ require
                 <?= e($question) ?>
               </strong>
 
-
               <?php if (
                   trim(
-                      (string) $answer
+                      (string)
+                      $answer
                   )
-                  !== ''
+                  !==
+                  ''
               ): ?>
 
                 <p>
@@ -2863,18 +3108,16 @@ require
 
             </div>
 
-
           <?php endforeach; ?>
 
 
         <?php else: ?>
 
           <p class="review-answer-empty">
-            This candidate has not completed the About You section.
+            No About You information has been submitted.
           </p>
 
         <?php endif; ?>
-
 
       </section>
 
@@ -2883,13 +3126,11 @@ require
            CONTRIBUTIONS
            =============================================== -->
 
-    <section class="admin-card">
-
+      <section class="admin-card">
 
         <h2>
           Community Contributions
         </h2>
-
 
         <p>
 
@@ -3003,18 +3244,20 @@ require
 
         <?php if ($recentSubmissions): ?>
 
-
-          <div style="margin-top: 18px;">
-
+          <div
+            style="
+              margin-top:
+                18px;
+            "
+          >
 
             <?php foreach (
-                $recentSubmissions as
+                $recentSubmissions
+                as
                 $submission
             ): ?>
 
-
               <div class="review-submission">
-
 
                 <div>
 
@@ -3028,10 +3271,10 @@ require
 
                   </div>
 
-
                   <div class="review-submission-meta">
 
                     Submitted
+
                     <?= e(
                         format_admin_date(
                             $submission[
@@ -3062,18 +3305,13 @@ require
 
                 </div>
 
-
               </div>
-
 
             <?php endforeach; ?>
 
-
           </div>
 
-
         <?php endif; ?>
-
 
       </section>
 
@@ -3082,8 +3320,7 @@ require
            PRIVATE INFORMATION
            =============================================== -->
 
-    <section class="admin-card">
-
+      <section class="admin-card">
 
         <h2>
           Private Scout Information
@@ -3145,7 +3382,8 @@ require
                     $application[
                         'phone'
                     ]
-                    ?: 'Not provided'
+                    ?:
+                    'Not provided'
                 ) ?>
 
               </strong>
@@ -3215,6 +3453,7 @@ require
                 ): ?>
 
                   ,
+
                   <?= e(
                       $application[
                           'state_region'
@@ -3223,12 +3462,14 @@ require
 
                 <?php endif; ?>
 
+
                 <?= e(
                     $application[
                         'postal_code'
                     ]
                     ?? ''
                 ) ?>
+
 
                 <?php if (
                     !empty(
@@ -3264,7 +3505,6 @@ require
 
         <?php endif; ?>
 
-
       </section>
 
 
@@ -3278,20 +3518,18 @@ require
     <aside class="scout-review-side">
 
 
-      <?php if (!$scoutIsActive): ?>
+      <?php if ($scoutIsInOnboarding): ?>
 
 
         <!-- ===============================================
              ONBOARDING CHECK
              =============================================== -->
 
-    <section class="admin-card">
-
+        <section class="admin-card">
 
           <h2>
             Onboarding Check
           </h2>
-
 
           <p>
             Everything required before Scout activation.
@@ -3312,10 +3550,12 @@ require
             >
 
               <i
-                class="<?= $applicationSubmitted
-                    ? 'fa-solid fa-circle-check'
-                    : 'fa-solid fa-circle-xmark'
-                ?>"
+                class="
+                  <?= $applicationSubmitted
+                      ? 'fa-solid fa-circle-check'
+                      : 'fa-solid fa-circle-xmark'
+                  ?>
+                "
                 aria-hidden="true"
               ></i>
 
@@ -3329,11 +3569,7 @@ require
             <div
               class="
                 review-check
-                <?= !empty(
-                    $training[
-                        'video_completed_at'
-                    ]
-                )
+                <?= $trainingVersionCurrent
                     ? 'good'
                     : 'bad'
                 ?>
@@ -3341,14 +3577,39 @@ require
             >
 
               <i
-                class="<?= !empty(
-                    $training[
-                        'video_completed_at'
-                    ]
-                )
-                    ? 'fa-solid fa-circle-check'
-                    : 'fa-solid fa-circle-xmark'
-                ?>"
+                class="
+                  <?= $trainingVersionCurrent
+                      ? 'fa-solid fa-circle-check'
+                      : 'fa-solid fa-circle-xmark'
+                  ?>
+                "
+                aria-hidden="true"
+              ></i>
+
+              <span>
+                Current training version completed
+              </span>
+
+            </div>
+
+
+            <div
+              class="
+                review-check
+                <?= $trainingCompleted
+                    ? 'good'
+                    : 'bad'
+                ?>
+              "
+            >
+
+              <i
+                class="
+                  <?= $trainingCompleted
+                      ? 'fa-solid fa-circle-check'
+                      : 'fa-solid fa-circle-xmark'
+                  ?>
+                "
                 aria-hidden="true"
               ></i>
 
@@ -3370,10 +3631,12 @@ require
             >
 
               <i
-                class="<?= $allTrainingAcknowledgements
-                    ? 'fa-solid fa-circle-check'
-                    : 'fa-solid fa-circle-xmark'
-                ?>"
+                class="
+                  <?= $allTrainingAcknowledgements
+                      ? 'fa-solid fa-circle-check'
+                      : 'fa-solid fa-circle-xmark'
+                  ?>
+                "
                 aria-hidden="true"
               ></i>
 
@@ -3387,11 +3650,7 @@ require
             <div
               class="
                 review-check
-                <?= !empty(
-                    $scout[
-                        'email_verified_at'
-                    ]
-                )
+                <?= $emailVerified
                     ? 'good'
                     : 'bad'
                 ?>
@@ -3399,14 +3658,12 @@ require
             >
 
               <i
-                class="<?= !empty(
-                    $scout[
-                        'email_verified_at'
-                    ]
-                )
-                    ? 'fa-solid fa-circle-check'
-                    : 'fa-solid fa-circle-xmark'
-                ?>"
+                class="
+                  <?= $emailVerified
+                      ? 'fa-solid fa-circle-check'
+                      : 'fa-solid fa-circle-xmark'
+                  ?>
+                "
                 aria-hidden="true"
               ></i>
 
@@ -3419,7 +3676,6 @@ require
 
           </div>
 
-
         </section>
 
 
@@ -3430,8 +3686,7 @@ require
            ACCOUNT
            =============================================== -->
 
-    <section class="admin-card">
-
+      <section class="admin-card">
 
         <h2>
           Account
@@ -3447,8 +3702,11 @@ require
           <p>
 
             <?= e(
-                $scout['username']
-                ?: 'None'
+                $scout[
+                    'username'
+                ]
+                ?:
+                'None'
             ) ?>
 
           </p>
@@ -3463,7 +3721,11 @@ require
           </strong>
 
           <p>
-            <?= e($scout['email']) ?>
+            <?= e(
+                $scout[
+                    'email'
+                ]
+            ) ?>
           </p>
 
         </div>
@@ -3486,7 +3748,8 @@ require
                             $scout[
                                 'membership_status'
                             ]
-                            ?: 'none'
+                            ?:
+                            'none'
                         )
                     )
                 )
@@ -3511,7 +3774,8 @@ require
 
 
               <?php foreach (
-                  $currentRoleSlugs as
+                  $currentRoleSlugs
+                  as
                   $role
               ): ?>
 
@@ -3556,8 +3820,7 @@ require
            SCOUT TIMELINE
            =============================================== -->
 
-    <section class="admin-card">
-
+      <section class="admin-card">
 
         <h2>
           Scout Timeline
@@ -3581,7 +3844,9 @@ require
             ) ?>
 
             <?php if (
-                $inviterName !== ''
+                $inviterName
+                !==
+                ''
             ): ?>
 
               by
@@ -3638,7 +3903,9 @@ require
 
         <?php if (
             !empty(
-                $scout['approved_at']
+                $scout[
+                    'approved_at'
+                ]
             )
         ): ?>
 
@@ -3659,7 +3926,9 @@ require
               ) ?>
 
               <?php if (
-                  $approverName !== ''
+                  $approverName
+                  !==
+                  ''
               ): ?>
 
                 by
@@ -3740,24 +4009,22 @@ require
 
 
       <!-- ===============================================
-           REVIEW ACTIONS
+           ONBOARDING ACTIONS
            =============================================== -->
 
-    <?php if ($scoutIsInOnboarding): ?>
+      <?php if ($scoutIsInOnboarding): ?>
 
 
-    <section
-      class="
-        admin-card
-        review-actions
-      "
-    >
-
+        <section
+          class="
+            admin-card
+            review-actions
+          "
+        >
 
           <h2>
             Review
           </h2>
-
 
           <p>
 
@@ -3772,13 +4039,11 @@ require
             action="scout.php"
           >
 
-
             <input
               type="hidden"
               name="csrf_token"
               value="<?= e($csrfToken) ?>"
             >
-
 
             <input
               type="hidden"
@@ -3830,24 +4095,28 @@ require
               </button>
 
 
-              <button
-                class="
-                  review-action-button
-                  return
-                "
-                type="submit"
-                name="action"
-                value="return"
-              >
+              <?php if ($canReturnForChanges): ?>
 
-                <i
-                  class="fa-solid fa-arrow-rotate-left"
-                  aria-hidden="true"
-                ></i>
+                <button
+                  class="
+                    review-action-button
+                    return
+                  "
+                  type="submit"
+                  name="action"
+                  value="return"
+                >
 
-                Return for Changes
+                  <i
+                    class="fa-solid fa-arrow-rotate-left"
+                    aria-hidden="true"
+                  ></i>
 
-              </button>
+                  Return for Changes
+
+                </button>
+
+              <?php endif; ?>
 
 
               <button
@@ -3884,25 +4153,23 @@ require
         </section>
 
 
-      <?php else: ?>
+      <!-- ===============================================
+           ACTIVE SCOUT / BILLING
+           =============================================== -->
 
+      <?php elseif ($scoutIsActive): ?>
 
-        <!-- ===============================================
-             ACTIVE SCOUT / BILLING
-             =============================================== -->
 
         <section class="admin-card">
-
 
           <h2>
             Scout Active
           </h2>
 
-
           <p>
 
-            This account has completed onboarding and has an
-            active Scout role.
+            This account has completed onboarding and
+            currently has active Scout status.
 
           </p>
 
@@ -3958,10 +4225,10 @@ require
               </p>
 
 
-                <form
-                  method="post"
-                  action="/scout-billing.php"
-                >
+              <form
+                method="post"
+                action="/scout-billing.php"
+              >
 
                 <input
                   type="hidden"
@@ -3998,6 +4265,7 @@ require
 
                 </button>
 
+
               </form>
 
             </div>
@@ -4011,8 +4279,14 @@ require
 
 
             <div
-              class="review-check good"
-              style="margin-top: 12px;"
+              class="
+                review-check
+                good
+              "
+              style="
+                margin-top:
+                  12px;
+              "
             >
 
               <i
@@ -4028,6 +4302,50 @@ require
 
 
           <?php endif; ?>
+
+
+        </section>
+
+
+      <!-- ===============================================
+           TERMINAL / INACTIVE SCOUT RECORD
+           =============================================== -->
+
+      <?php else: ?>
+
+
+        <section class="admin-card">
+
+          <h2>
+            <?= e(
+                scout_status_label(
+                    $scoutStatus
+                )
+            ) ?>
+          </h2>
+
+
+          <p>
+
+            This Scout record is not currently active and is
+            not in the onboarding workflow. No Scout review
+            actions are available from this page.
+
+          </p>
+
+
+          <div class="review-check bad">
+
+            <i
+              class="fa-solid fa-circle-info"
+              aria-hidden="true"
+            ></i>
+
+            <span>
+              Scout access is not active.
+            </span>
+
+          </div>
 
 
         </section>
