@@ -744,6 +744,17 @@ $displayName =
         700;
     }
 
+     .scout-meta {
+        margin-top:
+          5px;
+      
+        font-size:
+          .75rem;
+      
+        opacity:
+          .62;
+      }
+
 
     .scout-progress {
       display:
