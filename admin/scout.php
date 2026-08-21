@@ -1324,6 +1324,13 @@ if (
 
                             WHERE id = ?
                               AND user_id = ?
+                              AND status IN (
+                                  \'invited\',
+                                  \'application_started\',
+                                  \'application_submitted\',
+                                  \'training\',
+                                  \'pending_approval\'
+                              )
                             '
                         );
 
