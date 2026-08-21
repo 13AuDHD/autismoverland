@@ -371,13 +371,39 @@ function publish_place_submission(
 
     if (
         !empty(
-            $submission['place_id']
+            $submission[
+                'place_id'
+            ]
         )
     ) {
 
-        return
-            (int)
-            $submission['place_id'];
+        throw new RuntimeException(
+            'This submission has already been converted into a Llama Scout Place.'
+        );
+    }
+
+
+    $submissionStatus =
+        strtolower(
+            trim(
+                (string) (
+                    $submission[
+                        'status'
+                    ]
+                    ?? ''
+                )
+            )
+        );
+
+
+    if (
+        $submissionStatus !==
+        'pending'
+    ) {
+
+        throw new RuntimeException(
+            'Only a pending submission can be published.'
+        );
     }
 
 
