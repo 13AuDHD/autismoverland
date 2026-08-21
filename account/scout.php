@@ -2305,37 +2305,73 @@ require_once
       </div>
 
 
-      <div
-        class="
-          scout-tool
-          scout-tool--future
-        "
-      >
+      <?php if (!$isMasterScout): ?>
 
-        <div class="scout-tool-icon">
+        <div
+          class="
+            scout-tool
+            scout-tool--future
+          "
+        >
 
-          <i
-            class="fa-solid fa-award"
-            aria-hidden="true"
-          ></i>
+          <div class="scout-tool-icon">
+
+            <i
+              class="fa-solid fa-award"
+              aria-hidden="true"
+            ></i>
+
+          </div>
+
+
+          <h3>
+            Master Scout
+          </h3>
+
+
+          <p>
+
+            Coming later... track progress toward advanced
+            Scout tools, badges, and Master Scout status.
+
+          </p>
 
         </div>
 
+      <?php else: ?>
 
-        <h3>
-          Master Scout
-        </h3>
+        <div
+          class="
+            scout-tool
+            scout-tool--future
+          "
+        >
+
+          <div class="scout-tool-icon">
+
+            <i
+              class="fa-solid fa-award"
+              aria-hidden="true"
+            ></i>
+
+          </div>
 
 
-        <p>
+          <h3>
+            Master Scout Tools
+          </h3>
 
-          Coming later... track progress toward advanced
-          Scout tools, badges, and Master Scout status.
 
-        </p>
+          <p>
 
-      </div>
+            Advanced Master Scout tools and features
+            are coming later.
 
+          </p>
+
+        </div>
+
+      <?php endif; ?>
 
     </div>
 
