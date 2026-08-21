@@ -1078,17 +1078,24 @@ if (
                     'Add a note explaining what needs to be changed.';
 
             } elseif (
-                (
-                    $scout['status']
-                    ?? ''
+                !in_array(
+                    (string) (
+                        $scout['status']
+                        ?? ''
+                    ),
+                    [
+                        'invited',
+                        'application_started',
+                        'application_submitted',
+                        'training',
+                        'pending_approval'
+                    ],
+                    true
                 )
-                ===
-                'active'
             ) {
-
+            
                 $error =
-                    'An active Scout cannot be returned to onboarding from this screen.';
-
+                    'This Scout is not currently in onboarding and cannot be returned for changes.';
             } else {
 
                 try {
@@ -1246,17 +1253,25 @@ if (
                     'Add a review note before declining the Scout invitation.';
 
             } elseif (
-                (
-                    $scout['status']
-                    ?? ''
+                !in_array(
+                    (string) (
+                        $scout['status']
+                        ?? ''
+                    ),
+                    [
+                        'invited',
+                        'application_started',
+                        'application_submitted',
+                        'training',
+                        'pending_approval'
+                    ],
+                    true
                 )
-                ===
-                'active'
             ) {
-
+            
                 $error =
-                    'Use Scout management to deactivate an active Scout rather than declining their onboarding.';
-
+                    'This Scout is not currently in onboarding and cannot be declined.';
+                
             } else {
 
                 try {
