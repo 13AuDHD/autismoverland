@@ -508,7 +508,50 @@ $isReadyForApproval =
 
 $message = '';
 $error = '';
+$billingResult =
+    trim(
+        (string) (
+            $_GET['billing']
+            ?? ''
+        )
+    );
 
+
+if ($billingResult !== '') {
+
+    switch ($billingResult) {
+
+        case 'scout-scheduled':
+            $message =
+                'Paid membership is now scheduled not to renew at the end of the current billing period.';
+            break;
+
+        case 'scout-already-scheduled':
+            $message =
+                'Paid membership was already scheduled not to renew.';
+            break;
+
+        case 'scout-already-ended':
+            $message =
+                'The previous paid membership has already ended.';
+            break;
+
+        case 'scout-no-subscription':
+            $message =
+                'There is no active Stripe subscription to change.';
+            break;
+
+        case 'scout-ok':
+            $message =
+                'Scout billing was updated successfully.';
+            break;
+
+        case 'scout-error':
+            $error =
+                'The Scout billing change could not be completed. Check the server error log for details.';
+            break;
+    }
+}
 
 if (
     $_SERVER['REQUEST_METHOD']
