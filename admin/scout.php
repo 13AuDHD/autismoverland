@@ -3450,7 +3450,7 @@ require
            SCOUT TIMELINE
            =============================================== -->
 
-      <section class="scout-review-card">
+    <section class="admin-card">
 
 
         <h2>
@@ -3785,7 +3785,7 @@ require
              ACTIVE SCOUT / BILLING
              =============================================== -->
 
-        <section class="scout-review-card">
+    <section class="admin-card">
 
 
           <h2>
