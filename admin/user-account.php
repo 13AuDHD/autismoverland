@@ -1180,12 +1180,12 @@ $displayHeading =
     content="width=device-width, initial-scale=1"
   >
 
-  <title>
-    Edit <?= e(
-        $displayHeading
-    ) ?> | Llama Scout Admin
-  </title>
-
+<title>
+  Edit <?= e(
+      $displayHeading
+  ) ?> | Llama Scout Basecamp
+</title>
+    
   <meta
     name="robots"
     content="noindex,nofollow"
