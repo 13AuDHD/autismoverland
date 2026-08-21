@@ -18,12 +18,72 @@ $user =
     current_user();
 
 
+$db =
+    db();
+
+
+$userId =
+    (int)
+    $user['id'];
+
+
+/* =========================================================
+   SCOUT HISTORY
+
+   A submission becomes a Scout Report when it was originally
+   submitted on or after this user's Scout start date.
+
+   This mirrors the qualification rule used by Basecamp when
+   accepted Scout activity is recorded.
+
+   Older submissions remain Community Scouted even if the
+   user later becomes a Scout.
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            scout_started_at
+
+        FROM scout_profiles
+
+        WHERE user_id = ?
+
+        LIMIT 1
+        '
+    );
+
+
+$stmt->execute([
+    $userId
+]);
+
+
+$scoutProfile =
+    $stmt->fetch(
+        PDO::FETCH_ASSOC
+    )
+    ?: [];
+
+
+$scoutStartedAt =
+    trim(
+        (string) (
+            $scoutProfile[
+                'scout_started_at'
+            ]
+            ?? ''
+        )
+    );
+
+
 /* =========================================================
    LOAD THIS MEMBER'S SUBMISSIONS
    ========================================================= */
 
 $stmt =
-    db()->prepare(
+    $db->prepare(
         '
         SELECT
             ps.id,
@@ -47,13 +107,14 @@ $stmt =
         WHERE ps.user_id = ?
 
         ORDER BY
-            ps.submitted_at DESC
+            ps.submitted_at DESC,
+            ps.id DESC
         '
     );
 
 
 $stmt->execute([
-    $user['id']
+    $userId
 ]);
 
 
@@ -76,7 +137,6 @@ function e(
         ENT_QUOTES,
         'UTF-8'
     );
-
 }
 
 
@@ -108,9 +168,7 @@ function submission_status_label(
                     $status
                 )
             ),
-
     };
-
 }
 
 
@@ -133,9 +191,7 @@ function submission_status_class(
 
         default =>
             'status-pending',
-
     };
-
 }
 
 
@@ -146,12 +202,9 @@ function format_submission_date(
     global $user;
 
 
-    if (
-        !$date
-    ) {
+    if (!$date) {
 
         return '';
-
     }
 
 
@@ -160,7 +213,6 @@ function format_submission_date(
         $user,
         'F j, Y'
     );
-
 }
 
 
@@ -176,7 +228,6 @@ function place_is_public(
         ],
         true
     );
-
 }
 
 
@@ -192,8 +243,118 @@ function submission_is_editable(
         ],
         true
     );
-
 }
+
+
+/* =========================================================
+   SCOUT REPORT CLASSIFICATION
+   ========================================================= */
+
+function submission_is_scout_report(
+    array $submission,
+    string $scoutStartedAt
+): bool {
+
+    if (
+        $scoutStartedAt
+        ===
+        ''
+    ) {
+
+        return false;
+    }
+
+
+    $submittedTimestamp =
+        strtotime(
+            (string) (
+                $submission[
+                    'submitted_at'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $scoutStartedTimestamp =
+        strtotime(
+            $scoutStartedAt
+        );
+
+
+    if (
+        $submittedTimestamp
+        ===
+        false
+        ||
+        $scoutStartedTimestamp
+        ===
+        false
+    ) {
+
+        return false;
+    }
+
+
+    return
+        $submittedTimestamp
+        >=
+        $scoutStartedTimestamp;
+}
+
+
+function submission_type_label(
+    array $submission,
+    string $scoutStartedAt
+): string {
+
+    if (
+        submission_is_scout_report(
+            $submission,
+            $scoutStartedAt
+        )
+    ) {
+
+        return 'Scout Report';
+    }
+
+
+    $sourceType =
+        strtolower(
+            trim(
+                (string) (
+                    $submission[
+                        'source_type'
+                    ]
+                    ?? ''
+                )
+            )
+        );
+
+
+    return match (
+        $sourceType
+    ) {
+
+        'community-scouted' =>
+            'Community Scouted',
+
+        default =>
+            $sourceType !== ''
+                ? ucwords(
+                    str_replace(
+                        [
+                            '-',
+                            '_',
+                        ],
+                        ' ',
+                        $sourceType
+                    )
+                )
+                : 'Community Scouted',
+    };
+}
+
 
 ?>
 
@@ -307,8 +468,7 @@ require_once
         Place submitted
       </strong>
 
-      Your Community Scouted place was sent
-      to Llama Scout for review.
+      Your place was sent to Llama Scout for review.
 
     </div>
 
@@ -351,8 +511,20 @@ require_once
 
       <?php foreach (
           $submissions
-          as $submission
+          as
+          $submission
       ): ?>
+
+
+        <?php
+
+        $submissionTypeLabel =
+            submission_type_label(
+                $submission,
+                $scoutStartedAt
+            );
+
+        ?>
 
 
         <article class="submission-card">
@@ -376,7 +548,9 @@ require_once
 
               <p class="submission-meta">
 
-                Community Scouted
+                <?= e(
+                    $submissionTypeLabel
+                ) ?>
 
                 &middot;
 
@@ -599,7 +773,7 @@ require_once
                     aria-hidden="true"
                   ></i>
 
-                  View Scout Report
+                  View Place
 
                 </a>
 
