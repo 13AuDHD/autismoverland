@@ -2604,12 +2604,13 @@ require_once
   </a>
 
 
-  <section class="scout-review-hero">
+<section class="admin-intro">
 
+  <div class="admin-intro-row">
 
-    <div>
+    <div class="admin-intro-copy">
 
-      <p class="scout-review-eyebrow">
+      <p class="admin-eyebrow">
 
         <?= $scoutIsActive
             ? 'Scout Management'
@@ -2618,11 +2619,9 @@ require_once
 
       </p>
 
-
       <h1>
         <?= e($displayName) ?>
       </h1>
-
 
       <p>
 
@@ -2644,25 +2643,31 @@ require_once
     </div>
 
 
-    <div class="scout-review-status">
+    <div>
 
-      <i
-        class="fa-solid fa-compass"
-        aria-hidden="true"
-      ></i>
+      <span class="admin-badge admin-badge--info">
 
-      <?= e(
-          scout_status_label(
-              (string)
-              $scout['status']
-          )
-      ) ?>
+        <i
+          class="fa-solid fa-compass"
+          aria-hidden="true"
+        ></i>
+
+        <?= e(
+            scout_status_label(
+                (string)
+                $scout['status']
+            )
+        ) ?>
+
+      </span>
 
     </div>
 
+  </div>
 
-  </section>
+</section>
 
+    
 <!-- =====================================================
      BASECAMP NAVIGATION
      ===================================================== -->
