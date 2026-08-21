@@ -2663,7 +2663,19 @@ require_once
 
   </section>
 
+<!-- =====================================================
+     BASECAMP NAVIGATION
+     ===================================================== -->
 
+<?php
+
+require
+    dirname(__DIR__)
+    . '/app/admin-nav.php';
+
+?>
+
+    
   <?php if ($message): ?>
 
     <div class="scout-review-notice success">
