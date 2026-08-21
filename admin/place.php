@@ -3209,14 +3209,14 @@ $locationText =
     content="width=device-width, initial-scale=1"
   >
 
-  <title>
-    <?= e(
-        $place[
-            'name'
-        ]
-    ) ?>
-    | Llama Scout Admin
-  </title>
+<title>
+  <?= e(
+      $place[
+          'name'
+      ]
+  ) ?>
+  | Llama Scout Basecamp
+</title>
 
   <meta
     name="robots"
