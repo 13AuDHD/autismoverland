@@ -1427,45 +1427,42 @@ require_once
 <main class="scouts-page">
 
 
-  <a
-    href="/"
-    class="scout-review-back"
-  >
+<!-- =====================================================
+     PAGE INTRO
+     ===================================================== -->
 
-    <i
-      class="fa-solid fa-arrow-left"
-      aria-hidden="true"
-    ></i>
+<section class="admin-intro">
 
-    Back to Basecamp
+  <div class="admin-intro-row">
 
-  </a>
+    <div class="admin-intro-copy">
 
+      <p class="admin-eyebrow">
 
-  <section class="scouts-hero">
+        <i
+          class="<?= e($primaryRoleIcon) ?>"
+          aria-hidden="true"
+        ></i>
 
-    <div>
+        Llama Scout
+        <?= e($primaryRoleLabel) ?>
 
-      <p class="scouts-eyebrow">
-        Scout Management
       </p>
-
 
       <h1>
         Llama Scouts
       </h1>
 
-
       <p>
-
         Manage Scout onboarding, approvals, active Scouts,
         contribution progress, Scout activity, and access.
-
       </p>
 
     </div>
 
-  </section>
+  </div>
+
+</section>
 
    <!-- =====================================================
      BASECAMP NAVIGATION
