@@ -3810,10 +3810,10 @@ require
               </p>
 
 
-              <form
-                method="post"
-                action="/scout-billing.php"
-              >
+                <form
+                  method="post"
+                  action="/admin/scout-billing.php"
+                >
 
                 <input
                   type="hidden"
