@@ -2388,18 +2388,6 @@ $scoutCancelScheduled =
           1fr;
       }
 
-
-      .scout-review-hero {
-        grid-template-columns:
-          1fr;
-      }
-
-
-      .scout-review-status {
-        justify-self:
-          start;
-      }
-
     }
 
 
