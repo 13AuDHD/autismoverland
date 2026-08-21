@@ -8,6 +8,10 @@ require_once
 
 require_once
     dirname(__DIR__)
+    . '/app/role-display.php';
+
+require_once
+    dirname(__DIR__)
     . '/app/timezone.php';
 
 require_once
@@ -269,7 +273,7 @@ function send_scout_invitation_email(
         .
         "Scout invitations are earned by community members who have shown that they can contribute useful place information to Llama Scout.\n\n"
         .
-        "Scouts receive access to additional Scout tools and full Llama Scout access while their Scout status remains active.\n\n"
+        "Scouts receive access to additional Scout tools and full free annual Llama Scout access while their Scout status remains active.\n\n"
         .
         "Becoming a Scout is optional. You can review the invitation, application requirements, and expectations before deciding.\n\n"
         .
@@ -357,7 +361,7 @@ function send_scout_invitation_email(
       </p>
 
       <p style="line-height:1.6;">
-        Scouts receive additional Scout tools and full
+        Scouts receive additional Scout tools and full free 
         Llama Scout access while their Scout status remains
         active.
       </p>
@@ -1796,6 +1800,111 @@ require_once
               'is_master_scout'
           ];
 
+        if (
+    $rowIsOwner
+) {
+
+    $rowPrimaryRole =
+        'owner';
+
+} elseif (
+    $rowIsAdmin
+) {
+
+    $rowPrimaryRole =
+        'admin';
+
+} elseif (
+    (bool)
+    $row[
+        'is_master_scout'
+    ]
+) {
+
+    $rowPrimaryRole =
+        'master-scout';
+
+} elseif (
+    (bool)
+    $row[
+        'is_scout'
+    ]
+) {
+
+    $rowPrimaryRole =
+        'scout';
+
+} elseif (
+    in_array(
+        'member',
+        $row[
+            'roles'
+        ],
+        true
+    )
+) {
+
+    $rowPrimaryRole =
+        'member';
+
+} else {
+
+    $rowPrimaryRole =
+        'user';
+
+}
+
+
+$rowPrimaryRoleLabel =
+    match (
+        $rowPrimaryRole
+    ) {
+
+        'owner' =>
+            'Owner',
+
+        'admin' =>
+            'Admin',
+
+        'master-scout' =>
+            'Master Scout',
+
+        'scout' =>
+            'Scout',
+
+        'member' =>
+            'Member',
+
+        default =>
+            'User',
+
+    };
+
+
+$rowPrimaryRoleIcon =
+    match (
+        $rowPrimaryRole
+    ) {
+
+        'owner' =>
+            'fa-solid fa-crown',
+
+        'admin' =>
+            'fa-solid fa-shield-halved',
+
+        'master-scout' =>
+            'fa-solid fa-compass',
+
+        'scout' =>
+            'fa-solid fa-binoculars',
+
+        'member' =>
+            'fa-solid fa-user',
+
+        default =>
+            'fa-regular fa-user',
+
+    };
 
       $rowIsProtectedStaff =
           $rowIsOwner
@@ -2034,62 +2143,49 @@ require_once
             </span>
 
 
-            <?php foreach (
-                $row[
-                    'roles'
-                ] as $role
-            ): ?>
-
-              <span
-                class="
-                  admin-user-badge
-                  admin-user-role
-
-                  <?= in_array(
-                      $role,
-                      [
-                          'owner',
-                          'admin',
-                      ],
-                      true
-                  )
-                      ? 'admin-user-role--admin'
-                      : ''
-                  ?>
-
-                  <?= in_array(
-                      $role,
-                      [
-                          'scout',
-                          'master-scout',
-                          'master_scout',
-                      ],
-                      true
-                  )
-                      ? 'admin-user-role--scout'
-                      : ''
-                  ?>
-                "
-              >
-
-                <?php if (
-                    $role === 'owner'
-                ): ?>
-
-                  <i class="fa-solid fa-crown"></i>
-
-                <?php endif; ?>
-
-                <?= e(
-                    role_label(
-                        $role
-                    )
-                ) ?>
-
-              </span>
-
-            <?php endforeach; ?>
-
+            <span
+              class="
+                admin-user-badge
+                admin-user-role
+            
+                <?= in_array(
+                    $rowPrimaryRole,
+                    [
+                        'owner',
+                        'admin',
+                    ],
+                    true
+                )
+                    ? 'admin-user-role--admin'
+                    : ''
+                ?>
+            
+                <?= in_array(
+                    $rowPrimaryRole,
+                    [
+                        'scout',
+                        'master-scout',
+                    ],
+                    true
+                )
+                    ? 'admin-user-role--scout'
+                    : ''
+                ?>
+              "
+            >
+            
+              <i
+                class="<?= e(
+                    $rowPrimaryRoleIcon
+                ) ?>"
+                aria-hidden="true"
+              ></i>
+            
+              <?= e(
+                  $rowPrimaryRoleLabel
+              ) ?>
+            
+            </span>
 
             <?php if (
                 $hasScoutProcess
