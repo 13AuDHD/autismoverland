@@ -343,7 +343,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     place_name = ?,
                     submission_data = ?,
                     status = 'pending',
-                    submitted_at = CURRENT_TIMESTAMP,
                     review_notes = NULL,
                     reviewed_at = NULL,
                     reviewed_by = NULL,
