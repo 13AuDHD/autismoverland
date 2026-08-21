@@ -1344,194 +1344,151 @@ require
 
 </section>
 
-  <section class="scouts-controls">
+<!-- =====================================================
+     SCOUT FILTERS
+     ===================================================== -->
 
-
-    <div class="scouts-filters">
-
-
-      <a
-        class="
-          scouts-filter
-          <?= $filter === 'all'
-              ? 'is-active'
-              : ''
-          ?>
-        "
-        href="/scouts.php"
-      >
-        All
-      </a>
-
-
-      <a
-        class="
-          scouts-filter
-          <?= $filter === 'onboarding'
-              ? 'is-active'
-              : ''
-          ?>
-        "
-        href="/scouts.php?status=onboarding"
-      >
-
-        Onboarding
-
-        <?php if (
-            $onboardingCount > 0
-        ): ?>
-
-          <span>
-            <?= $onboardingCount ?>
-          </span>
-
-        <?php endif; ?>
-
-      </a>
-
-
-      <a
-        class="
-          scouts-filter
-          <?= $filter === 'review'
-              ? 'is-active'
-              : ''
-          ?>
-        "
-        href="/scouts.php?status=review"
-      >
-
-        Awaiting Review
-
-        <?php if (
-            $reviewCount > 0
-        ): ?>
-
-          <span>
-            <?= $reviewCount ?>
-          </span>
-
-        <?php endif; ?>
-
-      </a>
-
-
-      <a
-        class="
-          scouts-filter
-          <?= $filter === 'active'
-              ? 'is-active'
-              : ''
-          ?>
-        "
-        href="/scouts.php?status=active"
-      >
-
-        Active
-
-        <?php if (
-            $activeCount > 0
-        ): ?>
-
-          <span>
-            <?= $activeCount ?>
-          </span>
-
-        <?php endif; ?>
-
-      </a>
-
-
-      <a
-        class="
-          scouts-filter
-          <?= $filter === 'inactive'
-              ? 'is-active'
-              : ''
-          ?>
-        "
-        href="/scouts.php?status=inactive"
-      >
-        Inactive
-      </a>
-
-
-      <a
-        class="
-          scouts-filter
-          <?= $filter === 'declined'
-              ? 'is-active'
-              : ''
-          ?>
-        "
-        href="/scouts.php?status=declined"
-      >
-        Declined
-      </a>
-
-
-      <a
-        class="
-          scouts-filter
-          <?= $filter === 'removed'
-              ? 'is-active'
-              : ''
-          ?>
-        "
-        href="/scouts.php?status=removed"
-      >
-        Removed
-      </a>
-
-
-    </div>
-
-
-    <form
-      class="scouts-search"
-      method="get"
-      action="/scouts.php"
-    >
-
-
-      <?php if (
-          $filter !== 'all'
-      ): ?>
-
-        <input
-          type="hidden"
-          name="status"
-          value="<?= e($filter) ?>"
-        >
-
-      <?php endif; ?>
-
-
-      <input
-        type="search"
-        name="q"
-        value="<?= e($search) ?>"
-        placeholder="Search Scouts..."
-      >
-
-
-      <button type="submit">
-
-        <i
-          class="fa-solid fa-magnifying-glass"
-          aria-hidden="true"
-        ></i>
-
-        Search
-
-      </button>
-
-
-    </form>
-
-
-  </section>
-
+   <section
+     class="admin-place-controls"
+     aria-label="Scout filters"
+   >
+   
+     <form
+       method="get"
+       action="/scouts.php"
+       style="
+         display: contents;
+       "
+     >
+   
+       <div class="admin-place-control">
+   
+         <label for="scout-status">
+           Status
+         </label>
+   
+         <select
+           id="scout-status"
+           name="status"
+         >
+   
+           <option
+             value="all"
+             <?= $filter === 'all'
+                 ? 'selected'
+                 : ''
+             ?>
+           >
+             All Scouts
+           </option>
+   
+           <option
+             value="onboarding"
+             <?= $filter === 'onboarding'
+                 ? 'selected'
+                 : ''
+             ?>
+           >
+             Onboarding
+           </option>
+   
+           <option
+             value="review"
+             <?= $filter === 'review'
+                 ? 'selected'
+                 : ''
+             ?>
+           >
+             Awaiting Review
+           </option>
+   
+           <option
+             value="active"
+             <?= $filter === 'active'
+                 ? 'selected'
+                 : ''
+             ?>
+           >
+             Active
+           </option>
+   
+           <option
+             value="inactive"
+             <?= $filter === 'inactive'
+                 ? 'selected'
+                 : ''
+             ?>
+           >
+             Inactive
+           </option>
+   
+           <option
+             value="declined"
+             <?= $filter === 'declined'
+                 ? 'selected'
+                 : ''
+             ?>
+           >
+             Declined
+           </option>
+   
+           <option
+             value="removed"
+             <?= $filter === 'removed'
+                 ? 'selected'
+                 : ''
+             ?>
+           >
+             Removed
+           </option>
+   
+         </select>
+   
+       </div>
+   
+   
+       <div class="admin-place-control">
+   
+         <label for="scout-search">
+           Search
+         </label>
+   
+         <input
+           id="scout-search"
+           type="search"
+           name="q"
+           value="<?= e($search) ?>"
+           placeholder="Name, username, or email"
+         >
+   
+       </div>
+   
+   
+       <div class="admin-place-control">
+   
+         <label>
+           &nbsp;
+         </label>
+   
+         <button
+           type="submit"
+           class="admin-button"
+         >
+   
+           <i
+             class="fa-solid fa-magnifying-glass"
+             aria-hidden="true"
+           ></i>
+   
+           Filter Scouts
+   
+         </button>
+   
+       </div>
+   
+     </form>
+   
+   </section>
 
   <?php if ($scouts): ?>
 
