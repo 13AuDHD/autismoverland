@@ -1745,6 +1745,23 @@ $scoutIsActive =
     'active';
 
 
+$scoutIsInOnboarding =
+    in_array(
+        (string) (
+            $scout['status']
+            ?? ''
+        ),
+        [
+            'invited',
+            'application_started',
+            'application_submitted',
+            'training',
+            'pending_approval'
+        ],
+        true
+    );
+
+
 $scoutMembershipStatus =
     strtolower(
         trim(
@@ -3661,7 +3678,7 @@ require
            REVIEW ACTIONS
            =============================================== -->
 
-      <?php if (!$scoutIsActive): ?>
+    <?php if ($scoutIsInOnboarding): ?>
 
 
     <section
