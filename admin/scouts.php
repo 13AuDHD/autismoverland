@@ -632,24 +632,6 @@ $displayName =
 
   <style>
 
-    .scouts-page {
-      width:
-        min(
-          100%,
-          1240px
-        );
-
-      margin:
-        0
-        auto;
-
-      padding:
-        28px
-        18px
-        70px;
-    }
-
-
 
     /* =====================================================
        STATS
@@ -1326,7 +1308,7 @@ require_once
 ?>
 
 
-<main class="scouts-page">
+<main class="admin-main">
 
 
 <!-- =====================================================
