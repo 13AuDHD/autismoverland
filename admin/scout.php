@@ -814,7 +814,18 @@ if (
                         $scoutUserId
                     ]);
 
+                        if (
+                            $profileUpdate->rowCount()
+                            !==
+                            1
+                        ) {
+                        
+                            throw new RuntimeException(
+                                'Scout onboarding state changed before approval could be completed.'
+                            );
+                        }
 
+                    
                     /* =====================================
                        APPLICATION REVIEW
                        ===================================== */
