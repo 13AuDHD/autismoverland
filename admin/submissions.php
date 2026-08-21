@@ -547,6 +547,41 @@ function current_scout_year_progress(
         );
 
 
+    $scoutStartedAt =
+    trim(
+        (string) (
+            $scoutProfile[
+                'scout_started_at'
+            ]
+            ?? ''
+        )
+    );
+
+
+    if (
+        $scoutStartedAt !== ''
+    ) {
+    
+        $scoutStartedTimestamp =
+            strtotime(
+                $scoutStartedAt
+            );
+    
+    
+        if (
+            $scoutStartedTimestamp !== false
+            &&
+            $scoutStartedTimestamp
+            >
+            $startTimestamp
+        ) {
+    
+            $startTimestamp =
+                $scoutStartedTimestamp;
+        }
+    }
+    
+
     $yearStart =
         date(
             'Y-m-d H:i:s',
