@@ -1321,10 +1321,28 @@ require
 
             <span
               class="
-                scout-status
-                scout-status--<?= e(
-                    $statusGroup
-                ) ?>
+                admin-badge
+                <?=
+                  $status === 'active'
+                    ? 'admin-badge--success'
+                    : (
+                        $status === 'pending_approval'
+                          ? 'admin-badge--warning'
+                          : (
+                              in_array(
+                                  $status,
+                                  [
+                                      'inactive',
+                                      'declined',
+                                      'removed',
+                                  ],
+                                  true
+                              )
+                                ? 'admin-badge--danger'
+                                : 'admin-badge--muted'
+                            )
+                      )
+                ?>
               "
             >
 
