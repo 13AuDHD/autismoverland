@@ -2976,7 +2976,7 @@ require
            PRIVATE INFORMATION
            =============================================== -->
 
-      <section class="scout-review-card">
+    <section class="admin-card">
 
 
         <h2>
