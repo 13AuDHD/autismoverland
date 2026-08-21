@@ -2586,7 +2586,7 @@ require_once
 ?>
 
 
-<main class="scout-review-shell">
+<main class="admin-main">
 
 
   <a
