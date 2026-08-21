@@ -1194,6 +1194,28 @@ function user_has_role(
     }
 
 
+   if (
+    $role === 'scout'
+    &&
+    (
+        in_array(
+            'master-scout',
+            $roles,
+            true
+        )
+        ||
+        in_array(
+            'master_scout',
+            $roles,
+            true
+        )
+    )
+) {
+
+    return true;
+}
+
+   
     return false;
 }
 
