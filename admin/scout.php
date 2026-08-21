@@ -1727,9 +1727,9 @@ $scoutCancelScheduled =
     content="width=device-width, initial-scale=1"
   >
 
-  <title>
-    <?= e($displayName) ?> | Scout | Llama Scout Admin
-  </title>
+<title>
+  <?= e($displayName) ?> | Scout | Llama Scout Basecamp
+</title>
 
   <meta
     name="robots"
