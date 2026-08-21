@@ -1465,9 +1465,14 @@ require
             </span>
 
 
-            <?php if (
+                        <?php if (
                 $status === 'active'
             ): ?>
+
+
+              <span class="scout-label">
+                Current Scout Year
+              </span>
 
 
               <div class="scout-progress">
@@ -1512,8 +1517,34 @@ require
               <?php endif; ?>
 
 
+            <?php elseif (
+                in_array(
+                    $status,
+                    [
+                        'inactive',
+                        'declined',
+                        'removed'
+                    ],
+                    true
+                )
+            ): ?>
+
+
+              <span class="scout-label">
+                Scout Access
+              </span>
+
+              <span class="scout-value">
+                Not currently active
+              </span>
+
+
             <?php else: ?>
 
+
+              <span class="scout-label">
+                Scout Year
+              </span>
 
               <span class="scout-value">
                 Not active yet
