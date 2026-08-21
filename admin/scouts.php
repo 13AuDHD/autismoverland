@@ -1360,67 +1360,67 @@ require
 
 ?>
 
-   <!-- =====================================================
+<!-- =====================================================
      SCOUT STATS
      ===================================================== -->
 
-  <section class="scouts-stats">
+<section
+  class="admin-stats"
+  aria-label="Scout statistics"
+>
+
+  <article class="admin-stat">
+
+    <span class="admin-stat-label">
+      Scout Profiles
+    </span>
+
+    <strong class="admin-stat-value">
+      <?= $totalScouts ?>
+    </strong>
+
+  </article>
 
 
-    <article class="scouts-stat">
+  <article class="admin-stat">
 
-      <span>
-        Scout Profiles
-      </span>
+    <span class="admin-stat-label">
+      Onboarding
+    </span>
 
-      <strong>
-        <?= $totalScouts ?>
-      </strong>
+    <strong class="admin-stat-value">
+      <?= $onboardingCount ?>
+    </strong>
 
-    </article>
-
-
-    <article class="scouts-stat">
-
-      <span>
-        Onboarding
-      </span>
-
-      <strong>
-        <?= $onboardingCount ?>
-      </strong>
-
-    </article>
+  </article>
 
 
-    <article class="scouts-stat">
+  <article class="admin-stat">
 
-      <span>
-        Awaiting Review
-      </span>
+    <span class="admin-stat-label">
+      Awaiting Review
+    </span>
 
-      <strong>
-        <?= $reviewCount ?>
-      </strong>
+    <strong class="admin-stat-value">
+      <?= $reviewCount ?>
+    </strong>
 
-    </article>
-
-
-    <article class="scouts-stat">
-
-      <span>
-        Active Scouts
-      </span>
-
-      <strong>
-        <?= $activeCount ?>
-      </strong>
-
-    </article>
+  </article>
 
 
-  </section>
+  <article class="admin-stat">
 
+    <span class="admin-stat-label">
+      Active Scouts
+    </span>
+
+    <strong class="admin-stat-value">
+      <?= $activeCount ?>
+    </strong>
+
+  </article>
+
+</section>
 
   <section class="scouts-controls">
 
