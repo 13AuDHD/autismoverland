@@ -446,6 +446,21 @@ if (
     ] === 'POST'
 ) {
 
+        if (
+        $status !==
+        'application_started'
+    ) {
+
+        http_response_code(
+            409
+        );
+
+
+        exit(
+            'Your About You information is no longer open for editing.'
+        );
+    }
+
     $submittedToken =
         $_POST[
             'csrf_token'
