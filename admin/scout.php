@@ -3640,12 +3640,12 @@ require
       <?php if (!$scoutIsActive): ?>
 
 
-        <section
-          class="
-            scout-review-card
-            review-actions
-          "
-        >
+    <section
+      class="
+        admin-card
+        review-actions
+      "
+    >
 
 
           <h2>
