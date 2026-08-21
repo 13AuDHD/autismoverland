@@ -195,9 +195,28 @@ if (
     'active'
 ) {
 
-    header(
-        'Location: scout-training.php'
-    );
+    if (
+        in_array(
+            $scoutStatus,
+            [
+                'application_submitted',
+                'training',
+                'pending_approval'
+            ],
+            true
+        )
+    ) {
+
+        header(
+            'Location: scout-training.php'
+        );
+
+    } else {
+
+        header(
+            'Location: /'
+        );
+    }
 
 
     exit;
