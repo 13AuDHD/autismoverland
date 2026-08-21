@@ -1264,6 +1264,12 @@ if (
                     
                     WHERE id = ?
                       AND user_id = ?
+                      AND status IN (
+                          \'application_submitted\',
+                          \'training\',
+                          \'pending_approval\',
+                          \'active\'
+                      )
                     '
                 );
 
@@ -1272,6 +1278,17 @@ if (
                     $scoutProfileId,
                     $userId
                 ]);
+
+                if (
+                    $stmt->rowCount()
+                    !==
+                    1
+                ) {
+                
+                    throw new RuntimeException(
+                        'Scout onboarding state changed before training could be completed.'
+                    );
+                }
 
 
                 $db->commit();
