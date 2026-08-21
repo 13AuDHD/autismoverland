@@ -845,6 +845,16 @@ if (
                                     submitted_at,
                                     CURRENT_TIMESTAMP
                                 ),
+                            
+                            reviewed_at =
+                                NULL,
+                            
+                            reviewed_by =
+                                NULL,
+                            
+                            review_notes =
+                                NULL,
+                            
                             updated_at =
                                 CURRENT_TIMESTAMP
 
