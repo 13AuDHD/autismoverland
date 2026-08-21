@@ -721,12 +721,11 @@ if (
 
 
         $allowedStatuses = [
-
-            'approved',
+        
             'needs-changes',
             'rejected',
             'pending',
-
+        
         ];
 
 
