@@ -1121,7 +1121,7 @@ require
        "
      >
    
-       <div class="admin-place-control">
+       <div class="admin-place-control scout-filter-action">
    
          <label for="scout-status">
            Status
