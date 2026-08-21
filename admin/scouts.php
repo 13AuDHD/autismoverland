@@ -1711,7 +1711,7 @@ require
   <?php else: ?>
 
 
-    <section class="scouts-empty">
+<section class="admin-empty">
 
 
       <h2>
