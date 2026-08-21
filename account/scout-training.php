@@ -1156,20 +1156,24 @@ if (
                     $db->prepare(
                         '
                         UPDATE scout_profiles
-
+                        
                         SET
                             status =
-                                \'pending_approval\',
-
+                                CASE
+                                    WHEN status = 'active'
+                                        THEN 'active'
+                                    ELSE 'pending_approval'
+                                END,
+                        
                             training_completed_at =
                                 COALESCE(
                                     training_completed_at,
                                     CURRENT_TIMESTAMP
                                 ),
-
+                        
                             updated_at =
                                 CURRENT_TIMESTAMP
-
+                        
                         WHERE id = ?
                           AND user_id = ?
                         '
