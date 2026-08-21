@@ -360,24 +360,72 @@ function renderFeaturedLocations(
       );
 
 
-      /*
-       * Only display individual ratings when the visitor
-       * is actually allowed to see them.
-       */
+      const detailRows = [];
 
-      const roadHTML =
-        numericPlaceValue(
-          difficulty
-        ) !== null
-          ? `
+
+      /* =====================================================
+         ELEVATION
+         ===================================================== */
+
+      if (
+        elevation !== null
+      ) {
+
+        detailRows.push(`
+
+          <div class="homepage-place-detail">
+
+            <i
+              class="fa-solid fa-mountain"
+              aria-hidden="true"
+            ></i>
+
             <span>
 
-              <i
-                class="fa-solid fa-road"
-                aria-hidden="true"
-              ></i>
+              <span class="homepage-place-detail-label">
+                Elevation
+              </span>
 
-              Road
+              ${elevation.toLocaleString()}
+              ft
+
+            </span>
+
+          </div>
+
+        `);
+      }
+
+
+      /* =====================================================
+         ROAD
+         ===================================================== */
+
+      const roadValue =
+        numericPlaceValue(
+          difficulty
+        );
+
+
+      if (
+        roadValue !== null
+      ) {
+
+        detailRows.push(`
+
+          <div class="homepage-place-detail">
+
+            <i
+              class="fa-solid fa-road"
+              aria-hidden="true"
+            ></i>
+
+            <span>
+
+              <span class="homepage-place-detail-label">
+                Road
+              </span>
+
               ${escapeHTML(
                 displayRatingValue(
                   difficulty
@@ -385,23 +433,42 @@ function renderFeaturedLocations(
               )}
 
             </span>
-          `
-          : "";
+
+          </div>
+
+        `);
+      }
 
 
-      const privacyHTML =
+      /* =====================================================
+         PRIVACY
+         ===================================================== */
+
+      const privacyValue =
         numericPlaceValue(
           privacy
-        ) !== null
-          ? `
+        );
+
+
+      if (
+        privacyValue !== null
+      ) {
+
+        detailRows.push(`
+
+          <div class="homepage-place-detail">
+
+            <i
+              class="fa-solid fa-eye"
+              aria-hidden="true"
+            ></i>
+
             <span>
 
-              <i
-                class="fa-solid fa-eye"
-                aria-hidden="true"
-              ></i>
+              <span class="homepage-place-detail-label">
+                Privacy
+              </span>
 
-              Privacy
               ${escapeHTML(
                 displayRatingValue(
                   privacy
@@ -409,23 +476,42 @@ function renderFeaturedLocations(
               )}
 
             </span>
-          `
-          : "";
+
+          </div>
+
+        `);
+      }
 
 
-      const cellHTML =
+      /* =====================================================
+         CELL
+         ===================================================== */
+
+      const cellValue =
         numericPlaceValue(
           cell
-        ) !== null
-          ? `
+        );
+
+
+      if (
+        cellValue !== null
+      ) {
+
+        detailRows.push(`
+
+          <div class="homepage-place-detail">
+
+            <i
+              class="fa-solid fa-signal"
+              aria-hidden="true"
+            ></i>
+
             <span>
 
-              <i
-                class="fa-solid fa-signal"
-                aria-hidden="true"
-              ></i>
+              <span class="homepage-place-detail-label">
+                Cell
+              </span>
 
-              Cell
               ${escapeHTML(
                 displayRatingValue(
                   cell
@@ -433,55 +519,37 @@ function renderFeaturedLocations(
               )}
 
             </span>
-          `
-          : "";
+
+          </div>
+
+        `);
+      }
 
 
-      const elevationHTML =
-        elevation !== null
-          ? `
-            <span>
+      /* =====================================================
+         MEMBER-ONLY DETAILS
 
-              <i
-                class="fa-solid fa-mountain"
-                aria-hidden="true"
-              ></i>
-
-              ${elevation.toLocaleString()}
-              ft
-
-            </span>
-          `
-          : "";
-
-
-      /*
-       * Instead of:
-       *
-       * Road Member only
-       * Privacy Member only
-       * Cell Member only
-       *
-       * show one simple indicator.
-       */
+         Locked Road / Privacy / Cell values are represented
+         once instead of repeating Member only three times.
+         ===================================================== */
 
       const memberDetailsHTML =
         lockedRatings.length > 0
           ? `
-            <p class="homepage-member-details">
+
+            <div class="homepage-member-details">
+
+              <i
+                class="fa-solid fa-lock"
+                aria-hidden="true"
+              ></i>
 
               <span>
-
-                <i
-                  class="fa-solid fa-lock"
-                  aria-hidden="true"
-                ></i>
-
                 Member details
-
               </span>
 
-            </p>
+            </div>
+
           `
           : "";
 
@@ -507,6 +575,7 @@ function renderFeaturedLocations(
         ${
           image
             ? `
+
               <a
                 href="${placeURL}"
                 class="location-card-image-link"
@@ -527,8 +596,10 @@ function renderFeaturedLocations(
                 >
 
               </a>
+
             `
             : `
+
               <a
                 href="${placeURL}"
                 class="location-card-image-link"
@@ -555,6 +626,7 @@ function renderFeaturedLocations(
                 </div>
 
               </a>
+
             `
         }
 
@@ -579,19 +651,15 @@ function renderFeaturedLocations(
 
 
           ${
-            elevationHTML ||
-            roadHTML ||
-            privacyHTML ||
-            cellHTML
+            detailRows.length > 0
               ? `
-                <p>
 
-                  ${elevationHTML}
-                  ${roadHTML}
-                  ${privacyHTML}
-                  ${cellHTML}
+                <div class="homepage-place-details">
 
-                </p>
+                  ${detailRows.join("")}
+
+                </div>
+
               `
               : ""
           }
@@ -830,6 +898,7 @@ async function initHomepageMap() {
             ${
               locked
                 ? `
+
                   <i
                     class="fa-solid fa-lock"
                     aria-hidden="true"
@@ -840,6 +909,7 @@ async function initHomepageMap() {
                       value
                     )
                   )}
+
                 `
                 : escapeHTML(
                     displayRatingValue(
@@ -1011,6 +1081,7 @@ async function initHomepageMap() {
                 ${
                   featuredImage
                     ? `
+
                       <img
                         class="map-popup-image"
                         src="${escapeHTML(
@@ -1022,6 +1093,7 @@ async function initHomepageMap() {
                           place.name
                         )}"
                       >
+
                     `
                     : ""
                 }
@@ -1065,6 +1137,7 @@ async function initHomepageMap() {
                   ${
                     location
                       ? `
+
                         <span>
 
                           <i
@@ -1077,6 +1150,7 @@ async function initHomepageMap() {
                           )}
 
                         </span>
+
                       `
                       : ""
                   }
@@ -1085,6 +1159,7 @@ async function initHomepageMap() {
                   ${
                     approximateLocation
                       ? `
+
                         <span>
 
                           <i
@@ -1095,6 +1170,7 @@ async function initHomepageMap() {
                           Approximate location
 
                         </span>
+
                       `
                       : ""
                   }
@@ -1136,6 +1212,7 @@ async function initHomepageMap() {
                 ${
                   verified
                     ? `
+
                       <p class="verified-place">
 
                         <i
@@ -1146,6 +1223,7 @@ async function initHomepageMap() {
                         Llama Scouted
 
                       </p>
+
                     `
                     : ""
                 }
