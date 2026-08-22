@@ -9,8 +9,11 @@ require_once
 
 require_once
     dirname(__DIR__)
-    . '/app/place-publisher.php';
+    . '/app/permissions.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/place-publisher.php';
 require_once
     dirname(__DIR__)
     . '/app/scout-policy.php';
@@ -28,8 +31,8 @@ require_once
     . '/app/place-provenance.php';
 
 
-require_role(
-    'admin'
+llama_require_capability(
+    LLAMA_CAP_MODERATE_PLACES
 );
 
 
@@ -38,6 +41,16 @@ start_llama_session();
 
 $user =
     current_user();
+
+
+$moderatorIsFullAdmin =
+    user_has_role(
+        'admin',
+        (int)
+        $user[
+            'id'
+        ]
+    );
 
 
 $db =
@@ -1201,6 +1214,10 @@ try {
        REDIRECT
        ===================================================== */
 
+if (
+    $moderatorIsFullAdmin
+) {
+
     $redirectUrl =
         'place.php?id='
         .
@@ -1210,6 +1227,20 @@ try {
         )
         .
         '&from=submission';
+
+} else {
+
+    $redirectUrl =
+        'submissions.php?status=approved&id='
+        .
+        rawurlencode(
+            (string)
+            $submissionId
+        )
+        .
+        '&approved=1';
+
+}
 
 
     if (
