@@ -2,12 +2,22 @@
 
 declare(strict_types=1);
 
+
 require_once
     dirname(__DIR__)
     . '/app/auth.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/scout-stats.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/permissions.php';
+
 
 require_login();
+
 start_llama_session();
 
 
@@ -21,7 +31,9 @@ $db =
 
 $userId =
     (int)
-    $user['id'];
+    $user[
+        'id'
+    ];
 
 
 /* =========================================================
@@ -46,6 +58,34 @@ $isVerified =
             'email_verified_at'
         ]
     );
+
+
+$canModeratePlaces =
+    llama_user_can(
+        LLAMA_CAP_MODERATE_PLACES,
+        $userId
+    );
+
+
+/* =========================================================
+   SCOUT PROFILE
+   ========================================================= */
+
+$scoutSummary =
+    llama_scout_summary(
+        $db,
+        $userId
+    );
+
+
+$hasActiveScoutAccess =
+    $isScout
+    &&
+    $scoutSummary
+    &&
+    $scoutSummary[
+        'active'
+    ];
 
 
 /* =========================================================
@@ -93,21 +133,6 @@ $scoutProfile =
     ?: null;
 
 
-$hasActiveScoutAccess =
-    $isScout
-    &&
-    $scoutProfile
-    &&
-    (
-        $scoutProfile[
-            'status'
-        ]
-        ?? ''
-    )
-    ===
-    'active';
-
-
 /* =========================================================
    ONBOARDING CARD
    ========================================================= */
@@ -152,18 +177,14 @@ if (
             $showScoutOnboarding =
                 true;
 
-
             $scoutOnboardingTitle =
                 'Scout Invitation';
-
 
             $scoutOnboardingDescription =
                 'You have been invited to join the Llama Scout team.';
 
-
             $scoutOnboardingHref =
                 'scout-invite.php';
-
 
             $scoutOnboardingStep =
                 'Step 1 of 5';
@@ -176,18 +197,14 @@ if (
             $showScoutOnboarding =
                 true;
 
-
             $scoutOnboardingTitle =
                 'Scout Onboarding';
-
 
             $scoutOnboardingDescription =
                 'Tell us a little more about you and continue your Scout onboarding.';
 
-
             $scoutOnboardingHref =
                 'scout-application.php';
-
 
             $scoutOnboardingStep =
                 'Step 2 of 5';
@@ -202,18 +219,14 @@ if (
             $showScoutOnboarding =
                 true;
 
-
             $scoutOnboardingTitle =
                 'Scout Training';
-
 
             $scoutOnboardingDescription =
                 'Continue your Scout orientation and training.';
 
-
             $scoutOnboardingHref =
                 'scout-training.php';
-
 
             $scoutOnboardingStep =
                 'Step 3 of 5';
@@ -226,18 +239,14 @@ if (
             $showScoutOnboarding =
                 true;
 
-
             $scoutOnboardingTitle =
                 'Scout Review';
-
 
             $scoutOnboardingDescription =
                 'Your onboarding is complete and your Scout profile is awaiting approval.';
 
-
             $scoutOnboardingHref =
                 'scout-training.php';
-
 
             $scoutOnboardingStep =
                 'Step 4 of 5';
@@ -246,11 +255,6 @@ if (
 
 
         case 'active':
-
-            /*
-             * Active Scouts no longer need the onboarding card.
-             * Their Scout Tools section becomes the main entry.
-             */
 
             $showScoutOnboarding =
                 false;
@@ -263,18 +267,14 @@ if (
             $showScoutOnboarding =
                 true;
 
-
             $scoutOnboardingTitle =
                 'Scout Invitation';
-
 
             $scoutOnboardingDescription =
                 'View the status of your Scout invitation.';
 
-
             $scoutOnboardingHref =
                 'scout-invite.php';
-
 
             $scoutOnboardingStep =
                 '';
@@ -285,11 +285,6 @@ if (
         case 'inactive':
 
         case 'removed':
-
-            /*
-             * These are Scout-management states rather than
-             * unfinished onboarding states.
-             */
 
             $showScoutOnboarding =
                 false;
@@ -302,7 +297,7 @@ if (
 
 
 /* =========================================================
-   ESCAPE
+   HELPERS
    ========================================================= */
 
 function e(
@@ -310,10 +305,48 @@ function e(
 ): string {
 
     return htmlspecialchars(
-        (string) $value,
+        (string)
+        $value,
         ENT_QUOTES,
         'UTF-8'
     );
+
+}
+
+
+function account_scout_date(
+    ?string $date
+): string {
+
+    if (
+        !$date
+    ) {
+
+        return 'Not set';
+
+    }
+
+
+    $timestamp =
+        strtotime(
+            $date
+        );
+
+
+    if (
+        $timestamp === false
+    ) {
+
+        return $date;
+
+    }
+
+
+    return
+        date(
+            'M j, Y',
+            $timestamp
+        );
 
 }
 
@@ -374,38 +407,19 @@ $displayName =
 
   <style>
 
-    /* =====================================================
-       SCOUT ONBOARDING DASHBOARD CARD
-       ===================================================== */
-
     .scout-onboarding-card {
       position: relative;
       overflow: hidden;
 
       border:
         1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .16
-        );
+        rgba(23, 40, 34, .16);
 
       background:
         linear-gradient(
           145deg,
-          rgba(
-            23,
-            40,
-            34,
-            .07
-          ),
-          rgba(
-            217,
-            196,
-            154,
-            .10
-          )
+          rgba(23, 40, 34, .07),
+          rgba(217, 196, 154, .10)
         );
     }
 
@@ -423,12 +437,7 @@ $displayName =
 
       border:
         1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .08
-        );
+        rgba(23, 40, 34, .08);
 
       border-radius: 50%;
     }
@@ -455,15 +464,200 @@ $displayName =
     }
 
 
-    .scout-onboarding-card h3 {
-      position: relative;
-      z-index: 1;
+    .scout-summary {
+      margin-top: 16px;
+      padding: 20px;
+
+      border:
+        1px solid
+        rgba(23, 40, 34, .13);
+
+      border-radius: 16px;
+
+      background:
+        rgba(255, 255, 255, .82);
     }
 
 
-    .scout-onboarding-card p {
-      position: relative;
-      z-index: 1;
+    .scout-summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+
+      gap: 18px;
+
+      margin-bottom: 18px;
+    }
+
+
+    .scout-summary-header h3 {
+      margin:
+        0
+        0
+        5px;
+    }
+
+
+    .scout-summary-header p {
+      margin: 0;
+      opacity: .7;
+    }
+
+
+    .scout-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+
+      padding:
+        7px
+        10px;
+
+      border-radius: 999px;
+
+      background:
+        rgba(23, 40, 34, .08);
+
+      font-size: .76rem;
+      font-weight: 800;
+
+      white-space: nowrap;
+    }
+
+
+    .scout-status-badge.is-active {
+      background:
+        #172822;
+
+      color: #fff;
+    }
+
+
+    .scout-summary-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(
+          4,
+          minmax(
+            0,
+            1fr
+          )
+        );
+
+      gap: 10px;
+    }
+
+
+    .scout-summary-stat {
+      padding: 14px;
+
+      border-radius: 11px;
+
+      background:
+        rgba(23, 40, 34, .05);
+    }
+
+
+    .scout-summary-stat span {
+      display: block;
+
+      margin-bottom: 5px;
+
+      font-size: .74rem;
+      opacity: .65;
+    }
+
+
+    .scout-summary-stat strong {
+      display: block;
+      font-size: 1.35rem;
+    }
+
+
+    .scout-progress {
+      margin-top: 17px;
+    }
+
+
+    .scout-progress-label {
+      display: flex;
+      justify-content: space-between;
+
+      gap: 10px;
+
+      margin-bottom: 7px;
+
+      font-size: .8rem;
+      font-weight: 700;
+    }
+
+
+    .scout-progress-track {
+      overflow: hidden;
+
+      height: 10px;
+
+      border-radius: 999px;
+
+      background:
+        rgba(23, 40, 34, .10);
+    }
+
+
+    .scout-progress-fill {
+      height: 100%;
+
+      border-radius: inherit;
+
+      background: #172822;
+    }
+
+
+    .scout-progress-note {
+      margin:
+        10px
+        0
+        0;
+
+      font-size: .8rem;
+      line-height: 1.5;
+
+      opacity: .72;
+    }
+
+
+    @media (
+      max-width: 760px
+    ) {
+
+      .scout-summary-grid {
+        grid-template-columns:
+          repeat(
+            2,
+            minmax(
+              0,
+              1fr
+            )
+          );
+      }
+
+    }
+
+
+    @media (
+      max-width: 480px
+    ) {
+
+      .scout-summary-header {
+        display: block;
+      }
+
+
+      .scout-status-badge {
+        margin-top: 10px;
+      }
+
     }
 
   </style>
@@ -486,10 +680,6 @@ require_once
 <main class="account-shell">
 
 
-  <!-- =====================================================
-       HEADER
-       ===================================================== -->
-
   <header class="account-header">
 
     <h1>
@@ -511,19 +701,9 @@ require_once
   </header>
 
 
-  <!-- =====================================================
-       EMAIL VERIFICATION
-
-       Verified users see NOTHING here.
-
-       Only users who still need to verify their email get
-       a warning.
-       ===================================================== -->
-
   <?php if (
       !$isVerified
   ): ?>
-
 
     <section
       class="
@@ -537,24 +717,288 @@ require_once
       </strong>
 
       <p>
-
         You'll need to verify your email before
         contributing or making protected changes.
-
       </p>
 
     </section>
 
+  <?php endif; ?>
+
+
+  <?php if (
+      $scoutSummary
+  ): ?>
+
+    <section class="scout-summary">
+
+      <div class="scout-summary-header">
+
+        <div>
+
+          <h3>
+            Scout Status
+          </h3>
+
+          <p>
+            Lifetime contribution points and current Scout
+            eligibility are tracked separately.
+          </p>
+
+        </div>
+
+
+        <span
+          class="
+            scout-status-badge
+            <?= $scoutSummary[
+                'active'
+            ]
+                ? 'is-active'
+                : ''
+            ?>
+          "
+        >
+
+          <i
+            class="fa-solid fa-binoculars"
+            aria-hidden="true"
+          ></i>
+
+          <?= e(
+              $scoutSummary[
+                  'rank'
+              ]
+          ) ?>
+
+          ·
+
+          <?= $scoutSummary[
+              'active'
+          ]
+              ? 'Active'
+              : 'Inactive'
+          ?>
+
+        </span>
+
+      </div>
+
+
+      <div class="scout-summary-grid">
+
+
+        <div class="scout-summary-stat">
+
+          <span>
+            Lifetime Points
+          </span>
+
+          <strong>
+            <?= number_format(
+                (int)
+                $scoutSummary[
+                    'lifetime_points'
+                ]
+            ) ?>
+          </strong>
+
+        </div>
+
+
+        <div class="scout-summary-stat">
+
+          <span>
+            Lifetime New Places
+          </span>
+
+          <strong>
+            <?= number_format(
+                (int)
+                $scoutSummary[
+                    'lifetime_new_places'
+                ]
+            ) ?>
+          </strong>
+
+        </div>
+
+
+        <div class="scout-summary-stat">
+
+          <span>
+            New Places This Period
+          </span>
+
+          <strong>
+
+            <?= (int)
+                $scoutSummary[
+                    'period'
+                ][
+                    'accepted_new_places'
+                ]
+            ?>
+
+            /
+
+            <?= (int)
+                $scoutSummary[
+                    'period'
+                ][
+                    'required_new_places'
+                ]
+            ?>
+
+          </strong>
+
+        </div>
+
+
+        <div class="scout-summary-stat">
+
+          <span>
+            Active Through
+          </span>
+
+          <strong
+            style="font-size: 1rem;"
+          >
+            <?= e(
+                account_scout_date(
+                    $scoutSummary[
+                        'active_through'
+                    ]
+                )
+            ) ?>
+          </strong>
+
+        </div>
+
+
+      </div>
+
+
+      <div class="scout-progress">
+
+
+        <div class="scout-progress-label">
+
+          <span>
+            <?= e(
+                $scoutSummary[
+                    'period'
+                ][
+                    'label'
+                ]
+            ) ?>
+          </span>
+
+
+          <span>
+
+            <?= (int)
+                $scoutSummary[
+                    'period'
+                ][
+                    'accepted_new_places'
+                ]
+            ?>
+
+            of
+
+            <?= (int)
+                $scoutSummary[
+                    'period'
+                ][
+                    'required_new_places'
+                ]
+            ?>
+
+            new places
+
+          </span>
+
+        </div>
+
+
+        <div class="scout-progress-track">
+
+          <div
+            class="scout-progress-fill"
+            style="width: <?= number_format(
+                (float)
+                $scoutSummary[
+                    'period'
+                ][
+                    'progress_percent'
+                ],
+                1,
+                '.',
+                ''
+            ) ?>%;"
+          ></div>
+
+        </div>
+
+
+        <p class="scout-progress-note">
+
+          <?php if (
+              $scoutSummary[
+                  'period'
+              ][
+                  'requirement_met'
+              ]
+          ): ?>
+
+            Annual new-place requirement complete.
+
+            Additional new places, updates, corrections,
+            and other approved contributions can continue
+            earning lifetime points.
+
+          <?php else: ?>
+
+            <?= (int)
+                $scoutSummary[
+                    'period'
+                ][
+                    'remaining_new_places'
+                ]
+            ?>
+
+            more approved new
+
+            <?= (int)
+                $scoutSummary[
+                    'period'
+                ][
+                    'remaining_new_places'
+                ]
+                === 1
+                    ? 'place is'
+                    : 'places are'
+            ?>
+
+            required for the current Scout period.
+
+            Lifetime points do not replace this requirement.
+
+          <?php endif; ?>
+
+        </p>
+
+
+      </div>
+
+
+    </section>
 
   <?php endif; ?>
 
 
-  <!-- =====================================================
-       MY ACCOUNT
-       ===================================================== -->
-
   <section class="account-section">
-
 
     <h2>
       My Account
@@ -619,7 +1063,6 @@ require_once
           $showScoutOnboarding
       ): ?>
 
-
         <a
           href="<?= e(
               $scoutOnboardingHref
@@ -629,7 +1072,6 @@ require_once
             scout-onboarding-card
           "
         >
-
 
           <?php if (
               $scoutOnboardingStep !== ''
@@ -657,40 +1099,30 @@ require_once
             ) ?>
           </h3>
 
-
           <p>
             <?= e(
                 $scoutOnboardingDescription
             ) ?>
           </p>
 
-
         </a>
-
 
       <?php endif; ?>
 
 
     </div>
 
-
   </section>
 
-
-  <!-- =====================================================
-       COMMUNITY SCOUTING
-       ===================================================== -->
 
   <?php if (
       $isVerified
   ): ?>
 
-
     <section class="account-section">
 
-
       <h2>
-        Community Scouting
+        Contribute
       </h2>
 
 
@@ -703,12 +1135,12 @@ require_once
         >
 
           <h3>
-            Scout a Place
+            Add a Place
           </h3>
 
           <p>
-            Share a place you've personally visited
-            as a Community Scouted submission.
+            Share a dispersed campsite or other place
+            you've personally visited.
           </p>
 
         </a>
@@ -724,8 +1156,7 @@ require_once
           </h3>
 
           <p>
-            View and manage your
-            Community Scouted submissions.
+            View and manage your submitted places.
           </p>
 
         </a>
@@ -733,24 +1164,16 @@ require_once
 
       </div>
 
-
     </section>
-
 
   <?php endif; ?>
 
 
-  <!-- =====================================================
-       SCOUT TOOLS
-       ===================================================== -->
-
-<?php if (
-    $hasActiveScoutAccess
-): ?>
-
+  <?php if (
+      $hasActiveScoutAccess
+  ): ?>
 
     <section class="account-section">
-
 
       <h2>
         Scout Tools
@@ -766,37 +1189,54 @@ require_once
         >
 
           <h3>
-            Llama Scout
+            Scout Basecamp
           </h3>
 
           <p>
-            Access scouting tools and
-            Llama Scouted place data.
+            View your full Scout record,
+            reports, progress, and field tools.
           </p>
 
         </a>
 
 
-      </div>
+        <?php if (
+            $canModeratePlaces
+            &&
+            !$isAdmin
+        ): ?>
 
+          <a
+            href="https://admin.llamascout.com/submissions.php"
+            class="account-dashboard-card"
+          >
+
+            <h3>
+              Moderation
+            </h3>
+
+            <p>
+              Review new Place submissions and structured
+              updates as a Master Scout.
+            </p>
+
+          </a>
+
+        <?php endif; ?>
+
+
+      </div>
 
     </section>
 
-
   <?php endif; ?>
 
-
-  <!-- =====================================================
-       ADMINISTRATION
-       ===================================================== -->
 
   <?php if (
       $isAdmin
   ): ?>
 
-
     <section class="account-section">
-
 
       <h2>
         Administration
@@ -826,19 +1266,12 @@ require_once
 
       </div>
 
-
     </section>
-
 
   <?php endif; ?>
 
 
-  <!-- =====================================================
-       FOOTER
-       ===================================================== -->
-
   <footer class="account-footer">
-
 
     <a
       href="https://llamascout.com"
@@ -846,11 +1279,9 @@ require_once
       Back to Llama Scout
     </a>
 
-
     <a href="logout.php">
       Log out
     </a>
-
 
   </footer>
 
