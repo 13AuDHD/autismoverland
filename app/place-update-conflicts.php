@@ -1002,11 +1002,7 @@ function llama_assert_place_update_not_stale(
                 .
                 '.';
 
-
-    throw new DomainException(
-        $message
-    );
-
+   
     throw new DomainException(
         $message
     );
