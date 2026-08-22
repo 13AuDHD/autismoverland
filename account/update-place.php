@@ -627,40 +627,11 @@ foreach (
    ========================================================= */
 
 $currentValues =
-    [];
-
-
-foreach (
-    $fieldMap as
-    $path =>
-    $definition
-) {
-
-    try {
-
-        $currentValues[
-            $path
-        ] =
-            llama_update_current_field_value(
-                $db,
-                $placeId,
-                (string)
-                $path,
-                $fieldMap
-            );
-
-    } catch (
-        Throwable
-    ) {
-
-        $currentValues[
-            $path
-        ] =
-            null;
-
-    }
-
-}
+    llama_place_update_current_values(
+        $db,
+        $placeId,
+        $fieldMap
+    );
 
 
 /* =========================================================
