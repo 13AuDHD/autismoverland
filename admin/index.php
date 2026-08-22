@@ -22,12 +22,6 @@ start_llama_session();
 $user =
     current_user();
 
-$primaryRole =
-    llama_primary_role(
-        (int)
-        $user['id']
-    );
-
 
 $primaryRoleLabel =
     llama_primary_role_label(
@@ -64,11 +58,13 @@ $activeUsers =
     (int)
     $db
         ->query(
-            "
+            '
             SELECT COUNT(*)
+
             FROM users
-            WHERE status = 'active'
-            "
+
+            WHERE status = \'active\'
+            '
         )
         ->fetchColumn();
 
@@ -77,11 +73,13 @@ $pendingUsers =
     (int)
     $db
         ->query(
-            "
+            '
             SELECT COUNT(*)
+
             FROM users
-            WHERE status = 'pending'
-            "
+
+            WHERE status = \'pending\'
+            '
         )
         ->fetchColumn();
 
@@ -92,11 +90,90 @@ $verifiedUsers =
         ->query(
             '
             SELECT COUNT(*)
+
             FROM users
-            WHERE email_verified_at IS NOT NULL
+
+            WHERE email_verified_at
+                IS NOT NULL
             '
         )
         ->fetchColumn();
+
+
+/* =========================================================
+   SUBMISSION COUNTS
+   ========================================================= */
+
+$pendingSubmissions =
+    (int)
+    $db
+        ->query(
+            '
+            SELECT COUNT(*)
+
+            FROM place_submissions
+
+            WHERE status = \'pending\'
+              AND place_id IS NULL
+            '
+        )
+        ->fetchColumn();
+
+
+$needsChangesSubmissions =
+    (int)
+    $db
+        ->query(
+            '
+            SELECT COUNT(*)
+
+            FROM place_submissions
+
+            WHERE status = \'needs-changes\'
+              AND place_id IS NULL
+            '
+        )
+        ->fetchColumn();
+
+
+/* =========================================================
+   PLACE REPORT COUNTS
+   ========================================================= */
+
+$openProblemReports =
+    (int)
+    $db
+        ->query(
+            '
+            SELECT COUNT(*)
+
+            FROM place_reports
+
+            WHERE status = \'open\'
+            '
+        )
+        ->fetchColumn();
+
+
+$investigatingProblemReports =
+    (int)
+    $db
+        ->query(
+            '
+            SELECT COUNT(*)
+
+            FROM place_reports
+
+            WHERE status = \'investigating\'
+            '
+        )
+        ->fetchColumn();
+
+
+$activeProblemReports =
+    $openProblemReports
+    +
+    $investigatingProblemReports;
 
 
 /* =========================================================
@@ -109,6 +186,7 @@ $totalScoutProfiles =
         ->query(
             '
             SELECT COUNT(*)
+
             FROM scout_profiles
             '
         )
@@ -119,11 +197,13 @@ $activeScouts =
     (int)
     $db
         ->query(
-            "
+            '
             SELECT COUNT(*)
+
             FROM scout_profiles
-            WHERE status = 'active'
-            "
+
+            WHERE status = \'active\'
+            '
         )
         ->fetchColumn();
 
@@ -132,11 +212,14 @@ $scoutsAwaitingReview =
     (int)
     $db
         ->query(
-            "
+            '
             SELECT COUNT(*)
+
             FROM scout_profiles
-            WHERE status = 'pending_approval'
-            "
+
+            WHERE status =
+                \'pending_approval\'
+            '
         )
         ->fetchColumn();
 
@@ -145,18 +228,19 @@ $scoutsOnboarding =
     (int)
     $db
         ->query(
-            "
+            '
             SELECT COUNT(*)
+
             FROM scout_profiles
 
             WHERE status IN
             (
-                'invited',
-                'application_started',
-                'application_submitted',
-                'training'
+                \'invited\',
+                \'application_started\',
+                \'application_submitted\',
+                \'training\'
             )
-            "
+            '
         )
         ->fetchColumn();
 
@@ -175,7 +259,6 @@ function e(
         ENT_QUOTES,
         'UTF-8'
     );
-
 }
 
 
@@ -289,37 +372,22 @@ $displayName =
 
   <style>
 
-    /* =====================================================
-       SCOUT CARD ALERT
-       ===================================================== */
-
-    .admin-card-scout {
-      position:
-        relative;
-
-      overflow:
-        hidden;
+    .admin-card-attention {
+      position: relative;
+      overflow: hidden;
     }
 
 
-    .admin-card-scout::after {
-      content:
-        "";
+    .admin-card-attention::after {
+      content: "";
 
-      position:
-        absolute;
+      position: absolute;
 
-      width:
-        150px;
+      width: 150px;
+      height: 150px;
 
-      height:
-        150px;
-
-      right:
-        -65px;
-
-      bottom:
-        -85px;
+      right: -65px;
+      bottom: -85px;
 
       border:
         1px solid
@@ -330,30 +398,24 @@ $displayName =
           .08
         );
 
-      border-radius:
-        50%;
+      border-radius: 50%;
     }
 
 
     .admin-card-alert {
-      display:
-        inline-flex;
+      display: inline-flex;
 
-      align-items:
-        center;
+      align-items: center;
 
-      gap:
-        6px;
+      gap: 6px;
 
-      margin-top:
-        14px;
+      margin-top: 14px;
 
       padding:
         6px
         9px;
 
-      border-radius:
-        999px;
+      border-radius: 999px;
 
       background:
         rgba(
@@ -363,20 +425,19 @@ $displayName =
           .24
         );
 
-      font-size:
-        .76rem;
-
-      font-weight:
-        750;
+      font-size: .76rem;
+      font-weight: 750;
     }
 
 
     .admin-card-alert--urgent {
-      background:
-        #172822;
+      background: #172822;
+      color: #fff;
+    }
 
-      color:
-        #fff;
+
+    .admin-card-alert + .admin-card-alert {
+      margin-left: 6px;
     }
 
   </style>
@@ -413,15 +474,19 @@ require_once
 
 
         <p class="admin-eyebrow">
-        
+
           <i
-            class="<?= e($primaryRoleIcon) ?>"
+            class="<?= e(
+                $primaryRoleIcon
+            ) ?>"
             aria-hidden="true"
           ></i>
-        
+
           Llama Scout
-          <?= e($primaryRoleLabel) ?>
-        
+          <?= e(
+              $primaryRoleLabel
+          ) ?>
+
         </p>
 
 
@@ -551,6 +616,112 @@ require
       </strong>
 
     </article>
+
+
+  </section>
+
+
+  <!-- =====================================================
+       WORK QUEUES
+       ===================================================== -->
+
+  <section class="admin-section">
+
+
+    <div class="admin-section-header">
+
+
+      <div>
+
+        <h2>
+          Needs Attention
+        </h2>
+
+        <p>
+          Current review and investigation queues.
+        </p>
+
+      </div>
+
+
+    </div>
+
+
+    <section
+      class="admin-stats"
+      aria-label="Admin work queues"
+    >
+
+
+      <article class="admin-stat">
+
+        <span class="admin-stat-label">
+          Pending Submissions
+        </span>
+
+        <strong class="admin-stat-value">
+          <?= $pendingSubmissions ?>
+        </strong>
+
+      </article>
+
+
+      <article class="admin-stat">
+
+        <span class="admin-stat-label">
+          Needs Changes
+        </span>
+
+        <strong class="admin-stat-value">
+          <?= $needsChangesSubmissions ?>
+        </strong>
+
+      </article>
+
+
+      <article
+        class="
+          admin-stat
+          <?= $openProblemReports > 0
+              ? 'admin-stat--alert'
+              : ''
+          ?>
+        "
+      >
+
+        <span class="admin-stat-label">
+          New Problem Reports
+        </span>
+
+        <strong class="admin-stat-value">
+          <?= $openProblemReports ?>
+        </strong>
+
+      </article>
+
+
+      <article
+        class="
+          admin-stat
+          <?= $investigatingProblemReports > 0
+              ? 'admin-stat--alert'
+              : ''
+          ?>
+        "
+      >
+
+        <span class="admin-stat-label">
+          Investigating
+        </span>
+
+        <strong class="admin-stat-value">
+          <?= $investigatingProblemReports ?>
+        </strong>
+
+      </article>
+
+
+    </section>
 
 
   </section>
@@ -739,7 +910,10 @@ require
       <!-- PLACES -->
 
       <a
-        class="admin-card"
+        class="
+          admin-card
+          admin-card-attention
+        "
         href="/places.php"
       >
 
@@ -768,13 +942,83 @@ require
         </p>
 
 
+        <?php if (
+            $openProblemReports > 0
+        ): ?>
+
+          <span
+            class="
+              admin-card-alert
+              admin-card-alert--urgent
+            "
+          >
+
+            <i
+              class="fa-solid fa-triangle-exclamation"
+              aria-hidden="true"
+            ></i>
+
+            <?= $openProblemReports ?>
+
+            new
+            <?= $openProblemReports === 1
+                ? 'report'
+                : 'reports'
+            ?>
+
+          </span>
+
+        <?php endif; ?>
+
+
+        <?php if (
+            $investigatingProblemReports > 0
+        ): ?>
+
+          <span class="admin-card-alert">
+
+            <i
+              class="fa-solid fa-magnifying-glass"
+              aria-hidden="true"
+            ></i>
+
+            <?= $investigatingProblemReports ?>
+
+            investigating
+
+          </span>
+
+        <?php endif; ?>
+
+
+        <?php if (
+            $activeProblemReports === 0
+        ): ?>
+
+          <span class="admin-card-alert">
+
+            <i
+              class="fa-solid fa-circle-check"
+              aria-hidden="true"
+            ></i>
+
+            No active reports
+
+          </span>
+
+        <?php endif; ?>
+
+
       </a>
 
 
       <!-- SUBMISSIONS -->
 
       <a
-        class="admin-card"
+        class="
+          admin-card
+          admin-card-attention
+        "
         href="/submissions.php"
       >
 
@@ -797,9 +1041,65 @@ require
         <p>
 
           Review, approve, request changes,
-          or decline Community Scouted submissions.
+          or decline Community Scouted submissions
+          and Scout Reports.
 
         </p>
+
+
+        <?php if (
+            $pendingSubmissions > 0
+        ): ?>
+
+          <span
+            class="
+              admin-card-alert
+              admin-card-alert--urgent
+            "
+          >
+
+            <i
+              class="fa-solid fa-clipboard-check"
+              aria-hidden="true"
+            ></i>
+
+            <?= $pendingSubmissions ?>
+
+            awaiting review
+
+          </span>
+
+        <?php elseif (
+            $needsChangesSubmissions > 0
+        ): ?>
+
+          <span class="admin-card-alert">
+
+            <i
+              class="fa-solid fa-pen"
+              aria-hidden="true"
+            ></i>
+
+            <?= $needsChangesSubmissions ?>
+
+            need changes
+
+          </span>
+
+        <?php else: ?>
+
+          <span class="admin-card-alert">
+
+            <i
+              class="fa-solid fa-circle-check"
+              aria-hidden="true"
+            ></i>
+
+            Queue clear
+
+          </span>
+
+        <?php endif; ?>
 
 
       </a>
@@ -810,7 +1110,7 @@ require
       <a
         class="
           admin-card
-          admin-card-scout
+          admin-card-attention
         "
         href="/scouts.php"
       >
