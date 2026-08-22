@@ -1139,15 +1139,38 @@ try {
 
 
     /* =====================================================
-       SCOUT ACTIVITY
+       SCOUT POINTS + CURRENT-PERIOD ACTIVITY
 
-       Points apply only when the contributor has an active
-       Scout profile and the report qualifies for Scout
-       activity.
+       Lifetime contribution points are based on the
+       contributor's role when the Place was submitted.
 
-       Community users can still contribute Places, but they
-       do not receive Scout points unless they are Scouts.
+       Current-period Scout activity is separate. It is only
+       recorded when the contributor still has a qualifying
+       active Scout profile and the submission belongs to that
+       Scout period.
+
+       This prevents moderation delay from erasing lifetime
+       points while also preventing an old submission from
+       reactivating Scout status or satisfying a later annual
+       period.
        ===================================================== */
+
+    $earnedAsScout =
+        in_array(
+            $roleAtTime,
+            [
+                'scout',
+                'master-scout',
+            ],
+            true
+        );
+
+
+    $actualContributionPoints =
+        $earnedAsScout
+            ? $pointsAwarded
+            : 0;
+
 
     $newScoutCredit =
         false;
@@ -1161,11 +1184,9 @@ try {
         null;
 
 
-    $actualContributionPoints =
-        0;
-
-
     if (
+        $earnedAsScout
+        &&
         $scoutProfile
         &&
         approval_submission_qualifies(
@@ -1180,7 +1201,7 @@ try {
                 $scoutProfile,
                 $submissionId,
                 $placeId,
-                $pointsAwarded,
+                $actualContributionPoints,
                 $approvedAt
             );
 
@@ -1189,13 +1210,6 @@ try {
             (int)
             $activity[
                 'id'
-            ];
-
-
-        $actualContributionPoints =
-            (int)
-            $activity[
-                'points'
             ];
 
 
@@ -1213,7 +1227,6 @@ try {
             );
 
     }
-
 
     /* =====================================================
        PERMANENT CONTRIBUTION HISTORY
@@ -1245,7 +1258,8 @@ try {
             'completion_percent'
         ]
         .
-        '%'
+        '%',
+        $roleAtTime
     );
 
 
