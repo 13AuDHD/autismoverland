@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/place-editor-data.php';
+require_once dirname(__DIR__) . '/app/place-contributions.php';
+require_once dirname(__DIR__) . '/app/place-submissions.php';
 
 require_verified_email();
 start_llama_session();
 
 $user = current_user();
 $db = db();
+
+llama_ensure_place_submission_role_column(
+    $db
+); 
 
 $adminPlaceId = (int) ($_GET['admin_place'] ?? $_POST['admin_place'] ?? 0);
 $editSubmissionId = (int) ($_GET['edit'] ?? 0);
@@ -411,10 +417,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        $roleAtSubmission =
+            llama_contribution_role(
+                $db,
+                (int) $user['id']
+            );
+
+
         $stmt = $db->prepare(
             "INSERT INTO place_submissions
             (
                 user_id,
+                role_at_submission,
                 place_name,
                 source_type,
                 status,
@@ -424,14 +438,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (
                 ?,
                 ?,
+                ?,
                 'community-scouted',
                 'pending',
                 ?
             )"
         );
 
+
         $stmt->execute([
             $user['id'],
+            $roleAtSubmission,
             $placeName,
             $submissionJson
         ]);
