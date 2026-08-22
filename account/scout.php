@@ -2154,18 +2154,46 @@ require_once
         <div class="scout-tool-icon">
 
           <i
-            class="fa-solid fa-list"
+            class="fa-solid fa-map-location-dot"
             aria-hidden="true"
           ></i>
 
         </div>
 
         <h3>
-          My Submissions
+          My New Place Submissions
         </h3>
 
         <p>
-          Review your submitted Places and moderation status.
+          Review new Places you submitted and their moderation
+          status.
+        </p>
+
+      </a>
+
+
+      <a
+        href="my-place-updates.php"
+        class="scout-tool"
+      >
+
+        <div class="scout-tool-icon">
+
+          <i
+            class="fa-solid fa-pen-to-square"
+            aria-hidden="true"
+          ></i>
+
+        </div>
+
+        <h3>
+          My Place Updates
+        </h3>
+
+        <p>
+          Track updates and factual corrections to existing
+          Places, including requests for changes and points
+          earned after approval.
         </p>
 
       </a>
