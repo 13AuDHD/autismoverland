@@ -617,6 +617,65 @@ try {
 }
 
 
+/*
+ * Scout maintenance can change this user's membership state
+ * during the same request.
+ *
+ * Reload the account after maintenance so access checks never
+ * continue using a stale complimentary or membership status.
+ */
+
+$refreshStmt =
+    db()->prepare(
+        '
+        SELECT
+            id,
+            email,
+            username,
+            display_name,
+            timezone,
+            status,
+            email_verified_at,
+            stripe_customer_id,
+            stripe_subscription_id,
+            membership_status,
+            membership_interval,
+            membership_started_at,
+            membership_ends_at,
+            created_at
+
+        FROM users
+
+        WHERE id = ?
+
+        LIMIT 1
+        '
+    );
+
+
+$refreshStmt->execute([
+    $userId
+]);
+
+
+$refreshedUser =
+    $refreshStmt->fetch();
+
+
+if (
+    !$refreshedUser
+) {
+
+    logout_user();
+
+    return null;
+}
+
+
+$user =
+    $refreshedUser;
+
+
 return $user;
 
 }
