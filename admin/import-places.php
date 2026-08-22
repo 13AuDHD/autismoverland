@@ -2,27 +2,51 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
 
-require_once dirname(__DIR__) . '/app/role-display.php';
+require_once
+    dirname(__DIR__)
+    . '/app/role-display.php';
 
-require_role('admin');
 
-$user = current_user();
+require_role(
+    'admin'
+);
+
+
+start_llama_session();
+
+
+$user =
+    current_user();
+
+
+$db =
+    db();
+
+
+$userId =
+    (int)
+    $user['id'];
+
 
 $primaryRoleLabel =
     llama_primary_role_label(
-        (int) $user['id']
+        $userId
     );
 
 
 $primaryRoleIcon =
     llama_primary_role_icon(
-        (int) $user['id']
+        $userId
     );
 
+
 $sourceFile =
-    dirname(__DIR__) .
+    dirname(__DIR__)
+    .
     '/data/places.json';
 
 
@@ -30,10 +54,13 @@ $sourceFile =
    HELPERS
    ========================================================= */
 
-function e(mixed $value): string
-{
+function e(
+    mixed $value
+): string {
+
     return htmlspecialchars(
-        (string) $value,
+        (string)
+        $value,
         ENT_QUOTES,
         'UTF-8'
     );
@@ -44,19 +71,54 @@ function val(
     array $array,
     string $key
 ): mixed {
-    return array_key_exists($key, $array)
-        ? $array[$key]
+
+    return array_key_exists(
+        $key,
+        $array
+    )
+        ? $array[
+            $key
+        ]
         : null;
 }
 
 
-function bool_db(mixed $value): ?int
-{
-    if ($value === null) {
+function section(
+    array $array,
+    string $key
+): array {
+
+    $value =
+        $array[
+            $key
+        ]
+        ?? [];
+
+
+    return is_array(
+        $value
+    )
+        ? $value
+        : [];
+}
+
+
+function bool_db(
+    mixed $value
+): ?int {
+
+    if (
+        $value ===
+        null
+    ) {
+
         return null;
     }
 
-    return $value ? 1 : 0;
+
+    return $value
+        ? 1
+        : 0;
 }
 
 
@@ -65,13 +127,23 @@ function json_list(
 ): ?string {
 
     if (
-        $value === null ||
+        $value === null
+        ||
         $value === []
+        ||
+        $value === ''
     ) {
+
         return null;
     }
 
-    if (is_array($value)) {
+
+    if (
+        is_array(
+            $value
+        )
+    ) {
+
         return implode(
             ', ',
             array_map(
@@ -81,7 +153,10 @@ function json_list(
         );
     }
 
-    return (string) $value;
+
+    return
+        (string)
+        $value;
 }
 
 
@@ -90,25 +165,76 @@ function numeric_or_null(
 ): int|float|null {
 
     if (
-        $value === null ||
+        $value === null
+        ||
         $value === ''
     ) {
+
         return null;
     }
 
-    if (is_bool($value)) {
 
-        /*
-         * Important for fields such as fee:false.
-         * False does NOT become an empty/unknown value.
-         */
+    if (
+        is_bool(
+            $value
+        )
+    ) {
 
-        return $value ? 1 : 0;
+        return $value
+            ? 1
+            : 0;
     }
 
-    return is_numeric($value)
+
+    return is_numeric(
+        $value
+    )
         ? $value + 0
         : null;
+}
+
+
+function date_or_null(
+    mixed $value,
+    bool $dateOnly = false
+): ?string {
+
+    $value =
+        trim(
+            (string)
+            $value
+        );
+
+
+    if (
+        $value === ''
+    ) {
+
+        return null;
+    }
+
+
+    $timestamp =
+        strtotime(
+            $value
+        );
+
+
+    if (
+        $timestamp ===
+        false
+    ) {
+
+        return null;
+    }
+
+
+    return date(
+        $dateOnly
+            ? 'Y-m-d'
+            : 'Y-m-d H:i:s',
+        $timestamp
+    );
 }
 
 
@@ -118,47 +244,329 @@ function insert_row(
     array $data
 ): void {
 
+    if (
+        !$data
+    ) {
+
+        return;
+    }
+
+
+    if (
+        !preg_match(
+            '/^[a-zA-Z0-9_]+$/',
+            $table
+        )
+    ) {
+
+        throw new RuntimeException(
+            'Invalid import table.'
+        );
+    }
+
+
     $columns =
-        array_keys($data);
+        array_keys(
+            $data
+        );
+
+
+    foreach (
+        $columns as
+        $column
+    ) {
+
+        if (
+            !preg_match(
+                '/^[a-zA-Z0-9_]+$/',
+                $column
+            )
+        ) {
+
+            throw new RuntimeException(
+                'Invalid import column.'
+            );
+        }
+    }
+
 
     $placeholders =
         array_fill(
             0,
-            count($columns),
+            count(
+                $columns
+            ),
             '?'
         );
 
+
     $sql =
-        'INSERT INTO ' .
-        $table .
-        ' (' .
-        implode(', ', $columns) .
-        ') VALUES (' .
-        implode(', ', $placeholders) .
+        'INSERT INTO `'
+        .
+        $table
+        .
+        '` (`'
+        .
+        implode(
+            '`, `',
+            $columns
+        )
+        .
+        '`) VALUES ('
+        .
+        implode(
+            ', ',
+            $placeholders
+        )
+        .
         ')';
 
+
     $stmt =
-        $db->prepare($sql);
+        $db->prepare(
+            $sql
+        );
+
 
     $stmt->execute(
-        array_values($data)
+        array_values(
+            $data
+        )
     );
 }
 
 
+function enum_values(
+    PDO $db,
+    string $table,
+    string $column
+): array {
+
+    if (
+        !preg_match(
+            '/^[a-zA-Z0-9_]+$/',
+            $table
+        )
+        ||
+        !preg_match(
+            '/^[a-zA-Z0-9_]+$/',
+            $column
+        )
+    ) {
+
+        return [];
+    }
+
+
+    try {
+
+        $stmt =
+            $db->query(
+                "SHOW COLUMNS
+                 FROM `{$table}`
+                 WHERE Field = "
+                .
+                $db->quote(
+                    $column
+                )
+            );
+
+
+        if (
+            !$stmt
+        ) {
+
+            return [];
+        }
+
+
+        $row =
+            $stmt->fetch(
+                PDO::FETCH_ASSOC
+            );
+
+
+        if (
+            !$row
+            ||
+            empty(
+                $row[
+                    'Type'
+                ]
+            )
+        ) {
+
+            return [];
+        }
+
+
+        if (
+            !preg_match(
+                "/^enum\\((.*)\\)$/i",
+                (string)
+                $row[
+                    'Type'
+                ],
+                $matches
+            )
+        ) {
+
+            return [];
+        }
+
+
+        return str_getcsv(
+            $matches[
+                1
+            ],
+            ',',
+            "'"
+        );
+
+
+    } catch (
+        Throwable $exception
+    ) {
+
+        error_log(
+            'Llama Scout import enum lookup error: '
+            .
+            $exception
+                ->getMessage()
+        );
+
+
+        return [];
+    }
+}
+
+
+function import_verification_type(
+    array $verification,
+    array $allowedTypes
+): string {
+
+    $legacyType =
+        trim(
+            (string) (
+                $verification[
+                    'status'
+                ]
+                ?? ''
+            )
+        );
+
+
+    if (
+        !$allowedTypes
+    ) {
+
+        return $legacyType !== ''
+            ? $legacyType
+            : 'legacy-import';
+    }
+
+
+    if (
+        $legacyType !== ''
+        &&
+        in_array(
+            $legacyType,
+            $allowedTypes,
+            true
+        )
+    ) {
+
+        return $legacyType;
+    }
+
+
+    if (
+        in_array(
+            'admin-review',
+            $allowedTypes,
+            true
+        )
+    ) {
+
+        return 'admin-review';
+    }
+
+
+    if (
+        in_array(
+            'remote',
+            $allowedTypes,
+            true
+        )
+    ) {
+
+        return 'remote';
+    }
+
+
+    return
+        (string)
+        $allowedTypes[
+            0
+        ];
+}
+
+
 /* =========================================================
-   LOAD JSON
+   CSRF
    ========================================================= */
 
-$errors = [];
-$results = [];
-$places = [];
+if (
+    empty(
+        $_SESSION[
+            'admin_import_places_csrf'
+        ]
+    )
+) {
+
+    $_SESSION[
+        'admin_import_places_csrf'
+    ] =
+        bin2hex(
+            random_bytes(
+                32
+            )
+        );
+}
 
 
-if (!is_file($sourceFile)) {
+$csrfToken =
+    $_SESSION[
+        'admin_import_places_csrf'
+    ];
+
+
+/* =========================================================
+   LOAD LEGACY JSON
+   ========================================================= */
+
+$errors =
+    [];
+
+
+$results =
+    [];
+
+
+$places =
+    [];
+
+
+if (
+    !is_file(
+        $sourceFile
+    )
+) {
 
     $errors[] =
         'data/places.json could not be found.';
+
 
 } else {
 
@@ -167,29 +575,66 @@ if (!is_file($sourceFile)) {
             $sourceFile
         );
 
-    if ($json === false) {
+
+    if (
+        $json ===
+        false
+    ) {
 
         $errors[] =
             'The JSON file could not be read.';
 
+
     } else {
 
-        $places =
+        $decoded =
             json_decode(
                 $json,
                 true
             );
 
-        if (!is_array($places)) {
+
+        if (
+            !is_array(
+                $decoded
+            )
+        ) {
 
             $errors[] =
-                'places.json is not valid JSON: ' .
+                'places.json is not valid JSON: '
+                .
                 json_last_error_msg();
 
-            $places = [];
+
+        } elseif (
+            !array_is_list(
+                $decoded
+            )
+        ) {
+
+            $errors[] =
+                'places.json must contain a top-level list of place records.';
+
+
+        } else {
+
+            $places =
+                $decoded;
         }
     }
 }
+
+
+/* =========================================================
+   VERIFICATION TYPES
+   ========================================================= */
+
+$verificationTypes =
+    enum_values(
+        $db,
+        'place_verifications',
+        'verification_type'
+    );
 
 
 /* =========================================================
@@ -197,202 +642,376 @@ if (!is_file($sourceFile)) {
    ========================================================= */
 
 if (
-    !$errors &&
-    $_SERVER['REQUEST_METHOD'] === 'POST'
+    !$errors
+    &&
+    $_SERVER[
+        'REQUEST_METHOD'
+    ] ===
+    'POST'
 ) {
 
-    $db = db();
+    $submittedToken =
+        $_POST[
+            'csrf_token'
+        ]
+        ?? '';
 
 
-    foreach ($places as $place) {
+    if (
+        !is_string(
+            $submittedToken
+        )
+        ||
+        !hash_equals(
+            $csrfToken,
+            $submittedToken
+        )
+    ) {
 
-        $slug =
-            (string) (
-                $place['slug']
-                ?? $place['id']
-                ?? ''
-            );
-
-        $name =
-            (string) (
-                $place['name']
-                ?? $slug
-            );
-
-
-        if ($slug === '') {
-
-            $results[] = [
-                'name' =>
-                    $name ?: 'Unknown place',
-
-                'status' =>
-                    'error',
-
-                'message' =>
-                    'Missing slug/id.'
-            ];
-
-            continue;
-        }
+        $errors[] =
+            'Your session could not be verified. Reload the page and try again.';
 
 
-        /*
-         * Do not duplicate an already imported place.
-         */
+    } else {
 
-        $check =
-            $db->prepare(
-                '
-                SELECT id
-                FROM places
-                WHERE slug = ?
-                LIMIT 1
-                '
-            );
+        foreach (
+            $places as
+            $placeIndex =>
+            $place
+        ) {
 
-        $check->execute([
-            $slug
-        ]);
+            if (
+                !is_array(
+                    $place
+                )
+            ) {
 
+                $results[] = [
+                    'name' =>
+                        'Record '
+                        .
+                        (
+                            $placeIndex
+                            +
+                            1
+                        ),
 
-        if ($check->fetch()) {
+                    'status' =>
+                        'error',
 
-            $results[] = [
-                'name' => $name,
-                'status' => 'skipped',
-                'message' =>
-                    'Already exists in database.'
-            ];
-
-            continue;
-        }
-
-
-        try {
-
-            $db->beginTransaction();
+                    'message' =>
+                        'This JSON record is not a valid place object.'
+                ];
 
 
-            /* =============================================
-               SOURCE SECTIONS
-               ============================================= */
-
-            $location =
-                $place['location']
-                ?? [];
-
-            $site =
-                $place['site']
-                ?? [];
-
-            $access =
-                $place['access']
-                ?? [];
-
-            $sensory =
-                $place['sensory']
-                ?? [];
-
-            $daytime =
-                $sensory['daytime']
-                ?? [];
-
-            $nighttime =
-                $sensory['nighttime']
-                ?? [];
-
-            $connectivity =
-                $place['connectivity']
-                ?? [];
-
-            $amenities =
-                $place['amenities']
-                ?? [];
-
-            $environment =
-                $place['environment']
-                ?? [];
-
-            $experience =
-                $place['experience']
-                ?? [];
-
-            $accessibility =
-                $place['accessibility']
-                ?? [];
-
-            $safety =
-                $place['safety']
-                ?? [];
-
-            $warnings =
-                $place['warnings']
-                ?? [];
-
-            $recommended =
-                $place['recommendedFor']
-                ?? [];
-
-            $season =
-                $place['season']
-                ?? [];
-
-            $regulations =
-                $place['regulations']
-                ?? [];
-
-            $landUse =
-                $place['landUseRules']
-                ?? [];
-
-            $nearby =
-                $place['nearby']
-                ?? [];
-
-            $verification =
-                $place['verification']
-                ?? [];
+                continue;
+            }
 
 
-            /* =============================================
-               STATUS
-
-               Old:
-               active + featured:true
-
-               New:
-               featured
-               ============================================= */
-
-            $oldStatus =
-                (string) (
-                    $place['status']
-                    ?? 'draft'
+            $slug =
+                trim(
+                    (string) (
+                        $place[
+                            'slug'
+                        ]
+                        ??
+                        $place[
+                            'id'
+                        ]
+                        ??
+                        ''
+                    )
                 );
 
-            $isFeatured =
-                !empty(
-                    $place['featured']
+
+            $name =
+                trim(
+                    (string) (
+                        $place[
+                            'name'
+                        ]
+                        ??
+                        $slug
+                    )
                 );
 
 
             if (
-                $isFeatured &&
-                in_array(
-                    $oldStatus,
-                    [
-                        'active',
-                        'featured'
-                    ],
-                    true
+                $slug === ''
+            ) {
+
+                $results[] = [
+                    'name' =>
+                        $name !== ''
+                            ? $name
+                            : 'Unknown place',
+
+                    'status' =>
+                        'error',
+
+                    'message' =>
+                        'Missing slug/id.'
+                ];
+
+
+                continue;
+            }
+
+
+            if (
+                strlen(
+                    $slug
+                )
+                >
+                190
+                ||
+                !preg_match(
+                    '/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/',
+                    $slug
                 )
             ) {
 
-                $newStatus =
-                    'featured';
+                $results[] = [
+                    'name' =>
+                        $name !== ''
+                            ? $name
+                            : $slug,
 
-            } else {
+                    'status' =>
+                        'error',
+
+                    'message' =>
+                        'The legacy slug contains unsupported characters.'
+                ];
+
+
+                continue;
+            }
+
+
+            if (
+                $name === ''
+            ) {
+
+                $name =
+                    $slug;
+            }
+
+
+            try {
+
+                $db->beginTransaction();
+
+
+                /* =========================================
+                   DUPLICATE CHECK INSIDE TRANSACTION
+                   ========================================= */
+
+                $check =
+                    $db->prepare(
+                        '
+                        SELECT
+                            id
+
+                        FROM places
+
+                        WHERE slug = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        '
+                    );
+
+
+                $check->execute([
+                    $slug
+                ]);
+
+
+                if (
+                    $check->fetchColumn()
+                ) {
+
+                    $db->rollBack();
+
+
+                    $results[] = [
+                        'name' =>
+                            $name,
+
+                        'status' =>
+                            'skipped',
+
+                        'message' =>
+                            'Already exists in database.'
+                    ];
+
+
+                    continue;
+                }
+
+
+                /* =========================================
+                   SOURCE SECTIONS
+                   ========================================= */
+
+                $location =
+                    section(
+                        $place,
+                        'location'
+                    );
+
+
+                $site =
+                    section(
+                        $place,
+                        'site'
+                    );
+
+
+                $access =
+                    section(
+                        $place,
+                        'access'
+                    );
+
+
+                $sensory =
+                    section(
+                        $place,
+                        'sensory'
+                    );
+
+
+                $daytime =
+                    section(
+                        $sensory,
+                        'daytime'
+                    );
+
+
+                $nighttime =
+                    section(
+                        $sensory,
+                        'nighttime'
+                    );
+
+
+                $connectivity =
+                    section(
+                        $place,
+                        'connectivity'
+                    );
+
+
+                $amenities =
+                    section(
+                        $place,
+                        'amenities'
+                    );
+
+
+                $environment =
+                    section(
+                        $place,
+                        'environment'
+                    );
+
+
+                $experience =
+                    section(
+                        $place,
+                        'experience'
+                    );
+
+
+                $accessibility =
+                    section(
+                        $place,
+                        'accessibility'
+                    );
+
+
+                $safety =
+                    section(
+                        $place,
+                        'safety'
+                    );
+
+
+                $warnings =
+                    section(
+                        $place,
+                        'warnings'
+                    );
+
+
+                $recommended =
+                    section(
+                        $place,
+                        'recommendedFor'
+                    );
+
+
+                $season =
+                    section(
+                        $place,
+                        'season'
+                    );
+
+
+                $regulations =
+                    section(
+                        $place,
+                        'regulations'
+                    );
+
+
+                $landUse =
+                    section(
+                        $place,
+                        'landUseRules'
+                    );
+
+
+                $nearby =
+                    section(
+                        $place,
+                        'nearby'
+                    );
+
+
+                $verification =
+                    section(
+                        $place,
+                        'verification'
+                    );
+
+
+                /* =========================================
+                   STATUS
+                   ========================================= */
+
+                $oldStatus =
+                    trim(
+                        (string) (
+                            $place[
+                                'status'
+                            ]
+                            ??
+                            'draft'
+                        )
+                    );
+
+
+                $isFeatured =
+                    !empty(
+                        $place[
+                            'featured'
+                        ]
+                    );
+
 
                 $allowedStatuses = [
                     'draft',
@@ -403,1756 +1022,1892 @@ if (
                     'archived'
                 ];
 
-                $newStatus =
+
+                if (
+                    $isFeatured
+                    &&
                     in_array(
                         $oldStatus,
-                        $allowedStatuses,
+                        [
+                            'active',
+                            'featured'
+                        ],
                         true
                     )
-                    ? $oldStatus
-                    : 'draft';
-            }
-
-
-            /* =============================================
-               MAIN PLACE
-               ============================================= */
-
-            $lastVerified =
-                val(
-                    $verification,
-                    'lastVerified'
-                );
-
-            $placeStmt =
-                $db->prepare(
-                    '
-                    INSERT INTO places (
-                        slug,
-                        name,
-                        type,
-                        status,
-                        source_type,
-                        created_by,
-                        description,
-                        sensory_summary,
-                        access_summary,
-                        latitude,
-                        longitude,
-                        elevation_feet,
-                        road,
-                        city,
-                        county,
-                        state,
-                        region,
-                        land_manager,
-                        land_type,
-                        last_verified_at,
-                        published_at
-                    )
-                    VALUES (
-                        ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?,
-                        ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?,
-                        CURRENT_TIMESTAMP
-                    )
-                    '
-                );
-
-
-            $placeStmt->execute([
-
-                $slug,
-
-                $name,
-
-                (string) (
-                    $place['type']
-                    ?? 'place'
-                ),
-
-                $newStatus,
-
-                'llama-scouted',
-
-                $user['id'],
-
-                val(
-                    $place,
-                    'description'
-                ),
-
-                val(
-                    $place,
-                    'sensorySummary'
-                ),
-
-                val(
-                    $place,
-                    'accessSummary'
-                ),
-
-                numeric_or_null(
-                    val(
-                        $location,
-                        'latitude'
-                    )
-                ),
-
-                numeric_or_null(
-                    val(
-                        $location,
-                        'longitude'
-                    )
-                ),
-
-                numeric_or_null(
-                    val(
-                        $location,
-                        'elevationFeet'
-                    )
-                ),
-
-                val(
-                    $location,
-                    'road'
-                ),
-
-                val(
-                    $location,
-                    'city'
-                ),
-
-                val(
-                    $location,
-                    'county'
-                ),
-
-                val(
-                    $location,
-                    'state'
-                ),
-
-                val(
-                    $location,
-                    'region'
-                ),
-
-                val(
-                    $location,
-                    'landManager'
-                ),
-
-                val(
-                    $location,
-                    'landType'
-                ),
-
-                $lastVerified
-            ]);
-
-
-            $placeId =
-                (int)
-                $db->lastInsertId();
-
-
-            /* =============================================
-               PLACE DETAILS
-               ============================================= */
-
-            insert_row(
-                $db,
-                'place_details',
-                [
-
-                    'place_id' =>
-                        $placeId,
-
-                    'vehicle_capacity' =>
-                        numeric_or_null(
-                            val(
-                                $site,
-                                'vehicleCapacity'
-                            )
-                        ),
-
-                    'max_vehicle_length_feet' =>
-                        numeric_or_null(
-                            val(
-                                $site,
-                                'maxVehicleLengthFeet'
-                            )
-                        ),
-
-                    'tent_camping_suitable' =>
-                        bool_db(
-                            val(
-                                $site,
-                                'tentCampingSuitable'
-                            )
-                        ),
-
-                    'rv_suitable' =>
-                        bool_db(
-                            val(
-                                $site,
-                                'rvSuitable'
-                            )
-                        ),
-
-                    'trailer_suitable' =>
-                        bool_db(
-                            val(
-                                $site,
-                                'trailerSuitable'
-                            )
-                        ),
-
-                    'parking_surface' =>
-                        val(
-                            $site,
-                            'parkingSurface'
-                        ),
-
-                    'levelness' =>
-                        numeric_or_null(
-                            val(
-                                $site,
-                                'levelness'
-                            )
-                        ),
-
-                    'leveling_required' =>
-                        bool_db(
-                            val(
-                                $site,
-                                'levelingRequired'
-                            )
-                        ),
-
-                    'turnaround_space' =>
-                        bool_db(
-                            val(
-                                $site,
-                                'turnaroundSpace'
-                            )
-                        ),
-
-                    'pull_through' =>
-                        bool_db(
-                            val(
-                                $site,
-                                'pullThrough'
-                            )
-                        ),
-
-                    'back_in' =>
-                        bool_db(
-                            val(
-                                $site,
-                                'backIn'
-                            )
-                        ),
-
-                    'ground_condition' =>
-                        val(
-                            $site,
-                            'groundCondition'
-                        ),
-
-                    'site_open_sky' =>
-                        numeric_or_null(
-                            val(
-                                $site,
-                                'openSky'
-                            )
-                        ),
-
-                    'tree_cover' =>
-                        numeric_or_null(
-                            val(
-                                $site,
-                                'treeCover'
-                            )
-                        ),
-
-                    'site_shade' =>
-                        numeric_or_null(
-                            val(
-                                $site,
-                                'shade'
-                            )
-                        ),
-
-
-                    'site_access_difficulty' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'siteAccessDifficulty'
-                            )
-                        ),
-
-                    'road_overall_difficulty' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'roadOverallDifficulty'
-                            )
-                        ),
-
-                    'road_difficulty' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'roadDifficulty'
-                            )
-                        ),
-
-                    'road_stress' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'roadStress'
-                            )
-                        ),
-
-                    'sedan_accessible' =>
-                        bool_db(
-                            val(
-                                $access,
-                                'sedanAccessible'
-                            )
-                        ),
-
-                    'high_clearance_recommended' =>
-                        bool_db(
-                            val(
-                                $access,
-                                'highClearanceRecommended'
-                            )
-                        ),
-
-                    'four_wheel_drive_recommended' =>
-                        bool_db(
-                            val(
-                                $access,
-                                'fourWheelDriveRecommended'
-                            )
-                        ),
-
-                    'road_surface' =>
-                        val(
-                            $access,
-                            'roadSurface'
-                        ),
-
-                    'road_width' =>
-                        val(
-                            $access,
-                            'roadWidth'
-                        ),
-
-                    'rocks' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'rocks'
-                            )
-                        ),
-
-                    'washboards' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'washboards'
-                            )
-                        ),
-
-                    'potholes' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'potholes'
-                            )
-                        ),
-
-                    'mud_risk' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'mudRisk'
-                            )
-                        ),
-
-                    'steep_grades' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'steepGrades'
-                            )
-                        ),
-
-                    'drop_off_exposure' =>
-                        numeric_or_null(
-                            val(
-                                $access,
-                                'dropOffExposure'
-                            )
-                        ),
-
-                    'water_crossings' =>
-                        bool_db(
-                            val(
-                                $access,
-                                'waterCrossings'
-                            )
-                        ),
-
-                    'downed_tree_risk' =>
-                        bool_db(
-                            val(
-                                $access,
-                                'downedTreeRisk'
-                            )
-                        ),
-
-                    'seasonal_closure' =>
-                        bool_db(
-                            val(
-                                $access,
-                                'seasonalClosure'
-                            )
-                        ),
-
-
-                    'forest' =>
-                        bool_db(
-                            val(
-                                $environment,
-                                'forest'
-                            )
-                        ),
-
-                    'mountains' =>
-                        bool_db(
-                            val(
-                                $environment,
-                                'mountains'
-                            )
-                        ),
-
-                    'water_nearby' =>
-                        bool_db(
-                            val(
-                                $environment,
-                                'waterNearby'
-                            )
-                        ),
-
-                    'water_view' =>
-                        bool_db(
-                            val(
-                                $environment,
-                                'waterView'
-                            )
-                        ),
-
-                    'mountain_view' =>
-                        bool_db(
-                            val(
-                                $environment,
-                                'mountainView'
-                            )
-                        ),
-
-                    'forest_view' =>
-                        bool_db(
-                            val(
-                                $environment,
-                                'forestView'
-                            )
-                        ),
-
-                    'wildlife' =>
-                        bool_db(
-                            val(
-                                $environment,
-                                'wildlife'
-                            )
-                        ),
-
-                    'bugs' =>
-                        bool_db(
-                            val(
-                                $environment,
-                                'bugs'
-                            )
-                        ),
-
-                    'wind_exposure' =>
-                        numeric_or_null(
-                            val(
-                                $environment,
-                                'windExposure'
-                            )
-                        ),
-
-                    'sun_exposure' =>
-                        numeric_or_null(
-                            val(
-                                $environment,
-                                'sunExposure'
-                            )
-                        ),
-
-                    'environment_shade' =>
-                        numeric_or_null(
-                            val(
-                                $environment,
-                                'shade'
-                            )
-                        ),
-
-                    'environment_open_sky' =>
-                        numeric_or_null(
-                            val(
-                                $environment,
-                                'openSky'
-                            )
-                        ),
-
-
-                    'wheelchair_friendly' =>
-                        bool_db(
-                            val(
-                                $accessibility,
-                                'wheelchairFriendly'
-                            )
-                        ),
-
-                    'mobility_device_friendly' =>
-                        bool_db(
-                            val(
-                                $accessibility,
-                                'mobilityDeviceFriendly'
-                            )
-                        ),
-
-                    'flat_walking_surface' =>
-                        bool_db(
-                            val(
-                                $accessibility,
-                                'flatWalkingSurface'
-                            )
-                        ),
-
-                    'walking_distance_from_vehicle' =>
-                        val(
-                            $accessibility,
-                            'walkingDistanceFromVehicle'
-                        ),
-
-                    'step_free_access' =>
-                        bool_db(
-                            val(
-                                $accessibility,
-                                'stepFreeAccess'
-                            )
-                        ),
-
-                    'accessible_toilet' =>
-                        bool_db(
-                            val(
-                                $accessibility,
-                                'accessibleToilet'
-                            )
-                        ),
-
-                    'accessible_picnic_table' =>
-                        bool_db(
-                            val(
-                                $accessibility,
-                                'accessiblePicnicTable'
-                            )
-                        ),
-
-
-                    'felt_safe_daytime' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'feltSafeDaytime'
-                            )
-                        ),
-
-                    'felt_safe_nighttime' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'feltSafeNighttime'
-                            )
-                        ),
-
-                    'flash_flood_risk' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'flashFloodRisk'
-                            )
-                        ),
-
-                    'wildfire_risk' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'wildfireRisk'
-                            )
-                        ),
-
-                    'fall_hazard' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'fallHazard'
-                            )
-                        ),
-
-                    'cliff_exposure' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'cliffExposure'
-                            )
-                        ),
-
-                    'rockfall_risk' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'rockfallRisk'
-                            )
-                        ),
-
-                    'wildlife_risk' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'wildlifeRisk'
-                            )
-                        ),
-
-                    'traffic_hazard' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'trafficHazard'
-                            )
-                        ),
-
-                    'emergency_access' =>
-                        bool_db(
-                            val(
-                                $safety,
-                                'emergencyAccess'
-                            )
-                        ),
-
-
-                    'warning_exposed_to_road' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'exposedToRoad'
-                            )
-                        ),
-
-                    'warning_zero_privacy' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'zeroPrivacy'
-                            )
-                        ),
-
-                    'warning_passing_vehicle_dust' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'passingVehicleDust'
-                            )
-                        ),
-
-                    'warning_possible_downed_trees' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'possibleDownedTrees'
-                            )
-                        ),
-
-                    'warning_no_tent_camping' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'noTentCamping'
-                            )
-                        ),
-
-                    'warning_limited_vehicle_length' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'limitedVehicleLength'
-                            )
-                        ),
-
-                    'warning_leveling_may_be_required' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'levelingMayBeRequired'
-                            )
-                        ),
-
-                    'warning_no_amenities' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'noAmenities'
-                            )
-                        ),
-
-                    'warning_motorized_recreation_traffic' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'motorizedRecreationTraffic'
-                            )
-                        ),
-
-                    'warning_blind_turn_traffic_nearby' =>
-                        bool_db(
-                            val(
-                                $warnings,
-                                'blindTurnTrafficNearby'
-                            )
-                        )
-                ]
-            );
-
-
-            /* =============================================
-               SENSORY DAY + NIGHT
-               ============================================= */
-
-            foreach (
-                [
-                    'daytime' => $daytime,
-                    'nighttime' => $nighttime
-                ]
-                as $period => $data
-            ) {
-
-                insert_row(
-                    $db,
-                    'place_sensory',
-                    [
-
-                        'place_id' =>
-                            $placeId,
-
-                        'period' =>
-                            $period,
-
-                        'noise' =>
-                            numeric_or_null(
-                                val(
-                                    $data,
-                                    'noise'
-                                )
-                            ),
-
-                        'traffic' =>
-                            numeric_or_null(
-                                val(
-                                    $data,
-                                    'traffic'
-                                )
-                            ),
-
-                        'crowds' =>
-                            numeric_or_null(
-                                val(
-                                    $data,
-                                    'crowds'
-                                )
-                            ),
-
-                        'privacy' =>
-                            numeric_or_null(
-                                val(
-                                    $data,
-                                    'privacy'
-                                )
-                            ),
-
-                        'light_pollution' =>
-                            numeric_or_null(
-                                val(
-                                    $data,
-                                    'lightPollution'
-                                )
-                            ),
-
-                        'sensory_comfort' =>
-                            numeric_or_null(
-                                val(
-                                    $data,
-                                    'sensoryComfort'
-                                )
-                            ),
-
-                        'social_interaction_likelihood' =>
-                            numeric_or_null(
-                                val(
-                                    $data,
-                                    'socialInteractionLikelihood'
-                                )
-                            )
-                    ]
-                );
-            }
-
-
-            /* =============================================
-               SENSORY DETAILS
-               ============================================= */
-
-            insert_row(
-                $db,
-                'place_sensory_details',
-                [
-
-                    'place_id' =>
-                        $placeId,
-
-                    'dust_from_traffic' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'dustFromTraffic'
-                            )
-                        ),
-
-                    'generator_noise' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'generatorNoise'
-                            )
-                        ),
-
-                    'aircraft_noise' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'aircraftNoise'
-                            )
-                        ),
-
-                    'road_noise' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'roadNoise'
-                            )
-                        ),
-
-                    'human_activity' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'humanActivity'
-                            )
-                        ),
-
-                    'wildlife_noise' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'wildlifeNoise'
-                            )
-                        ),
-
-                    'wind_noise' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'windNoise'
-                            )
-                        ),
-
-                    'smoke_risk' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'smokeRisk'
-                            )
-                        ),
-
-                    'strong_odors' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'strongOdors'
-                            )
-                        ),
-
-                    'visual_exposure' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'visualExposure'
-                            )
-                        ),
-
-                    'predictability' =>
-                        numeric_or_null(
-                            val(
-                                $sensory,
-                                'predictability'
-                            )
-                        )
-                ]
-            );
-
-
-            /* =============================================
-               CONNECTIVITY
-
-               0 IS PRESERVED.
-               NULL REMAINS UNKNOWN.
-               ============================================= */
-
-            insert_row(
-                $db,
-                'place_connectivity',
-                [
-
-                    'place_id' =>
-                        $placeId,
-
-                    'overall' =>
-                        numeric_or_null(
-                            val(
-                                $connectivity,
-                                'overall'
-                            )
-                        ),
-
-                    't_mobile' =>
-                        numeric_or_null(
-                            val(
-                                $connectivity,
-                                'tMobile'
-                            )
-                        ),
-
-                    'verizon' =>
-                        numeric_or_null(
-                            val(
-                                $connectivity,
-                                'verizon'
-                            )
-                        ),
-
-                    'att' =>
-                        numeric_or_null(
-                            val(
-                                $connectivity,
-                                'att'
-                            )
-                        ),
-
-                    'other_cell' =>
-                        numeric_or_null(
-                            val(
-                                $connectivity,
-                                'other'
-                            )
-                        ),
-
-                    'starlink' =>
-                        numeric_or_null(
-                            val(
-                                $connectivity,
-                                'starlink'
-                            )
-                        ),
-
-                    'starlink_tested' =>
-                        bool_db(
-                            val(
-                                $connectivity,
-                                'starlinkTested'
-                            )
-                        ),
-
-                    'starlink_note' =>
-                        val(
-                            $connectivity,
-                            'starlinkNote'
-                        )
-                ]
-            );
-
-
-            /* =============================================
-               AMENITIES
-               ============================================= */
-
-            insert_row(
-                $db,
-                'place_amenities',
-                [
-
-                    'place_id' =>
-                        $placeId,
-
-                    'toilets' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'toilets'
-                            )
-                        ),
-
-                    'potable_water' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'potableWater'
-                            )
-                        ),
-
-                    'trash' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'trash'
-                            )
-                        ),
-
-                    'fire_ring' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'fireRing'
-                            )
-                        ),
-
-                    'picnic_table' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'picnicTable'
-                            )
-                        ),
-
-                    'bear_box' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'bearBox'
-                            )
-                        ),
-
-                    'showers' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'showers'
-                            )
-                        ),
-
-                    'electricity' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'electricity'
-                            )
-                        ),
-
-                    'dump_station' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'dumpStation'
-                            )
-                        ),
-
-                    'food_storage_required' =>
-                        bool_db(
-                            val(
-                                $amenities,
-                                'foodStorageRequired'
-                            )
-                        )
-                ]
-            );
-
-
-            /* =============================================
-               EXPERIENCE
-               ============================================= */
-
-            insert_row(
-                $db,
-                'place_experience',
-                [
-
-                    'place_id' =>
-                        $placeId,
-
-                    'sunrise_view' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'sunriseView'
-                            )
-                        ),
-
-                    'sunset_view' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'sunsetView'
-                            )
-                        ),
-
-                    'mountain_view' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'mountainView'
-                            )
-                        ),
-
-                    'forest_view' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'forestView'
-                            )
-                        ),
-
-                    'night_sky' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'nightSky'
-                            )
-                        ),
-
-                    'stargazing' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'stargazing'
-                            )
-                        ),
-
-                    'quiet_evening' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'quietEvening'
-                            )
-                        ),
-
-                    'overnight_comfort' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'overnightComfort'
-                            )
-                        ),
-
-                    'extended_stay_comfort' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'extendedStayComfort'
-                            )
-                        ),
-
-                    'sensory_retreat' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'sensoryRetreat'
-                            )
-                        ),
-
-                    'remote_work' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'remoteWork'
-                            )
-                        ),
-
-                    'overall_scenery' =>
-                        numeric_or_null(
-                            val(
-                                $experience,
-                                'overallScenery'
-                            )
-                        ),
-
-
-                    'recommended_overnight_stop' =>
-                        numeric_or_null(
-                            val(
-                                $recommended,
-                                'overnightStop'
-                            )
-                        ),
-
-                    'recommended_quiet_evening' =>
-                        numeric_or_null(
-                            val(
-                                $recommended,
-                                'quietEvening'
-                            )
-                        ),
-
-                    'recommended_extended_stay' =>
-                        numeric_or_null(
-                            val(
-                                $recommended,
-                                'extendedStay'
-                            )
-                        ),
-
-                    'recommended_sensory_retreat' =>
-                        numeric_or_null(
-                            val(
-                                $recommended,
-                                'sensoryRetreat'
-                            )
-                        ),
-
-                    'recommended_stargazing' =>
-                        numeric_or_null(
-                            val(
-                                $recommended,
-                                'stargazing'
-                            )
-                        ),
-
-                    'recommended_remote_work' =>
-                        numeric_or_null(
-                            val(
-                                $recommended,
-                                'remoteWork'
-                            )
-                        ),
-
-                    'recommended_solo_travel' =>
-                        bool_db(
-                            val(
-                                $recommended,
-                                'soloTravel'
-                            )
-                        ),
-
-                    'recommended_families' =>
-                        bool_db(
-                            val(
-                                $recommended,
-                                'families'
-                            )
-                        ),
-
-                    'recommended_large_groups' =>
-                        bool_db(
-                            val(
-                                $recommended,
-                                'largeGroups'
-                            )
-                        ),
-
-                    'not_recommended_for' =>
-                        json_list(
-                            $place[
-                                'notRecommendedFor'
-                            ]
-                            ?? null
-                        )
-                ]
-            );
-
-
-            /* =============================================
-               RULES / SEASON / NEARBY
-               ============================================= */
-
-            insert_row(
-                $db,
-                'place_rules',
-                [
-
-                    'place_id' =>
-                        $placeId,
-
-                    'best_months' =>
-                        json_list(
-                            val(
-                                $season,
-                                'bestMonths'
-                            )
-                        ),
-
-                    'winter_access' =>
-                        bool_db(
-                            val(
-                                $season,
-                                'winterAccess'
-                            )
-                        ),
-
-                    'snow_risk' =>
-                        numeric_or_null(
-                            val(
-                                $season,
-                                'snowRisk'
-                            )
-                        ),
-
-                    'mud_season_risk' =>
-                        numeric_or_null(
-                            val(
-                                $season,
-                                'mudSeasonRisk'
-                            )
-                        ),
-
-                    'monsoon_risk' =>
-                        numeric_or_null(
-                            val(
-                                $season,
-                                'monsoonRisk'
-                            )
-                        ),
-
-                    'recommended_travel_season' =>
-                        json_list(
-                            val(
-                                $season,
-                                'recommendedTravelSeason'
-                            )
-                        ),
-
-                    'seasonal_access_note' =>
-                        val(
-                            $season,
-                            'seasonalAccessNote'
-                        ),
-
-
-                    'overnight_camping_allowed' =>
-                        bool_db(
-                            val(
-                                $regulations,
-                                'overnightCampingAllowed'
-                            )
-                        ),
-
-                    'dispersed_camping_allowed' =>
-                        bool_db(
-                            val(
-                                $regulations,
-                                'dispersedCampingAllowed'
-                            )
-                        ),
-
-                    'stay_limit_days' =>
-                        numeric_or_null(
-                            val(
-                                $regulations,
-                                'stayLimitDays'
-                            )
-                        ),
-
-                    'maximum_days_per_60_day_period' =>
-                        numeric_or_null(
-                            val(
-                                $regulations,
-                                'maximumDaysPer60DayPeriod'
-                            )
-                        ),
-
-                    'move_distance_after_stay_miles' =>
-                        numeric_or_null(
-                            val(
-                                $regulations,
-                                'moveDistanceAfterStayMiles'
-                            )
-                        ),
-
-                    'permit_required' =>
-                        bool_db(
-                            val(
-                                $regulations,
-                                'permitRequired'
-                            )
-                        ),
-
-                    'fee' =>
-                        numeric_or_null(
-                            val(
-                                $regulations,
-                                'fee'
-                            )
-                        ),
-
-                    'campfire_allowed' =>
-                        bool_db(
-                            val(
-                                $regulations,
-                                'campfireAllowed'
-                            )
-                        ),
-
-                    'current_fire_restrictions_url' =>
-                        val(
-                            $regulations,
-                            'currentFireRestrictionsUrl'
-                        ),
-
-
-                    'vehicle_distance_from_road_max_feet' =>
-                        numeric_or_null(
-                            val(
-                                $landUse,
-                                'vehicleDistanceFromRoadMaxFeet'
-                            )
-                        ),
-
-                    'minimum_distance_from_water_feet' =>
-                        numeric_or_null(
-                            val(
-                                $landUse,
-                                'minimumDistanceFromWaterFeet'
-                            )
-                        ),
-
-                    'existing_sites_encouraged' =>
-                        bool_db(
-                            val(
-                                $landUse,
-                                'existingSitesEncouraged'
-                            )
-                        ),
-
-                    'pack_it_in_pack_it_out' =>
-                        bool_db(
-                            val(
-                                $landUse,
-                                'packItInPackItOut'
-                            )
-                        ),
-
-                    'residential_use_prohibited' =>
-                        bool_db(
-                            val(
-                                $landUse,
-                                'residentialUseProhibited'
-                            )
-                        ),
-
-
-                    'nearest_town' =>
-                        val(
-                            $nearby,
-                            'nearestTown'
-                        ),
-
-                    'nearest_fuel' =>
-                        val(
-                            $nearby,
-                            'nearestFuel'
-                        ),
-
-                    'nearest_grocery' =>
-                        val(
-                            $nearby,
-                            'nearestGrocery'
-                        ),
-
-                    'nearest_water' =>
-                        val(
-                            $nearby,
-                            'nearestWater'
-                        ),
-
-                    'nearest_toilet' =>
-                        val(
-                            $nearby,
-                            'nearestToilet'
-                        ),
-
-                    'nearest_hospital' =>
-                        val(
-                            $nearby,
-                            'nearestHospital'
-                        )
-                ]
-            );
-
-
-            /* =============================================
-               IMAGES
-               ============================================= */
-
-            $images =
-                $place['images']
-                ?? [];
-
-
-            foreach (
-                $images as
-                $imageIndex => $image
-            ) {
-
-                if (
-                    empty(
-                        $image['src']
-                    )
                 ) {
-                    continue;
+
+                    $newStatus =
+                        'featured';
+
+
+                } else {
+
+                    $newStatus =
+                        in_array(
+                            $oldStatus,
+                            $allowedStatuses,
+                            true
+                        )
+                            ? $oldStatus
+                            : 'draft';
                 }
 
 
-                insert_row(
-                    $db,
-                    'place_images',
-                    [
-
-                        'place_id' =>
-                            $placeId,
-
-                        'src' =>
-                            $image['src'],
-
-                        'alt_text' =>
-                            $image['alt']
-                            ?? null,
-
-                        'is_featured' =>
-                            bool_db(
-                                $image[
-                                    'featured'
-                                ]
-                                ?? false
-                            ),
-
-                        'sort_order' =>
-                            $imageIndex,
-
-                        'uploaded_by' =>
-                            $user['id']
-                    ]
-                );
-            }
-
-
-            /* =============================================
-               NOTES
-               ============================================= */
-
-            $notes =
-                $place['notes']
-                ?? [];
-
-
-            foreach (
-                $notes as
-                $noteIndex => $note
-            ) {
-
-                if (
-                    !is_string($note) ||
-                    trim($note) === ''
-                ) {
-                    continue;
-                }
-
-
-                insert_row(
-                    $db,
-                    'place_notes',
-                    [
-
-                        'place_id' =>
-                            $placeId,
-
-                        'note' =>
-                            $note,
-
-                        'sort_order' =>
-                            $noteIndex,
-
-                        'created_by' =>
-                            $user['id']
-                    ]
-                );
-            }
-
-
-            /* =============================================
-               VERIFICATION
-               ============================================= */
-
-            if ($verification) {
-
-                $visited =
-                    val(
-                        $verification,
-                        'visited'
+                $lastVerified =
+                    date_or_null(
+                        val(
+                            $verification,
+                            'lastVerified'
+                        )
                     );
 
 
+                /* =========================================
+                   MAIN PLACE
+                   ========================================= */
+
+                $placeStmt =
+                    $db->prepare(
+                        '
+                        INSERT INTO places
+                        (
+                            slug,
+                            name,
+                            type,
+                            status,
+                            source_type,
+                            created_by,
+                            description,
+                            sensory_summary,
+                            access_summary,
+                            latitude,
+                            longitude,
+                            elevation_feet,
+                            road,
+                            city,
+                            county,
+                            state,
+                            region,
+                            land_manager,
+                            land_type,
+                            last_verified_at,
+                            published_at
+                        )
+
+                        VALUES
+                        (
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            \'llama-scouted\',
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            CASE
+                                WHEN ? IN
+                                (
+                                    \'active\',
+                                    \'featured\'
+                                )
+                                THEN CURRENT_TIMESTAMP
+                                ELSE NULL
+                            END
+                        )
+                        '
+                    );
+
+
+                $placeStmt->execute([
+                    $slug,
+
+                    $name,
+
+                    trim(
+                        (string) (
+                            $place[
+                                'type'
+                            ]
+                            ??
+                            'place'
+                        )
+                    )
+                    ?: 'place',
+
+                    $newStatus,
+
+                    $userId,
+
+                    val(
+                        $place,
+                        'description'
+                    ),
+
+                    val(
+                        $place,
+                        'sensorySummary'
+                    ),
+
+                    val(
+                        $place,
+                        'accessSummary'
+                    ),
+
+                    numeric_or_null(
+                        val(
+                            $location,
+                            'latitude'
+                        )
+                    ),
+
+                    numeric_or_null(
+                        val(
+                            $location,
+                            'longitude'
+                        )
+                    ),
+
+                    numeric_or_null(
+                        val(
+                            $location,
+                            'elevationFeet'
+                        )
+                    ),
+
+                    val(
+                        $location,
+                        'road'
+                    ),
+
+                    val(
+                        $location,
+                        'city'
+                    ),
+
+                    val(
+                        $location,
+                        'county'
+                    ),
+
+                    val(
+                        $location,
+                        'state'
+                    ),
+
+                    val(
+                        $location,
+                        'region'
+                    ),
+
+                    val(
+                        $location,
+                        'landManager'
+                    ),
+
+                    val(
+                        $location,
+                        'landType'
+                    ),
+
+                    $lastVerified,
+
+                    $newStatus
+                ]);
+
+
+                $placeId =
+                    (int)
+                    $db->lastInsertId();
+
+
+                if (
+                    $placeId <
+                    1
+                ) {
+
+                    throw new RuntimeException(
+                        'The imported Place record could not be created.'
+                    );
+                }
+
+
+                /* =========================================
+                   PLACE DETAILS
+                   ========================================= */
+
                 insert_row(
                     $db,
-                    'place_verifications',
+                    'place_details',
                     [
-
                         'place_id' =>
                             $placeId,
 
-                        'verification_type' =>
-                            val(
-                                $verification,
-                                'status'
-                            )
-                            ?: 'legacy-import',
-
-                        'visited_at' =>
-                            $visited,
-
-                        'verified_at' =>
-                            $lastVerified
-                            ?: date(
-                                'Y-m-d H:i:s'
-                            ),
-
-                        'verified_by' =>
-                            $user['id'],
-
-                        'source' =>
-                            val(
-                                $verification,
-                                'source'
-                            ),
-
-                        'public_data_verified' =>
-                            bool_db(
+                        'vehicle_capacity' =>
+                            numeric_or_null(
                                 val(
-                                    $verification,
-                                    'publicDataVerified'
+                                    $site,
+                                    'vehicleCapacity'
                                 )
                             ),
 
-                        'notes' =>
-                            'Imported from legacy places.json.'
+                        'max_vehicle_length_feet' =>
+                            numeric_or_null(
+                                val(
+                                    $site,
+                                    'maxVehicleLengthFeet'
+                                )
+                            ),
+
+                        'tent_camping_suitable' =>
+                            bool_db(
+                                val(
+                                    $site,
+                                    'tentCampingSuitable'
+                                )
+                            ),
+
+                        'rv_suitable' =>
+                            bool_db(
+                                val(
+                                    $site,
+                                    'rvSuitable'
+                                )
+                            ),
+
+                        'trailer_suitable' =>
+                            bool_db(
+                                val(
+                                    $site,
+                                    'trailerSuitable'
+                                )
+                            ),
+
+                        'parking_surface' =>
+                            val(
+                                $site,
+                                'parkingSurface'
+                            ),
+
+                        'levelness' =>
+                            numeric_or_null(
+                                val(
+                                    $site,
+                                    'levelness'
+                                )
+                            ),
+
+                        'leveling_required' =>
+                            bool_db(
+                                val(
+                                    $site,
+                                    'levelingRequired'
+                                )
+                            ),
+
+                        'turnaround_space' =>
+                            bool_db(
+                                val(
+                                    $site,
+                                    'turnaroundSpace'
+                                )
+                            ),
+
+                        'pull_through' =>
+                            bool_db(
+                                val(
+                                    $site,
+                                    'pullThrough'
+                                )
+                            ),
+
+                        'back_in' =>
+                            bool_db(
+                                val(
+                                    $site,
+                                    'backIn'
+                                )
+                            ),
+
+                        'ground_condition' =>
+                            val(
+                                $site,
+                                'groundCondition'
+                            ),
+
+                        'site_open_sky' =>
+                            numeric_or_null(
+                                val(
+                                    $site,
+                                    'openSky'
+                                )
+                            ),
+
+                        'tree_cover' =>
+                            numeric_or_null(
+                                val(
+                                    $site,
+                                    'treeCover'
+                                )
+                            ),
+
+                        'site_shade' =>
+                            numeric_or_null(
+                                val(
+                                    $site,
+                                    'shade'
+                                )
+                            ),
+
+                        'site_access_difficulty' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'siteAccessDifficulty'
+                                )
+                            ),
+
+                        'road_overall_difficulty' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'roadOverallDifficulty'
+                                )
+                            ),
+
+                        'road_difficulty' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'roadDifficulty'
+                                )
+                            ),
+
+                        'road_stress' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'roadStress'
+                                )
+                            ),
+
+                        'sedan_accessible' =>
+                            bool_db(
+                                val(
+                                    $access,
+                                    'sedanAccessible'
+                                )
+                            ),
+
+                        'high_clearance_recommended' =>
+                            bool_db(
+                                val(
+                                    $access,
+                                    'highClearanceRecommended'
+                                )
+                            ),
+
+                        'four_wheel_drive_recommended' =>
+                            bool_db(
+                                val(
+                                    $access,
+                                    'fourWheelDriveRecommended'
+                                )
+                            ),
+
+                        'road_surface' =>
+                            val(
+                                $access,
+                                'roadSurface'
+                            ),
+
+                        'road_width' =>
+                            val(
+                                $access,
+                                'roadWidth'
+                            ),
+
+                        'rocks' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'rocks'
+                                )
+                            ),
+
+                        'washboards' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'washboards'
+                                )
+                            ),
+
+                        'potholes' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'potholes'
+                                )
+                            ),
+
+                        'mud_risk' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'mudRisk'
+                                )
+                            ),
+
+                        'steep_grades' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'steepGrades'
+                                )
+                            ),
+
+                        'drop_off_exposure' =>
+                            numeric_or_null(
+                                val(
+                                    $access,
+                                    'dropOffExposure'
+                                )
+                            ),
+
+                        'water_crossings' =>
+                            bool_db(
+                                val(
+                                    $access,
+                                    'waterCrossings'
+                                )
+                            ),
+
+                        'downed_tree_risk' =>
+                            bool_db(
+                                val(
+                                    $access,
+                                    'downedTreeRisk'
+                                )
+                            ),
+
+                        'seasonal_closure' =>
+                            bool_db(
+                                val(
+                                    $access,
+                                    'seasonalClosure'
+                                )
+                            ),
+
+                        'forest' =>
+                            bool_db(
+                                val(
+                                    $environment,
+                                    'forest'
+                                )
+                            ),
+
+                        'mountains' =>
+                            bool_db(
+                                val(
+                                    $environment,
+                                    'mountains'
+                                )
+                            ),
+
+                        'water_nearby' =>
+                            bool_db(
+                                val(
+                                    $environment,
+                                    'waterNearby'
+                                )
+                            ),
+
+                        'water_view' =>
+                            bool_db(
+                                val(
+                                    $environment,
+                                    'waterView'
+                                )
+                            ),
+
+                        'mountain_view' =>
+                            bool_db(
+                                val(
+                                    $environment,
+                                    'mountainView'
+                                )
+                            ),
+
+                        'forest_view' =>
+                            bool_db(
+                                val(
+                                    $environment,
+                                    'forestView'
+                                )
+                            ),
+
+                        'wildlife' =>
+                            bool_db(
+                                val(
+                                    $environment,
+                                    'wildlife'
+                                )
+                            ),
+
+                        'bugs' =>
+                            bool_db(
+                                val(
+                                    $environment,
+                                    'bugs'
+                                )
+                            ),
+
+                        'wind_exposure' =>
+                            numeric_or_null(
+                                val(
+                                    $environment,
+                                    'windExposure'
+                                )
+                            ),
+
+                        'sun_exposure' =>
+                            numeric_or_null(
+                                val(
+                                    $environment,
+                                    'sunExposure'
+                                )
+                            ),
+
+                        'environment_shade' =>
+                            numeric_or_null(
+                                val(
+                                    $environment,
+                                    'shade'
+                                )
+                            ),
+
+                        'environment_open_sky' =>
+                            numeric_or_null(
+                                val(
+                                    $environment,
+                                    'openSky'
+                                )
+                            ),
+
+                        'wheelchair_friendly' =>
+                            bool_db(
+                                val(
+                                    $accessibility,
+                                    'wheelchairFriendly'
+                                )
+                            ),
+
+                        'mobility_device_friendly' =>
+                            bool_db(
+                                val(
+                                    $accessibility,
+                                    'mobilityDeviceFriendly'
+                                )
+                            ),
+
+                        'flat_walking_surface' =>
+                            bool_db(
+                                val(
+                                    $accessibility,
+                                    'flatWalkingSurface'
+                                )
+                            ),
+
+                        'walking_distance_from_vehicle' =>
+                            val(
+                                $accessibility,
+                                'walkingDistanceFromVehicle'
+                            ),
+
+                        'step_free_access' =>
+                            bool_db(
+                                val(
+                                    $accessibility,
+                                    'stepFreeAccess'
+                                )
+                            ),
+
+                        'accessible_toilet' =>
+                            bool_db(
+                                val(
+                                    $accessibility,
+                                    'accessibleToilet'
+                                )
+                            ),
+
+                        'accessible_picnic_table' =>
+                            bool_db(
+                                val(
+                                    $accessibility,
+                                    'accessiblePicnicTable'
+                                )
+                            ),
+
+                        'felt_safe_daytime' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'feltSafeDaytime'
+                                )
+                            ),
+
+                        'felt_safe_nighttime' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'feltSafeNighttime'
+                                )
+                            ),
+
+                        'flash_flood_risk' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'flashFloodRisk'
+                                )
+                            ),
+
+                        'wildfire_risk' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'wildfireRisk'
+                                )
+                            ),
+
+                        'fall_hazard' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'fallHazard'
+                                )
+                            ),
+
+                        'cliff_exposure' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'cliffExposure'
+                                )
+                            ),
+
+                        'rockfall_risk' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'rockfallRisk'
+                                )
+                            ),
+
+                        'wildlife_risk' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'wildlifeRisk'
+                                )
+                            ),
+
+                        'traffic_hazard' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'trafficHazard'
+                                )
+                            ),
+
+                        'emergency_access' =>
+                            bool_db(
+                                val(
+                                    $safety,
+                                    'emergencyAccess'
+                                )
+                            ),
+
+                        'warning_exposed_to_road' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'exposedToRoad'
+                                )
+                            ),
+
+                        'warning_zero_privacy' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'zeroPrivacy'
+                                )
+                            ),
+
+                        'warning_passing_vehicle_dust' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'passingVehicleDust'
+                                )
+                            ),
+
+                        'warning_possible_downed_trees' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'possibleDownedTrees'
+                                )
+                            ),
+
+                        'warning_no_tent_camping' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'noTentCamping'
+                                )
+                            ),
+
+                        'warning_limited_vehicle_length' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'limitedVehicleLength'
+                                )
+                            ),
+
+                        'warning_leveling_may_be_required' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'levelingMayBeRequired'
+                                )
+                            ),
+
+                        'warning_no_amenities' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'noAmenities'
+                                )
+                            ),
+
+                        'warning_motorized_recreation_traffic' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'motorizedRecreationTraffic'
+                                )
+                            ),
+
+                        'warning_blind_turn_traffic_nearby' =>
+                            bool_db(
+                                val(
+                                    $warnings,
+                                    'blindTurnTrafficNearby'
+                                )
+                            )
                     ]
                 );
-            }
 
 
-            /* =============================================
-               INITIAL STATUS HISTORY
-               ============================================= */
+                /* =========================================
+                   SENSORY DAY + NIGHT
+                   ========================================= */
 
-            insert_row(
-                $db,
-                'place_status_history',
-                [
+                foreach (
+                    [
+                        'daytime' =>
+                            $daytime,
 
-                    'place_id' =>
-                        $placeId,
+                        'nighttime' =>
+                            $nighttime
+                    ] as
+                    $period =>
+                    $data
+                ) {
 
-                    'old_status' =>
-                        null,
+                    insert_row(
+                        $db,
+                        'place_sensory',
+                        [
+                            'place_id' =>
+                                $placeId,
 
-                    'new_status' =>
-                        $newStatus,
+                            'period' =>
+                                $period,
 
-                    'reason' =>
-                        'Imported from legacy places.json.',
+                            'noise' =>
+                                numeric_or_null(
+                                    val(
+                                        $data,
+                                        'noise'
+                                    )
+                                ),
 
-                    'changed_by' =>
-                        $user['id']
-                ]
-            );
+                            'traffic' =>
+                                numeric_or_null(
+                                    val(
+                                        $data,
+                                        'traffic'
+                                    )
+                                ),
+
+                            'crowds' =>
+                                numeric_or_null(
+                                    val(
+                                        $data,
+                                        'crowds'
+                                    )
+                                ),
+
+                            'privacy' =>
+                                numeric_or_null(
+                                    val(
+                                        $data,
+                                        'privacy'
+                                    )
+                                ),
+
+                            'light_pollution' =>
+                                numeric_or_null(
+                                    val(
+                                        $data,
+                                        'lightPollution'
+                                    )
+                                ),
+
+                            'sensory_comfort' =>
+                                numeric_or_null(
+                                    val(
+                                        $data,
+                                        'sensoryComfort'
+                                    )
+                                ),
+
+                            'social_interaction_likelihood' =>
+                                numeric_or_null(
+                                    val(
+                                        $data,
+                                        'socialInteractionLikelihood'
+                                    )
+                                )
+                        ]
+                    );
+                }
 
 
-            $db->commit();
+                /* =========================================
+                   SENSORY DETAILS
+                   ========================================= */
+
+                insert_row(
+                    $db,
+                    'place_sensory_details',
+                    [
+                        'place_id' =>
+                            $placeId,
+
+                        'dust_from_traffic' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'dustFromTraffic'
+                                )
+                            ),
+
+                        'generator_noise' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'generatorNoise'
+                                )
+                            ),
+
+                        'aircraft_noise' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'aircraftNoise'
+                                )
+                            ),
+
+                        'road_noise' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'roadNoise'
+                                )
+                            ),
+
+                        'human_activity' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'humanActivity'
+                                )
+                            ),
+
+                        'wildlife_noise' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'wildlifeNoise'
+                                )
+                            ),
+
+                        'wind_noise' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'windNoise'
+                                )
+                            ),
+
+                        'smoke_risk' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'smokeRisk'
+                                )
+                            ),
+
+                        'strong_odors' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'strongOdors'
+                                )
+                            ),
+
+                        'visual_exposure' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'visualExposure'
+                                )
+                            ),
+
+                        'predictability' =>
+                            numeric_or_null(
+                                val(
+                                    $sensory,
+                                    'predictability'
+                                )
+                            )
+                    ]
+                );
 
 
-            $results[] = [
+                /* =========================================
+                   CONNECTIVITY
+                   ========================================= */
 
-                'name' =>
-                    $name,
+                insert_row(
+                    $db,
+                    'place_connectivity',
+                    [
+                        'place_id' =>
+                            $placeId,
 
-                'status' =>
-                    'success',
+                        'overall' =>
+                            numeric_or_null(
+                                val(
+                                    $connectivity,
+                                    'overall'
+                                )
+                            ),
 
-                'message' =>
-                    'Imported as place #' .
-                    $placeId .
-                    ' with status "' .
-                    $newStatus .
-                    '".'
-            ];
+                        't_mobile' =>
+                            numeric_or_null(
+                                val(
+                                    $connectivity,
+                                    'tMobile'
+                                )
+                            ),
+
+                        'verizon' =>
+                            numeric_or_null(
+                                val(
+                                    $connectivity,
+                                    'verizon'
+                                )
+                            ),
+
+                        'att' =>
+                            numeric_or_null(
+                                val(
+                                    $connectivity,
+                                    'att'
+                                )
+                            ),
+
+                        'other_cell' =>
+                            numeric_or_null(
+                                val(
+                                    $connectivity,
+                                    'other'
+                                )
+                            ),
+
+                        'starlink' =>
+                            numeric_or_null(
+                                val(
+                                    $connectivity,
+                                    'starlink'
+                                )
+                            ),
+
+                        'starlink_tested' =>
+                            bool_db(
+                                val(
+                                    $connectivity,
+                                    'starlinkTested'
+                                )
+                            ),
+
+                        'starlink_note' =>
+                            val(
+                                $connectivity,
+                                'starlinkNote'
+                            )
+                    ]
+                );
 
 
-        } catch (Throwable $exception) {
+                /* =========================================
+                   AMENITIES
+                   ========================================= */
 
-            if (
-                $db->inTransaction()
+                insert_row(
+                    $db,
+                    'place_amenities',
+                    [
+                        'place_id' =>
+                            $placeId,
+
+                        'toilets' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'toilets'
+                                )
+                            ),
+
+                        'potable_water' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'potableWater'
+                                )
+                            ),
+
+                        'trash' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'trash'
+                                )
+                            ),
+
+                        'fire_ring' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'fireRing'
+                                )
+                            ),
+
+                        'picnic_table' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'picnicTable'
+                                )
+                            ),
+
+                        'bear_box' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'bearBox'
+                                )
+                            ),
+
+                        'showers' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'showers'
+                                )
+                            ),
+
+                        'electricity' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'electricity'
+                                )
+                            ),
+
+                        'dump_station' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'dumpStation'
+                                )
+                            ),
+
+                        'food_storage_required' =>
+                            bool_db(
+                                val(
+                                    $amenities,
+                                    'foodStorageRequired'
+                                )
+                            )
+                    ]
+                );
+
+
+                /* =========================================
+                   EXPERIENCE
+                   ========================================= */
+
+                insert_row(
+                    $db,
+                    'place_experience',
+                    [
+                        'place_id' =>
+                            $placeId,
+
+                        'sunrise_view' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'sunriseView'
+                                )
+                            ),
+
+                        'sunset_view' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'sunsetView'
+                                )
+                            ),
+
+                        'mountain_view' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'mountainView'
+                                )
+                            ),
+
+                        'forest_view' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'forestView'
+                                )
+                            ),
+
+                        'night_sky' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'nightSky'
+                                )
+                            ),
+
+                        'stargazing' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'stargazing'
+                                )
+                            ),
+
+                        'quiet_evening' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'quietEvening'
+                                )
+                            ),
+
+                        'overnight_comfort' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'overnightComfort'
+                                )
+                            ),
+
+                        'extended_stay_comfort' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'extendedStayComfort'
+                                )
+                            ),
+
+                        'sensory_retreat' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'sensoryRetreat'
+                                )
+                            ),
+
+                        'remote_work' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'remoteWork'
+                                )
+                            ),
+
+                        'overall_scenery' =>
+                            numeric_or_null(
+                                val(
+                                    $experience,
+                                    'overallScenery'
+                                )
+                            ),
+
+                        'recommended_overnight_stop' =>
+                            numeric_or_null(
+                                val(
+                                    $recommended,
+                                    'overnightStop'
+                                )
+                            ),
+
+                        'recommended_quiet_evening' =>
+                            numeric_or_null(
+                                val(
+                                    $recommended,
+                                    'quietEvening'
+                                )
+                            ),
+
+                        'recommended_extended_stay' =>
+                            numeric_or_null(
+                                val(
+                                    $recommended,
+                                    'extendedStay'
+                                )
+                            ),
+
+                        'recommended_sensory_retreat' =>
+                            numeric_or_null(
+                                val(
+                                    $recommended,
+                                    'sensoryRetreat'
+                                )
+                            ),
+
+                        'recommended_stargazing' =>
+                            numeric_or_null(
+                                val(
+                                    $recommended,
+                                    'stargazing'
+                                )
+                            ),
+
+                        'recommended_remote_work' =>
+                            numeric_or_null(
+                                val(
+                                    $recommended,
+                                    'remoteWork'
+                                )
+                            ),
+
+                        'recommended_solo_travel' =>
+                            bool_db(
+                                val(
+                                    $recommended,
+                                    'soloTravel'
+                                )
+                            ),
+
+                        'recommended_families' =>
+                            bool_db(
+                                val(
+                                    $recommended,
+                                    'families'
+                                )
+                            ),
+
+                        'recommended_large_groups' =>
+                            bool_db(
+                                val(
+                                    $recommended,
+                                    'largeGroups'
+                                )
+                            ),
+
+                        'not_recommended_for' =>
+                            json_list(
+                                $place[
+                                    'notRecommendedFor'
+                                ]
+                                ?? null
+                            )
+                    ]
+                );
+
+
+                /* =========================================
+                   RULES / SEASON / NEARBY
+                   ========================================= */
+
+                insert_row(
+                    $db,
+                    'place_rules',
+                    [
+                        'place_id' =>
+                            $placeId,
+
+                        'best_months' =>
+                            json_list(
+                                val(
+                                    $season,
+                                    'bestMonths'
+                                )
+                            ),
+
+                        'winter_access' =>
+                            bool_db(
+                                val(
+                                    $season,
+                                    'winterAccess'
+                                )
+                            ),
+
+                        'snow_risk' =>
+                            numeric_or_null(
+                                val(
+                                    $season,
+                                    'snowRisk'
+                                )
+                            ),
+
+                        'mud_season_risk' =>
+                            numeric_or_null(
+                                val(
+                                    $season,
+                                    'mudSeasonRisk'
+                                )
+                            ),
+
+                        'monsoon_risk' =>
+                            numeric_or_null(
+                                val(
+                                    $season,
+                                    'monsoonRisk'
+                                )
+                            ),
+
+                        'recommended_travel_season' =>
+                            json_list(
+                                val(
+                                    $season,
+                                    'recommendedTravelSeason'
+                                )
+                            ),
+
+                        'seasonal_access_note' =>
+                            val(
+                                $season,
+                                'seasonalAccessNote'
+                            ),
+
+                        'overnight_camping_allowed' =>
+                            bool_db(
+                                val(
+                                    $regulations,
+                                    'overnightCampingAllowed'
+                                )
+                            ),
+
+                        'dispersed_camping_allowed' =>
+                            bool_db(
+                                val(
+                                    $regulations,
+                                    'dispersedCampingAllowed'
+                                )
+                            ),
+
+                        'stay_limit_days' =>
+                            numeric_or_null(
+                                val(
+                                    $regulations,
+                                    'stayLimitDays'
+                                )
+                            ),
+
+                        'maximum_days_per_60_day_period' =>
+                            numeric_or_null(
+                                val(
+                                    $regulations,
+                                    'maximumDaysPer60DayPeriod'
+                                )
+                            ),
+
+                        'move_distance_after_stay_miles' =>
+                            numeric_or_null(
+                                val(
+                                    $regulations,
+                                    'moveDistanceAfterStayMiles'
+                                )
+                            ),
+
+                        'permit_required' =>
+                            bool_db(
+                                val(
+                                    $regulations,
+                                    'permitRequired'
+                                )
+                            ),
+
+                        'fee' =>
+                            numeric_or_null(
+                                val(
+                                    $regulations,
+                                    'fee'
+                                )
+                            ),
+
+                        'campfire_allowed' =>
+                            bool_db(
+                                val(
+                                    $regulations,
+                                    'campfireAllowed'
+                                )
+                            ),
+
+                        'current_fire_restrictions_url' =>
+                            val(
+                                $regulations,
+                                'currentFireRestrictionsUrl'
+                            ),
+
+                        'vehicle_distance_from_road_max_feet' =>
+                            numeric_or_null(
+                                val(
+                                    $landUse,
+                                    'vehicleDistanceFromRoadMaxFeet'
+                                )
+                            ),
+
+                        'minimum_distance_from_water_feet' =>
+                            numeric_or_null(
+                                val(
+                                    $landUse,
+                                    'minimumDistanceFromWaterFeet'
+                                )
+                            ),
+
+                        'existing_sites_encouraged' =>
+                            bool_db(
+                                val(
+                                    $landUse,
+                                    'existingSitesEncouraged'
+                                )
+                            ),
+
+                        'pack_it_in_pack_it_out' =>
+                            bool_db(
+                                val(
+                                    $landUse,
+                                    'packItInPackItOut'
+                                )
+                            ),
+
+                        'residential_use_prohibited' =>
+                            bool_db(
+                                val(
+                                    $landUse,
+                                    'residentialUseProhibited'
+                                )
+                            ),
+
+                        'nearest_town' =>
+                            val(
+                                $nearby,
+                                'nearestTown'
+                            ),
+
+                        'nearest_fuel' =>
+                            val(
+                                $nearby,
+                                'nearestFuel'
+                            ),
+
+                        'nearest_grocery' =>
+                            val(
+                                $nearby,
+                                'nearestGrocery'
+                            ),
+
+                        'nearest_water' =>
+                            val(
+                                $nearby,
+                                'nearestWater'
+                            ),
+
+                        'nearest_toilet' =>
+                            val(
+                                $nearby,
+                                'nearestToilet'
+                            ),
+
+                        'nearest_hospital' =>
+                            val(
+                                $nearby,
+                                'nearestHospital'
+                            )
+                    ]
+                );
+
+
+                /* =========================================
+                   IMAGES
+                   ========================================= */
+
+                $images =
+                    section(
+                        $place,
+                        'images'
+                    );
+
+
+                foreach (
+                    $images as
+                    $imageIndex =>
+                    $image
+                ) {
+
+                    if (
+                        !is_array(
+                            $image
+                        )
+                    ) {
+
+                        continue;
+                    }
+
+
+                    $src =
+                        trim(
+                            (string) (
+                                $image[
+                                    'src'
+                                ]
+                                ?? ''
+                            )
+                        );
+
+
+                    if (
+                        $src === ''
+                    ) {
+
+                        continue;
+                    }
+
+
+                    insert_row(
+                        $db,
+                        'place_images',
+                        [
+                            'place_id' =>
+                                $placeId,
+
+                            'src' =>
+                                $src,
+
+                            'alt_text' =>
+                                $image[
+                                    'alt'
+                                ]
+                                ?? null,
+
+                            'is_featured' =>
+                                bool_db(
+                                    $image[
+                                        'featured'
+                                    ]
+                                    ?? false
+                                ),
+
+                            'sort_order' =>
+                                (int)
+                                $imageIndex,
+
+                            'uploaded_by' =>
+                                $userId
+                        ]
+                    );
+                }
+
+
+                /* =========================================
+                   NOTES
+                   ========================================= */
+
+                $notes =
+                    $place[
+                        'notes'
+                    ]
+                    ?? [];
+
+
+                if (
+                    is_array(
+                        $notes
+                    )
+                ) {
+
+                    foreach (
+                        $notes as
+                        $noteIndex =>
+                        $note
+                    ) {
+
+                        if (
+                            !is_string(
+                                $note
+                            )
+                            ||
+                            trim(
+                                $note
+                            ) === ''
+                        ) {
+
+                            continue;
+                        }
+
+
+                        insert_row(
+                            $db,
+                            'place_notes',
+                            [
+                                'place_id' =>
+                                    $placeId,
+
+                                'note' =>
+                                    trim(
+                                        $note
+                                    ),
+
+                                'sort_order' =>
+                                    (int)
+                                    $noteIndex,
+
+                                'created_by' =>
+                                    $userId
+                            ]
+                        );
+                    }
+                }
+
+
+                /* =========================================
+                   VERIFICATION
+                   ========================================= */
+
+                if (
+                    $verification
+                ) {
+
+                    $verificationType =
+                        import_verification_type(
+                            $verification,
+                            $verificationTypes
+                        );
+
+
+                    $visitedAt =
+                        date_or_null(
+                            val(
+                                $verification,
+                                'visited'
+                            ),
+                            true
+                        );
+
+
+                    $verifiedAt =
+                        $lastVerified
+                        ?:
+                        date(
+                            'Y-m-d H:i:s'
+                        );
+
+
+                    insert_row(
+                        $db,
+                        'place_verifications',
+                        [
+                            'place_id' =>
+                                $placeId,
+
+                            'verification_type' =>
+                                $verificationType,
+
+                            'visited_at' =>
+                                $visitedAt,
+
+                            'verified_at' =>
+                                $verifiedAt,
+
+                            'verified_by' =>
+                                $userId,
+
+                            'source' =>
+                                val(
+                                    $verification,
+                                    'source'
+                                ),
+
+                            'public_data_verified' =>
+                                bool_db(
+                                    val(
+                                        $verification,
+                                        'publicDataVerified'
+                                    )
+                                ),
+
+                            'notes' =>
+                                'Imported from legacy places.json.'
+                        ]
+                    );
+                }
+
+
+                /* =========================================
+                   INITIAL STATUS HISTORY
+                   ========================================= */
+
+                insert_row(
+                    $db,
+                    'place_status_history',
+                    [
+                        'place_id' =>
+                            $placeId,
+
+                        'old_status' =>
+                            null,
+
+                        'new_status' =>
+                            $newStatus,
+
+                        'reason' =>
+                            'Imported from legacy places.json.',
+
+                        'changed_by' =>
+                            $userId
+                    ]
+                );
+
+
+                $db->commit();
+
+
+                $results[] = [
+                    'name' =>
+                        $name,
+
+                    'status' =>
+                        'success',
+
+                    'message' =>
+                        'Imported as place #'
+                        .
+                        $placeId
+                        .
+                        ' with status "'
+                        .
+                        $newStatus
+                        .
+                        '".'
+                ];
+
+
+            } catch (
+                Throwable $exception
             ) {
-                $db->rollBack();
+
+                if (
+                    $db->inTransaction()
+                ) {
+
+                    $db->rollBack();
+                }
+
+
+                error_log(
+                    'Llama Scout place import error for '
+                    .
+                    $slug
+                    .
+                    ': '
+                    .
+                    $exception
+                        ->getMessage()
+                );
+
+
+                $results[] = [
+                    'name' =>
+                        $name,
+
+                    'status' =>
+                        'error',
+
+                    'message' =>
+                        'This place could not be imported. Check the server error log for details.'
+                ];
             }
+        }
 
 
-            error_log(
-                'Llama Scout place import error for ' .
-                $slug .
-                ': ' .
-                $exception->getMessage()
+        /*
+         * Rotate the token after a completed import request.
+         */
+
+        $_SESSION[
+            'admin_import_places_csrf'
+        ] =
+            bin2hex(
+                random_bytes(
+                    32
+                )
             );
 
 
-            $results[] = [
-
-                'name' =>
-                    $name,
-
-                'status' =>
-                    'error',
-
-                'message' =>
-                    $exception->getMessage()
+        $csrfToken =
+            $_SESSION[
+                'admin_import_places_csrf'
             ];
-        }
     }
 }
+
 
 ?>
 <!doctype html>
@@ -2169,7 +2924,7 @@ if (
   >
 
   <title>
-    Import Places | Llama Scout Admin
+    Import Places | Llama Scout Basecamp
   </title>
 
   <meta
@@ -2270,19 +3025,23 @@ require_once
     <div class="admin-intro-row">
 
       <div class="admin-intro-copy">
-            
-            <p class="admin-eyebrow">
-            
-              <i
-                class="<?= e($primaryRoleIcon) ?>"
-                aria-hidden="true"
-              ></i>
-            
-              Llama Scout
-              <?= e($primaryRoleLabel) ?>
-            
-            </p>
-          
+
+        <p class="admin-eyebrow">
+
+          <i
+            class="<?= e(
+                $primaryRoleIcon
+            ) ?>"
+            aria-hidden="true"
+          ></i>
+
+          Llama Scout
+          <?= e(
+              $primaryRoleLabel
+          ) ?>
+
+        </p>
+
         <h1>
           Import Places
         </h1>
@@ -2334,6 +3093,7 @@ require
 
       </div>
 
+
       <?php if (
           !$errors
       ): ?>
@@ -2369,7 +3129,8 @@ require
 
 
       <?php foreach (
-          $errors as $error
+          $errors as
+          $error
       ): ?>
 
         <div
@@ -2393,7 +3154,8 @@ require
     <?php elseif (
         $_SERVER[
             'REQUEST_METHOD'
-        ] !== 'POST'
+        ] !==
+        'POST'
     ): ?>
 
 
@@ -2494,6 +3256,20 @@ require
         </div>
 
 
+        <div class="admin-detail-row">
+
+          <div class="admin-detail-label">
+            Public Status
+          </div>
+
+          <div class="admin-detail-value">
+            Only Active and Featured imports receive
+            a publication timestamp
+          </div>
+
+        </div>
+
+
       </div>
 
 
@@ -2515,6 +3291,15 @@ require
 
 
       <form method="post">
+
+        <input
+          type="hidden"
+          name="csrf_token"
+          value="<?= e(
+              $csrfToken
+          ) ?>"
+        >
+
 
         <div class="admin-form-actions">
 
@@ -2549,43 +3334,49 @@ require
       $successCount =
           0;
 
+
       $skippedCount =
           0;
+
 
       $errorCount =
           0;
 
 
       foreach (
-          $results as $result
+          $results as
+          $result
       ) {
 
           if (
               $result[
                   'status'
-              ] === 'success'
+              ] ===
+              'success'
           ) {
 
               $successCount++;
 
+
           } elseif (
               $result[
                   'status'
-              ] === 'skipped'
+              ] ===
+              'skipped'
           ) {
 
               $skippedCount++;
 
+
           } elseif (
               $result[
                   'status'
-              ] === 'error'
+              ] ===
+              'error'
           ) {
 
               $errorCount++;
-
           }
-
       }
 
       ?>
@@ -2688,7 +3479,8 @@ require
 
 
           <?php foreach (
-              $results as $result
+              $results as
+              $result
           ): ?>
 
 
@@ -2711,8 +3503,7 @@ require
                         'admin-badge--danger',
 
                     default =>
-                        'admin-badge--info',
-
+                        'admin-badge--info'
                 };
 
             ?>
