@@ -854,6 +854,7 @@ if (
                 $error =
                     'That report could not be identified.';
 
+
             } elseif (
                 !in_array(
                     $reportStatus,
@@ -865,15 +866,26 @@ if (
                 $error =
                     'That report status is not valid.';
 
+
             } else {
 
                 try {
 
-                    $reportCheck =
-                        fetch_one(
-                            $db,
+                    $db->beginTransaction();
+
+
+                    /*
+                     * Lock the report before changing it so two
+                     * Admins cannot modify the same report at
+                     * exactly the same time.
+                     */
+
+                    $reportStmt =
+                        $db->prepare(
                             '
-                            SELECT id
+                            SELECT
+                                id,
+                                status
 
                             FROM place_reports
 
@@ -881,11 +893,21 @@ if (
                               AND place_id = ?
 
                             LIMIT 1
-                            ',
-                            [
-                                $reportId,
-                                $placeId,
-                            ]
+
+                            FOR UPDATE
+                            '
+                        );
+
+
+                    $reportStmt->execute([
+                        $reportId,
+                        $placeId
+                    ]);
+
+
+                    $reportCheck =
+                        $reportStmt->fetch(
+                            PDO::FETCH_ASSOC
                         );
 
 
@@ -893,10 +915,9 @@ if (
                         !$reportCheck
                     ) {
 
-                        throw new RuntimeException(
+                        throw new DomainException(
                             'Report does not belong to this place.'
                         );
-
                     }
 
 
@@ -908,6 +929,7 @@ if (
 
                     $params = [
                         $reportStatus,
+                        (int)
                         $user[
                             'id'
                         ],
@@ -930,7 +952,6 @@ if (
                             $adminNotes !== ''
                                 ? $adminNotes
                                 : null;
-
                     }
 
 
@@ -944,7 +965,6 @@ if (
 
                         $setParts[] =
                             'reviewed_at = CURRENT_TIMESTAMP';
-
                     }
 
 
@@ -976,10 +996,12 @@ if (
                         );
 
 
-                    $updateReport
-                        ->execute(
-                            $params
-                        );
+                    $updateReport->execute(
+                        $params
+                    );
+
+
+                    $db->commit();
 
 
                     $message =
@@ -989,9 +1011,35 @@ if (
                         .
                         ' updated.';
 
+
+                } catch (
+                    DomainException $exception
+                ) {
+
+                    if (
+                        $db->inTransaction()
+                    ) {
+
+                        $db->rollBack();
+                    }
+
+
+                    $error =
+                        $exception
+                            ->getMessage();
+
+
                 } catch (
                     Throwable $exception
                 ) {
+
+                    if (
+                        $db->inTransaction()
+                    ) {
+
+                        $db->rollBack();
+                    }
+
 
                     error_log(
                         'Llama Scout report moderation error: '
@@ -1003,16 +1051,13 @@ if (
 
                     $error =
                         'The report could not be updated.';
-
                 }
-
             }
 
 
         /* =================================================
            PLACE VERIFICATION
            ================================================= */
-
         } elseif (
             $action ===
             'verify_place'
@@ -4862,11 +4907,14 @@ require
                     <?php
 
                     $photoUrl =
-                        'https://llamascout.com'
+                        '/report-image.php?id='
                         .
-                        $photo[
-                            'file_path'
-                        ];
+                        rawurlencode(
+                            (string)
+                            $photo[
+                                'id'
+                            ]
+                        );
 
 
                     $extension =
