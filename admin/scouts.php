@@ -2,88 +2,175 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
-require_once dirname(__DIR__) . '/app/timezone.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
 
-require_role('admin');
+require_once
+    dirname(__DIR__)
+    . '/app/timezone.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/role-display.php';
+
+
+require_role(
+    'admin'
+);
+
 
 start_llama_session();
 
-$db = db();
-$adminUser = current_user();
+
+$db =
+    db();
+
+
+$adminUser =
+    current_user();
+
+
+$adminUserId =
+    (int)
+    $adminUser['id'];
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function e(mixed $value): string
-{
+function e(
+    mixed $value
+): string {
+
     return htmlspecialchars(
         (string) $value,
         ENT_QUOTES,
         'UTF-8'
     );
+
 }
 
 
-function scout_status_label(string $status): string
-{
-    return match ($status) {
-        'invited' => 'Invited',
-        'application_started' => 'About You',
-        'application_submitted' => 'Application Complete',
-        'training' => 'Training',
-        'pending_approval' => 'Awaiting Approval',
-        'active' => 'Active',
-        'inactive' => 'Inactive',
-        'declined' => 'Declined',
-        'removed' => 'Removed',
+function scout_status_label(
+    string $status
+): string {
 
-        default => ucwords(
-            str_replace(
-                ['_', '-'],
-                ' ',
-                $status
-            )
-        ),
+    return match (
+        $status
+    ) {
+
+        'invited' =>
+            'Invited',
+
+        'application_started' =>
+            'About You',
+
+        'application_submitted' =>
+            'About You Complete',
+
+        'training' =>
+            'Training',
+
+        'pending_approval' =>
+            'Awaiting Approval',
+
+        'active' =>
+            'Active',
+
+        'inactive' =>
+            'Inactive',
+
+        'declined' =>
+            'Declined',
+
+        'removed' =>
+            'Removed',
+
+        default =>
+            ucwords(
+                str_replace(
+                    [
+                        '_',
+                        '-'
+                    ],
+                    ' ',
+                    $status
+                )
+            ),
+
     };
+
 }
 
 
-function scout_status_group(string $status): string
-{
-    return match ($status) {
+function scout_status_group(
+    string $status
+): string {
+
+    return match (
+        $status
+    ) {
+
         'invited',
         'application_started',
         'application_submitted',
-        'training' => 'onboarding',
+        'training' =>
+            'onboarding',
 
-        'pending_approval' => 'review',
-        'active' => 'active',
-        'inactive' => 'inactive',
-        'declined' => 'declined',
-        'removed' => 'removed',
+        'pending_approval' =>
+            'review',
 
-        default => 'other',
+        'active' =>
+            'active',
+
+        'inactive' =>
+            'inactive',
+
+        'declined' =>
+            'declined',
+
+        'removed' =>
+            'removed',
+
+        default =>
+            'other',
+
     };
+
 }
 
 
-function scout_step(string $status): int
-{
-    return match ($status) {
-        'invited' => 1,
-        'application_started' => 2,
+function scout_step(
+    string $status
+): int {
+
+    return match (
+        $status
+    ) {
+
+        'invited' =>
+            1,
+
+        'application_started' =>
+            2,
 
         'application_submitted',
-        'training' => 3,
+        'training' =>
+            3,
 
-        'pending_approval' => 4,
-        'active' => 5,
+        'pending_approval' =>
+            4,
 
-        default => 0,
+        'active' =>
+            5,
+
+        default =>
+            0,
+
     };
+
 }
 
 
@@ -93,32 +180,58 @@ function format_admin_date(
     bool $withTime = false
 ): string {
 
-    if (!$date) {
+    if (
+        !$date
+    ) {
+
         return 'Not set';
     }
 
+
     return llama_format_datetime(
         $date,
-        llama_user_timezone($adminUser),
+        llama_user_timezone(
+            $adminUser
+        ),
         $withTime
             ? 'M j, Y g:i A'
             : 'M j, Y'
     );
+
 }
+
+
+/* =========================================================
+   ADMIN DISPLAY ROLE
+   ========================================================= */
+
+$primaryRoleLabel =
+    llama_primary_role_label(
+        $adminUserId
+    );
+
+
+$primaryRoleIcon =
+    llama_primary_role_icon(
+        $adminUserId
+    );
 
 
 /* =========================================================
    FILTERS
    ========================================================= */
 
-$filter = strtolower(
-    trim(
-        (string) (
-            $_GET['status']
-            ?? 'all'
+$filter =
+    strtolower(
+        trim(
+            (string) (
+                $_GET[
+                    'status'
+                ]
+                ?? 'all'
+            )
         )
-    )
-);
+    );
 
 
 $allowedFilters = [
@@ -139,112 +252,129 @@ if (
         true
     )
 ) {
-    $filter = 'all';
+
+    $filter =
+        'all';
 }
 
 
-$search = trim(
-    (string) (
-        $_GET['q']
-        ?? ''
-    )
-);
+$search =
+    trim(
+        (string) (
+            $_GET[
+                'q'
+            ]
+            ?? ''
+        )
+    );
 
 
 /* =========================================================
    DASHBOARD COUNTS
    ========================================================= */
 
-$countRows = $db
-    ->query(
-        '
-        SELECT
-            status,
-            COUNT(*) AS total
+$countRows =
+    $db
+        ->query(
+            '
+            SELECT
+                status,
+                COUNT(*) AS total
 
-        FROM scout_profiles
+            FROM scout_profiles
 
-        GROUP BY status
-        '
-    )
-    ->fetchAll(
-        PDO::FETCH_ASSOC
-    );
+            GROUP BY status
+            '
+        )
+        ->fetchAll(
+            PDO::FETCH_ASSOC
+        );
 
 
 $statusCounts = [];
 
 
-foreach ($countRows as $row) {
+foreach (
+    $countRows
+    as
+    $row
+) {
 
     $statusCounts[
-        (string) $row['status']
-    ] = (int) $row['total'];
+        (string)
+        $row[
+            'status'
+        ]
+    ] =
+        (int)
+        $row[
+            'total'
+        ];
 }
 
 
-$totalScouts = array_sum(
-    $statusCounts
-);
+$totalScouts =
+    array_sum(
+        $statusCounts
+    );
 
 
 $onboardingCount =
     (
-        $statusCounts['invited']
+        $statusCounts[
+            'invited'
+        ]
         ?? 0
     )
     +
     (
-        $statusCounts['application_started']
+        $statusCounts[
+            'application_started'
+        ]
         ?? 0
     )
     +
     (
-        $statusCounts['application_submitted']
+        $statusCounts[
+            'application_submitted'
+        ]
         ?? 0
     )
     +
     (
-        $statusCounts['training']
+        $statusCounts[
+            'training'
+        ]
         ?? 0
     );
 
 
 $reviewCount =
-    $statusCounts['pending_approval']
+    $statusCounts[
+        'pending_approval'
+    ]
     ?? 0;
 
 
 $activeCount =
-    $statusCounts['active']
+    $statusCounts[
+        'active'
+    ]
     ?? 0;
 
 
-$inactiveCount =
-    (
-        $statusCounts['inactive']
-        ?? 0
-    )
-    +
-    (
-        $statusCounts['removed']
-        ?? 0
-    );
-
-
 /* =========================================================
-   BUILD SCOUT LIST QUERY
+   BUILD LIST FILTER
    ========================================================= */
 
 $whereParts = [];
 $params = [];
 
 
-/* =========================================================
-   STATUS FILTER
-   ========================================================= */
-
-if ($filter === 'onboarding') {
+if (
+    $filter ===
+    'onboarding'
+) {
 
     $whereParts[] =
         '
@@ -257,27 +387,47 @@ if ($filter === 'onboarding') {
         )
         ';
 
-} elseif ($filter === 'review') {
+
+} elseif (
+    $filter ===
+    'review'
+) {
 
     $whereParts[] =
         'sp.status = \'pending_approval\'';
 
-} elseif ($filter === 'active') {
+
+} elseif (
+    $filter ===
+    'active'
+) {
 
     $whereParts[] =
         'sp.status = \'active\'';
 
-} elseif ($filter === 'inactive') {
+
+} elseif (
+    $filter ===
+    'inactive'
+) {
 
     $whereParts[] =
         'sp.status = \'inactive\'';
 
-} elseif ($filter === 'declined') {
+
+} elseif (
+    $filter ===
+    'declined'
+) {
 
     $whereParts[] =
         'sp.status = \'declined\'';
 
-} elseif ($filter === 'removed') {
+
+} elseif (
+    $filter ===
+    'removed'
+) {
 
     $whereParts[] =
         'sp.status = \'removed\'';
@@ -288,7 +438,9 @@ if ($filter === 'onboarding') {
    SEARCH
    ========================================================= */
 
-if ($search !== '') {
+if (
+    $search !== ''
+) {
 
     $whereParts[] =
         '
@@ -308,15 +460,16 @@ if ($search !== '') {
         '%';
 
 
-    $params[] = $searchLike;
-    $params[] = $searchLike;
-    $params[] = $searchLike;
+    $params[] =
+        $searchLike;
+
+    $params[] =
+        $searchLike;
+
+    $params[] =
+        $searchLike;
 }
 
-
-/* =========================================================
-   WHERE SQL
-   ========================================================= */
 
 $whereSql =
     $whereParts
@@ -332,17 +485,20 @@ $whereSql =
 /* =========================================================
    SCOUT LIST
 
-   The annual Scout requirement uses FIXED Scout years.
+   Important distinctions:
 
-   Example:
+   - Normal active Scouts use the fixed one-year window
+     ending at scout_profiles.active_through.
 
-   Aug 20, 2026 through Aug 20, 2027
+   - A Scout on a 30-day reinstatement uses the exact
+     scout_extensions started_at / ends_at window.
 
-   Only scout_activity rows with activity_type
-   place_approved inside that exact Scout year count toward
-   the three-report renewal requirement.
+   - Lifetime Scout Report totals start at the person's
+     original Scout start date. Earlier Community Scouted
+     submissions are not Scout Reports.
 
-   Extra reports do not stack future years.
+   - Points remain whatever is currently stored. Lost points
+     are never reconstructed from historical activity.
    ========================================================= */
 
 $sql =
@@ -370,20 +526,112 @@ $sql =
         u.display_name,
         u.status AS account_status,
 
-        COALESCE(
-            report_stats.total_reports,
-            0
-        ) AS total_reports,
+        active_extension.id
+            AS extension_id,
+
+        active_extension.started_at
+            AS extension_started_at,
+
+        active_extension.ends_at
+            AS extension_ends_at,
+
+        active_extension.accepted_reports
+            AS extension_saved_reports,
+
+        CASE
+            WHEN active_extension.id IS NOT NULL
+            THEN 1
+            ELSE 0
+        END
+            AS is_extension,
+
+        CASE
+            WHEN EXISTS
+            (
+                SELECT 1
+
+                FROM user_roles ur_master
+
+                INNER JOIN roles r_master
+                  ON r_master.id =
+                     ur_master.role_id
+
+                WHERE ur_master.user_id =
+                    sp.user_id
+
+                  AND r_master.slug IN
+                  (
+                      \'master-scout\',
+                      \'master_scout\'
+                  )
+            )
+            THEN 1
+            ELSE 0
+        END
+            AS is_master_scout,
 
         COALESCE(
-            report_stats.accepted_reports,
+            (
+                SELECT COUNT(*)
+
+                FROM place_submissions ps_total
+
+                WHERE ps_total.user_id =
+                    sp.user_id
+
+                  AND sp.scout_started_at
+                      IS NOT NULL
+
+                  AND ps_total.submitted_at >=
+                      sp.scout_started_at
+            ),
             0
-        ) AS accepted_reports,
+        )
+            AS total_reports,
 
         COALESCE(
-            report_stats.pending_reports,
+            (
+                SELECT COUNT(*)
+
+                FROM place_submissions ps_accepted
+
+                WHERE ps_accepted.user_id =
+                    sp.user_id
+
+                  AND ps_accepted.status =
+                      \'approved\'
+
+                  AND sp.scout_started_at
+                      IS NOT NULL
+
+                  AND ps_accepted.submitted_at >=
+                      sp.scout_started_at
+            ),
             0
-        ) AS pending_reports,
+        )
+            AS accepted_reports,
+
+        COALESCE(
+            (
+                SELECT COUNT(*)
+
+                FROM place_submissions ps_pending
+
+                WHERE ps_pending.user_id =
+                    sp.user_id
+
+                  AND ps_pending.status =
+                      \'pending\'
+
+                  AND sp.scout_started_at
+                      IS NOT NULL
+
+                  AND ps_pending.submitted_at >=
+                      sp.scout_started_at
+            ),
+            0
+        )
+            AS pending_reports,
 
         COALESCE(
             (
@@ -398,78 +646,94 @@ $sql =
                     sp.user_id
 
                   AND sa_requirement.activity_type =
-                    \'place_approved\'
+                      \'place_approved\'
 
-                  AND sp.active_through
-                      IS NOT NULL
+                  AND
+                  (
+                      (
+                          active_extension.id
+                              IS NOT NULL
 
-                  AND sa_requirement.occurred_at >=
-                      GREATEST(
-                          DATE_SUB(
-                              sp.active_through,
-                              INTERVAL 1 YEAR
-                          ),
-                          COALESCE(
-                              sp.scout_started_at,
-                              DATE_SUB(
-                                  sp.active_through,
-                                  INTERVAL 1 YEAR
-                              )
-                          )
+                          AND
+                          sa_requirement.occurred_at >=
+                              active_extension.started_at
+
+                          AND
+                          sa_requirement.occurred_at <
+                              active_extension.ends_at
                       )
 
-                  AND sa_requirement.occurred_at <
-                      sp.active_through
+                      OR
+
+                      (
+                          active_extension.id
+                              IS NULL
+
+                          AND
+                          sp.active_through
+                              IS NOT NULL
+
+                          AND
+                          sa_requirement.occurred_at >=
+                              GREATEST(
+                                  DATE_SUB(
+                                      sp.active_through,
+                                      INTERVAL 1 YEAR
+                                  ),
+                                  COALESCE(
+                                      sp.scout_started_at,
+                                      DATE_SUB(
+                                          sp.active_through,
+                                          INTERVAL 1 YEAR
+                                      )
+                                  )
+                              )
+
+                          AND
+                          sa_requirement.occurred_at <
+                              sp.active_through
+                      )
+                  )
             ),
             0
-        ) AS accepted_current_year,
+        )
+            AS accepted_current_period,
 
         COALESCE(
             activity_stats.activity_count,
             0
-        ) AS activity_count,
+        )
+            AS activity_count,
 
         COALESCE(
             activity_stats.total_points,
             0
-        ) AS total_points
+        )
+            AS total_points
 
     FROM scout_profiles sp
 
     INNER JOIN users u
-      ON u.id = sp.user_id
-
-
-    LEFT JOIN
-    (
-        SELECT
-            user_id,
-
-            COUNT(*) AS total_reports,
-
-            SUM(
-                CASE
-                    WHEN status = \'approved\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS accepted_reports,
-
-            SUM(
-                CASE
-                    WHEN status = \'pending\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS pending_reports
-
-        FROM place_submissions
-
-        GROUP BY user_id
-
-    ) report_stats
-      ON report_stats.user_id =
+      ON u.id =
          sp.user_id
+
+
+    LEFT JOIN scout_extensions active_extension
+      ON active_extension.id =
+         (
+             SELECT MAX(se_lookup.id)
+
+             FROM scout_extensions se_lookup
+
+             WHERE se_lookup.scout_profile_id =
+                 sp.id
+
+               AND se_lookup.user_id =
+                   sp.user_id
+
+               AND se_lookup.status =
+                   \'active\'
+         )
 
 
     LEFT JOIN
@@ -478,12 +742,14 @@ $sql =
             scout_profile_id,
             user_id,
 
-            COUNT(*) AS activity_count,
+            COUNT(*)
+                AS activity_count,
 
             COALESCE(
                 SUM(points),
                 0
-            ) AS total_points
+            )
+                AS total_points
 
         FROM scout_activity
 
@@ -492,12 +758,12 @@ $sql =
             user_id
 
     ) activity_stats
+
       ON activity_stats.scout_profile_id =
          sp.id
 
      AND activity_stats.user_id =
          sp.user_id
-
 
     '
     .
@@ -545,9 +811,10 @@ $sql =
     ';
 
 
-$stmt = $db->prepare(
-    $sql
-);
+$stmt =
+    $db->prepare(
+        $sql
+    );
 
 
 $stmt->execute(
@@ -555,21 +822,10 @@ $stmt->execute(
 );
 
 
-$scouts = $stmt->fetchAll(
-    PDO::FETCH_ASSOC
-);
-
-
-/* =========================================================
-   DISPLAY NAME
-   ========================================================= */
-
-$displayName =
-    $adminUser['display_name']
-    ?:
-    $adminUser['username']
-    ?:
-    $adminUser['email'];
+$scouts =
+    $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
 
 
 ?>
@@ -586,9 +842,9 @@ $displayName =
     content="width=device-width, initial-scale=1"
   >
 
-<title>
-  Llama Scouts | Admin Basecamp
-</title>
+  <title>
+    Llama Scouts | Admin Basecamp
+  </title>
 
   <meta
     name="robots"
@@ -632,202 +888,145 @@ $displayName =
 
   <style>
 
-
-    /* =====================================================
-       LIST
-       ===================================================== */
-
     .scouts-list {
-      display:
-        grid;
-
-      gap:
-        12px;
-
-      margin-top:
-        18px;
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
     }
 
 
     .scout-row {
-      display:
-        grid;
+      display: grid;
 
       grid-template-columns:
-        minmax(
-          220px,
-          1.5fr
-        )
-        minmax(
-          150px,
-          .8fr
-        )
-        minmax(
-          155px,
-          .8fr
-        )
-        minmax(
-          150px,
-          .8fr
-        )
+        minmax(220px, 1.5fr)
+        minmax(150px, .8fr)
+        minmax(155px, .8fr)
+        minmax(150px, .8fr)
         auto;
 
-      gap:
-        16px;
+      gap: 16px;
+      align-items: center;
 
-      align-items:
-        center;
-
-      padding:
-        18px;
+      padding: 18px;
 
       border:
         1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .11
-        );
+        rgba(23, 40, 34, .11);
 
-      border-radius:
-        14px;
+      border-radius: 14px;
 
       background:
-        rgba(
-          255,
-          255,
-          255,
-          .86
-        );
+        rgba(255, 255, 255, .86);
     }
 
 
     .scout-name {
-      font-weight:
-        800;
-
-      font-size:
-        1rem;
+      font-weight: 800;
+      font-size: 1rem;
     }
 
 
     .scout-username {
-      margin-top:
-        3px;
-
-      font-size:
-        .82rem;
-
-      opacity:
-        .61;
+      margin-top: 3px;
+      font-size: .82rem;
+      opacity: .61;
     }
 
 
     .scout-label {
-      display:
-        block;
-
-      margin-bottom:
-        4px;
-
-      font-size:
-        .72rem;
-
-      opacity:
-        .58;
+      display: block;
+      margin-bottom: 4px;
+      font-size: .72rem;
+      opacity: .58;
     }
 
 
     .scout-value {
-      font-weight:
-        700;
+      font-weight: 700;
     }
 
-     .scout-meta {
-        margin-top:
-          5px;
-      
-        font-size:
-          .75rem;
-      
-        opacity:
-          .62;
-      }
+
+    .scout-meta {
+      margin-top: 5px;
+      font-size: .75rem;
+      opacity: .62;
+    }
+
+
+    .scout-rank {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: .74rem;
+      font-weight: 750;
+      opacity: .72;
+    }
+
+
+    .scout-extension-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+
+      margin-top: 7px;
+
+      padding:
+        5px
+        8px;
+
+      border-radius: 999px;
+
+      background:
+        rgba(217, 196, 154, .22);
+
+      font-size: .7rem;
+      font-weight: 750;
+    }
 
 
     .scout-progress {
-      display:
-        flex;
-
-      align-items:
-        center;
-
-      gap:
-        8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
 
     .scout-progress-track {
-      overflow:
-        hidden;
+      overflow: hidden;
 
-      width:
-        78px;
+      width: 78px;
+      height: 8px;
 
-      height:
-        8px;
-
-      border-radius:
-        999px;
+      border-radius: 999px;
 
       background:
-        rgba(
-          23,
-          40,
-          34,
-          .09
-        );
+        rgba(23, 40, 34, .09);
     }
 
 
     .scout-progress-fill {
-      height:
-        100%;
+      height: 100%;
 
-      border-radius:
-        inherit;
+      border-radius: inherit;
 
-      background:
-        #172822;
+      background: #172822;
     }
 
 
     .scout-requirement-met {
-      margin-top:
-        5px;
+      margin-top: 5px;
 
-      font-size:
-        .72rem;
+      font-size: .72rem;
+      font-weight: 700;
 
-      font-weight:
-        700;
-
-      opacity:
-        .68;
+      opacity: .68;
     }
 
 
-         .scout-filter-controls {
+    .scout-filter-controls {
       grid-template-columns:
-        minmax(
-          180px,
-          1fr
-        )
-        minmax(
-          280px,
-          2fr
-        )
+        minmax(180px, 1fr)
+        minmax(280px, 2fr)
         auto;
     }
 
@@ -836,7 +1035,6 @@ $displayName =
     .admin-place-control
     input {
       width: 100%;
-
       box-sizing: border-box;
 
       padding:
@@ -845,50 +1043,31 @@ $displayName =
 
       border:
         1px solid
-        rgba(
-          0,
-          0,
-          0,
-          .18
-        );
+        rgba(0, 0, 0, .18);
 
-      border-radius:
-        7px;
+      border-radius: 7px;
 
-      background:
-        #fff;
+      background: #fff;
+      color: #172822;
 
-      color:
-        #172822;
-
-      font:
-        inherit;
-
-      outline:
-        none;
+      font: inherit;
+      outline: none;
     }
 
 
     .scout-filter-controls
     .admin-place-control
     input:focus {
-      border-color:
-        #426b59;
+      border-color: #426b59;
 
       box-shadow:
         0 0 0 3px
-        rgba(
-          66,
-          107,
-          89,
-          .14
-        );
+        rgba(66, 107, 89, .14);
     }
 
 
     @media (
-      max-width:
-        900px
+      max-width: 900px
     ) {
 
       .scout-filter-controls {
@@ -910,28 +1089,24 @@ $displayName =
 
 
     @media (
-      max-width:
-        600px
+      max-width: 600px
     ) {
 
       .scout-filter-controls {
-        grid-template-columns:
-          1fr;
+        grid-template-columns: 1fr;
       }
 
 
       .scout-filter-controls
       .scout-filter-action {
-        grid-column:
-          auto;
+        grid-column: auto;
       }
 
     }
 
-     
+
     @media (
-      max-width:
-        980px
+      max-width: 980px
     ) {
 
       .scout-row {
@@ -952,20 +1127,16 @@ $displayName =
 
 
     @media (
-      max-width:
-        700px
+      max-width: 700px
     ) {
 
-
       .scout-row {
-        grid-template-columns:
-          1fr;
+        grid-template-columns: 1fr;
       }
 
 
       .scout-row-action {
-        grid-column:
-          auto;
+        grid-column: auto;
       }
 
     }
@@ -990,10 +1161,6 @@ require_once
 <main class="admin-main">
 
 
-<!-- =====================================================
-     PAGE INTRO
-     ===================================================== -->
-
 <section class="admin-intro">
 
   <div class="admin-intro-row">
@@ -1012,13 +1179,18 @@ require_once
 
       </p>
 
+
       <h1>
         Llama Scouts
       </h1>
 
+
       <p>
+
         Manage Scout onboarding, approvals, active Scouts,
-        contribution progress, Scout activity, and access.
+        extensions, contribution progress, Scout activity,
+        and access.
+
       </p>
 
     </div>
@@ -1027,9 +1199,6 @@ require_once
 
 </section>
 
-   <!-- =====================================================
-     BASECAMP NAVIGATION
-     ===================================================== -->
 
 <?php
 
@@ -1039,9 +1208,6 @@ require
 
 ?>
 
-<!-- =====================================================
-     SCOUT STATS
-     ===================================================== -->
 
 <section
   class="admin-stats"
@@ -1101,9 +1267,6 @@ require
 
 </section>
 
-<!-- =====================================================
-     SCOUT FILTERS
-     ===================================================== -->
 
 <section
   class="
@@ -1112,624 +1275,737 @@ require
   "
   aria-label="Scout filters"
 >
-   
-     <form
-       method="get"
-       action="/scouts.php"
-       style="
-         display: contents;
-       "
-     >
-   
-       <div class="admin-place-control scout-filter-action">
-   
-         <label for="scout-status">
-           Status
-         </label>
-   
-         <select
-           id="scout-status"
-           name="status"
-         >
-   
-           <option
-             value="all"
-             <?= $filter === 'all'
-                 ? 'selected'
-                 : ''
-             ?>
-           >
-             All Scouts
-           </option>
-   
-           <option
-             value="onboarding"
-             <?= $filter === 'onboarding'
-                 ? 'selected'
-                 : ''
-             ?>
-           >
-             Onboarding
-           </option>
-   
-           <option
-             value="review"
-             <?= $filter === 'review'
-                 ? 'selected'
-                 : ''
-             ?>
-           >
-             Awaiting Review
-           </option>
-   
-           <option
-             value="active"
-             <?= $filter === 'active'
-                 ? 'selected'
-                 : ''
-             ?>
-           >
-             Active
-           </option>
-   
-           <option
-             value="inactive"
-             <?= $filter === 'inactive'
-                 ? 'selected'
-                 : ''
-             ?>
-           >
-             Inactive
-           </option>
-   
-           <option
-             value="declined"
-             <?= $filter === 'declined'
-                 ? 'selected'
-                 : ''
-             ?>
-           >
-             Declined
-           </option>
-   
-           <option
-             value="removed"
-             <?= $filter === 'removed'
-                 ? 'selected'
-                 : ''
-             ?>
-           >
-             Removed
-           </option>
-   
-         </select>
-   
-       </div>
-   
-   
-       <div class="admin-place-control">
-   
-         <label for="scout-search">
-           Search
-         </label>
-   
-         <input
-           id="scout-search"
-           type="search"
-           name="q"
-           value="<?= e($search) ?>"
-           placeholder="Name, username, or email"
-         >
-   
-       </div>
-   
-   
-       <div class="admin-place-control">
-   
-         <label>
-           &nbsp;
-         </label>
-   
-         <button
-           type="submit"
-           class="admin-button"
-         >
-   
-           <i
-             class="fa-solid fa-magnifying-glass"
-             aria-hidden="true"
-           ></i>
-   
-           Filter Scouts
-   
-         </button>
-   
-       </div>
-   
-     </form>
-   
-   </section>
 
-  <?php if ($scouts): ?>
+  <form
+    method="get"
+    action="/scouts.php"
+    style="display: contents;"
+  >
+
+    <div
+      class="
+        admin-place-control
+        scout-filter-action
+      "
+    >
+
+      <label for="scout-status">
+        Status
+      </label>
 
 
-    <section class="scouts-list">
+      <select
+        id="scout-status"
+        name="status"
+      >
+
+        <option
+          value="all"
+          <?= $filter === 'all'
+              ? 'selected'
+              : ''
+          ?>
+        >
+          All Scouts
+        </option>
 
 
-      <?php foreach (
-          $scouts as $scout
-      ): ?>
+        <option
+          value="onboarding"
+          <?= $filter === 'onboarding'
+              ? 'selected'
+              : ''
+          ?>
+        >
+          Onboarding
+        </option>
 
 
-        <?php
-
-        $status =
-            (string)
-            $scout['status'];
-
-
-        $statusGroup =
-            scout_status_group(
-                $status
-            );
+        <option
+          value="review"
+          <?= $filter === 'review'
+              ? 'selected'
+              : ''
+          ?>
+        >
+          Awaiting Review
+        </option>
 
 
-        $step =
-            scout_step(
-                $status
-            );
+        <option
+          value="active"
+          <?= $filter === 'active'
+              ? 'selected'
+              : ''
+          ?>
+        >
+          Active
+        </option>
 
 
-        $name =
-            trim(
-                (string) (
-                    $scout['display_name']
-                    ?:
-                    $scout['username']
-                    ?:
-                    $scout['email']
-                )
-            );
+        <option
+          value="inactive"
+          <?= $filter === 'inactive'
+              ? 'selected'
+              : ''
+          ?>
+        >
+          Inactive
+        </option>
 
 
-        $acceptedCurrent =
-            (int) (
-                $scout[
-                    'accepted_current_year'
-                ]
-                ?? 0
-            );
+        <option
+          value="declined"
+          <?= $filter === 'declined'
+              ? 'selected'
+              : ''
+          ?>
+        >
+          Declined
+        </option>
 
 
-        $progress =
-            min(
-                100,
-                (
-                    min(
-                        3,
-                        $acceptedCurrent
-                    )
-                    /
-                    3
-                )
-                *
-                100
-            );
+        <option
+          value="removed"
+          <?= $filter === 'removed'
+              ? 'selected'
+              : ''
+          ?>
+        >
+          Removed
+        </option>
+
+      </select>
+
+    </div>
 
 
-        $requirementMet =
-            $acceptedCurrent >= 3;
+    <div class="admin-place-control">
+
+      <label for="scout-search">
+        Search
+      </label>
+
+      <input
+        id="scout-search"
+        type="search"
+        name="q"
+        value="<?= e($search) ?>"
+        placeholder="Name, username, or email"
+      >
+
+    </div>
 
 
-        $actionLabel =
-            $status ===
-            'pending_approval'
-                ? 'Review Scout'
-                : 'View Scout';
+    <div class="admin-place-control">
 
-        ?>
+      <label>
+        &nbsp;
+      </label>
+
+      <button
+        type="submit"
+        class="admin-button"
+      >
+
+        <i
+          class="fa-solid fa-magnifying-glass"
+          aria-hidden="true"
+        ></i>
+
+        Filter Scouts
+
+      </button>
+
+    </div>
+
+  </form>
+
+</section>
 
 
-        <article class="scout-row">
+<?php if ($scouts): ?>
 
 
-          <div>
+  <section class="scouts-list">
 
 
-            <div class="scout-name">
-              <?= e($name) ?>
-            </div>
+    <?php foreach (
+        $scouts
+        as
+        $scout
+    ): ?>
 
 
-            <div class="scout-username">
+      <?php
 
-              <?php if (
-                  !empty(
-                      $scout['username']
+      $status =
+          (string)
+          $scout[
+              'status'
+          ];
+
+
+      $step =
+          scout_step(
+              $status
+          );
+
+
+      $name =
+          trim(
+              (string) (
+                  $scout[
+                      'display_name'
+                  ]
+                  ?:
+                  $scout[
+                      'username'
+                  ]
+                  ?:
+                  $scout[
+                      'email'
+                  ]
+              )
+          );
+
+
+      $isExtension =
+          !empty(
+              $scout[
+                  'is_extension'
+              ]
+          );
+
+
+      $isMasterScout =
+          !empty(
+              $scout[
+                  'is_master_scout'
+              ]
+          );
+
+
+      $rankLabel =
+          $isMasterScout
+              ? 'Master Scout'
+              : (
+                  $status === 'active'
+                      ? 'Scout'
+                      : ''
+              );
+
+
+      $acceptedCurrent =
+          (int) (
+              $scout[
+                  'accepted_current_period'
+              ]
+              ?? 0
+          );
+
+
+      $progress =
+          min(
+              100,
+              (
+                  min(
+                      3,
+                      $acceptedCurrent
                   )
-              ): ?>
+                  /
+                  3
+              )
+              *
+              100
+          );
 
-                @<?= e(
-                    $scout['username']
-                ) ?>
 
-                &middot;
+      $requirementMet =
+          $acceptedCurrent
+          >=
+          3;
 
-              <?php endif; ?>
 
-              <?= e(
-                  $scout['email']
+      $actionLabel =
+          $status ===
+          'pending_approval'
+              ? 'Review Scout'
+              : 'View Scout';
+
+      ?>
+
+
+      <article class="scout-row">
+
+
+        <div>
+
+          <div class="scout-name">
+            <?= e($name) ?>
+          </div>
+
+
+          <div class="scout-username">
+
+            <?php if (
+                !empty(
+                    $scout[
+                        'username'
+                    ]
+                )
+            ): ?>
+
+              @<?= e(
+                  $scout[
+                      'username'
+                  ]
               ) ?>
 
-            </div>
+              &middot;
 
+            <?php endif; ?>
+
+            <?= e(
+                $scout[
+                    'email'
+                ]
+            ) ?>
 
           </div>
 
 
-          <div>
+          <?php if (
+              $rankLabel !== ''
+          ): ?>
 
-
-            <span class="scout-label">
-              Scout Status
+            <span class="scout-rank">
+              <?= e($rankLabel) ?>
             </span>
 
+          <?php endif; ?>
 
-            <span
-              class="
-                admin-badge
-                <?=
-                  $status === 'active'
-                    ? 'admin-badge--success'
-                    : (
-                        $status === 'pending_approval'
-                          ? 'admin-badge--warning'
-                          : (
-                              in_array(
-                                  $status,
-                                  [
-                                      'inactive',
-                                      'declined',
-                                      'removed',
-                                  ],
-                                  true
-                              )
-                                ? 'admin-badge--danger'
-                                : 'admin-badge--muted'
+
+          <?php if (
+              $isExtension
+          ): ?>
+
+            <span class="scout-extension-tag">
+
+              <i
+                class="fa-solid fa-clock"
+                aria-hidden="true"
+              ></i>
+
+              30-Day Extension
+
+            </span>
+
+          <?php endif; ?>
+
+        </div>
+
+
+        <div>
+
+          <span class="scout-label">
+            Scout Status
+          </span>
+
+
+          <span
+            class="
+              admin-badge
+              <?=
+                $status === 'active'
+                  ? 'admin-badge--success'
+                  : (
+                      $status === 'pending_approval'
+                        ? 'admin-badge--warning'
+                        : (
+                            in_array(
+                                $status,
+                                [
+                                    'inactive',
+                                    'declined',
+                                    'removed'
+                                ],
+                                true
                             )
-                      )
-                ?>
-              "
-            >
-
-              <?php if (
-                  $status ===
-                  'pending_approval'
-              ): ?>
-
-                <i
-                  class="fa-solid fa-clipboard-check"
-                  aria-hidden="true"
-                ></i>
-
-              <?php elseif (
-                  $status ===
-                  'active'
-              ): ?>
-
-                <i
-                  class="fa-solid fa-binoculars"
-                  aria-hidden="true"
-                ></i>
-
-              <?php else: ?>
-
-                <i
-                  class="fa-solid fa-compass"
-                  aria-hidden="true"
-                ></i>
-
-              <?php endif; ?>
-
-
-              <?= e(
-                  scout_status_label(
-                      $status
-                  )
-              ) ?>
-
-            </span>
-
+                              ? 'admin-badge--danger'
+                              : 'admin-badge--muted'
+                          )
+                    )
+              ?>
+            "
+          >
 
             <?php if (
-                $step > 0
-                &&
-                $status !== 'active'
+                $status ===
+                'pending_approval'
             ): ?>
+
+              <i
+                class="fa-solid fa-clipboard-check"
+                aria-hidden="true"
+              ></i>
+
+            <?php elseif (
+                $status ===
+                'active'
+            ): ?>
+
+              <i
+                class="fa-solid fa-binoculars"
+                aria-hidden="true"
+              ></i>
+
+            <?php else: ?>
+
+              <i
+                class="fa-solid fa-compass"
+                aria-hidden="true"
+              ></i>
+
+            <?php endif; ?>
+
+
+            <?= e(
+                scout_status_label(
+                    $status
+                )
+            ) ?>
+
+          </span>
+
+
+          <?php if (
+              $step > 0
+              &&
+              $status !==
+                  'active'
+          ): ?>
 
             <div class="scout-meta">
               Step <?= $step ?> of 5
             </div>
 
-            <?php endif; ?>
+          <?php endif; ?>
+
+        </div>
 
 
-          </div>
+        <div>
 
-
-          <div>
+          <?php if (
+              $status ===
+              'active'
+          ): ?>
 
 
             <span class="scout-label">
-              Current Scout Year
+
+              <?= $isExtension
+                  ? 'Extension Progress'
+                  : 'Current Scout Year'
+              ?>
+
             </span>
 
 
-                        <?php if (
-                $status === 'active'
-            ): ?>
+            <div class="scout-progress">
 
+              <div class="scout-progress-track">
 
-              <span class="scout-label">
-                Current Scout Year
-              </span>
-
-
-              <div class="scout-progress">
-
-
-                <div class="scout-progress-track">
-
-                  <div
-                    class="scout-progress-fill"
-                    style="
-                      width:
-                      <?= number_format(
-                          $progress,
-                          2,
-                          '.',
-                          ''
-                      ) ?>%;
-                    "
-                  ></div>
-
-                </div>
-
-
-                <span class="scout-value">
-
-                  <?= $acceptedCurrent ?>/3
-
-                </span>
-
+                <div
+                  class="scout-progress-fill"
+                  style="
+                    width:
+                    <?= number_format(
+                        $progress,
+                        2,
+                        '.',
+                        ''
+                    ) ?>%;
+                  "
+                ></div>
 
               </div>
 
 
-              <?php if (
-                  $requirementMet
-              ): ?>
-
-                <div class="scout-requirement-met">
-                  Requirement met
-                </div>
-
-              <?php endif; ?>
-
-
-            <?php elseif (
-                in_array(
-                    $status,
-                    [
-                        'inactive',
-                        'declined',
-                        'removed'
-                    ],
-                    true
-                )
-            ): ?>
-
-
-              <span class="scout-label">
-                Scout Access
-              </span>
-
               <span class="scout-value">
-                Not currently active
+                <?= $acceptedCurrent ?>/3
               </span>
 
-
-            <?php else: ?>
-
-
-              <span class="scout-label">
-                Scout Year
-              </span>
-
-              <span class="scout-value">
-                Not active yet
-              </span>
-
-
-            <?php endif; ?>
-
-
-          </div>
-
-
-          <div>
+            </div>
 
 
             <?php if (
-                $status === 'active'
+                $requirementMet
             ): ?>
 
-
-              <span class="scout-label">
-                Active Through
-              </span>
-
-
-              <span class="scout-value">
-
-                <?= e(
-                    format_admin_date(
-                        $scout[
-                            'active_through'
-                        ]
-                        ?? null,
-                        $adminUser
-                    )
-                ) ?>
-
-              </span>
-
-
-            <div class="scout-meta">
-            
-              <?= (int) (
-                  $scout['total_points']
-                  ?? 0
-              ) ?>
-              points
-            
-            </div>
-
-            <?php elseif (
-                $status ===
-                'pending_approval'
-            ): ?>
-
-
-              <span class="scout-label">
-                Training Completed
-              </span>
-
-
-              <span class="scout-value">
-
-                <?= e(
-                    format_admin_date(
-                        $scout[
-                            'training_completed_at'
-                        ]
-                        ?? null,
-                        $adminUser
-                    )
-                ) ?>
-
-              </span>
-
-
-            <?php else: ?>
-
-
-              <span class="scout-label">
-                Last Milestone
-              </span>
-
-
-              <span class="scout-value">
-
-                <?php
-
-                $milestoneDate =
-                    $scout[
-                        'training_started_at'
-                    ]
-                    ?:
-                    $scout[
-                        'application_submitted_at'
-                    ]
-                    ?:
-                    $scout[
-                        'application_started_at'
-                    ]
-                    ?:
-                    $scout[
-                        'invited_at'
-                    ]
-                    ?:
-                    null;
-
-                ?>
-
-
-                <?= e(
-                    format_admin_date(
-                        $milestoneDate,
-                        $adminUser
-                    )
-                ) ?>
-
-              </span>
-
+              <div class="scout-requirement-met">
+                Requirement met
+              </div>
 
             <?php endif; ?>
 
 
-          </div>
+          <?php elseif (
+              in_array(
+                  $status,
+                  [
+                      'inactive',
+                      'declined',
+                      'removed'
+                  ],
+                  true
+              )
+          ): ?>
 
 
-          <div class="scout-row-action">
+            <span class="scout-label">
+              Scout Access
+            </span>
+
+            <span class="scout-value">
+              Not currently active
+            </span>
 
 
-            <a
-              class="admin-button"
-              href="/scout.php?id=<?= (int)
-                  $scout['id']
+          <?php else: ?>
+
+
+            <span class="scout-label">
+              Scout Year
+            </span>
+
+            <span class="scout-value">
+              Not active yet
+            </span>
+
+
+          <?php endif; ?>
+
+        </div>
+
+
+        <div>
+
+          <?php if (
+              $status ===
+              'active'
+          ): ?>
+
+
+            <span class="scout-label">
+
+              <?= $isExtension
+                  ? 'Extension Ends'
+                  : 'Active Through'
+              ?>
+
+            </span>
+
+
+            <span class="scout-value">
+
+              <?= e(
+                  format_admin_date(
+                      $isExtension
+                          ? (
+                              $scout[
+                                  'extension_ends_at'
+                              ]
+                              ?? null
+                          )
+                          : (
+                              $scout[
+                                  'active_through'
+                              ]
+                              ?? null
+                          ),
+                      $adminUser
+                  )
+              ) ?>
+
+            </span>
+
+
+            <div class="scout-meta">
+
+              <?= (int) (
+                  $scout[
+                      'total_points'
+                  ]
+                  ?? 0
+              ) ?>
+
+              points
+
+              &middot;
+
+              <?= (int) (
+                  $scout[
+                      'accepted_reports'
+                  ]
+                  ?? 0
+              ) ?>
+
+              lifetime accepted
+
+            </div>
+
+
+          <?php elseif (
+              $status ===
+              'pending_approval'
+          ): ?>
+
+
+            <span class="scout-label">
+              Training Completed
+            </span>
+
+
+            <span class="scout-value">
+
+              <?= e(
+                  format_admin_date(
+                      $scout[
+                          'training_completed_at'
+                      ]
+                      ?? null,
+                      $adminUser
+                  )
+              ) ?>
+
+            </span>
+
+
+          <?php else: ?>
+
+
+            <span class="scout-label">
+              Last Milestone
+            </span>
+
+
+            <span class="scout-value">
+
+              <?php
+
+              $milestoneDate =
+                  $scout[
+                      'inactive_at'
+                  ]
+                  ?:
+                  $scout[
+                      'removed_at'
+                  ]
+                  ?:
+                  $scout[
+                      'training_started_at'
+                  ]
+                  ?:
+                  $scout[
+                      'application_submitted_at'
+                  ]
+                  ?:
+                  $scout[
+                      'application_started_at'
+                  ]
+                  ?:
+                  $scout[
+                      'invited_at'
+                  ]
+                  ?:
+                  null;
+
+              ?>
+
+
+              <?= e(
+                  format_admin_date(
+                      $milestoneDate,
+                      $adminUser
+                  )
+              ) ?>
+
+            </span>
+
+
+            <?php if (
+                $status ===
+                'inactive'
+            ): ?>
+
+              <div class="scout-meta">
+                Eligible for manual 30-day extension
+              </div>
+
+            <?php endif; ?>
+
+
+          <?php endif; ?>
+
+        </div>
+
+
+        <div class="scout-row-action">
+
+          <a
+            class="admin-button"
+            href="/scout.php?id=<?= (int)
+                $scout[
+                    'id'
+                ]
+            ?>"
+          >
+
+            <i
+              class="<?=
+                  $status ===
+                  'pending_approval'
+                      ? 'fa-solid fa-clipboard-check'
+                      : 'fa-solid fa-arrow-right'
               ?>"
-            >
+              aria-hidden="true"
+            ></i>
 
-              <i
-                class="<?=
-                    $status ===
-                    'pending_approval'
-                        ? 'fa-solid fa-clipboard-check'
-                        : 'fa-solid fa-arrow-right'
-                ?>"
-                aria-hidden="true"
-              ></i>
+            <?= e($actionLabel) ?>
 
-              <?= e($actionLabel) ?>
+          </a>
 
-            </a>
+        </div>
 
 
-          </div>
+      </article>
 
 
-        </article>
+    <?php endforeach; ?>
 
 
-      <?php endforeach; ?>
+  </section>
 
 
-    </section>
+<?php else: ?>
 
 
-  <?php else: ?>
+  <section class="admin-empty">
+
+    <h2>
+      No Scouts found.
+    </h2>
+
+    <p>
+      No Scout profiles match the current filter or search.
+    </p>
+
+  </section>
 
 
-<section class="admin-empty">
-
-
-      <h2>
-        No Scouts found.
-      </h2>
-
-
-      <p>
-
-        No Scout profiles match the current filter or search.
-
-      </p>
-
-
-    </section>
-
-
-  <?php endif; ?>
+<?php endif; ?>
 
 
 </main>
