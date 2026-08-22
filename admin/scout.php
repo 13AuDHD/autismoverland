@@ -1255,6 +1255,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
         /* =================================================
+           PROMOTE TO MASTER SCOUT
+           ================================================= */
+
+        } elseif ($action === 'promote_master') {
+
+            try {
+
+                $db->beginTransaction();
+
+                $lockedProfile =
+                    fetch_one(
+                        $db,
+                        '
+                        SELECT
+                            id,
+                            user_id,
+                            status
+
+                        FROM scout_profiles
+
+                        WHERE id = ?
+                          AND user_id = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        ',
+                        [
+                            $scoutProfileId,
+                            $scoutUserId
+                        ]
+                    );
+
+                if (
+                    !$lockedProfile
+                    ||
+                    (string) (
+                        $lockedProfile['status']
+                        ?? ''
+                    )
+                    !==
+                    'active'
+                ) {
+                    throw new DomainException(
+                        'Only an active Llama Scout can be promoted to Master Scout.'
+                    );
+                }
+
+                $promotion =
+                    llama_promote_to_master_scout(
+                        $db,
+                        $scoutUserId,
+                        $adminUserId,
+                        $reviewNotes !== ''
+                            ? $reviewNotes
+                            : 'Promoted after satisfying the current Master Scout qualification policy.'
+                    );
+
+                $db->commit();
+
+                $message =
+                    !empty(
+                        $promotion['changed']
+                    )
+                        ? 'Llama Scout promoted to Master Scout. The qualification snapshot and rank change were recorded.'
+                        : 'This account is already a Master Scout.';
+
+            } catch (Throwable $exception) {
+
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+
+                error_log(
+                    'Llama Scout Master Scout promotion error: '
+                    .
+                    $exception->getMessage()
+                );
+
+                $error =
+                    $exception->getMessage();
+            }
+
+        /* =================================================
            RETURN FOR CHANGES
            ================================================= */
 
@@ -1638,6 +1722,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $scout,
             $application,
             $training
+        );
+
+    $masterQualification =
+        llama_master_scout_qualification(
+            $db,
+            $scoutUserId
+        );
+
+    $masterQualificationEnabled =
+        (bool) (
+            $masterQualification['enabled']
+            ?? false
+        );
+
+    $masterEligible =
+        (bool) (
+            $masterQualification['eligible']
+            ?? false
+        );
+
+    $masterRequirements =
+        is_array(
+            $masterQualification['requirements']
+            ?? null
+        )
+            ? $masterQualification['requirements']
+            : [];
+
+    $masterQualificationReason =
+        (string) (
+            $masterQualification['reason']
+            ?? ''
         );
 }
 
@@ -2109,6 +2225,39 @@ $rankHistory =
         $scoutUserId
     );
 
+
+$masterQualification =
+    llama_master_scout_qualification(
+        $db,
+        $scoutUserId
+    );
+
+$masterQualificationEnabled =
+    (bool) (
+        $masterQualification['enabled']
+        ?? false
+    );
+
+$masterEligible =
+    (bool) (
+        $masterQualification['eligible']
+        ?? false
+    );
+
+$masterRequirements =
+    is_array(
+        $masterQualification['requirements']
+        ?? null
+    )
+        ? $masterQualification['requirements']
+        : [];
+
+$masterQualificationReason =
+    (string) (
+        $masterQualification['reason']
+        ?? ''
+    );
+
 $introEyebrow =
     $scoutIsActive
         ? (
@@ -2419,6 +2568,74 @@ $introCopy =
       border-radius: 10px;
       background: rgba(217, 196, 154, .2);
       line-height: 1.55;
+    }
+
+
+    .master-qualification-list {
+      display: grid;
+      gap: 9px;
+      margin-top: 16px;
+    }
+
+    .master-requirement {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      background: rgba(23, 40, 34, .05);
+    }
+
+    .master-requirement.met {
+      background: rgba(31, 122, 72, .10);
+    }
+
+    .master-requirement.not-met {
+      background: rgba(140, 50, 50, .07);
+    }
+
+    .master-requirement-icon {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(23, 40, 34, .08);
+    }
+
+    .master-requirement.met .master-requirement-icon {
+      color: #267447;
+    }
+
+    .master-requirement.not-met .master-requirement-icon {
+      color: #9b3434;
+    }
+
+    .master-requirement-label {
+      font-weight: 700;
+    }
+
+    .master-requirement-value {
+      font-size: .8rem;
+      opacity: .7;
+      text-align: right;
+    }
+
+    .master-state {
+      margin-top: 14px;
+      padding: 13px 14px;
+      border-radius: 10px;
+      line-height: 1.55;
+      background: rgba(23, 40, 34, .055);
+    }
+
+    .master-state.eligible {
+      background: rgba(31, 122, 72, .11);
+    }
+
+    .master-state.disabled {
+      background: rgba(217, 196, 154, .20);
     }
 
     @media (max-width: 860px) {
@@ -3079,6 +3296,266 @@ require
         <?php endif; ?>
 
       </section>
+
+      <?php if (
+          $scoutIsActive
+          &&
+          $currentRank !== LLAMA_SCOUT_RANK_MASTER
+      ): ?>
+
+        <section class="admin-card">
+
+          <h2>
+            Master Scout Qualification
+          </h2>
+
+          <p>
+            Master Scout is earned by satisfying every current
+            qualification requirement. Points alone are not
+            sufficient.
+          </p>
+
+          <?php if ($masterRequirements): ?>
+
+            <div class="master-qualification-list">
+
+              <?php foreach ($masterRequirements as $requirement): ?>
+
+                <?php
+
+                $requirementMet =
+                    !empty(
+                        $requirement['met']
+                    );
+
+                $currentValue =
+                    $requirement['current']
+                    ?? 0;
+
+                $requiredValue =
+                    $requirement['required']
+                    ?? 0;
+
+                if (is_bool($currentValue)) {
+                    $currentDisplay =
+                        $currentValue
+                            ? 'Yes'
+                            : 'No';
+                } else {
+                    $currentDisplay =
+                        number_format(
+                            (int) $currentValue
+                        );
+                }
+
+                if (is_bool($requiredValue)) {
+                    $requiredDisplay =
+                        $requiredValue
+                            ? 'Required'
+                            : 'Not required';
+                } else {
+                    $requiredDisplay =
+                        (int) $requiredValue > 0
+                            ? number_format(
+                                (int) $requiredValue
+                            )
+                            : 'Not set';
+                }
+
+                ?>
+
+                <div
+                  class="
+                    master-requirement
+                    <?= $requirementMet
+                        ? 'met'
+                        : 'not-met'
+                    ?>
+                  "
+                >
+
+                  <span class="master-requirement-icon">
+
+                    <i
+                      class="
+                        fa-solid
+                        <?= $requirementMet
+                            ? 'fa-check'
+                            : 'fa-xmark'
+                        ?>
+                      "
+                      aria-hidden="true"
+                    ></i>
+
+                  </span>
+
+                  <span class="master-requirement-label">
+
+                    <?= e(
+                        $requirement['label']
+                        ?? 'Requirement'
+                    ) ?>
+
+                  </span>
+
+                  <span class="master-requirement-value">
+
+                    <?= e($currentDisplay) ?>
+
+                    /
+
+                    <?= e($requiredDisplay) ?>
+
+                  </span>
+
+                </div>
+
+              <?php endforeach; ?>
+
+            </div>
+
+          <?php endif; ?>
+
+          <div
+            class="
+              master-state
+              <?= !$masterQualificationEnabled
+                  ? 'disabled'
+                  : (
+                      $masterEligible
+                          ? 'eligible'
+                          : ''
+                  )
+              ?>
+            "
+          >
+
+            <?php if (!$masterQualificationEnabled): ?>
+
+              <strong>
+                Qualification is disabled.
+              </strong>
+
+              Master Scout qualification has not been activated
+              in Scout Policy yet. You can still see current
+              progress above, but promotion is unavailable.
+
+            <?php elseif ($masterEligible): ?>
+
+              <strong>
+                Ready for Master Scout.
+              </strong>
+
+              This Llama Scout currently satisfies every
+              configured Master Scout requirement.
+
+            <?php else: ?>
+
+              <strong>
+                Not yet qualified.
+              </strong>
+
+              <?= e($masterQualificationReason) ?>
+
+            <?php endif; ?>
+
+          </div>
+
+          <?php if ($masterEligible): ?>
+
+            <form
+              method="post"
+              action="scout.php"
+              class="review-actions"
+              style="margin-top: 16px;"
+            >
+
+              <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= e($csrfToken) ?>"
+              >
+
+              <input
+                type="hidden"
+                name="scout_profile_id"
+                value="<?= $scoutProfileId ?>"
+              >
+
+              <textarea
+                name="review_notes"
+                placeholder="Optional promotion note..."
+              ></textarea>
+
+              <div class="review-action-buttons">
+
+                <button
+                  class="
+                    review-action-button
+                    approve
+                  "
+                  type="submit"
+                  name="action"
+                  value="promote_master"
+                  onclick="
+                    return confirm(
+                      'Promote this Llama Scout to Master Scout? Their current qualification snapshot will be permanently recorded.'
+                    );
+                  "
+                >
+
+                  <i
+                    class="fa-solid fa-award"
+                    aria-hidden="true"
+                  ></i>
+
+                  Promote to Master Scout
+
+                </button>
+
+              </div>
+
+            </form>
+
+          <?php endif; ?>
+
+        </section>
+
+      <?php elseif (
+          $currentRank === LLAMA_SCOUT_RANK_MASTER
+      ): ?>
+
+        <section class="admin-card">
+
+          <h2>
+            Master Scout
+          </h2>
+
+          <div class="review-check good">
+
+            <i
+              class="fa-solid fa-award"
+              aria-hidden="true"
+            ></i>
+
+            <span>
+              This account currently holds Master Scout rank.
+            </span>
+
+          </div>
+
+          <p style="margin-top: 12px;">
+            Master Scout remains subject to the same active
+            Scout new-Place requirement as every Llama Scout.
+            If active Scout status expires, Master Scout rank
+            is lost and must be earned again after
+            reactivation.
+          </p>
+
+        </section>
+
+      <?php endif; ?>
+
 
       <section class="admin-card">
 
