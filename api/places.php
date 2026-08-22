@@ -2,8 +2,13 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
-require_once dirname(__DIR__) . '/app/place-access.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/place-access.php';
 
 
 header(
@@ -23,11 +28,17 @@ function api_bool(
     mixed $value
 ): ?bool {
 
-    if ($value === null) {
+    if (
+        $value === null
+    ) {
         return null;
     }
 
-    return (bool) ((int) $value);
+    return
+        (bool) (
+            (int)
+            $value
+        );
 }
 
 
@@ -36,13 +47,16 @@ function api_int(
 ): ?int {
 
     if (
-        $value === null ||
+        $value === null
+        ||
         $value === ''
     ) {
         return null;
     }
 
-    return (int) $value;
+    return
+        (int)
+        $value;
 }
 
 
@@ -51,13 +65,16 @@ function api_float(
 ): ?float {
 
     if (
-        $value === null ||
+        $value === null
+        ||
         $value === ''
     ) {
         return null;
     }
 
-    return (float) $value;
+    return
+        (float)
+        $value;
 }
 
 
@@ -66,13 +83,16 @@ function api_string(
 ): ?string {
 
     if (
-        $value === null ||
+        $value === null
+        ||
         $value === ''
     ) {
         return null;
     }
 
-    return (string) $value;
+    return
+        (string)
+        $value;
 }
 
 
@@ -81,33 +101,43 @@ function api_list(
 ): ?array {
 
     if (
-        $value === null ||
-        trim((string) $value) === ''
+        $value === null
+        ||
+        trim(
+            (string)
+            $value
+        ) === ''
     ) {
         return null;
     }
+
 
     $parts =
         array_map(
             'trim',
             explode(
                 ',',
-                (string) $value
+                (string)
+                $value
             )
         );
+
 
     $parts =
         array_values(
             array_filter(
                 $parts,
-                static fn (
+                static fn(
                     string $item
                 ): bool =>
                     $item !== ''
             )
         );
 
-    return $parts ?: null;
+
+    return
+        $parts
+        ?: null;
 }
 
 
@@ -116,20 +146,29 @@ function api_date(
 ): ?string {
 
     if (
-        $value === null ||
+        $value === null
+        ||
         $value === ''
     ) {
         return null;
     }
 
+
     $timestamp =
         strtotime(
-            (string) $value
+            (string)
+            $value
         );
 
-    if ($timestamp === false) {
-        return (string) $value;
+
+    if (
+        $timestamp === false
+    ) {
+        return
+            (string)
+            $value;
     }
+
 
     return date(
         'Y-m-d',
@@ -145,16 +184,25 @@ function fetch_one(
 ): array {
 
     $stmt =
-        $db->prepare($sql);
+        $db->prepare(
+            $sql
+        );
 
-    $stmt->execute($params);
+
+    $stmt->execute(
+        $params
+    );
+
 
     $row =
         $stmt->fetch(
             PDO::FETCH_ASSOC
         );
 
-    return $row ?: [];
+
+    return
+        $row
+        ?: [];
 }
 
 
@@ -164,22 +212,29 @@ function fetch_one(
 
 try {
 
-    $db = db();
+    $db =
+        db();
 
 
     /* =====================================================
        PUBLIC PLACE FIREWALL
 
-       Only these statuses ever leave the public API.
+       Draft, Unlisted, Removed, and Archived Places never
+       enter the public API at all.
+
+       Admin previews remain a separate authenticated
+       Basecamp workflow.
        ===================================================== */
 
     $stmt =
         $db->query(
             "
             SELECT *
+
             FROM places
 
-            WHERE status IN (
+            WHERE status IN
+            (
                 'active',
                 'featured'
             )
@@ -201,15 +256,20 @@ try {
         );
 
 
-    $output = [];
+    $output =
+        [];
 
 
     foreach (
-        $placeRows as $place
+        $placeRows as
+        $place
     ) {
 
         $placeId =
-            (int) $place['id'];
+            (int)
+            $place[
+                'id'
+            ];
 
 
         /* =================================================
@@ -221,10 +281,14 @@ try {
                 $db,
                 '
                 SELECT *
+
                 FROM place_details
+
                 WHERE place_id = ?
                 ',
-                [$placeId]
+                [
+                    $placeId
+                ]
             );
 
 
@@ -233,10 +297,14 @@ try {
                 $db,
                 '
                 SELECT *
+
                 FROM place_sensory_details
+
                 WHERE place_id = ?
                 ',
-                [$placeId]
+                [
+                    $placeId
+                ]
             );
 
 
@@ -245,10 +313,14 @@ try {
                 $db,
                 '
                 SELECT *
+
                 FROM place_connectivity
+
                 WHERE place_id = ?
                 ',
-                [$placeId]
+                [
+                    $placeId
+                ]
             );
 
 
@@ -257,10 +329,14 @@ try {
                 $db,
                 '
                 SELECT *
+
                 FROM place_amenities
+
                 WHERE place_id = ?
                 ',
-                [$placeId]
+                [
+                    $placeId
+                ]
             );
 
 
@@ -269,10 +345,14 @@ try {
                 $db,
                 '
                 SELECT *
+
                 FROM place_experience
+
                 WHERE place_id = ?
                 ',
-                [$placeId]
+                [
+                    $placeId
+                ]
             );
 
 
@@ -281,10 +361,14 @@ try {
                 $db,
                 '
                 SELECT *
+
                 FROM place_rules
+
                 WHERE place_id = ?
                 ',
-                [$placeId]
+                [
+                    $placeId
+                ]
             );
 
 
@@ -296,14 +380,18 @@ try {
             $db->prepare(
                 '
                 SELECT *
+
                 FROM place_sensory
+
                 WHERE place_id = ?
                 '
             );
 
+
         $sensoryStmt->execute([
             $placeId
         ]);
+
 
         $sensoryRows =
             $sensoryStmt->fetchAll(
@@ -311,26 +399,38 @@ try {
             );
 
 
-        $daytime = [];
-        $nighttime = [];
+        $daytime =
+            [];
+
+
+        $nighttime =
+            [];
 
 
         foreach (
-            $sensoryRows as $row
+            $sensoryRows as
+            $row
         ) {
 
             if (
-                $row['period']
-                === 'daytime'
+                $row[
+                    'period'
+                ] ===
+                'daytime'
             ) {
-                $daytime = $row;
+                $daytime =
+                    $row;
             }
 
+
             if (
-                $row['period']
-                === 'nighttime'
+                $row[
+                    'period'
+                ] ===
+                'nighttime'
             ) {
-                $nighttime = $row;
+                $nighttime =
+                    $row;
             }
         }
 
@@ -358,6 +458,7 @@ try {
                 '
             );
 
+
         $imageStmt->execute([
             $placeId
         ]);
@@ -369,17 +470,21 @@ try {
             );
 
 
-        $images = [];
+        $images =
+            [];
 
 
         foreach (
-            $imageRows as $image
+            $imageRows as
+            $image
         ) {
 
             $images[] = [
 
                 'src' =>
-                    $image['src'],
+                    $image[
+                        'src'
+                    ],
 
                 'alt' =>
                     $image[
@@ -391,7 +496,9 @@ try {
                         $image[
                             'is_featured'
                         ]
-                    ) ?? false
+                    )
+                    ??
+                    false
             ];
         }
 
@@ -403,7 +510,9 @@ try {
         $noteStmt =
             $db->prepare(
                 '
-                SELECT note
+                SELECT
+                    note
+
                 FROM place_notes
 
                 WHERE place_id = ?
@@ -413,6 +522,7 @@ try {
                     id ASC
                 '
             );
+
 
         $noteStmt->execute([
             $placeId
@@ -450,48 +560,105 @@ try {
 
                 LIMIT 1
                 ',
-                [$placeId]
+                [
+                    $placeId
+                ]
             );
 
 
         /* =================================================
-           BUILD LEGACY-COMPATIBLE OBJECT
+           BUILD LEGACY-COMPATIBLE PLACE OBJECT
            ================================================= */
 
         $output[] = [
 
             'id' =>
-                $place['slug'],
+                $place[
+                    'slug'
+                ],
 
             'name' =>
-                $place['name'],
+                $place[
+                    'name'
+                ],
 
             'slug' =>
-                $place['slug'],
+                $place[
+                    'slug'
+                ],
 
             'type' =>
-                $place['type'],
+                $place[
+                    'type'
+                ],
 
 
             /*
-             * The old JSON model used:
+             * The legacy JSON model used:
              *
              * status: active
              * featured: true/false
              *
-             * The database now uses featured
-             * as a lifecycle status.
-             *
-             * We translate it back here so the
-             * existing frontend does not care.
+             * The relational model treats Featured as a
+             * lifecycle status, so translate it here.
              */
 
             'status' =>
                 'active',
 
             'featured' =>
-                $place['status']
-                === 'featured',
+                $place[
+                    'status'
+                ] ===
+                'featured',
+
+
+            /* =============================================
+               VISITOR-SAFE PUBLIC PREVIEW
+
+               This object exists only long enough for
+               app/place-access.php to construct the
+               logged-out visitor representation.
+
+               member_place_view(), free_place_view(), and
+               visitor_place_view() remove this object before
+               the response leaves the API.
+               ============================================= */
+
+            'publicPreview' => [
+
+                'summary' =>
+                    api_string(
+                        $place[
+                            'public_summary'
+                        ]
+                        ?? null
+                    ),
+
+                'locationLabel' =>
+                    api_string(
+                        $place[
+                            'public_location_label'
+                        ]
+                        ?? null
+                    ),
+
+                'latitude' =>
+                    api_float(
+                        $place[
+                            'public_latitude'
+                        ]
+                        ?? null
+                    ),
+
+                'longitude' =>
+                    api_float(
+                        $place[
+                            'public_longitude'
+                        ]
+                        ?? null
+                    )
+            ],
 
 
             /* =============================================
@@ -523,27 +690,37 @@ try {
 
                 'road' =>
                     api_string(
-                        $place['road']
+                        $place[
+                            'road'
+                        ]
                     ),
 
                 'city' =>
                     api_string(
-                        $place['city']
+                        $place[
+                            'city'
+                        ]
                     ),
 
                 'county' =>
                     api_string(
-                        $place['county']
+                        $place[
+                            'county'
+                        ]
                     ),
 
                 'state' =>
                     api_string(
-                        $place['state']
+                        $place[
+                            'state'
+                        ]
                     ),
 
                 'region' =>
                     api_string(
-                        $place['region']
+                        $place[
+                            'region'
+                        ]
                     ),
 
                 'landManager' =>
@@ -572,105 +749,120 @@ try {
                     api_int(
                         $details[
                             'vehicle_capacity'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'maxVehicleLengthFeet' =>
                     api_int(
                         $details[
                             'max_vehicle_length_feet'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'tentCampingSuitable' =>
                     api_bool(
                         $details[
                             'tent_camping_suitable'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'rvSuitable' =>
                     api_bool(
                         $details[
                             'rv_suitable'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'trailerSuitable' =>
                     api_bool(
                         $details[
                             'trailer_suitable'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'parkingSurface' =>
                     api_string(
                         $details[
                             'parking_surface'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'levelness' =>
                     api_int(
                         $details[
                             'levelness'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'levelingRequired' =>
                     api_bool(
                         $details[
                             'leveling_required'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'turnaroundSpace' =>
                     api_bool(
                         $details[
                             'turnaround_space'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'pullThrough' =>
                     api_bool(
                         $details[
                             'pull_through'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'backIn' =>
                     api_bool(
                         $details[
                             'back_in'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'openSky' =>
                     api_int(
                         $details[
                             'site_open_sky'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'treeCover' =>
                     api_int(
                         $details[
                             'tree_cover'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'shade' =>
                     api_int(
                         $details[
                             'site_shade'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'groundCondition' =>
                     api_string(
                         $details[
                             'ground_condition'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -685,126 +877,144 @@ try {
                     api_int(
                         $details[
                             'site_access_difficulty'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'roadOverallDifficulty' =>
                     api_int(
                         $details[
                             'road_overall_difficulty'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'roadDifficulty' =>
                     api_int(
                         $details[
                             'road_difficulty'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'roadStress' =>
                     api_int(
                         $details[
                             'road_stress'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'sedanAccessible' =>
                     api_bool(
                         $details[
                             'sedan_accessible'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'highClearanceRecommended' =>
                     api_bool(
                         $details[
                             'high_clearance_recommended'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'fourWheelDriveRecommended' =>
                     api_bool(
                         $details[
                             'four_wheel_drive_recommended'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'roadSurface' =>
                     api_string(
                         $details[
                             'road_surface'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'roadWidth' =>
                     api_string(
                         $details[
                             'road_width'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'rocks' =>
                     api_int(
                         $details[
                             'rocks'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'washboards' =>
                     api_int(
                         $details[
                             'washboards'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'potholes' =>
                     api_int(
                         $details[
                             'potholes'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'mudRisk' =>
                     api_int(
                         $details[
                             'mud_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'steepGrades' =>
                     api_int(
                         $details[
                             'steep_grades'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'dropOffExposure' =>
                     api_int(
                         $details[
                             'drop_off_exposure'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'waterCrossings' =>
                     api_bool(
                         $details[
                             'water_crossings'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'downedTreeRisk' =>
                     api_bool(
                         $details[
                             'downed_tree_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'seasonalClosure' =>
                     api_bool(
                         $details[
                             'seasonal_closure'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -821,49 +1031,56 @@ try {
                         api_int(
                             $daytime[
                                 'noise'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'traffic' =>
                         api_int(
                             $daytime[
                                 'traffic'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'crowds' =>
                         api_int(
                             $daytime[
                                 'crowds'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'privacy' =>
                         api_int(
                             $daytime[
                                 'privacy'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'lightPollution' =>
                         api_int(
                             $daytime[
                                 'light_pollution'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'sensoryComfort' =>
                         api_int(
                             $daytime[
                                 'sensory_comfort'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'socialInteractionLikelihood' =>
                         api_int(
                             $daytime[
                                 'social_interaction_likelihood'
-                            ] ?? null
+                            ]
+                            ?? null
                         )
                 ],
 
@@ -874,49 +1091,56 @@ try {
                         api_int(
                             $nighttime[
                                 'noise'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'traffic' =>
                         api_int(
                             $nighttime[
                                 'traffic'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'crowds' =>
                         api_int(
                             $nighttime[
                                 'crowds'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'privacy' =>
                         api_int(
                             $nighttime[
                                 'privacy'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'lightPollution' =>
                         api_int(
                             $nighttime[
                                 'light_pollution'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'sensoryComfort' =>
                         api_int(
                             $nighttime[
                                 'sensory_comfort'
-                            ] ?? null
+                            ]
+                            ?? null
                         ),
 
                     'socialInteractionLikelihood' =>
                         api_int(
                             $nighttime[
                                 'social_interaction_likelihood'
-                            ] ?? null
+                            ]
+                            ?? null
                         )
                 ],
 
@@ -925,87 +1149,94 @@ try {
                     api_int(
                         $sensoryDetails[
                             'dust_from_traffic'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'generatorNoise' =>
                     api_int(
                         $sensoryDetails[
                             'generator_noise'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'aircraftNoise' =>
                     api_int(
                         $sensoryDetails[
                             'aircraft_noise'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'roadNoise' =>
                     api_int(
                         $sensoryDetails[
                             'road_noise'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'humanActivity' =>
                     api_int(
                         $sensoryDetails[
                             'human_activity'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'wildlifeNoise' =>
                     api_int(
                         $sensoryDetails[
                             'wildlife_noise'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'windNoise' =>
                     api_int(
                         $sensoryDetails[
                             'wind_noise'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'smokeRisk' =>
                     api_int(
                         $sensoryDetails[
                             'smoke_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'strongOdors' =>
                     api_int(
                         $sensoryDetails[
                             'strong_odors'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'visualExposure' =>
                     api_int(
                         $sensoryDetails[
                             'visual_exposure'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'predictability' =>
                     api_int(
                         $sensoryDetails[
                             'predictability'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
 
             /* =============================================
                CONNECTIVITY
-
-               IMPORTANT:
-               0 remains 0.
-               NULL remains unknown.
                ============================================= */
 
             'connectivity' => [
@@ -1014,56 +1245,64 @@ try {
                     api_int(
                         $connectivity[
                             'overall'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'tMobile' =>
                     api_int(
                         $connectivity[
                             't_mobile'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'verizon' =>
                     api_int(
                         $connectivity[
                             'verizon'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'att' =>
                     api_int(
                         $connectivity[
                             'att'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'other' =>
                     api_int(
                         $connectivity[
                             'other_cell'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'starlink' =>
                     api_int(
                         $connectivity[
                             'starlink'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'starlinkTested' =>
                     api_bool(
                         $connectivity[
                             'starlink_tested'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'starlinkNote' =>
                     api_string(
                         $connectivity[
                             'starlink_note'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1078,70 +1317,80 @@ try {
                     api_bool(
                         $amenities[
                             'toilets'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'potableWater' =>
                     api_bool(
                         $amenities[
                             'potable_water'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'trash' =>
                     api_bool(
                         $amenities[
                             'trash'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'fireRing' =>
                     api_bool(
                         $amenities[
                             'fire_ring'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'picnicTable' =>
                     api_bool(
                         $amenities[
                             'picnic_table'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'bearBox' =>
                     api_bool(
                         $amenities[
                             'bear_box'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'showers' =>
                     api_bool(
                         $amenities[
                             'showers'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'electricity' =>
                     api_bool(
                         $amenities[
                             'electricity'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'dumpStation' =>
                     api_bool(
                         $amenities[
                             'dump_station'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'foodStorageRequired' =>
                     api_bool(
                         $amenities[
                             'food_storage_required'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1156,84 +1405,96 @@ try {
                     api_bool(
                         $details[
                             'forest'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'mountains' =>
                     api_bool(
                         $details[
                             'mountains'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'waterNearby' =>
                     api_bool(
                         $details[
                             'water_nearby'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'waterView' =>
                     api_bool(
                         $details[
                             'water_view'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'mountainView' =>
                     api_bool(
                         $details[
                             'mountain_view'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'forestView' =>
                     api_bool(
                         $details[
                             'forest_view'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'wildlife' =>
                     api_bool(
                         $details[
                             'wildlife'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'bugs' =>
                     api_bool(
                         $details[
                             'bugs'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'windExposure' =>
                     api_int(
                         $details[
                             'wind_exposure'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'sunExposure' =>
                     api_int(
                         $details[
                             'sun_exposure'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'shade' =>
                     api_int(
                         $details[
                             'environment_shade'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'openSky' =>
                     api_int(
                         $details[
                             'environment_open_sky'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1248,84 +1509,96 @@ try {
                     api_int(
                         $experience[
                             'sunrise_view'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'sunsetView' =>
                     api_int(
                         $experience[
                             'sunset_view'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'mountainView' =>
                     api_int(
                         $experience[
                             'mountain_view'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'forestView' =>
                     api_int(
                         $experience[
                             'forest_view'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'nightSky' =>
                     api_int(
                         $experience[
                             'night_sky'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'stargazing' =>
                     api_int(
                         $experience[
                             'stargazing'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'quietEvening' =>
                     api_int(
                         $experience[
                             'quiet_evening'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'overnightComfort' =>
                     api_int(
                         $experience[
                             'overnight_comfort'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'extendedStayComfort' =>
                     api_int(
                         $experience[
                             'extended_stay_comfort'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'sensoryRetreat' =>
                     api_int(
                         $experience[
                             'sensory_retreat'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'remoteWork' =>
                     api_int(
                         $experience[
                             'remote_work'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'overallScenery' =>
                     api_int(
                         $experience[
                             'overall_scenery'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1340,49 +1613,56 @@ try {
                     api_bool(
                         $details[
                             'wheelchair_friendly'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'mobilityDeviceFriendly' =>
                     api_bool(
                         $details[
                             'mobility_device_friendly'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'flatWalkingSurface' =>
                     api_bool(
                         $details[
                             'flat_walking_surface'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'walkingDistanceFromVehicle' =>
                     api_string(
                         $details[
                             'walking_distance_from_vehicle'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'stepFreeAccess' =>
                     api_bool(
                         $details[
                             'step_free_access'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'accessibleToilet' =>
                     api_bool(
                         $details[
                             'accessible_toilet'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'accessiblePicnicTable' =>
                     api_bool(
                         $details[
                             'accessible_picnic_table'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1397,70 +1677,80 @@ try {
                     api_bool(
                         $details[
                             'felt_safe_daytime'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'feltSafeNighttime' =>
                     api_bool(
                         $details[
                             'felt_safe_nighttime'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'flashFloodRisk' =>
                     api_bool(
                         $details[
                             'flash_flood_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'wildfireRisk' =>
                     api_bool(
                         $details[
                             'wildfire_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'fallHazard' =>
                     api_bool(
                         $details[
                             'fall_hazard'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'cliffExposure' =>
                     api_bool(
                         $details[
                             'cliff_exposure'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'rockfallRisk' =>
                     api_bool(
                         $details[
                             'rockfall_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'wildlifeRisk' =>
                     api_bool(
                         $details[
                             'wildlife_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'trafficHazard' =>
                     api_bool(
                         $details[
                             'traffic_hazard'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'emergencyAccess' =>
                     api_bool(
                         $details[
                             'emergency_access'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1475,70 +1765,80 @@ try {
                     api_bool(
                         $details[
                             'warning_exposed_to_road'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'zeroPrivacy' =>
                     api_bool(
                         $details[
                             'warning_zero_privacy'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'passingVehicleDust' =>
                     api_bool(
                         $details[
                             'warning_passing_vehicle_dust'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'possibleDownedTrees' =>
                     api_bool(
                         $details[
                             'warning_possible_downed_trees'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'noTentCamping' =>
                     api_bool(
                         $details[
                             'warning_no_tent_camping'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'limitedVehicleLength' =>
                     api_bool(
                         $details[
                             'warning_limited_vehicle_length'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'levelingMayBeRequired' =>
                     api_bool(
                         $details[
                             'warning_leveling_may_be_required'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'noAmenities' =>
                     api_bool(
                         $details[
                             'warning_no_amenities'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'motorizedRecreationTraffic' =>
                     api_bool(
                         $details[
                             'warning_motorized_recreation_traffic'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'blindTurnTrafficNearby' =>
                     api_bool(
                         $details[
                             'warning_blind_turn_traffic_nearby'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1553,63 +1853,72 @@ try {
                     api_int(
                         $experience[
                             'recommended_overnight_stop'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'quietEvening' =>
                     api_int(
                         $experience[
                             'recommended_quiet_evening'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'extendedStay' =>
                     api_int(
                         $experience[
                             'recommended_extended_stay'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'sensoryRetreat' =>
                     api_int(
                         $experience[
                             'recommended_sensory_retreat'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'stargazing' =>
                     api_int(
                         $experience[
                             'recommended_stargazing'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'remoteWork' =>
                     api_int(
                         $experience[
                             'recommended_remote_work'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'soloTravel' =>
                     api_bool(
                         $experience[
                             'recommended_solo_travel'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'families' =>
                     api_bool(
                         $experience[
                             'recommended_families'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'largeGroups' =>
                     api_bool(
                         $experience[
                             'recommended_large_groups'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1618,8 +1927,11 @@ try {
                 api_list(
                     $experience[
                         'not_recommended_for'
-                    ] ?? null
-                ) ?? [],
+                    ]
+                    ?? null
+                )
+                ??
+                [],
 
 
             /* =============================================
@@ -1632,49 +1944,56 @@ try {
                     api_list(
                         $rules[
                             'best_months'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'winterAccess' =>
                     api_bool(
                         $rules[
                             'winter_access'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'snowRisk' =>
                     api_int(
                         $rules[
                             'snow_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'mudSeasonRisk' =>
                     api_int(
                         $rules[
                             'mud_season_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'monsoonRisk' =>
                     api_int(
                         $rules[
                             'monsoon_risk'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'recommendedTravelSeason' =>
                     api_list(
                         $rules[
                             'recommended_travel_season'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'seasonalAccessNote' =>
                     api_string(
                         $rules[
                             'seasonal_access_note'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1689,72 +2008,89 @@ try {
                     api_bool(
                         $rules[
                             'overnight_camping_allowed'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'dispersedCampingAllowed' =>
                     api_bool(
                         $rules[
                             'dispersed_camping_allowed'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'stayLimitDays' =>
                     api_int(
                         $rules[
                             'stay_limit_days'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'maximumDaysPer60DayPeriod' =>
                     api_int(
                         $rules[
                             'maximum_days_per_60_day_period'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'moveDistanceAfterStayMiles' =>
                     api_float(
                         $rules[
                             'move_distance_after_stay_miles'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'permitRequired' =>
                     api_bool(
                         $rules[
                             'permit_required'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
+                /*
+                 * Preserve the distinction between:
+                 *
+                 * NULL = unknown
+                 * 0    = free
+                 */
+
                 'fee' =>
-                    $rules['fee'] ?? null
-                        ? api_float(
-                            $rules['fee']
+                    (
+                        array_key_exists(
+                            'fee',
+                            $rules
                         )
-                        : (
-                            array_key_exists(
-                                'fee',
-                                $rules
-                            ) &&
-                            $rules['fee']
-                            !== null
-                                ? 0
-                                : null
-                        ),
+                        &&
+                        $rules[
+                            'fee'
+                        ] !== null
+                    )
+                        ? api_float(
+                            $rules[
+                                'fee'
+                            ]
+                        )
+                        : null,
 
                 'campfireAllowed' =>
                     api_bool(
                         $rules[
                             'campfire_allowed'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'currentFireRestrictionsUrl' =>
                     api_string(
                         $rules[
                             'current_fire_restrictions_url'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1769,35 +2105,40 @@ try {
                     api_int(
                         $rules[
                             'vehicle_distance_from_road_max_feet'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'minimumDistanceFromWaterFeet' =>
                     api_int(
                         $rules[
                             'minimum_distance_from_water_feet'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'existingSitesEncouraged' =>
                     api_bool(
                         $rules[
                             'existing_sites_encouraged'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'packItInPackItOut' =>
                     api_bool(
                         $rules[
                             'pack_it_in_pack_it_out'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'residentialUseProhibited' =>
                     api_bool(
                         $rules[
                             'residential_use_prohibited'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1812,42 +2153,48 @@ try {
                     api_string(
                         $rules[
                             'nearest_town'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'nearestFuel' =>
                     api_string(
                         $rules[
                             'nearest_fuel'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'nearestGrocery' =>
                     api_string(
                         $rules[
                             'nearest_grocery'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'nearestWater' =>
                     api_string(
                         $rules[
                             'nearest_water'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'nearestToilet' =>
                     api_string(
                         $rules[
                             'nearest_toilet'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'nearestHospital' =>
                     api_string(
                         $rules[
                             'nearest_hospital'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ],
 
@@ -1896,14 +2243,16 @@ try {
                     api_string(
                         $verification[
                             'verification_type'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'visited' =>
                     api_date(
                         $verification[
                             'visited_at'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'lastVerified' =>
@@ -1911,7 +2260,8 @@ try {
                         $verification[
                             'verified_at'
                         ]
-                        ?? $place[
+                        ??
+                        $place[
                             'last_verified_at'
                         ]
                     ),
@@ -1920,21 +2270,34 @@ try {
                     api_string(
                         $verification[
                             'source'
-                        ] ?? null
+                        ]
+                        ?? null
                     ),
 
                 'publicDataVerified' =>
                     api_bool(
                         $verification[
                             'public_data_verified'
-                        ] ?? null
+                        ]
+                        ?? null
                     )
             ]
         ];
     }
 
-        $apiUser =
+
+    /* =====================================================
+       APPLY ACCESS LEVEL
+
+       The complete Place object exists only inside PHP.
+
+       Every object is transformed according to the current
+       user's effective access before it is encoded as JSON.
+       ===================================================== */
+
+    $apiUser =
         current_user();
+
 
     $hasProtectedAccess =
         user_can_view_protected_place_data(
@@ -1944,10 +2307,13 @@ try {
 
     foreach (
         $output as
-        $index => $place
+        $index =>
+        $place
     ) {
 
-        $output[$index] =
+        $output[
+            $index
+        ] =
             $hasProtectedAccess
                 ? member_place_view(
                     $place
@@ -1957,31 +2323,37 @@ try {
                 );
     }
 
+
     /*
-     * IMPORTANT:
-     *
-     * Output the array itself.
-     *
-     * map.js and place.js currently expect
-     * places.json to be a top-level JSON array.
+     * The frontend currently expects a top-level JSON array.
      */
 
     echo json_encode(
         $output,
-        JSON_PRETTY_PRINT |
-        JSON_UNESCAPED_SLASHES |
+        JSON_PRETTY_PRINT
+        |
+        JSON_UNESCAPED_SLASHES
+        |
         JSON_UNESCAPED_UNICODE
     );
 
 
-} catch (Throwable $exception) {
+} catch (
+    Throwable $exception
+) {
 
     error_log(
-        'Llama Scout public places API error: ' .
-        $exception->getMessage()
+        'Llama Scout public places API error: '
+        .
+        $exception
+            ->getMessage()
     );
 
-    http_response_code(500);
+
+    http_response_code(
+        500
+    );
+
 
     echo json_encode(
         [
