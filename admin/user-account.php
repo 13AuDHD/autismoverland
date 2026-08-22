@@ -18,6 +18,10 @@ require_once
     dirname(__DIR__)
     . '/app/timezone.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/role-display.php';
+
 
 require_role(
     'admin'
@@ -50,6 +54,18 @@ $currentAdminIsOwner =
     );
 
 
+$primaryRoleLabel =
+    llama_primary_role_label(
+        $currentAdminId
+    );
+
+
+$primaryRoleIcon =
+    llama_primary_role_icon(
+        $currentAdminId
+    );
+
+
 /* =========================================================
    HELPERS
    ========================================================= */
@@ -63,7 +79,6 @@ function e(
         ENT_QUOTES,
         'UTF-8'
     );
-
 }
 
 
@@ -105,7 +120,6 @@ function fetch_user(
             PDO::FETCH_ASSOC
         )
         ?: [];
-
 }
 
 
@@ -143,7 +157,6 @@ function fetch_role_slugs(
         ),
         'slug'
     );
-
 }
 
 
@@ -247,14 +260,11 @@ function create_verification(
         ) {
 
             $db->rollBack();
-
         }
 
 
         throw $exception;
-
     }
-
 }
 
 
@@ -404,14 +414,11 @@ function create_password_reset(
         ) {
 
             $db->rollBack();
-
         }
 
 
         throw $exception;
-
     }
-
 }
 
 
@@ -445,7 +452,6 @@ if (
     exit(
         'A valid user ID is required.'
     );
-
 }
 
 
@@ -472,7 +478,6 @@ if (
     exit(
         'User not found.'
     );
-
 }
 
 
@@ -527,7 +532,6 @@ if (
     exit(
         'Owner accounts are protected and cannot be edited through Basecamp.'
     );
-
 }
 
 
@@ -551,7 +555,6 @@ if (
     exit(
         'Administrator accounts are managed by a Llama Scout Owner.'
     );
-
 }
 
 
@@ -575,7 +578,6 @@ if (
                 32
             )
         );
-
 }
 
 
@@ -645,7 +647,6 @@ if (
         exit(
             'Owner accounts are protected and cannot be edited through Basecamp.'
         );
-
     }
 
 
@@ -663,7 +664,6 @@ if (
         exit(
             'Administrator accounts are managed by a Llama Scout Owner.'
         );
-
     }
 
 
@@ -802,7 +802,6 @@ if (
 
                 $error =
                     'Enter a valid email address.';
-
             }
 
 
@@ -816,7 +815,6 @@ if (
 
                 $error =
                     'Choose a valid time zone.';
-
             }
 
 
@@ -855,9 +853,7 @@ if (
 
                     $error =
                         'That username is already taken.';
-
                 }
-
             }
 
 
@@ -896,9 +892,7 @@ if (
 
                     $error =
                         'An account already exists with that email address.';
-
                 }
-
             }
 
 
@@ -976,7 +970,6 @@ if (
                             $timezone,
                             $userId
                         ]);
-
                     }
 
 
@@ -1008,7 +1001,6 @@ if (
 
                         $message =
                             'Account information updated.';
-
                     }
 
 
@@ -1026,9 +1018,7 @@ if (
 
                     $error =
                         'The account information could not be updated.';
-
                 }
-
             }
 
 
@@ -1076,7 +1066,6 @@ if (
 
                 $error =
                     'The password reset email could not be created.';
-
             }
 
 
@@ -1124,7 +1113,6 @@ if (
 
                 $error =
                     'The verification email could not be created.';
-
             }
 
 
@@ -1132,11 +1120,8 @@ if (
 
             $error =
                 'That admin action is not supported.';
-
         }
-
     }
-
 }
 
 
@@ -1166,6 +1151,7 @@ $displayHeading =
         )
     );
 
+
 ?>
 <!doctype html>
 
@@ -1180,12 +1166,12 @@ $displayHeading =
     content="width=device-width, initial-scale=1"
   >
 
-<title>
-  Edit <?= e(
-      $displayHeading
-  ) ?> | Llama Scout Basecamp
-</title>
-    
+  <title>
+    Edit <?= e(
+        $displayHeading
+    ) ?> | Llama Scout Basecamp
+  </title>
+
   <meta
     name="robots"
     content="noindex,nofollow"
@@ -1287,23 +1273,25 @@ require_once
 
         <p class="admin-eyebrow">
 
-          <?php if (
-              $managedUserIsAdmin
-          ): ?>
+          <i
+            class="<?= e(
+                $primaryRoleIcon
+            ) ?>"
+            aria-hidden="true"
+          ></i>
 
-            Owner Managed Administrator
-
-          <?php else: ?>
-
-            User Management
-
-          <?php endif; ?>
+          Llama Scout
+          <?= e(
+              $primaryRoleLabel
+          ) ?>
 
         </p>
+
 
         <h1>
           Edit Account
         </h1>
+
 
         <p>
 
@@ -1315,6 +1303,17 @@ require_once
 
           User
           #<?= $userId ?>
+
+
+          <?php if (
+              $managedUserIsAdmin
+          ): ?>
+
+            &middot;
+
+            Administrator Account
+
+          <?php endif; ?>
 
         </p>
 
