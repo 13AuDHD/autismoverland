@@ -8,6 +8,10 @@ require_once
 
 require_once
     dirname(__DIR__)
+    . '/app/permissions.php';
+
+require_once
+    dirname(__DIR__)
     . '/app/role-display.php';
 
 require_once
@@ -15,8 +19,8 @@ require_once
     . '/app/timezone.php';
 
 
-require_role(
-    'admin'
+llama_require_capability(
+    LLAMA_CAP_MODERATE_PLACES
 );
 
 
@@ -31,6 +35,12 @@ $db =
 $userId =
     (int)
     $user['id'];
+
+$isFullAdmin =
+    user_has_role(
+        'admin',
+        $userId
+    );
 
 
 $primaryRoleLabel =
@@ -2076,32 +2086,57 @@ require
           </div>
 
 
-          <?php if (
-              $selectedIsPublished
-          ): ?>
+<?php if (
+    $selectedIsPublished
+): ?>
 
-            <div class="admin-form-actions">
+  <div class="admin-form-actions">
 
-              <a
-                class="admin-button"
-                href="/place.php?id=<?= (int)
-                    $selectedSubmission[
-                        'place_id'
-                    ]
-                ?>"
-              >
+    <?php if (
+        $isFullAdmin
+    ): ?>
 
-                <i
-                  class="fa-solid fa-location-dot"
-                  aria-hidden="true"
-                ></i>
+      <a
+        class="admin-button"
+        href="/place.php?id=<?= (int)
+            $selectedSubmission[
+                'place_id'
+            ]
+        ?>"
+      >
 
-                Open Place Editor
+        <i
+          class="fa-solid fa-location-dot"
+          aria-hidden="true"
+        ></i>
 
-              </a>
+        Open Place Editor
 
-            </div>
+      </a>
 
+    <?php else: ?>
+
+      <a
+        class="admin-button"
+        href="https://llamascout.com/place.php?id=<?= (int)
+            $selectedSubmission[
+                'place_id'
+            ]
+        ?>"
+      >
+
+        <i
+          class="fa-solid fa-arrow-up-right-from-square"
+          aria-hidden="true"
+        ></i>
+
+        View Place
+
+      </a>
+
+    <?php endif; ?>
+
+  </div>
 
           <?php elseif (
               $selectedStatus ===
@@ -2324,7 +2359,11 @@ require
   </div>
 
 
-  <div class="admin-foot-actions">
+<div class="admin-foot-actions">
+
+  <?php if (
+      $isFullAdmin
+  ): ?>
 
     <a href="/">
       Basecamp
@@ -2334,12 +2373,13 @@ require
       Places
     </a>
 
-    <a href="https://llamascout.com/places.php">
-      Public Places
-    </a>
+  <?php endif; ?>
 
-  </div>
+  <a href="https://llamascout.com/places.php">
+    Public Places
+  </a>
 
+</div>
 
 </main>
 
