@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/stripe.php';
 require_once dirname(__DIR__) . '/app/timezone.php';
+require_once dirname(__DIR__) . '/app/scout-maintenance.php';
 
 require_role('admin');
 start_llama_session();
@@ -105,6 +106,39 @@ function scout_status_badge_class(
 
         default =>
             'admin-badge--muted',
+    };
+}
+
+
+function scout_extension_status_label(
+    string $status
+): string {
+
+    return match ($status) {
+
+        'active' =>
+            'Active Extension',
+
+        'completed' =>
+            'Completed',
+
+        'failed' =>
+            'Expired',
+
+        'canceled' =>
+            'Canceled',
+
+        default =>
+            ucwords(
+                str_replace(
+                    [
+                        '_',
+                        '-'
+                    ],
+                    ' ',
+                    $status
+                )
+            ),
     };
 }
 
@@ -339,6 +373,45 @@ function load_training(
 }
 
 
+function load_latest_scout_extension(
+    PDO $db,
+    int $scoutProfileId,
+    int $userId
+): array {
+
+    return fetch_one(
+        $db,
+        '
+        SELECT
+            se.*,
+
+            granter.display_name
+                AS granted_by_display_name,
+
+            granter.username
+                AS granted_by_username
+
+        FROM scout_extensions se
+
+        LEFT JOIN users granter
+          ON granter.id = se.granted_by
+
+        WHERE se.scout_profile_id = ?
+          AND se.user_id = ?
+
+        ORDER BY
+            se.id DESC
+
+        LIMIT 1
+        ',
+        [
+            $scoutProfileId,
+            $userId
+        ]
+    );
+}
+
+
 function scout_application_submitted(
     array $application
 ): bool {
@@ -495,6 +568,15 @@ if (
 
 
 /* =========================================================
+   ENSURE EXTENSION STORAGE
+   ========================================================= */
+
+llama_ensure_scout_extensions_table(
+    $db
+);
+
+
+/* =========================================================
    CSRF
    ========================================================= */
 
@@ -573,6 +655,14 @@ $training =
 $currentRoleSlugs =
     load_role_slugs(
         $db,
+        $scoutUserId
+    );
+
+
+$latestExtension =
+    load_latest_scout_extension(
+        $db,
+        $scoutProfileId,
         $scoutUserId
     );
 
@@ -765,11 +855,6 @@ if (
                 $db->beginTransaction();
 
 
-                /*
-                 * Lock every row whose state determines
-                 * whether approval is valid.
-                 */
-
                 $freshProfile =
                     fetch_one(
                         $db,
@@ -890,10 +975,6 @@ if (
                 }
 
 
-                /* =========================================
-                   FIND SCOUT ROLE
-                   ========================================= */
-
                 $roleStmt =
                     $db->prepare(
                         '
@@ -930,10 +1011,6 @@ if (
                     );
                 }
 
-
-                /* =========================================
-                   ACTIVATE SCOUT
-                   ========================================= */
 
                 $profileUpdate =
                     $db->prepare(
@@ -1007,10 +1084,6 @@ if (
                 }
 
 
-                /* =========================================
-                   ASSIGN SCOUT ROLE
-                   ========================================= */
-
                 $roleInsert =
                     $db->prepare(
                         '
@@ -1045,10 +1118,6 @@ if (
                 ]);
 
 
-                /* =========================================
-                   APPLICATION REVIEW
-                   ========================================= */
-
                 $applicationUpdate =
                     $db->prepare(
                         '
@@ -1081,10 +1150,6 @@ if (
                     $scoutUserId
                 ]);
 
-
-                /* =========================================
-                   MEMBERSHIP STATE
-                   ========================================= */
 
                 $existingMembershipStatus =
                     strtolower(
@@ -1158,10 +1223,6 @@ if (
 
                 $db->commit();
 
-
-                /* =========================================
-                   PAID MEMBER TO SCOUT TRANSITION
-                   ========================================= */
 
                 if (
                     $hasPaidMembership
@@ -1261,6 +1322,527 @@ if (
                     'This Scout candidate has not completed all current onboarding requirements.'
                         ? $exception->getMessage()
                         : 'The Scout could not be approved.';
+            }
+
+
+        /* =================================================
+           GRANT 30-DAY SCOUT EXTENSION
+           ================================================= */
+
+        } elseif (
+            $action
+            ===
+            'grant_extension'
+        ) {
+
+            try {
+
+                $db->beginTransaction();
+
+
+                /* =========================================
+                   LOCK SCOUT PROFILE
+                   ========================================= */
+
+                $freshProfile =
+                    fetch_one(
+                        $db,
+                        '
+                        SELECT
+                            id,
+                            user_id,
+                            status,
+                            scout_started_at,
+                            active_through
+
+                        FROM scout_profiles
+
+                        WHERE id = ?
+                          AND user_id = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        ',
+                        [
+                            $scoutProfileId,
+                            $scoutUserId
+                        ]
+                    );
+
+
+                if (
+                    !$freshProfile
+                    ||
+                    (
+                        (string) (
+                            $freshProfile[
+                                'status'
+                            ]
+                            ?? ''
+                        )
+                        !==
+                        'inactive'
+                    )
+                ) {
+
+                    throw new RuntimeException(
+                        'Only an inactive former Scout can receive a 30-day Scout extension.'
+                    );
+                }
+
+
+                /* =========================================
+                   PREVENT OVERLAPPING EXTENSIONS
+                   ========================================= */
+
+                $activeExtension =
+                    fetch_one(
+                        $db,
+                        '
+                        SELECT
+                            id
+
+                        FROM scout_extensions
+
+                        WHERE scout_profile_id = ?
+                          AND user_id = ?
+                          AND status =
+                              \'active\'
+
+                        ORDER BY id DESC
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        ',
+                        [
+                            $scoutProfileId,
+                            $scoutUserId
+                        ]
+                    );
+
+
+                if (
+                    $activeExtension
+                ) {
+
+                    throw new RuntimeException(
+                        'This Scout already has an active extension.'
+                    );
+                }
+
+
+                /* =========================================
+                   LOCK USER
+                   ========================================= */
+
+                $freshUser =
+                    fetch_one(
+                        $db,
+                        '
+                        SELECT
+                            id,
+                            membership_status,
+                            stripe_subscription_id
+
+                        FROM users
+
+                        WHERE id = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        ',
+                        [
+                            $scoutUserId
+                        ]
+                    );
+
+
+                if (
+                    !$freshUser
+                ) {
+
+                    throw new RuntimeException(
+                        'The Scout account could not be found.'
+                    );
+                }
+
+
+                /* =========================================
+                   EXACT EXTENSION WINDOW
+                   ========================================= */
+
+                $extensionWindow =
+                    fetch_one(
+                        $db,
+                        '
+                        SELECT
+                            CURRENT_TIMESTAMP
+                                AS started_at,
+
+                            DATE_ADD(
+                                CURRENT_TIMESTAMP,
+                                INTERVAL 30 DAY
+                            )
+                                AS ends_at
+                        '
+                    );
+
+
+                $extensionStartedAt =
+                    trim(
+                        (string) (
+                            $extensionWindow[
+                                'started_at'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                $extensionEndsAt =
+                    trim(
+                        (string) (
+                            $extensionWindow[
+                                'ends_at'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                if (
+                    $extensionStartedAt === ''
+                    ||
+                    $extensionEndsAt === ''
+                ) {
+
+                    throw new RuntimeException(
+                        'The Scout extension dates could not be determined.'
+                    );
+                }
+
+
+                /* =========================================
+                   CREATE EXTENSION RECORD
+                   ========================================= */
+
+                $extensionInsert =
+                    $db->prepare(
+                        '
+                        INSERT INTO scout_extensions
+                        (
+                            scout_profile_id,
+                            user_id,
+                            granted_by,
+                            started_at,
+                            ends_at,
+                            status,
+                            accepted_reports
+                        )
+
+                        VALUES
+                        (
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            ?,
+                            \'active\',
+                            0
+                        )
+                        '
+                    );
+
+
+                $extensionInsert->execute([
+                    $scoutProfileId,
+                    $scoutUserId,
+                    $adminUserId,
+                    $extensionStartedAt,
+                    $extensionEndsAt
+                ]);
+
+
+                if (
+                    $extensionInsert->rowCount()
+                    !==
+                    1
+                ) {
+
+                    throw new RuntimeException(
+                        'The Scout extension record could not be created.'
+                    );
+                }
+
+
+                /* =========================================
+                   REACTIVATE PROFILE FOR EXACTLY 30 DAYS
+                   ========================================= */
+
+                $profileUpdate =
+                    $db->prepare(
+                        '
+                        UPDATE scout_profiles
+
+                        SET
+                            status =
+                                \'active\',
+
+                            active_through =
+                                ?,
+
+                            inactive_at =
+                                NULL,
+
+                            removed_at =
+                                NULL,
+
+                            removal_reason =
+                                NULL,
+
+                            removed_by =
+                                NULL,
+
+                            updated_at =
+                                CURRENT_TIMESTAMP
+
+                        WHERE id = ?
+                          AND user_id = ?
+                          AND status =
+                              \'inactive\'
+                        '
+                    );
+
+
+                $profileUpdate->execute([
+                    $extensionEndsAt,
+                    $scoutProfileId,
+                    $scoutUserId
+                ]);
+
+
+                if (
+                    $profileUpdate->rowCount()
+                    !==
+                    1
+                ) {
+
+                    throw new RuntimeException(
+                        'The Scout profile changed before the extension could be granted.'
+                    );
+                }
+
+
+                /* =========================================
+                   REMOVE OLD SCOUT RANKS
+
+                   A former Master Scout always returns as a
+                   basic Scout.
+                   ========================================= */
+
+                llama_remove_scout_roles(
+                    $db,
+                    $scoutUserId
+                );
+
+
+                /* =========================================
+                   FIND BASIC SCOUT ROLE
+                   ========================================= */
+
+                $roleStmt =
+                    $db->prepare(
+                        '
+                        SELECT
+                            id
+
+                        FROM roles
+
+                        WHERE slug =
+                            \'scout\'
+
+                        LIMIT 1
+                        '
+                    );
+
+
+                $roleStmt->execute();
+
+
+                $scoutRoleId =
+                    (int)
+                    $roleStmt
+                        ->fetchColumn();
+
+
+                if (
+                    $scoutRoleId < 1
+                ) {
+
+                    throw new RuntimeException(
+                        'The Scout role does not exist.'
+                    );
+                }
+
+
+                /* =========================================
+                   ASSIGN BASIC SCOUT ROLE
+                   ========================================= */
+
+                $roleInsert =
+                    $db->prepare(
+                        '
+                        INSERT INTO user_roles
+                        (
+                            user_id,
+                            role_id
+                        )
+
+                        SELECT
+                            ?,
+                            ?
+
+                        WHERE NOT EXISTS
+                        (
+                            SELECT 1
+
+                            FROM user_roles
+
+                            WHERE user_id = ?
+                              AND role_id = ?
+                        )
+                        '
+                    );
+
+
+                $roleInsert->execute([
+                    $scoutUserId,
+                    $scoutRoleId,
+                    $scoutUserId,
+                    $scoutRoleId
+                ]);
+
+
+                /* =========================================
+                   ZERO POINTS AGAIN
+
+                   Normally maintenance already did this when
+                   access expired. Doing it again guarantees
+                   that every extension begins from zero.
+                   ========================================= */
+
+                llama_destroy_scout_points(
+                    $db,
+                    $scoutUserId
+                );
+
+
+                /* =========================================
+                   COMPLIMENTARY ACCESS
+
+                   Do not overwrite a legitimate active paid
+                   Stripe membership if one still exists.
+                   ========================================= */
+
+                $membershipStatus =
+                    strtolower(
+                        trim(
+                            (string) (
+                                $freshUser[
+                                    'membership_status'
+                                ]
+                                ?? ''
+                            )
+                        )
+                    );
+
+
+                $hasPaidMembership =
+                    in_array(
+                        $membershipStatus,
+                        [
+                            'active',
+                            'trialing',
+                            'past_due'
+                        ],
+                        true
+                    )
+                    &&
+                    !empty(
+                        $freshUser[
+                            'stripe_subscription_id'
+                        ]
+                    );
+
+
+                if (
+                    !$hasPaidMembership
+                ) {
+
+                    $membershipUpdate =
+                        $db->prepare(
+                            '
+                            UPDATE users
+
+                            SET
+                                membership_status =
+                                    \'complimentary\',
+
+                                membership_interval =
+                                    NULL,
+
+                                membership_started_at =
+                                    ?,
+
+                                membership_ends_at =
+                                    ?
+
+                            WHERE id = ?
+                            '
+                        );
+
+
+                    $membershipUpdate->execute([
+                        $extensionStartedAt,
+                        $extensionEndsAt,
+                        $scoutUserId
+                    ]);
+                }
+
+
+                $db->commit();
+
+
+                $message =
+                    '30-day basic Scout extension granted. The Scout must complete three accepted Scout Reports during this extension period.';
+
+
+            } catch (
+                Throwable $exception
+            ) {
+
+                if (
+                    $db->inTransaction()
+                ) {
+
+                    $db->rollBack();
+                }
+
+
+                error_log(
+                    'Llama Scout Scout extension error: '
+                    .
+                    $exception
+                        ->getMessage()
+                );
+
+
+                $error =
+                    $exception
+                        ->getMessage();
             }
 
 
@@ -1692,6 +2274,14 @@ if (
         );
 
 
+    $latestExtension =
+        load_latest_scout_extension(
+            $db,
+            $scoutProfileId,
+            $scoutUserId
+        );
+
+
     $applicationSubmitted =
         scout_application_submitted(
             $application
@@ -1875,7 +2465,80 @@ $activityStats =
 
 
 /* =========================================================
-   CURRENT FIXED SCOUT YEAR
+   STATUS / EXTENSION STATE
+   ========================================================= */
+
+$scoutStatus =
+    (string) (
+        $scout[
+            'status'
+        ]
+        ?? ''
+    );
+
+
+$scoutIsActive =
+    $scoutStatus
+    ===
+    'active';
+
+
+$scoutIsInOnboarding =
+    in_array(
+        $scoutStatus,
+        [
+            'invited',
+            'application_started',
+            'application_submitted',
+            'training',
+            'pending_approval'
+        ],
+        true
+    );
+
+
+$canReturnForChanges =
+    in_array(
+        $scoutStatus,
+        [
+            'application_started',
+            'application_submitted',
+            'training',
+            'pending_approval'
+        ],
+        true
+    );
+
+
+$activeExtension =
+    (
+        !empty(
+            $latestExtension
+        )
+        &&
+        (
+            (string) (
+                $latestExtension[
+                    'status'
+                ]
+                ?? ''
+            )
+            ===
+            'active'
+        )
+    );
+
+
+$canGrantExtension =
+    $scoutStatus
+    ===
+    'inactive'
+    &&
+    !$activeExtension;
+
+
+/* =========================================================
+   CURRENT SCOUT PERIOD
    ========================================================= */
 
 $scoutYearStart = null;
@@ -1887,8 +2550,39 @@ $reportsRemaining = 3;
 $requirementMet = false;
 $requirementProgress = 0;
 
+$currentPeriodIsExtension =
+    false;
+
 
 if (
+    $scoutIsActive
+    &&
+    $activeExtension
+) {
+
+    $currentPeriodIsExtension =
+        true;
+
+
+    $scoutYearStart =
+        (string) (
+            $latestExtension[
+                'started_at'
+            ]
+            ?? ''
+        );
+
+
+    $scoutYearEnd =
+        (string) (
+            $latestExtension[
+                'ends_at'
+            ]
+            ?? ''
+        );
+
+
+} elseif (
     !empty(
         $scout[
             'scout_started_at'
@@ -1960,75 +2654,82 @@ if (
                 'Y-m-d H:i:s',
                 $yearEndTimestamp
             );
+    }
+}
 
 
-        $currentYearActivity =
-            fetch_one(
-                $db,
-                '
-                SELECT
-                    COUNT(*)
-                        AS accepted_reports
+if (
+    $scoutYearStart
+    &&
+    $scoutYearEnd
+) {
 
-                FROM scout_activity
+    $currentPeriodActivity =
+        fetch_one(
+            $db,
+            '
+            SELECT
+                COUNT(*)
+                    AS accepted_reports
 
-                WHERE scout_profile_id = ?
-                  AND user_id = ?
+            FROM scout_activity
 
-                  AND activity_type =
-                      \'place_approved\'
+            WHERE scout_profile_id = ?
+              AND user_id = ?
 
-                  AND occurred_at >= ?
-                  AND occurred_at < ?
-                ',
-                [
-                    $scoutProfileId,
-                    $scoutUserId,
-                    $scoutYearStart,
-                    $scoutYearEnd
-                ]
-            );
+              AND activity_type =
+                  \'place_approved\'
 
-
-        $acceptedCurrentYear =
-            (int) (
-                $currentYearActivity[
-                    'accepted_reports'
-                ]
-                ?? 0
-            );
+              AND occurred_at >= ?
+              AND occurred_at < ?
+            ',
+            [
+                $scoutProfileId,
+                $scoutUserId,
+                $scoutYearStart,
+                $scoutYearEnd
+            ]
+        );
 
 
-        $reportsRemaining =
-            max(
-                0,
-                $reportsRequired
-                -
-                $acceptedCurrentYear
-            );
+    $acceptedCurrentYear =
+        (int) (
+            $currentPeriodActivity[
+                'accepted_reports'
+            ]
+            ?? 0
+        );
 
 
-        $requirementMet =
+    $reportsRemaining =
+        max(
+            0,
+            $reportsRequired
+            -
             $acceptedCurrentYear
-            >=
-            $reportsRequired;
+        );
 
 
-        $requirementProgress =
-            min(
-                100,
-                (
-                    min(
-                        $acceptedCurrentYear,
-                        $reportsRequired
-                    )
-                    /
+    $requirementMet =
+        $acceptedCurrentYear
+        >=
+        $reportsRequired;
+
+
+    $requirementProgress =
+        min(
+            100,
+            (
+                min(
+                    $acceptedCurrentYear,
                     $reportsRequired
                 )
-                *
-                100
-            );
-    }
+                /
+                $reportsRequired
+            )
+            *
+            100
+        );
 }
 
 
@@ -2086,45 +2787,19 @@ $approverName =
     );
 
 
-$scoutStatus =
-    (string) (
-        $scout[
-            'status'
-        ]
-        ?? ''
-    );
-
-
-$scoutIsActive =
-    $scoutStatus
-    ===
-    'active';
-
-
-$scoutIsInOnboarding =
-    in_array(
-        $scoutStatus,
-        [
-            'invited',
-            'application_started',
-            'application_submitted',
-            'training',
-            'pending_approval'
-        ],
-        true
-    );
-
-
-$canReturnForChanges =
-    in_array(
-        $scoutStatus,
-        [
-            'application_started',
-            'application_submitted',
-            'training',
-            'pending_approval'
-        ],
-        true
+$extensionGranterName =
+    trim(
+        (string) (
+            $latestExtension[
+                'granted_by_display_name'
+            ]
+            ??
+            $latestExtension[
+                'granted_by_username'
+            ]
+            ??
+            ''
+        )
     );
 
 
@@ -2169,7 +2844,11 @@ $scoutCancelScheduled =
 
 $introEyebrow =
     $scoutIsActive
-        ? 'Scout Management'
+        ? (
+            $currentPeriodIsExtension
+                ? 'Scout Extension'
+                : 'Scout Management'
+        )
         : (
             $scoutIsInOnboarding
                 ? 'Scout Review'
@@ -2179,7 +2858,11 @@ $introEyebrow =
 
 $introCopy =
     $scoutIsActive
-        ? "Review this Scout's current year, contribution progress, account, activity, and access."
+        ? (
+            $currentPeriodIsExtension
+                ? 'Review this Scout\'s temporary 30-day reinstatement period and progress toward three accepted Scout Reports.'
+                : "Review this Scout's current year, contribution progress, account, activity, and access."
+        )
         : (
             $scoutIsInOnboarding
                 ? "Review the candidate's account, contributions, About You responses, training completion, and Scout agreements before activating Scout access."
@@ -2249,16 +2932,8 @@ $introCopy =
 
     .scout-review-grid {
       display: grid;
-
-      grid-template-columns:
-        minmax(
-          0,
-          1fr
-        )
-        330px;
-
+      grid-template-columns: minmax(0, 1fr) 330px;
       gap: 22px;
-
       margin-top: 22px;
     }
 
@@ -2266,26 +2941,14 @@ $introCopy =
     .scout-review-main,
     .scout-review-side {
       display: grid;
-
       gap: 18px;
-
       align-content: start;
     }
 
 
     .review-answer {
-      padding:
-        16px
-        0;
-
-      border-top:
-        1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .09
-        );
+      padding: 16px 0;
+      border-top: 1px solid rgba(23, 40, 34, .09);
     }
 
 
@@ -2296,65 +2959,41 @@ $introCopy =
 
     .review-answer strong {
       display: block;
-
       margin-bottom: 6px;
     }
 
 
     .review-answer p {
       margin: 0;
-
       white-space: pre-wrap;
-
       line-height: 1.65;
     }
 
 
     .review-answer-empty {
       opacity: .55;
-
       font-style: italic;
     }
 
 
     .review-facts {
       display: grid;
-
-      grid-template-columns:
-        repeat(
-          2,
-          minmax(
-            0,
-            1fr
-          )
-        );
-
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
 
 
     .review-fact {
       padding: 14px;
-
       border-radius: 11px;
-
-      background:
-        rgba(
-          23,
-          40,
-          34,
-          .055
-        );
+      background: rgba(23, 40, 34, .055);
     }
 
 
     .review-fact span {
       display: block;
-
       margin-bottom: 4px;
-
       font-size: .76rem;
-
       opacity: .65;
     }
 
@@ -2366,29 +3005,17 @@ $introCopy =
 
     .review-checklist {
       display: grid;
-
       gap: 10px;
     }
 
 
     .review-check {
       display: flex;
-
       align-items: flex-start;
-
       gap: 10px;
-
       padding: 12px;
-
       border-radius: 10px;
-
-      background:
-        rgba(
-          23,
-          40,
-          34,
-          .05
-        );
+      background: rgba(23, 40, 34, .05);
     }
 
 
@@ -2409,94 +3036,48 @@ $introCopy =
 
     .scout-year-progress-top {
       display: flex;
-
       justify-content: space-between;
-
       gap: 12px;
-
       margin-bottom: 8px;
-
       font-weight: 750;
     }
 
 
     .scout-year-track {
       overflow: hidden;
-
       height: 10px;
-
       border-radius: 999px;
-
-      background:
-        rgba(
-          23,
-          40,
-          34,
-          .09
-        );
+      background: rgba(23, 40, 34, .09);
     }
 
 
     .scout-year-fill {
       height: 100%;
-
       border-radius: inherit;
-
       background: #172822;
     }
 
 
     .scout-year-result {
       margin-top: 11px;
-
-      padding:
-        11px
-        12px;
-
+      padding: 11px 12px;
       border-radius: 10px;
-
-      background:
-        rgba(
-          23,
-          40,
-          34,
-          .055
-        );
-
+      background: rgba(23, 40, 34, .055);
       line-height: 1.5;
     }
 
 
     .scout-year-result.met {
-      background:
-        rgba(
-          31,
-          122,
-          72,
-          .11
-        );
+      background: rgba(31, 122, 72, .11);
     }
 
 
     .review-submission {
       display: flex;
-
       justify-content: space-between;
-
       gap: 14px;
-
-      padding:
-        12px
-        0;
-
-      border-top:
-        1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .09
-        );
+      padding: 12px 0;
+      border-top: 1px solid rgba(23, 40, 34, .09);
     }
 
 
@@ -2512,151 +3093,107 @@ $introCopy =
 
     .review-submission-meta {
       margin-top: 3px;
-
       font-size: .82rem;
-
       opacity: .67;
     }
 
 
     .review-role-list {
       display: flex;
-
       flex-wrap: wrap;
-
       gap: 8px;
     }
 
 
     .review-role {
-      padding:
-        7px
-        10px;
-
+      padding: 7px 10px;
       border-radius: 999px;
-
-      background:
-        rgba(
-          23,
-          40,
-          34,
-          .07
-        );
-
+      background: rgba(23, 40, 34, .07);
       font-size: .82rem;
-
       font-weight: 700;
     }
 
 
     .review-actions textarea {
       width: 100%;
-
       box-sizing: border-box;
-
       min-height: 130px;
-
       padding: 12px;
-
-      border:
-        1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .18
-        );
-
+      border: 1px solid rgba(23, 40, 34, .18);
       border-radius: 10px;
-
       font: inherit;
-
       line-height: 1.55;
-
       resize: vertical;
     }
 
 
     .review-action-buttons {
       display: grid;
-
       gap: 10px;
-
       margin-top: 12px;
     }
 
 
     .review-action-button {
       width: 100%;
-
       min-height: 44px;
-
-      padding:
-        10px
-        14px;
-
+      padding: 10px 14px;
       border: 0;
-
       border-radius: 9px;
-
       font: inherit;
-
       font-weight: 750;
-
       cursor: pointer;
     }
 
 
     .review-action-button.approve {
       background: #172822;
-
       color: #fff;
     }
 
 
     .review-action-button.return {
       background: #e7dcc4;
-
       color: #392e1c;
     }
 
 
     .review-action-button.decline {
       background: #8c3232;
+      color: #fff;
+    }
 
+
+    .review-action-button.extension {
+      background: #172822;
       color: #fff;
     }
 
 
     .review-action-button:disabled {
       opacity: .45;
-
       cursor: not-allowed;
     }
 
 
     .review-private {
       display: flex;
-
       gap: 9px;
-
       margin-bottom: 15px;
-
       padding: 12px;
-
       border-radius: 10px;
-
-      background:
-        rgba(
-          23,
-          40,
-          34,
-          .055
-        );
-
+      background: rgba(23, 40, 34, .055);
       font-size: .85rem;
-
       line-height: 1.45;
+    }
+
+
+    .extension-warning {
+      margin-top: 14px;
+      padding: 13px;
+      border-radius: 10px;
+      background: rgba(217, 196, 154, .2);
+      line-height: 1.55;
     }
 
 
@@ -2666,8 +3203,7 @@ $introCopy =
     ) {
 
       .scout-review-grid {
-        grid-template-columns:
-          1fr;
+        grid-template-columns: 1fr;
       }
 
     }
@@ -2679,8 +3215,7 @@ $introCopy =
     ) {
 
       .review-facts {
-        grid-template-columns:
-          1fr;
+        grid-template-columns: 1fr;
       }
 
     }
@@ -2774,10 +3309,6 @@ require_once
   </section>
 
 
-  <!-- =====================================================
-       BASECAMP NAVIGATION
-       ===================================================== -->
-
 <?php
 
 require
@@ -2824,21 +3355,33 @@ require
       <?php if ($scoutIsActive): ?>
 
 
-        <!-- ===============================================
-             CURRENT SCOUT YEAR
-             =============================================== -->
-
         <section class="admin-card">
 
           <h2>
-            Current Scout Year
+
+            <?= $currentPeriodIsExtension
+                ? '30-Day Scout Extension'
+                : 'Current Scout Year'
+            ?>
+
           </h2>
+
 
           <p>
 
-            Scout access renews for one additional year when
-            at least three Scout Reports are accepted during
-            this fixed Scout year.
+            <?php if ($currentPeriodIsExtension): ?>
+
+              This Scout has temporary basic Scout access for
+              30 days. Three newly accepted Scout Reports are
+              required during this exact extension period.
+
+            <?php else: ?>
+
+              Scout access renews for one additional year when
+              at least three Scout Reports are accepted during
+              this fixed Scout year.
+
+            <?php endif; ?>
 
           </p>
 
@@ -2849,7 +3392,12 @@ require
             <div class="review-fact">
 
               <span>
-                Scout Year Begins
+
+                <?= $currentPeriodIsExtension
+                    ? 'Extension Begins'
+                    : 'Scout Year Begins'
+                ?>
+
               </span>
 
               <strong>
@@ -2866,7 +3414,12 @@ require
             <div class="review-fact">
 
               <span>
-                Scout Year Ends
+
+                <?= $currentPeriodIsExtension
+                    ? 'Extension Ends'
+                    : 'Scout Year Ends'
+                ?>
+
               </span>
 
               <strong>
@@ -2883,7 +3436,7 @@ require
             <div class="review-fact">
 
               <span>
-                Accepted This Year
+                Accepted This Period
               </span>
 
               <strong>
@@ -2914,7 +3467,12 @@ require
             <div class="scout-year-progress-top">
 
               <span>
-                Annual Requirement
+
+                <?= $currentPeriodIsExtension
+                    ? 'Extension Requirement'
+                    : 'Annual Requirement'
+                ?>
+
               </span>
 
               <span>
@@ -2958,19 +3516,30 @@ require
                   Requirement met.
                 </strong>
 
-                This Scout has completed the minimum required
-                reports for this Scout year.
+                <?php if ($currentPeriodIsExtension): ?>
 
-                <?php if (
-                    $acceptedCurrentYear
-                    >
-                    3
-                ): ?>
+                  This Scout has completed the three accepted
+                  reports required during the extension. When
+                  the extension closes, they return as a basic
+                  Scout for a new annual Scout period.
 
-                  They have completed
-                  <?= $acceptedCurrentYear ?>
-                  accepted reports, but additional reports do
-                  not stack additional membership years.
+                <?php else: ?>
+
+                  This Scout has completed the minimum required
+                  reports for this Scout year.
+
+                  <?php if (
+                      $acceptedCurrentYear
+                      >
+                      3
+                  ): ?>
+
+                    They have completed
+                    <?= $acceptedCurrentYear ?>
+                    accepted reports, but additional reports do
+                    not stack additional membership years.
+
+                  <?php endif; ?>
 
                 <?php endif; ?>
 
@@ -2990,8 +3559,18 @@ require
 
                 </strong>
 
-                The requirement must be completed before the
-                Scout year ends.
+                <?php if ($currentPeriodIsExtension): ?>
+
+                  If the requirement is not completed before
+                  this extension ends, Scout access expires
+                  again and the account returns to free status.
+
+                <?php else: ?>
+
+                  The requirement must be completed before the
+                  Scout year ends.
+
+                <?php endif; ?>
 
               <?php endif; ?>
 
@@ -3004,10 +3583,6 @@ require
 
       <?php endif; ?>
 
-
-      <!-- ===============================================
-           ABOUT YOU
-           =============================================== -->
 
       <section class="admin-card">
 
@@ -3122,10 +3697,6 @@ require
       </section>
 
 
-      <!-- ===============================================
-           CONTRIBUTIONS
-           =============================================== -->
-
       <section class="admin-card">
 
         <h2>
@@ -3227,7 +3798,12 @@ require
             <div class="review-fact">
 
               <span>
-                Accepted this Scout year
+
+                <?= $currentPeriodIsExtension
+                    ? 'Accepted this extension'
+                    : 'Accepted this Scout year'
+                ?>
+
               </span>
 
               <strong>
@@ -3315,10 +3891,6 @@ require
 
       </section>
 
-
-      <!-- ===============================================
-           PRIVATE INFORMATION
-           =============================================== -->
 
       <section class="admin-card">
 
@@ -3511,19 +4083,11 @@ require
     </div>
 
 
-    <!-- ===================================================
-         SIDEBAR
-         =================================================== -->
-
     <aside class="scout-review-side">
 
 
       <?php if ($scoutIsInOnboarding): ?>
 
-
-        <!-- ===============================================
-             ONBOARDING CHECK
-             =============================================== -->
 
         <section class="admin-card">
 
@@ -3682,10 +4246,6 @@ require
       <?php endif; ?>
 
 
-      <!-- ===============================================
-           ACCOUNT
-           =============================================== -->
-
       <section class="admin-card">
 
         <h2>
@@ -3815,10 +4375,6 @@ require
 
       </section>
 
-
-      <!-- ===============================================
-           SCOUT TIMELINE
-           =============================================== -->
 
       <section class="admin-card">
 
@@ -3954,7 +4510,7 @@ require
           <div class="review-answer">
 
             <strong>
-              Scout since
+              Original Scout start
             </strong>
 
             <p>
@@ -4005,12 +4561,70 @@ require
         <?php endif; ?>
 
 
+        <?php if ($latestExtension): ?>
+
+          <div class="review-answer">
+
+            <strong>
+              Latest Scout extension
+            </strong>
+
+            <p>
+
+              <?= e(
+                  scout_extension_status_label(
+                      (string) (
+                          $latestExtension[
+                              'status'
+                          ]
+                          ?? ''
+                      )
+                  )
+              ) ?>
+
+              <br>
+
+              <?= e(
+                  format_admin_date(
+                      $latestExtension[
+                          'started_at'
+                      ]
+                      ?? null
+                  )
+              ) ?>
+
+              to
+
+              <?= e(
+                  format_admin_date(
+                      $latestExtension[
+                          'ends_at'
+                      ]
+                      ?? null
+                  )
+              ) ?>
+
+              <?php if (
+                  $extensionGranterName
+                  !==
+                  ''
+              ): ?>
+
+                <br>
+                Granted by
+                <?= e($extensionGranterName) ?>
+
+              <?php endif; ?>
+
+            </p>
+
+          </div>
+
+        <?php endif; ?>
+
+
       </section>
 
-
-      <!-- ===============================================
-           ONBOARDING ACTIONS
-           =============================================== -->
 
       <?php if ($scoutIsInOnboarding): ?>
 
@@ -4153,23 +4767,33 @@ require
         </section>
 
 
-      <!-- ===============================================
-           ACTIVE SCOUT / BILLING
-           =============================================== -->
-
       <?php elseif ($scoutIsActive): ?>
 
 
         <section class="admin-card">
 
           <h2>
-            Scout Active
+
+            <?= $currentPeriodIsExtension
+                ? 'Scout Extension Active'
+                : 'Scout Active'
+            ?>
+
           </h2>
 
           <p>
 
-            This account has completed onboarding and
-            currently has active Scout status.
+            <?php if ($currentPeriodIsExtension): ?>
+
+              This account currently has temporary basic
+              Scout access through a 30-day extension.
+
+            <?php else: ?>
+
+              This account has completed onboarding and
+              currently has active Scout status.
+
+            <?php endif; ?>
 
           </p>
 
@@ -4186,6 +4810,22 @@ require
             </span>
 
           </div>
+
+
+          <?php if (
+              $currentPeriodIsExtension
+          ): ?>
+
+            <div class="extension-warning">
+
+              This extension does not restore a previous
+              Master Scout rank. The Scout must complete
+              three accepted Scout Reports during the
+              extension period.
+
+            </div>
+
+          <?php endif; ?>
 
 
           <?php if (
@@ -4307,10 +4947,6 @@ require
         </section>
 
 
-      <!-- ===============================================
-           TERMINAL / INACTIVE SCOUT RECORD
-           =============================================== -->
-
       <?php else: ?>
 
 
@@ -4328,8 +4964,7 @@ require
           <p>
 
             This Scout record is not currently active and is
-            not in the onboarding workflow. No Scout review
-            actions are available from this page.
+            not in the onboarding workflow.
 
           </p>
 
@@ -4346,6 +4981,72 @@ require
             </span>
 
           </div>
+
+
+          <?php if ($canGrantExtension): ?>
+
+            <div class="extension-warning">
+
+              An Admin or Owner may grant this former Scout
+              exactly 30 days of temporary basic Scout
+              access. They will begin at zero points and
+              must complete three newly accepted Scout
+              Reports during that extension.
+
+            </div>
+
+
+            <form
+              method="post"
+              action="scout.php"
+              style="
+                margin-top:
+                  14px;
+              "
+            >
+
+              <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= e($csrfToken) ?>"
+              >
+
+              <input
+                type="hidden"
+                name="scout_profile_id"
+                value="<?= $scoutProfileId ?>"
+              >
+
+
+              <button
+                class="
+                  review-action-button
+                  extension
+                "
+                type="submit"
+                name="action"
+                value="grant_extension"
+                onclick="
+                  return confirm(
+                    'Grant this former Scout a 30-day basic Scout extension? Any former Master Scout rank will not be restored, points remain at zero, and they must complete three accepted Scout Reports during the extension.'
+                  );
+                "
+              >
+
+                <i
+                  class="fa-solid fa-clock-rotate-left"
+                  aria-hidden="true"
+                ></i>
+
+                Grant 30-Day Scout Extension
+
+              </button>
+
+
+            </form>
+
+
+          <?php endif; ?>
 
 
         </section>
