@@ -13,11 +13,14 @@ $currentAdminPage =
     basename(
         (string) (
             parse_url(
-                $_SERVER['REQUEST_URI']
-                    ?? '/',
+                $_SERVER[
+                    'REQUEST_URI'
+                ]
+                ?? '/',
                 PHP_URL_PATH
             )
-            ?: ''
+            ?:
+            ''
         )
     );
 
@@ -45,6 +48,9 @@ $activeAdminSection =
         'approve-submission.php' =>
             'submissions',
 
+        'place-updates.php' =>
+            'updates',
+
         'users.php',
         'user.php',
         'user-account.php' =>
@@ -70,8 +76,11 @@ function llama_admin_nav_active(
 ): string {
 
     return
-        $section === $activeSection
+        $section ===
+        $activeSection
+
             ? 'is-active'
+
             : '';
 
 }
@@ -83,11 +92,15 @@ function llama_admin_nav_current(
 ): string {
 
     return
-        $section === $activeSection
+        $section ===
+        $activeSection
+
             ? 'aria-current="page"'
+
             : '';
 
 }
+
 
 ?>
 
@@ -162,6 +175,28 @@ function llama_admin_nav_current(
       ></i>
 
       Submissions
+
+    </a>
+
+
+    <a
+      class="<?= llama_admin_nav_active(
+          'updates',
+          $activeAdminSection
+      ) ?>"
+      href="/place-updates.php"
+      <?= llama_admin_nav_current(
+          'updates',
+          $activeAdminSection
+      ) ?>
+    >
+
+      <i
+        class="fa-solid fa-pen-to-square"
+        aria-hidden="true"
+      ></i>
+
+      Updates
 
     </a>
 
