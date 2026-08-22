@@ -125,6 +125,11 @@ function llama_ensure_place_contributions_table(
         )
     ) {
 
+        llama_ensure_place_contribution_scoring_snapshot_column(
+            $db
+        );
+
+
         return;
 
     }
@@ -213,6 +218,10 @@ function llama_ensure_place_contributions_table(
                 JSON
                 NULL,
 
+            scoring_snapshot
+                JSON
+                NULL,
+
             notes
                 TEXT
                 NULL,
@@ -281,6 +290,77 @@ function llama_ensure_place_contributions_table(
     );
 
 }
+
+
+function llama_ensure_place_contribution_scoring_snapshot_column(
+    PDO $db
+): void {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM information_schema.columns
+
+            WHERE table_schema = DATABASE()
+
+              AND table_name =
+                  \'place_contributions\'
+
+              AND column_name =
+                  \'scoring_snapshot\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute();
+
+
+    if (
+        $stmt->fetchColumn()
+        !==
+        false
+    ) {
+
+        return;
+
+    }
+
+
+    /*
+     * ALTER TABLE also causes an implicit COMMIT in MySQL.
+     * Never run this migration from inside an approval
+     * transaction.
+     */
+
+    if (
+        $db->inTransaction()
+    ) {
+
+        throw new RuntimeException(
+            'Place contribution scoring storage must be initialized before starting a transaction.'
+        );
+
+    }
+
+
+    $db->exec(
+        '
+        ALTER TABLE place_contributions
+
+        ADD COLUMN scoring_snapshot
+            JSON
+            NULL
+
+        AFTER fields_changed
+        '
+    );
+
+}
+
 
 /* =========================================================
    NORMALIZE CONTRIBUTOR ROLE
