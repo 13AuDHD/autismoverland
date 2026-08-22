@@ -225,6 +225,112 @@ if (
 
 
 /* =========================================================
+   ACTIVE 30-DAY EXTENSION
+
+   A reinstatement extension is a separate fixed period.
+
+   Reports accepted before started_at do not count toward the
+   extension requirement.
+   ========================================================= */
+
+$activeExtension =
+    null;
+
+
+try {
+
+    $extensionStmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                scout_profile_id,
+                user_id,
+                granted_by,
+                started_at,
+                ends_at,
+                status,
+                accepted_reports,
+                resolved_at,
+                created_at,
+                updated_at
+
+            FROM scout_extensions
+
+            WHERE scout_profile_id = ?
+              AND user_id = ?
+              AND status = \'active\'
+
+            ORDER BY
+                id DESC
+
+            LIMIT 1
+            '
+        );
+
+
+    $extensionStmt->execute([
+        $scoutProfileId,
+        $userId
+    ]);
+
+
+    $extensionRow =
+        $extensionStmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    if (
+        $extensionRow
+    ) {
+
+        $activeExtension =
+            $extensionRow;
+    }
+
+
+} catch (
+    Throwable $exception
+) {
+
+    /*
+     * scout_extensions is created by Scout maintenance and
+     * Basecamp. If it cannot be queried for an active Scout,
+     * do not silently display an incorrect annual period.
+     */
+
+    error_log(
+        'Llama Scout Scout dashboard extension lookup error for user #'
+        .
+        $userId
+        .
+        ': '
+        .
+        $exception
+            ->getMessage()
+    );
+
+
+    http_response_code(
+        500
+    );
+
+
+    exit(
+        'Your Scout access period could not be loaded.'
+    );
+
+}
+
+
+$isExtensionPeriod =
+    is_array(
+        $activeExtension
+    );
+
+
+/* =========================================================
    ACCOUNT ROLES
    ========================================================= */
 
@@ -255,19 +361,12 @@ $scoutRank =
 
 
 /* =========================================================
-   CURRENT SCOUT YEAR
+   CURRENT SCOUT PERIOD
 
-   Scout access works in fixed one-year periods.
+   Normal Scout access uses fixed one-year periods.
 
-   Example:
-
-   Aug 20, 2026 -> Aug 20, 2027
-
-   The Scout must complete at least 3 accepted Scout Reports
-   during THAT Scout year.
-
-   Additional reports are valuable, but do not stack extra
-   years of complimentary membership.
+   A manually granted reinstatement instead uses the exact
+   30-day extension window stored in scout_extensions.
    ========================================================= */
 
 $requiredReports =
@@ -312,26 +411,89 @@ if (
 }
 
 
-$scoutYearStart =
+$currentPeriodStart =
     null;
 
 
-$scoutYearEnd =
+$currentPeriodEnd =
     null;
 
-
-/*
- * active_through represents the end of the current Scout
- * year.
- *
- * Normally the Scout year starts exactly one year before
- * active_through.
- *
- * During the first year, the start can never be earlier than
- * scout_started_at.
- */
 
 if (
+    $isExtensionPeriod
+) {
+
+    $extensionStartRaw =
+        trim(
+            (string) (
+                $activeExtension[
+                    'started_at'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $extensionEndRaw =
+        trim(
+            (string) (
+                $activeExtension[
+                    'ends_at'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $extensionStartTimestamp =
+        strtotime(
+            $extensionStartRaw
+        );
+
+
+    $extensionEndTimestamp =
+        strtotime(
+            $extensionEndRaw
+        );
+
+
+    if (
+        $extensionStartRaw === ''
+        ||
+        $extensionEndRaw === ''
+        ||
+        $extensionStartTimestamp === false
+        ||
+        $extensionEndTimestamp === false
+    ) {
+
+        http_response_code(
+            500
+        );
+
+
+        exit(
+            'Your Scout extension dates could not be loaded.'
+        );
+
+    }
+
+
+    $currentPeriodStart =
+        date(
+            'Y-m-d H:i:s',
+            $extensionStartTimestamp
+        );
+
+
+    $currentPeriodEnd =
+        date(
+            'Y-m-d H:i:s',
+            $extensionEndTimestamp
+        );
+
+
+} elseif (
     $activeThroughRaw !== ''
 ) {
 
@@ -345,7 +507,7 @@ if (
         $activeThroughTimestamp !== false
     ) {
 
-        $yearStartTimestamp =
+        $periodStartTimestamp =
             strtotime(
                 '-1 year',
                 $activeThroughTimestamp
@@ -363,23 +525,23 @@ if (
             &&
             $scoutStartedTimestamp
             >
-            $yearStartTimestamp
+            $periodStartTimestamp
         ) {
 
-            $yearStartTimestamp =
+            $periodStartTimestamp =
                 $scoutStartedTimestamp;
 
         }
 
 
-        $scoutYearStart =
+        $currentPeriodStart =
             date(
                 'Y-m-d H:i:s',
-                $yearStartTimestamp
+                $periodStartTimestamp
             );
 
 
-        $scoutYearEnd =
+        $currentPeriodEnd =
             date(
                 'Y-m-d H:i:s',
                 $activeThroughTimestamp
@@ -393,11 +555,11 @@ if (
 /* =========================================================
    LIFETIME SCOUT REPORT COUNTS
 
-   Only submissions originally made on or after the person's
-   Scout start date belong to their Scout record.
+   Scout Report history remains historical even if points
+   were previously lost.
 
-   Earlier Community Scouted submissions remain part of their
-   general submission history but do not become Scout Reports.
+   Community Scouted submissions from before the person's
+   original Scout start date do not become Scout Reports.
    ========================================================= */
 
 $stmt =
@@ -496,24 +658,25 @@ $totalNeedsChanges =
 
 
 /* =========================================================
-   ACCEPTED SCOUT REPORTS THIS SCOUT YEAR
+   ACCEPTED REPORTS THIS CURRENT PERIOD
 
-   Only scout_activity entries count toward the requirement.
+   scout_activity is the authoritative renewal-credit source.
 
-   That means:
-   - report was approved
-   - report qualified as Scout activity
-   - duplicate credit is prevented
+   For a normal Scout:
+       count only the current fixed Scout year.
+
+   For an extension:
+       count only the exact 30-day reinstatement window.
    ========================================================= */
 
-$acceptedThisScoutYear =
+$acceptedThisPeriod =
     0;
 
 
 if (
-    $scoutYearStart !== null
+    $currentPeriodStart !== null
     &&
-    $scoutYearEnd !== null
+    $currentPeriodEnd !== null
 ) {
 
     $stmt =
@@ -540,12 +703,12 @@ if (
     $stmt->execute([
         $scoutProfileId,
         $userId,
-        $scoutYearStart,
-        $scoutYearEnd
+        $currentPeriodStart,
+        $currentPeriodEnd
     ]);
 
 
-    $acceptedThisScoutYear =
+    $acceptedThisPeriod =
         (int)
         $stmt->fetchColumn();
 
@@ -561,30 +724,20 @@ $reportsRemaining =
         0,
         $requiredReports
         -
-        $acceptedThisScoutYear
+        $acceptedThisPeriod
     );
 
 
 $requirementMet =
-    $acceptedThisScoutYear
+    $acceptedThisPeriod
     >=
     $requiredReports;
 
 
-/*
- * The progress bar stops at 100%.
- *
- * 3 reports = 100%
- * 6 reports = 100%
- * 12 reports = 100%
- *
- * Extra reports still appear in the actual accepted count.
- */
-
 $progressCount =
     min(
         $requiredReports,
-        $acceptedThisScoutYear
+        $acceptedThisPeriod
     );
 
 
@@ -599,29 +752,35 @@ $progressPercent =
 
 
 /* =========================================================
-   SCOUT YEAR DISPLAY
+   CURRENT PERIOD DISPLAY
    ========================================================= */
 
-$currentScoutYearStartLabel =
-    $scoutYearStart !== null
+$currentPeriodStartLabel =
+    $currentPeriodStart !== null
         ? format_scout_date(
-            $scoutYearStart,
+            $currentPeriodStart,
             $user
         )
         : 'Not set';
 
 
-$currentScoutYearEndLabel =
-    $scoutYearEnd !== null
+$currentPeriodEndLabel =
+    $currentPeriodEnd !== null
         ? format_scout_date(
-            $scoutYearEnd,
+            $currentPeriodEnd,
             $user
         )
         : 'Not set';
 
 
 /* =========================================================
-   SCOUT ACTIVITY
+   SCOUT ACTIVITY / POINTS
+
+   Point values reflect only points that still exist.
+
+   If the user previously lost membership or Scout status,
+   those old point values have already been permanently
+   cleared and are not reconstructed here.
    ========================================================= */
 
 $stmt =
@@ -677,8 +836,10 @@ $totalPoints =
 /* =========================================================
    RECENT SCOUT REPORTS
 
-   Do not display Community Scouted submissions from before
-   the person's Scout start date as Scout Reports.
+   Historical Scout Reports remain visible.
+
+   Community Scouted submissions from before the original
+   Scout start date remain outside the Scout dashboard.
    ========================================================= */
 
 $stmt =
@@ -759,6 +920,18 @@ $activeThrough =
     );
 
 
+$currentPeriodName =
+    $isExtensionPeriod
+        ? '30-Day Scout Extension'
+        : 'Current Scout Year';
+
+
+$currentPeriodAcceptedLabel =
+    $isExtensionPeriod
+        ? 'Accepted This Extension'
+        : 'Accepted This Scout Year';
+
+
 ?>
 <!doctype html>
 
@@ -818,10 +991,6 @@ $activeThrough =
         80px;
     }
 
-
-    /* =====================================================
-       HERO
-       ===================================================== */
 
     .scout-hero {
       position:
@@ -1030,9 +1199,43 @@ $activeThrough =
     }
 
 
-    /* =====================================================
-       STATS
-       ===================================================== */
+    .scout-extension-note {
+      position:
+        relative;
+
+      z-index:
+        1;
+
+      margin-top:
+        18px;
+
+      padding:
+        13px
+        15px;
+
+      border-radius:
+        11px;
+
+      background:
+        rgba(
+          217,
+          196,
+          154,
+          .15
+        );
+
+      color:
+        rgba(
+          255,
+          255,
+          255,
+          .88
+        );
+
+      line-height:
+        1.55;
+    }
+
 
     .scout-stats {
       display:
@@ -1107,10 +1310,6 @@ $activeThrough =
         1;
     }
 
-
-    /* =====================================================
-       SECTION
-       ===================================================== */
 
     .scout-section {
       margin-top:
@@ -1193,10 +1392,6 @@ $activeThrough =
         1 !important;
     }
 
-
-    /* =====================================================
-       REQUIREMENT
-       ===================================================== */
 
     .scout-requirement {
       display:
@@ -1347,10 +1542,6 @@ $activeThrough =
     }
 
 
-    /* =====================================================
-       TOOL CARDS
-       ===================================================== */
-
     .scout-tools-grid {
       display:
         grid;
@@ -1473,10 +1664,6 @@ $activeThrough =
         default;
     }
 
-
-    /* =====================================================
-       REPORT LIST
-       ===================================================== */
 
     .scout-report-list {
       display:
@@ -1631,10 +1818,6 @@ $activeThrough =
         750;
     }
 
-
-    /* =====================================================
-       RECORD GRID
-       ===================================================== */
 
     .scout-record-grid {
       display:
@@ -1798,10 +1981,6 @@ require_once
   </a>
 
 
-  <!-- =====================================================
-       HERO
-       ===================================================== -->
-
   <section class="scout-hero">
 
 
@@ -1825,11 +2004,23 @@ require_once
 
     <p>
 
-      This is your Scout home base.
+      <?php if ($isExtensionPeriod): ?>
 
-      Track your Scout year, contribution requirement,
-      reports, activity, and the tools available to you
-      in the field.
+        Your temporary Scout access is active.
+
+        Track your 30-day extension, Scout Reports, activity,
+        and the three accepted reports required to return to
+        regular Scout status.
+
+      <?php else: ?>
+
+        This is your Scout home base.
+
+        Track your Scout year, contribution requirement,
+        reports, activity, and the tools available to you
+        in the field.
+
+      <?php endif; ?>
 
     </p>
 
@@ -1869,7 +2060,11 @@ require_once
           aria-hidden="true"
         ></i>
 
-        Active through
+        <?= $isExtensionPeriod
+            ? 'Extension through'
+            : 'Active through'
+        ?>
+
         <?= e($activeThrough) ?>
 
       </span>
@@ -1878,12 +2073,23 @@ require_once
     </div>
 
 
+    <?php if ($isExtensionPeriod): ?>
+
+      <div class="scout-extension-note">
+
+        This is temporary basic Scout access.
+
+        You need three newly accepted Scout Reports during
+        this extension period. Previous reports do not count
+        toward the extension requirement.
+
+      </div>
+
+    <?php endif; ?>
+
+
   </section>
 
-
-  <!-- =====================================================
-       QUICK STATS
-       ===================================================== -->
 
   <section
     class="scout-stats"
@@ -1894,11 +2100,11 @@ require_once
     <article class="scout-stat">
 
       <span>
-        Accepted This Scout Year
+        <?= e($currentPeriodAcceptedLabel) ?>
       </span>
 
       <strong>
-        <?= $acceptedThisScoutYear ?>
+        <?= $acceptedThisPeriod ?>
       </strong>
 
     </article>
@@ -1946,10 +2152,6 @@ require_once
   </section>
 
 
-  <!-- =====================================================
-       SCOUT YEAR REQUIREMENT
-       ===================================================== -->
-
   <section class="scout-section">
 
 
@@ -1958,31 +2160,45 @@ require_once
       <div>
 
         <h2>
-          Keep Your Scout Access
+          <?= e(
+              $isExtensionPeriod
+                  ? 'Complete Your Scout Extension'
+                  : 'Keep Your Scout Access'
+          ) ?>
         </h2>
 
 
         <p>
 
-          Complete at least three accepted Scout Reports
-          during each Scout year to continue complimentary
-          Scout access for the following year.
+          <?php if ($isExtensionPeriod): ?>
+
+            Complete three accepted Scout Reports during this
+            exact 30-day extension to return as a basic Scout
+            for a new annual Scout period.
+
+          <?php else: ?>
+
+            Complete at least three accepted Scout Reports
+            during each Scout year to continue complimentary
+            Scout access for the following year.
+
+          <?php endif; ?>
 
         </p>
 
 
         <p class="scout-year-label">
 
-          Current Scout Year:
+          <?= e($currentPeriodName) ?>:
 
           <?= e(
-              $currentScoutYearStartLabel
+              $currentPeriodStartLabel
           ) ?>
 
           to
 
           <?= e(
-              $currentScoutYearEndLabel
+              $currentPeriodEndLabel
           ) ?>
 
         </p>
@@ -2007,7 +2223,7 @@ require_once
 
           <span>
 
-            <?= $acceptedThisScoutYear ?>
+            <?= $acceptedThisPeriod ?>
 
             of
 
@@ -2020,7 +2236,7 @@ require_once
 
         <div
           class="scout-progress-track"
-          aria-label="Scout-year requirement progress"
+          aria-label="Scout requirement progress"
         >
 
           <div
@@ -2042,17 +2258,34 @@ require_once
               Requirement met.
             </strong>
 
-            You've completed the three-report requirement
-            for this Scout year.
+
+            <?php if ($isExtensionPeriod): ?>
+
+              You've completed the three accepted Scout
+              Reports required during this extension.
+
+              Your temporary access remains active through
+              the extension end date. When the extension is
+              resolved, you return as a basic Scout for a new
+              annual Scout period.
+
+            <?php else: ?>
+
+              You've completed the three-report requirement
+              for this Scout year.
+
+            <?php endif; ?>
 
 
             <?php if (
-                $acceptedThisScoutYear > 3
+                !$isExtensionPeriod
+                &&
+                $acceptedThisPeriod > 3
             ): ?>
 
               You've actually completed
 
-              <?= $acceptedThisScoutYear ?>
+              <?= $acceptedThisPeriod ?>
 
               accepted Scout Reports this year.
 
@@ -2068,8 +2301,18 @@ require_once
               One more accepted report.
             </strong>
 
-            One additional accepted Scout Report completes
-            your requirement for this Scout year.
+
+            <?php if ($isExtensionPeriod): ?>
+
+              One additional accepted Scout Report completes
+              your 30-day extension requirement.
+
+            <?php else: ?>
+
+              One additional accepted Scout Report completes
+              your requirement for this Scout year.
+
+            <?php endif; ?>
 
 
           <?php else: ?>
@@ -2086,6 +2329,19 @@ require_once
             Reports count toward the requirement after
             they are reviewed and accepted by Llama Scout.
 
+
+          <?php endif; ?>
+
+
+          <?php if (
+              $isExtensionPeriod
+              &&
+              !$requirementMet
+          ): ?>
+
+            If the extension expires before all three reports
+            are accepted, Scout access ends again and your
+            account returns to free-member status.
 
           <?php endif; ?>
 
@@ -2121,7 +2377,7 @@ require_once
 
             <strong>
 
-              <?= $acceptedThisScoutYear ?>
+              <?= $acceptedThisPeriod ?>
 
               /
 
@@ -2147,10 +2403,6 @@ require_once
 
   </section>
 
-
-  <!-- =====================================================
-       SCOUT TOOLS
-       ===================================================== -->
 
   <section class="scout-section">
 
@@ -2402,10 +2654,6 @@ require_once
   </section>
 
 
-  <!-- =====================================================
-       RECENT REPORTS
-       ===================================================== -->
-
   <section class="scout-section">
 
 
@@ -2573,10 +2821,6 @@ require_once
   </section>
 
 
-  <!-- =====================================================
-       SCOUT RECORD
-       ===================================================== -->
-
   <section class="scout-section">
 
 
@@ -2589,7 +2833,11 @@ require_once
         </h2>
 
         <p>
-          A quick lifetime snapshot of your Scout activity.
+
+          Scout Report history remains part of your record.
+          Scout points reflect only your current active point
+          balance.
+
         </p>
 
       </div>
