@@ -2141,6 +2141,23 @@ require
                             ?? ''
                         )
                         ===
+                        'already-current'
+                    ): ?>
+
+                      This change has already been made. The
+                      current Place value already matches the
+                      contributor's proposed value, so approving
+                      it again would create a duplicate
+                      contribution.
+
+                    <?php elseif (
+                        (
+                            $conflict[
+                                'reason'
+                            ]
+                            ?? ''
+                        )
+                        ===
                         'missing-original-snapshot'
                     ): ?>
 
