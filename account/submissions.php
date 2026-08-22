@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+
 require_once
     dirname(__DIR__)
     . '/app/auth.php';
@@ -24,20 +25,13 @@ $db =
 
 $userId =
     (int)
-    $user['id'];
+    $user[
+        'id'
+    ];
 
 
 /* =========================================================
    SCOUT HISTORY
-
-   A submission becomes a Scout Report when it was originally
-   submitted on or after this user's Scout start date.
-
-   This mirrors the qualification rule used by Basecamp when
-   accepted Scout activity is recorded.
-
-   Older submissions remain Community Scouted even if the
-   user later becomes a Scout.
    ========================================================= */
 
 $stmt =
@@ -79,7 +73,7 @@ $scoutStartedAt =
 
 
 /* =========================================================
-   LOAD THIS MEMBER'S SUBMISSIONS
+   LOAD THIS MEMBER'S NEW-PLACE SUBMISSIONS
    ========================================================= */
 
 $stmt =
@@ -102,7 +96,8 @@ $stmt =
         FROM place_submissions ps
 
         LEFT JOIN places p
-          ON p.id = ps.place_id
+          ON p.id =
+             ps.place_id
 
         WHERE ps.user_id = ?
 
@@ -133,10 +128,12 @@ function e(
 ): string {
 
     return htmlspecialchars(
-        (string) $value,
+        (string)
+        $value,
         ENT_QUOTES,
         'UTF-8'
     );
+
 }
 
 
@@ -144,9 +141,7 @@ function submission_status_label(
     string $status
 ): string {
 
-    return match (
-        $status
-    ) {
+    return match ($status) {
 
         'pending' =>
             'Pending Review',
@@ -163,12 +158,17 @@ function submission_status_label(
         default =>
             ucwords(
                 str_replace(
-                    '-',
+                    [
+                        '-',
+                        '_',
+                    ],
                     ' ',
                     $status
                 )
             ),
+
     };
+
 }
 
 
@@ -176,9 +176,7 @@ function submission_status_class(
     string $status
 ): string {
 
-    return match (
-        $status
-    ) {
+    return match ($status) {
 
         'approved' =>
             'status-approved',
@@ -191,7 +189,9 @@ function submission_status_class(
 
         default =>
             'status-pending',
+
     };
+
 }
 
 
@@ -202,9 +202,12 @@ function format_submission_date(
     global $user;
 
 
-    if (!$date) {
+    if (
+        !$date
+    ) {
 
         return '';
+
     }
 
 
@@ -213,6 +216,7 @@ function format_submission_date(
         $user,
         'F j, Y'
     );
+
 }
 
 
@@ -221,13 +225,15 @@ function place_is_public(
 ): bool {
 
     return in_array(
-        (string) $status,
+        (string)
+        $status,
         [
             'active',
             'featured',
         ],
         true
     );
+
 }
 
 
@@ -243,12 +249,9 @@ function submission_is_editable(
         ],
         true
     );
+
 }
 
-
-/* =========================================================
-   SCOUT REPORT CLASSIFICATION
-   ========================================================= */
 
 function submission_is_scout_report(
     array $submission,
@@ -256,12 +259,12 @@ function submission_is_scout_report(
 ): bool {
 
     if (
-        $scoutStartedAt
-        ===
+        $scoutStartedAt ===
         ''
     ) {
 
         return false;
+
     }
 
 
@@ -283,16 +286,15 @@ function submission_is_scout_report(
 
 
     if (
-        $submittedTimestamp
-        ===
+        $submittedTimestamp ===
         false
         ||
-        $scoutStartedTimestamp
-        ===
+        $scoutStartedTimestamp ===
         false
     ) {
 
         return false;
+
     }
 
 
@@ -300,6 +302,7 @@ function submission_is_scout_report(
         $submittedTimestamp
         >=
         $scoutStartedTimestamp;
+
 }
 
 
@@ -315,49 +318,26 @@ function submission_type_label(
         )
     ) {
 
-        return 'Scout Report';
+        return 'Llama Scout Report';
+
     }
 
 
-    $sourceType =
-        strtolower(
-            trim(
-                (string) (
-                    $submission[
-                        'source_type'
-                    ]
-                    ?? ''
-                )
-            )
-        );
+    /*
+     * The legacy database source_type slug
+     * "community-scouted" is intentionally retained for
+     * compatibility, but it is no longer displayed publicly.
+     *
+     * Community contributions are not "Llama Scouted" unless
+     * a qualifying Scout/Admin/Owner field contribution exists.
+     */
 
+    return 'Community Contributed';
 
-    return match (
-        $sourceType
-    ) {
-
-        'community-scouted' =>
-            'Community Scouted',
-
-        default =>
-            $sourceType !== ''
-                ? ucwords(
-                    str_replace(
-                        [
-                            '-',
-                            '_',
-                        ],
-                        ' ',
-                        $sourceType
-                    )
-                )
-                : 'Community Scouted',
-    };
 }
 
 
 ?>
-
 <!doctype html>
 
 <html lang="en">
@@ -366,17 +346,14 @@ function submission_type_label(
 
   <meta charset="utf-8">
 
-
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1"
   >
 
-
   <title>
-    My Submissions | Llama Scout
+    My New Place Submissions | Llama Scout
   </title>
-
 
   <meta
     name="robots"
@@ -389,17 +366,56 @@ function submission_type_label(
     href="https://llamascout.com/css/style.css"
   >
 
-
   <link
     rel="stylesheet"
     href="https://llamascout.com/css/account.css"
   >
 
-
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
+
+
+  <style>
+
+    .submission-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+
+      margin:
+        18px
+        0
+        24px;
+    }
+
+
+    .submission-tools a {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+
+      padding:
+        9px
+        12px;
+
+      border-radius: 8px;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .07
+        );
+
+      color: inherit;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+  </style>
 
 </head>
 
@@ -437,29 +453,55 @@ require_once
   <header class="submissions-header">
 
     <h1>
-      My Submissions
+      My New Place Submissions
     </h1>
 
-
     <p>
-      Keep track of the places you've submitted
-      to Llama Scout and see where they are in
-      the review process.
+      Track new Places you submitted to Llama Scout and see
+      where each one is in the review process.
     </p>
 
   </header>
 
 
-  <!-- =====================================================
-       NEW SUBMISSION SUCCESS
-       ===================================================== -->
+  <div class="submission-tools">
+
+    <a href="scout-place.php">
+
+      <i
+        class="fa-solid fa-location-dot"
+        aria-hidden="true"
+      ></i>
+
+      Add a Place
+
+    </a>
+
+    <a href="my-place-updates.php">
+
+      <i
+        class="fa-solid fa-pen-to-square"
+        aria-hidden="true"
+      ></i>
+
+      My Place Updates
+
+    </a>
+
+  </div>
+
 
   <?php if (
       isset(
-          $_GET['submitted']
+          $_GET[
+              'submitted'
+          ]
       )
       &&
-      $_GET['submitted'] === '1'
+      $_GET[
+          'submitted'
+      ] ===
+      '1'
   ): ?>
 
     <div class="submission-success">
@@ -468,23 +510,24 @@ require_once
         Place submitted
       </strong>
 
-      Your place was sent to Llama Scout for review.
+      Your new Place was sent to Llama Scout for review.
 
     </div>
 
   <?php endif; ?>
 
 
-  <!-- =====================================================
-       RESUBMISSION SUCCESS
-       ===================================================== -->
-
   <?php if (
       isset(
-          $_GET['resubmitted']
+          $_GET[
+              'resubmitted'
+          ]
       )
       &&
-      $_GET['resubmitted'] === '1'
+      $_GET[
+          'resubmitted'
+      ] ===
+      '1'
   ): ?>
 
     <div class="submission-success">
@@ -493,8 +536,8 @@ require_once
         Changes submitted
       </strong>
 
-      Your updated place has been returned
-      to Llama Scout for review.
+      Your revised new-Place submission has been returned to
+      Llama Scout for review.
 
     </div>
 
@@ -505,18 +548,22 @@ require_once
       $submissions
   ): ?>
 
-
     <div class="submission-list">
 
 
       <?php foreach (
-          $submissions
-          as
+          $submissions as
           $submission
       ): ?>
 
-
         <?php
+
+        $status =
+            (string)
+            $submission[
+                'status'
+            ];
+
 
         $submissionTypeLabel =
             submission_type_label(
@@ -525,7 +572,6 @@ require_once
             );
 
         ?>
-
 
         <article class="submission-card">
 
@@ -536,13 +582,11 @@ require_once
             <div>
 
               <h2>
-
                 <?= e(
                     $submission[
                         'place_name'
                     ]
                 ) ?>
-
               </h2>
 
 
@@ -574,10 +618,7 @@ require_once
                 submission-status
                 <?= e(
                     submission_status_class(
-                        (string)
-                        $submission[
-                            'status'
-                        ]
+                        $status
                     )
                 ) ?>
               "
@@ -585,10 +626,7 @@ require_once
 
               <?= e(
                   submission_status_label(
-                      (string)
-                      $submission[
-                          'status'
-                      ]
+                      $status
                   )
               ) ?>
 
@@ -598,10 +636,6 @@ require_once
           </div>
 
 
-          <!-- =================================================
-               REVIEW NOTES
-               ================================================= -->
-
           <?php if (
               !empty(
                   $submission[
@@ -610,82 +644,51 @@ require_once
               )
           ): ?>
 
-
             <div class="submission-review">
 
               <strong>
                 Llama Scout review
               </strong>
 
-
               <p>
-
                 <?= e(
                     $submission[
                         'review_notes'
                     ]
                 ) ?>
-
               </p>
 
             </div>
 
-
           <?php endif; ?>
 
 
-          <!-- =================================================
-               EDIT + RESUBMIT
-               ================================================= -->
-
           <?php if (
               submission_is_editable(
-                  (string)
-                  $submission[
-                      'status'
-                  ]
+                  $status
               )
           ): ?>
-
 
             <div class="submission-listing">
 
               <strong>
 
-                <?php if (
-                    $submission[
-                        'status'
-                    ] === 'needs-changes'
-                ): ?>
-
-                  Changes requested
-
-                <?php else: ?>
-
-                  Want to revise it?
-
-                <?php endif; ?>
+                <?= $status ===
+                    'needs-changes'
+                        ? 'Changes requested'
+                        : 'Want to revise it?'
+                ?>
 
               </strong>
 
 
               <p>
 
-                <?php if (
-                    $submission[
-                        'status'
-                    ] === 'needs-changes'
-                ): ?>
-
-                  Update any of the information in your
-                  submission and send it back for another review.
-
-                <?php else: ?>
-
-                  You can update this submission and send
-                  a revised version back to Llama Scout.
-
-                <?php endif; ?>
+                <?= $status ===
+                    'needs-changes'
+                        ? 'Update the requested information and send the submission back for another review.'
+                        : 'You can revise this submission and send a new version back to Llama Scout.'
+                ?>
 
               </p>
 
@@ -710,18 +713,12 @@ require_once
 
             </div>
 
-
           <?php endif; ?>
 
 
-          <!-- =================================================
-               APPROVED LISTING
-               ================================================= -->
-
           <?php if (
-              $submission[
-                  'status'
-              ] === 'approved'
+              $status ===
+              'approved'
               &&
               !empty(
                   $submission[
@@ -730,11 +727,10 @@ require_once
               )
           ): ?>
 
-
             <div class="submission-listing">
 
               <strong>
-                Your listing
+                Published Place
               </strong>
 
 
@@ -752,9 +748,9 @@ require_once
                   )
               ): ?>
 
-
                 <p>
-                  This place is published on Llama Scout.
+                  This submission has been approved and
+                  published as a Llama Scout Place.
                 </p>
 
 
@@ -777,34 +773,28 @@ require_once
 
                 </a>
 
-
               <?php else: ?>
 
-
                 <p>
-                  Your submission was approved and
-                  has been converted into a Llama Scout
-                  place. It is awaiting publication.
+                  This submission was approved and converted
+                  into a Place. It is awaiting publication.
                 </p>
-
 
                 <span class="listing-state">
                   Awaiting Publication
                 </span>
-
 
               <?php endif; ?>
 
 
             </div>
 
-
           <?php endif; ?>
 
 
           <div class="submission-id">
 
-            Submission
+            New Place Submission
 
             #<?= (int)
                 $submission[
@@ -817,15 +807,12 @@ require_once
 
         </article>
 
-
       <?php endforeach; ?>
 
 
     </div>
 
-
   <?php else: ?>
-
 
     <section class="empty-state">
 
@@ -837,13 +824,13 @@ require_once
 
 
       <h2>
-        No submissions yet
+        No new Place submissions yet
       </h2>
 
 
       <p>
-        When you Scout a Place, you'll be
-        able to follow its review status here.
+        When you submit a new Place, you will be able to
+        follow its review status here.
       </p>
 
 
@@ -855,7 +842,6 @@ require_once
           )
       ): ?>
 
-
         <a
           href="scout-place.php"
           class="primary-button"
@@ -866,27 +852,27 @@ require_once
             aria-hidden="true"
           ></i>
 
-          Scout a Place
+          Add a Place
 
         </a>
-
 
       <?php endif; ?>
 
 
     </section>
 
-
   <?php endif; ?>
 
 
   <footer class="submissions-footer">
 
-
     <a href="/">
       My Account
     </a>
 
+    <a href="my-place-updates.php">
+      My Place Updates
+    </a>
 
     <?php if (
         !empty(
@@ -896,14 +882,11 @@ require_once
         )
     ): ?>
 
-
       <a href="scout-place.php">
-        Scout Another Place
+        Add Another Place
       </a>
 
-
     <?php endif; ?>
-
 
   </footer>
 
