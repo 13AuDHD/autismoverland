@@ -23,7 +23,7 @@ declare(strict_types=1);
 
   <meta
     name="description"
-    content="Detailed Llama Scout place information including access, sensory conditions, connectivity, amenities, accessibility, and field observations."
+    content="Detailed Llama Scout place information including access, sensory conditions, connectivity, amenities, accessibility, field observations, and contribution history."
   >
 
 
@@ -33,6 +33,11 @@ declare(strict_types=1);
   <link
     rel="stylesheet"
     href="/css/style.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="/css/place-provenance.css"
   >
 
   <link
@@ -121,6 +126,10 @@ require_once
 
 <script
   src="/js/place.js"
+></script>
+
+<script
+  src="/js/place-provenance.js"
 ></script>
 
 <script
