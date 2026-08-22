@@ -643,6 +643,22 @@ function llama_place_update_conflicts(
         [];
 
 
+    /*
+     * Calculate the available original snapshot paths once
+     * for the entire update instead of recalculating them for
+     * every proposed field.
+     *
+     * This also lets us distinguish a genuinely null original
+     * value from a field that was never captured in the
+     * original snapshot.
+     */
+
+    $originalPaths =
+        llama_update_field_paths(
+            $originalValues
+        );
+
+
     foreach (
         $paths as
         $path
@@ -652,25 +668,6 @@ function llama_place_update_conflicts(
             llama_update_get(
                 $proposedChanges,
                 $path
-            );
-
-
-        /*
-         * We need to distinguish:
-         *
-         *     original value really was null
-         *
-         * from:
-         *
-         *     original snapshot never contained the field.
-         *
-         * A missing original snapshot is unsafe because there
-         * is nothing reliable to compare against.
-         */
-
-        $originalPaths =
-            llama_update_field_paths(
-                $originalValues
             );
 
 
