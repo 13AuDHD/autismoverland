@@ -19,11 +19,6 @@ declare(strict_types=1);
 
 /* =========================================================
    DEFAULT POLICY
-
-   These are defaults only.
-
-   Once a setting exists in scout_policy, the database value
-   becomes authoritative.
    ========================================================= */
 
 function llama_scout_policy_defaults(): array
@@ -31,9 +26,9 @@ function llama_scout_policy_defaults(): array
 
     return [
 
-        /*
-         * ACTIVE SCOUT REQUIREMENTS
-         */
+        /* =================================================
+           ACTIVE SCOUT REQUIREMENTS
+           ================================================= */
 
         'annual_new_places_required' => [
             'value' => '3',
@@ -50,9 +45,9 @@ function llama_scout_policy_defaults(): array
         ],
 
 
-        /*
-         * REACTIVATION
-         */
+        /* =================================================
+           REACTIVATION
+           ================================================= */
 
         'reactivation_new_places_required' => [
             'value' => '3',
@@ -69,9 +64,9 @@ function llama_scout_policy_defaults(): array
         ],
 
 
-        /*
-         * MAINTENANCE
-         */
+        /* =================================================
+           MAINTENANCE
+           ================================================= */
 
         'maintenance_interval_seconds' => [
             'value' => '86400',
@@ -81,13 +76,9 @@ function llama_scout_policy_defaults(): array
         ],
 
 
-        /*
-         * POINT VALUES
-
-         * These settings are being created now so the point
-         * engine can use them later without another policy
-         * architecture change.
-         */
+        /* =================================================
+           POINT VALUES
+           ================================================= */
 
         'new_place_max_points' => [
             'value' => '100',
@@ -111,19 +102,65 @@ function llama_scout_policy_defaults(): array
         ],
 
 
-        /*
-         * MASTER SCOUT
+        /* =================================================
+           MASTER SCOUT QUALIFICATION
 
-         * Zero means no automatic point threshold is active
-         * yet. We will choose the actual threshold after the
-         * point economy is designed.
-         */
+           Qualification is intentionally multi-factor.
+
+           Master Scout is not a leaderboard position and
+           cannot be earned from points alone.
+
+           Automatic qualification remains disabled until the
+           policy is intentionally activated.
+           ================================================= */
+
+        'master_scout_qualification_enabled' => [
+            'value' => '0',
+            'type' => 'bool',
+            'description' =>
+                'Whether automatic Master Scout qualification evaluation is enabled.',
+        ],
 
         'master_scout_points_required' => [
             'value' => '0',
             'type' => 'int',
             'description' =>
-                'Lifetime points required for Master Scout. Zero means automatic point qualification is disabled.',
+                'Minimum lifetime contribution points required for Master Scout. Zero means no point threshold has been selected.',
+        ],
+
+        'master_scout_lifetime_new_places_required' => [
+            'value' => '0',
+            'type' => 'int',
+            'description' =>
+                'Minimum lifetime approved new Places required for Master Scout. Zero means no threshold has been selected.',
+        ],
+
+        'master_scout_updates_required' => [
+            'value' => '0',
+            'type' => 'int',
+            'description' =>
+                'Minimum approved Place updates required for Master Scout. Zero means no threshold has been selected.',
+        ],
+
+        'master_scout_corrections_required' => [
+            'value' => '0',
+            'type' => 'int',
+            'description' =>
+                'Minimum approved corrections required for Master Scout. Zero means no threshold has been selected.',
+        ],
+
+        'master_scout_updated_places_required' => [
+            'value' => '0',
+            'type' => 'int',
+            'description' =>
+                'Minimum number of distinct existing Places improved through approved updates or corrections. Zero means no threshold has been selected.',
+        ],
+
+        'master_scout_requires_current_period' => [
+            'value' => '1',
+            'type' => 'bool',
+            'description' =>
+                'Whether the Scout must have completed the current annual new-Place requirement before qualifying for Master Scout.',
         ],
 
     ];
@@ -195,8 +232,6 @@ function llama_ensure_scout_policy_table(
 
 /* =========================================================
    SEED DEFAULTS
-
-   Existing policy values are never overwritten.
    ========================================================= */
 
 function llama_seed_scout_policy_defaults(
@@ -230,16 +265,29 @@ function llama_seed_scout_policy_defaults(
 
 
     foreach (
-        $defaults
-        as
-        $key => $definition
+        $defaults as
+        $key =>
+        $definition
     ) {
 
         $stmt->execute([
-            (string) $key,
-            (string) $definition['value'],
-            (string) $definition['type'],
-            (string) $definition['description'],
+            (string)
+            $key,
+
+            (string)
+            $definition[
+                'value'
+            ],
+
+            (string)
+            $definition[
+                'type'
+            ],
+
+            (string)
+            $definition[
+                'description'
+            ],
         ]);
 
     }
@@ -288,7 +336,9 @@ function llama_scout_policy(
         );
 
 
-    if (!$row) {
+    if (
+        !$row
+    ) {
 
         $defaults =
             llama_scout_policy_defaults();
@@ -296,7 +346,9 @@ function llama_scout_policy(
 
         if (
             !isset(
-                $defaults[$key]
+                $defaults[
+                    $key
+                ]
             )
         ) {
 
@@ -312,10 +364,18 @@ function llama_scout_policy(
         return
             llama_cast_scout_policy_value(
                 (string)
-                $defaults[$key]['value'],
+                $defaults[
+                    $key
+                ][
+                    'value'
+                ],
 
                 (string)
-                $defaults[$key]['type']
+                $defaults[
+                    $key
+                ][
+                    'type'
+                ]
             );
 
     }
@@ -324,10 +384,14 @@ function llama_scout_policy(
     return
         llama_cast_scout_policy_value(
             (string)
-            $row['policy_value'],
+            $row[
+                'policy_value'
+            ],
 
             (string)
-            $row['value_type']
+            $row[
+                'value_type'
+            ]
         );
 
 }
@@ -345,15 +409,19 @@ function llama_cast_scout_policy_value(
     return match ($type) {
 
         'int' =>
-            (int) $value,
+            (int)
+            $value,
 
         'float' =>
-            (float) $value,
+            (float)
+            $value,
 
         'bool' =>
             in_array(
                 strtolower(
-                    trim($value)
+                    trim(
+                        $value
+                    )
                 ),
                 [
                     '1',
@@ -391,7 +459,8 @@ function llama_scout_policy_int(
 
 
     if (
-        $value < $minimum
+        $value <
+        $minimum
     ) {
 
         throw new RuntimeException(
@@ -415,12 +484,26 @@ function llama_scout_policy_int(
 
 
 /* =========================================================
+   BOOLEAN POLICY HELPER
+   ========================================================= */
+
+function llama_scout_policy_bool(
+    PDO $db,
+    string $key
+): bool {
+
+    return
+        (bool)
+        llama_scout_policy(
+            $db,
+            $key
+        );
+
+}
+
+
+/* =========================================================
    UPDATE POLICY VALUE
-
-   This is deliberately generic so the future Basecamp Scout
-   Policy page can use the exact same function.
-
-   The setting must already exist in the known policy schema.
    ========================================================= */
 
 function llama_update_scout_policy(
@@ -435,7 +518,9 @@ function llama_update_scout_policy(
 
     if (
         !isset(
-            $defaults[$key]
+            $defaults[
+                $key
+            ]
         )
     ) {
 
@@ -455,17 +540,25 @@ function llama_update_scout_policy(
 
     $type =
         (string)
-        $defaults[$key]['type'];
+        $defaults[
+            $key
+        ][
+            'type'
+        ];
 
 
     $storedValue =
         match ($type) {
 
             'int' =>
-                (string) (int) $value,
+                (string)
+                (int)
+                $value,
 
             'float' =>
-                (string) (float) $value,
+                (string)
+                (float)
+                $value,
 
             'bool' =>
                 $value
@@ -474,7 +567,8 @@ function llama_update_scout_policy(
 
             default =>
                 trim(
-                    (string) $value
+                    (string)
+                    $value
                 ),
 
         };
@@ -487,6 +581,7 @@ function llama_update_scout_policy(
 
             SET
                 policy_value = ?,
+
                 updated_at =
                     CURRENT_TIMESTAMP
 
@@ -505,8 +600,6 @@ function llama_update_scout_policy(
 
 /* =========================================================
    DATE HELPERS
-
-   These keep duration policy outside the maintenance engine.
    ========================================================= */
 
 function llama_policy_add_months(
@@ -533,7 +626,8 @@ function llama_policy_add_months(
             );
 
     } catch (
-        Throwable $exception
+        Throwable
+        $exception
     ) {
 
         throw new RuntimeException(
@@ -583,7 +677,8 @@ function llama_policy_subtract_months(
             );
 
     } catch (
-        Throwable $exception
+        Throwable
+        $exception
     ) {
 
         throw new RuntimeException(
@@ -633,7 +728,8 @@ function llama_policy_add_days(
             );
 
     } catch (
-        Throwable $exception
+        Throwable
+        $exception
     ) {
 
         throw new RuntimeException(
