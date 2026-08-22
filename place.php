@@ -99,7 +99,7 @@ require_once
       aria-hidden="true"
     ></i>
 
-    Loading Scout Report...
+    Loading Place Details...
 
   </div>
 
