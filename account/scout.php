@@ -23,6 +23,10 @@ require_once
     dirname(__DIR__)
     . '/app/place-contributions.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/master-scout.php';
+
 
 require_role(
     'scout'
@@ -154,6 +158,61 @@ function scout_contribution_type_label(
 }
 
 
+function master_requirement_value(
+    mixed $value,
+    bool $requiredSide = false
+): string {
+
+    if (
+        is_bool(
+            $value
+        )
+    ) {
+
+        if (
+            $requiredSide
+        ) {
+
+            return
+                $value
+                    ? 'Required'
+                    : 'Not required';
+
+        }
+
+
+        return
+            $value
+                ? 'Yes'
+                : 'No';
+
+    }
+
+
+    $number =
+        (int)
+        $value;
+
+
+    if (
+        $requiredSide
+        &&
+        $number < 1
+    ) {
+
+        return 'Not set';
+
+    }
+
+
+    return
+        number_format(
+            $number
+        );
+
+}
+
+
 /* =========================================================
    CENTRAL SCOUT SUMMARY
    ========================================================= */
@@ -183,11 +242,6 @@ if (
 
 /* =========================================================
    ACTIVE ACCESS GUARD
-
-   This page is specifically the active Scout Basecamp.
-
-   Inactive former Scouts keep their lifetime points and
-   contribution history, but do not retain active Scout tools.
    ========================================================= */
 
 if (
@@ -357,104 +411,55 @@ $currentPeriodName =
 
 
 /* =========================================================
-   SUBMISSION STATS
-
-   These describe new-place submission workflow only.
-
-   They are separate from contribution points.
+   MASTER SCOUT QUALIFICATION
    ========================================================= */
 
-$stmt =
-    $db->prepare(
-        '
-        SELECT
-
-            COUNT(*) AS total,
-
-            SUM(
-                CASE
-                    WHEN status =
-                        \'approved\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS approved,
-
-            SUM(
-                CASE
-                    WHEN status =
-                        \'pending\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS pending,
-
-            SUM(
-                CASE
-                    WHEN status =
-                        \'needs-changes\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS needs_changes,
-
-            SUM(
-                CASE
-                    WHEN status =
-                        \'rejected\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS rejected
-
-        FROM place_submissions
-
-        WHERE user_id = ?
-
-          AND submitted_at >= ?
-        '
+$masterQualification =
+    llama_master_scout_qualification(
+        $db,
+        $userId
     );
 
 
-$stmt->execute([
-    $userId,
-    $summary[
-        'scout_started_at'
-    ]
-]);
+$masterQualificationEnabled =
+    (bool) (
+        $masterQualification[
+            'enabled'
+        ]
+        ?? false
+    );
 
 
-$submissionStats =
-    $stmt->fetch(
-        PDO::FETCH_ASSOC
+$masterEligible =
+    (bool) (
+        $masterQualification[
+            'eligible'
+        ]
+        ?? false
+    );
+
+
+$masterRequirements =
+    is_array(
+        $masterQualification[
+            'requirements'
+        ]
+        ?? null
     )
-    ?: [];
-
-
-$totalReports =
-    (int) (
-        $submissionStats[
-            'total'
+        ? $masterQualification[
+            'requirements'
         ]
-        ?? 0
-    );
+        : [];
 
 
-$totalPending =
-    (int) (
-        $submissionStats[
-            'pending'
-        ]
-        ?? 0
-    );
-
-
-$totalNeedsChanges =
-    (int) (
-        $submissionStats[
-            'needs_changes'
-        ]
-        ?? 0
+$masterQualificationReason =
+    trim(
+        (string) (
+            $masterQualification[
+                'reason'
+            ]
+            ?? ''
+        )
     );
 
 
@@ -542,52 +547,82 @@ $totalCorrections =
 
 
 /* =========================================================
-   RECENT NEW-PLACE SUBMISSIONS
+   SUBMISSION STATS
    ========================================================= */
 
 $stmt =
     $db->prepare(
         '
         SELECT
-            id,
-            place_name,
-            status,
-            submitted_at,
-            reviewed_at
+
+            COUNT(*) AS total,
+
+            SUM(
+                CASE
+                    WHEN status =
+                        \'pending\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS pending,
+
+            SUM(
+                CASE
+                    WHEN status =
+                        \'needs-changes\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS needs_changes
 
         FROM place_submissions
 
         WHERE user_id = ?
-
-          AND submitted_at >= ?
-
-        ORDER BY
-            submitted_at DESC,
-            id DESC
-
-        LIMIT 6
         '
     );
 
 
 $stmt->execute([
-    $userId,
-    $summary[
-        'scout_started_at'
-    ]
+    $userId
 ]);
 
 
-$recentReports =
-    $stmt->fetchAll(
+$submissionStats =
+    $stmt->fetch(
         PDO::FETCH_ASSOC
+    )
+    ?: [];
+
+
+$totalReports =
+    (int) (
+        $submissionStats[
+            'total'
+        ]
+        ?? 0
+    );
+
+
+$totalPending =
+    (int) (
+        $submissionStats[
+            'pending'
+        ]
+        ?? 0
+    );
+
+
+$totalNeedsChanges =
+    (int) (
+        $submissionStats[
+            'needs_changes'
+        ]
+        ?? 0
     );
 
 
 /* =========================================================
-   RECENT APPROVED CONTRIBUTIONS
-
-   Includes new Places, updates and corrections.
+   RECENT CONTRIBUTIONS
    ========================================================= */
 
 $stmt =
@@ -637,6 +672,44 @@ $stmt->execute([
 
 
 $recentContributions =
+    $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
+
+
+/* =========================================================
+   RECENT SUBMISSIONS
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            id,
+            place_name,
+            status,
+            submitted_at,
+            reviewed_at
+
+        FROM place_submissions
+
+        WHERE user_id = ?
+
+        ORDER BY
+            submitted_at DESC,
+            id DESC
+
+        LIMIT 6
+        '
+    );
+
+
+$stmt->execute([
+    $userId
+]);
+
+
+$recentReports =
     $stmt->fetchAll(
         PDO::FETCH_ASSOC
     );
@@ -703,9 +776,6 @@ $recentContributions =
 
 
     .scout-hero {
-      position: relative;
-      overflow: hidden;
-
       margin-top: 18px;
 
       padding:
@@ -864,9 +934,8 @@ $recentContributions =
     }
 
 
-    .scout-stat {
-      padding: 19px;
-
+    .scout-stat,
+    .scout-section {
       border:
         1px solid
         rgba(
@@ -876,8 +945,6 @@ $recentContributions =
           .11
         );
 
-      border-radius: 15px;
-
       background:
         rgba(
           255,
@@ -885,6 +952,12 @@ $recentContributions =
           255,
           .82
         );
+    }
+
+
+    .scout-stat {
+      padding: 19px;
+      border-radius: 15px;
     }
 
 
@@ -894,7 +967,6 @@ $recentContributions =
       margin-bottom: 6px;
 
       font-size: .78rem;
-
       opacity: .64;
     }
 
@@ -903,7 +975,6 @@ $recentContributions =
       display: block;
 
       font-size: 1.65rem;
-
       line-height: 1;
     }
 
@@ -912,24 +983,7 @@ $recentContributions =
       margin-top: 24px;
       padding: 24px;
 
-      border:
-        1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .11
-        );
-
       border-radius: 18px;
-
-      background:
-        rgba(
-          255,
-          255,
-          255,
-          .82
-        );
     }
 
 
@@ -954,36 +1008,16 @@ $recentContributions =
 
     .scout-section-header p {
       margin: 0;
-
       line-height: 1.55;
-
       opacity: .68;
     }
 
 
     .scout-year-label {
       margin-top: 8px !important;
-
       font-size: .84rem;
       font-weight: 750;
-
       opacity: 1 !important;
-    }
-
-
-    .scout-requirement {
-      display: grid;
-
-      grid-template-columns:
-        minmax(
-          0,
-          1fr
-        )
-        auto;
-
-      gap: 24px;
-
-      align-items: center;
     }
 
 
@@ -1036,53 +1070,183 @@ $recentContributions =
 
     .scout-requirement-copy {
       margin-top: 12px;
-
       line-height: 1.6;
     }
 
 
-    .scout-requirement-badge {
+    .master-progress-list {
+      display: grid;
+      gap: 10px;
+    }
+
+
+    .master-progress-row {
       display: grid;
 
+      grid-template-columns:
+        34px
+        minmax(
+          0,
+          1fr
+        )
+        auto;
+
+      align-items: center;
+
+      gap: 11px;
+
+      padding:
+        12px
+        13px;
+
+      border-radius: 11px;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .045
+        );
+    }
+
+
+    .master-progress-row.is-met {
+      background:
+        rgba(
+          31,
+          122,
+          72,
+          .09
+        );
+    }
+
+
+    .master-progress-row.is-not-met {
+      background:
+        rgba(
+          140,
+          50,
+          50,
+          .06
+        );
+    }
+
+
+    .master-progress-icon {
+      display: grid;
       place-items: center;
 
-      width: 112px;
-      height: 112px;
+      width: 32px;
+      height: 32px;
 
       border-radius: 50%;
 
       background:
-        <?= $requirementMet
-            ? '#172822'
-            : 'rgba(23, 40, 34, .075)'
-        ?>;
-
-      color:
-        <?= $requirementMet
-            ? '#fff'
-            : '#172822'
-        ?>;
-
-      text-align: center;
+        rgba(
+          23,
+          40,
+          34,
+          .07
+        );
     }
 
 
-    .scout-requirement-badge strong {
-      display: block;
-
-      font-size: 2rem;
-
-      line-height: 1;
+    .master-progress-row.is-met
+    .master-progress-icon {
+      color: #267447;
     }
 
 
-    .scout-requirement-badge span {
-      display: block;
+    .master-progress-row.is-not-met
+    .master-progress-icon {
+      color: #9b3434;
+    }
 
-      margin-top: 4px;
 
-      font-size: .72rem;
+    .master-progress-label {
+      font-weight: 750;
+    }
+
+
+    .master-progress-value {
+      font-size: .82rem;
       font-weight: 700;
+      white-space: nowrap;
+    }
+
+
+    .master-progress-state {
+      margin-top: 15px;
+
+      padding:
+        13px
+        14px;
+
+      border-radius: 11px;
+
+      line-height: 1.55;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .055
+        );
+    }
+
+
+    .master-progress-state.is-ready {
+      background:
+        rgba(
+          31,
+          122,
+          72,
+          .11
+        );
+    }
+
+
+    .master-progress-state.is-disabled {
+      background:
+        rgba(
+          217,
+          196,
+          154,
+          .18
+        );
+    }
+
+
+    .master-badge-card {
+      padding: 18px;
+
+      border-radius: 14px;
+
+      background:
+        linear-gradient(
+          145deg,
+          rgba(
+            217,
+            196,
+            154,
+            .18
+          ),
+          rgba(
+            23,
+            40,
+            34,
+            .05
+          )
+        );
+    }
+
+
+    .master-badge-card strong {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 1.1rem;
     }
 
 
@@ -1131,20 +1295,8 @@ $recentContributions =
     }
 
 
-    .scout-tool:hover {
-      background:
-        rgba(
-          23,
-          40,
-          34,
-          .065
-        );
-    }
-
-
     .scout-tool-icon {
       display: grid;
-
       place-items: center;
 
       width: 40px;
@@ -1155,7 +1307,6 @@ $recentContributions =
       border-radius: 10px;
 
       background: #172822;
-
       color: #fff;
     }
 
@@ -1170,9 +1321,7 @@ $recentContributions =
 
     .scout-tool p {
       margin: 0;
-
       line-height: 1.55;
-
       opacity: .7;
     }
 
@@ -1224,9 +1373,7 @@ $recentContributions =
 
     .scout-row-meta {
       margin-top: 4px;
-
       font-size: .81rem;
-
       opacity: .62;
     }
 
@@ -1248,7 +1395,6 @@ $recentContributions =
 
       font-size: .76rem;
       font-weight: 700;
-
       white-space: nowrap;
     }
 
@@ -1276,28 +1422,6 @@ $recentContributions =
 
       font-size: .72rem;
       font-weight: 800;
-    }
-
-
-    .scout-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-
-      padding:
-        11px
-        16px;
-
-      border-radius: 9px;
-
-      background: #172822;
-
-      color: #fff;
-
-      text-decoration: none;
-
-      font-weight: 750;
     }
 
 
@@ -1334,11 +1458,8 @@ $recentContributions =
 
     .scout-record-item span {
       display: block;
-
       margin-bottom: 5px;
-
       font-size: .79rem;
-
       opacity: .64;
     }
 
@@ -1381,12 +1502,6 @@ $recentContributions =
       }
 
 
-      .scout-requirement {
-        grid-template-columns:
-          1fr;
-      }
-
-
       .scout-record-grid {
         grid-template-columns:
           repeat(
@@ -1412,14 +1527,15 @@ $recentContributions =
       }
 
 
-      .scout-row {
+      .scout-row,
+      .master-progress-row {
         grid-template-columns:
           1fr;
       }
 
 
-      .scout-row-status {
-        width: fit-content;
+      .master-progress-value {
+        white-space: normal;
       }
 
     }
@@ -1482,13 +1598,8 @@ require_once
 
 
     <p>
-
       Track your current Scout requirement, lifetime points,
-      approved contributions, and field tools.
-
-      New-place activity determines whether Scout status stays
-      active. Points measure your broader contribution history.
-
+      approved contributions, and progress toward Master Scout.
     </p>
 
 
@@ -1517,7 +1628,6 @@ require_once
         ></i>
 
         Scout since
-
         <?= e(
             $scoutSince
         ) ?>
@@ -1575,17 +1685,17 @@ require_once
 
         <?= $requiredPlaces ?>
 
-        newly approved
+        approved new
 
         <?= $requiredPlaces === 1
-            ? 'place'
-            : 'places'
+            ? 'Place'
+            : 'Places'
         ?>
 
         during this window to return to regular Llama Scout
         status.
 
-        Your lifetime points remain intact either way.
+        Your lifetime points remain intact.
 
       </div>
 
@@ -1660,7 +1770,6 @@ require_once
 
   <section class="scout-section">
 
-
     <div class="scout-section-header">
 
       <div>
@@ -1673,7 +1782,6 @@ require_once
           ) ?>
         </h2>
 
-
         <p>
 
           <?= $requiredPlaces ?>
@@ -1681,17 +1789,16 @@ require_once
           approved new
 
           <?= $requiredPlaces === 1
-              ? 'place is'
-              : 'places are'
+              ? 'Place is'
+              : 'Places are'
           ?>
 
           required during this period.
 
-          Updates, corrections, and extra contributions may
-          earn points, but they do not replace this requirement.
+          Updates, corrections, and points do not replace this
+          requirement.
 
         </p>
-
 
         <p class="scout-year-label">
 
@@ -1716,149 +1823,282 @@ require_once
     </div>
 
 
-    <div class="scout-requirement">
+    <div class="scout-progress-label">
 
+      <span>
+        New-Place progress
+      </span>
 
-      <div>
+      <span>
 
+        <?= $acceptedThisPeriod ?>
 
-        <div class="scout-progress-label">
+        of
 
-          <span>
-            New-place progress
-          </span>
+        <?= $requiredPlaces ?>
 
-          <span>
-
-            <?= $acceptedThisPeriod ?>
-
-            of
-
-            <?= $requiredPlaces ?>
-
-          </span>
-
-        </div>
-
-
-        <div
-          class="scout-progress-track"
-          aria-label="Scout requirement progress"
-        >
-
-          <div
-            class="scout-progress-fill"
-          ></div>
-
-        </div>
-
-
-        <div class="scout-requirement-copy">
-
-
-          <?php if (
-              $requirementMet
-          ): ?>
-
-            <strong>
-              Requirement met.
-            </strong>
-
-            You've completed the new-place requirement for
-            this Scout period.
-
-            You can continue earning lifetime points through
-            additional new Places, approved updates,
-            corrections, and other qualifying contributions.
-
-
-          <?php elseif (
-              $placesRemaining === 1
-          ): ?>
-
-            <strong>
-              One more new Place.
-            </strong>
-
-            One additional approved new Place completes your
-            current Scout requirement.
-
-
-          <?php else: ?>
-
-            <strong>
-
-              <?= $placesRemaining ?>
-
-              new Places to go.
-
-            </strong>
-
-            A new Place counts after the submission is
-            approved.
-
-          <?php endif; ?>
-
-
-        </div>
-
-
-      </div>
-
-
-      <div class="scout-requirement-badge">
-
-
-        <div>
-
-
-          <?php if (
-              $requirementMet
-          ): ?>
-
-            <i
-              class="fa-solid fa-check"
-              aria-hidden="true"
-            ></i>
-
-            <span>
-              Complete
-            </span>
-
-
-          <?php else: ?>
-
-            <strong>
-
-              <?= $acceptedThisPeriod ?>
-
-              /
-
-              <?= $requiredPlaces ?>
-
-            </strong>
-
-            <span>
-              New Places
-            </span>
-
-          <?php endif; ?>
-
-
-        </div>
-
-
-      </div>
-
+      </span>
 
     </div>
 
 
+    <div class="scout-progress-track">
+
+      <div
+        class="scout-progress-fill"
+      ></div>
+
+    </div>
+
+
+    <div class="scout-requirement-copy">
+
+      <?php if (
+          $requirementMet
+      ): ?>
+
+        <strong>
+          Requirement met.
+        </strong>
+
+        You have completed the required new Places for this
+        Scout period.
+
+      <?php elseif (
+          $placesRemaining === 1
+      ): ?>
+
+        <strong>
+          One more new Place.
+        </strong>
+
+        One additional approved new Place completes your
+        current Scout requirement.
+
+      <?php else: ?>
+
+        <strong>
+          <?= $placesRemaining ?>
+          new Places to go.
+        </strong>
+
+        A new Place counts after the submission is approved.
+
+      <?php endif; ?>
+
+    </div>
+
   </section>
 
 
-  <section class="scout-section">
+  <?php if (
+      !$isMasterScout
+  ): ?>
 
+    <section class="scout-section">
+
+      <div class="scout-section-header">
+
+        <div>
+
+          <h2>
+            Master Scout Progress
+          </h2>
+
+          <p>
+            Master Scout recognizes sustained contribution
+            across new Places, updates, corrections, and
+            database stewardship. Every configured
+            requirement must be completed.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <?php if (
+          $masterRequirements
+      ): ?>
+
+        <div class="master-progress-list">
+
+          <?php foreach (
+              $masterRequirements
+              as
+              $masterRequirement
+          ): ?>
+
+            <?php
+
+            $masterRequirementMet =
+                !empty(
+                    $masterRequirement[
+                        'met'
+                    ]
+                );
+
+            ?>
+
+            <div
+              class="
+                master-progress-row
+                <?= $masterRequirementMet
+                    ? 'is-met'
+                    : 'is-not-met'
+                ?>
+              "
+            >
+
+              <span class="master-progress-icon">
+
+                <i
+                  class="
+                    fa-solid
+                    <?= $masterRequirementMet
+                        ? 'fa-check'
+                        : 'fa-xmark'
+                    ?>
+                  "
+                  aria-hidden="true"
+                ></i>
+
+              </span>
+
+
+              <span class="master-progress-label">
+
+                <?= e(
+                    $masterRequirement[
+                        'label'
+                    ]
+                    ?? 'Requirement'
+                ) ?>
+
+              </span>
+
+
+              <span class="master-progress-value">
+
+                <?= e(
+                    master_requirement_value(
+                        $masterRequirement[
+                            'current'
+                        ]
+                        ?? 0
+                    )
+                ) ?>
+
+                /
+
+                <?= e(
+                    master_requirement_value(
+                        $masterRequirement[
+                            'required'
+                        ]
+                        ?? 0,
+                        true
+                    )
+                ) ?>
+
+              </span>
+
+            </div>
+
+          <?php endforeach; ?>
+
+        </div>
+
+      <?php endif; ?>
+
+
+      <div
+        class="
+          master-progress-state
+          <?= !$masterQualificationEnabled
+              ? 'is-disabled'
+              : (
+                  $masterEligible
+                      ? 'is-ready'
+                      : ''
+              )
+          ?>
+        "
+      >
+
+        <?php if (
+            !$masterQualificationEnabled
+        ): ?>
+
+          <strong>
+            Master Scout qualification is not active yet.
+          </strong>
+
+          Your contribution totals are still being tracked.
+          Once the qualification policy is activated, this
+          checklist will show your official progress.
+
+        <?php elseif (
+            $masterEligible
+        ): ?>
+
+          <strong>
+            Master Scout requirements complete.
+          </strong>
+
+          You have met every current qualification
+          requirement. An Admin or Owner can now review your
+          record and promote you to Master Scout.
+
+        <?php else: ?>
+
+          <strong>
+            Keep scouting.
+          </strong>
+
+          <?= e(
+              $masterQualificationReason
+          ) ?>
+
+        <?php endif; ?>
+
+      </div>
+
+    </section>
+
+
+  <?php else: ?>
+
+    <section class="scout-section">
+
+      <div class="master-badge-card">
+
+        <strong>
+
+          <i
+            class="fa-solid fa-award"
+            aria-hidden="true"
+          ></i>
+
+          Master Scout
+
+        </strong>
+
+        You currently hold Master Scout rank.
+
+        Your lifetime contribution history remains permanent,
+        but Master Scout still depends on maintaining active
+        Scout status and the same current-period new-Place
+        requirement as every Llama Scout.
+
+      </div>
+
+    </section>
+
+  <?php endif; ?>
+
+
+  <section class="scout-section">
 
     <div class="scout-section-header">
 
@@ -1900,7 +2140,7 @@ require_once
 
         <p>
           Submit a new dispersed campsite or other qualifying
-          place you've personally visited.
+          Place you have personally visited.
         </p>
 
       </a>
@@ -1925,8 +2165,7 @@ require_once
         </h3>
 
         <p>
-          Review your submitted Places and their moderation
-          status.
+          Review your submitted Places and moderation status.
         </p>
 
       </a>
@@ -1956,7 +2195,7 @@ require_once
 
           <p>
             Review new Place submissions and structured
-            community updates as a Master Scout.
+            updates as a Master Scout.
           </p>
 
         </a>
@@ -1964,43 +2203,12 @@ require_once
       <?php endif; ?>
 
 
-      <?php if (
-          $isMasterScout
-      ): ?>
-
-        <div class="scout-tool">
-
-          <div class="scout-tool-icon">
-
-            <i
-              class="fa-solid fa-award"
-              aria-hidden="true"
-            ></i>
-
-          </div>
-
-          <h3>
-            Master Scout
-          </h3>
-
-          <p>
-            Your account currently holds Master Scout status
-            and Place moderation privileges while active.
-          </p>
-
-        </div>
-
-      <?php endif; ?>
-
-
     </div>
-
 
   </section>
 
 
   <section class="scout-section">
-
 
     <div class="scout-section-header">
 
@@ -2023,9 +2231,7 @@ require_once
         $recentContributions
     ): ?>
 
-
       <div class="scout-list">
-
 
         <?php foreach (
             $recentContributions
@@ -2033,12 +2239,9 @@ require_once
             $contribution
         ): ?>
 
-
           <div class="scout-row">
 
-
             <div>
-
 
               <div class="scout-row-name">
 
@@ -2056,7 +2259,6 @@ require_once
 
               </div>
 
-
               <div class="scout-row-meta">
 
                 <?= e(
@@ -2068,7 +2270,6 @@ require_once
                     )
                 ) ?>
 
-
                 <?php if (
                     !empty(
                         $contribution[
@@ -2077,7 +2278,7 @@ require_once
                     )
                 ): ?>
 
-                  · Visited
+                  Â· Visited
 
                   <?= e(
                       format_scout_date(
@@ -2096,7 +2297,7 @@ require_once
                     )
                 ): ?>
 
-                  · Approved
+                  Â· Approved
 
                   <?= e(
                       format_scout_date(
@@ -2109,14 +2310,12 @@ require_once
 
                 <?php endif; ?>
 
-
                 <?php if (
                     (int)
                     $contribution[
                         'points_awarded'
                     ]
-                    >
-                    0
+                    > 0
                 ): ?>
 
                   <span class="scout-points-badge">
@@ -2135,47 +2334,32 @@ require_once
 
                 <?php endif; ?>
 
-
               </div>
 
-
             </div>
-
 
             <span class="scout-row-status">
               Approved
             </span>
 
-
           </div>
-
 
         <?php endforeach; ?>
 
-
       </div>
-
 
     <?php else: ?>
 
-
       <div class="scout-empty">
-
-        <p>
-          No approved contributions are recorded yet.
-        </p>
-
+        No approved contributions are recorded yet.
       </div>
 
-
     <?php endif; ?>
-
 
   </section>
 
 
   <section class="scout-section">
-
 
     <div class="scout-section-header">
 
@@ -2191,20 +2375,6 @@ require_once
 
       </div>
 
-
-      <?php if (
-          $recentReports
-      ): ?>
-
-        <a
-          href="submissions.php"
-          class="scout-button"
-        >
-          View All
-        </a>
-
-      <?php endif; ?>
-
     </div>
 
 
@@ -2212,9 +2382,7 @@ require_once
         $recentReports
     ): ?>
 
-
       <div class="scout-list">
-
 
         <?php foreach (
             $recentReports
@@ -2222,23 +2390,17 @@ require_once
             $report
         ): ?>
 
-
           <div class="scout-row">
-
 
             <div>
 
-
               <div class="scout-row-name">
-
                 <?= e(
                     $report[
                         'place_name'
                     ]
                 ) ?>
-
               </div>
-
 
               <div class="scout-row-meta">
 
@@ -2253,34 +2415,9 @@ require_once
                     )
                 ) ?>
 
-
-                <?php if (
-                    !empty(
-                        $report[
-                            'reviewed_at'
-                        ]
-                    )
-                ): ?>
-
-                  · Reviewed
-
-                  <?= e(
-                      format_scout_date(
-                          $report[
-                              'reviewed_at'
-                          ],
-                          $user
-                      )
-                  ) ?>
-
-                <?php endif; ?>
-
-
               </div>
 
-
             </div>
-
 
             <span class="scout-row-status">
 
@@ -2295,51 +2432,24 @@ require_once
 
             </span>
 
-
           </div>
-
 
         <?php endforeach; ?>
 
-
       </div>
-
 
     <?php else: ?>
 
-
       <div class="scout-empty">
-
-        <p>
-          You haven't submitted a new Place yet.
-        </p>
-
-
-        <a
-          href="scout-place.php"
-          class="scout-button"
-        >
-
-          <i
-            class="fa-solid fa-location-dot"
-            aria-hidden="true"
-          ></i>
-
-          Add Your First Place
-
-        </a>
-
+        You have not submitted a new Place yet.
       </div>
 
-
     <?php endif; ?>
-
 
   </section>
 
 
   <section class="scout-section">
-
 
     <div class="scout-section-header">
 
@@ -2351,7 +2461,8 @@ require_once
 
         <p>
           Lifetime contribution history stays with your
-          account. Points are earned, not routinely removed.
+          account. Points are earned and are not routinely
+          removed.
         </p>
 
       </div>
@@ -2484,7 +2595,6 @@ require_once
 
 
     </div>
-
 
   </section>
 
