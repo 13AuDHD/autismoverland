@@ -10,25 +10,38 @@ require_once
     dirname(__DIR__)
     . '/app/role-display.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/timezone.php';
+
 
 require_role(
     'admin'
 );
 
+
 $user =
     current_user();
 
+
+$db =
+    db();
+
+
+$userId =
+    (int)
+    $user['id'];
+
+
 $primaryRoleLabel =
     llama_primary_role_label(
-        (int)
-        $user['id']
+        $userId
     );
 
 
 $primaryRoleIcon =
     llama_primary_role_icon(
-        (int)
-        $user['id']
+        $userId
     );
 
 
@@ -55,7 +68,6 @@ if (
                 32
             )
         );
-
 }
 
 
@@ -74,11 +86,11 @@ function e(
 ): string {
 
     return htmlspecialchars(
-        (string) $value,
+        (string)
+        $value,
         ENT_QUOTES,
         'UTF-8'
     );
-
 }
 
 
@@ -110,9 +122,7 @@ function admin_submission_status_label(
                     $status
                 )
             ),
-
     };
-
 }
 
 
@@ -135,43 +145,30 @@ function admin_submission_badge_class(
 
         default =>
             'admin-badge--info',
-
     };
-
 }
 
 
 function admin_format_date(
-    ?string $date
+    ?string $date,
+    array $user
 ): string {
 
-    if (!$date) {
-
-        return '';
-
-    }
-
-
-    $timestamp =
-        strtotime(
-            $date
-        );
-
-
     if (
-        $timestamp === false
+        !$date
     ) {
 
-        return $date;
-
+        return '';
     }
 
 
-    return date(
-        'F j, Y g:i A',
-        $timestamp
+    return llama_format_datetime(
+        $date,
+        llama_user_timezone(
+            $user
+        ),
+        'F j, Y g:i A'
     );
-
 }
 
 
@@ -185,7 +182,8 @@ function nested_value(
 
 
     foreach (
-        $path as $key
+        $path as
+        $key
     ) {
 
         if (
@@ -200,7 +198,6 @@ function nested_value(
         ) {
 
             return null;
-
         }
 
 
@@ -208,12 +205,11 @@ function nested_value(
             $value[
                 $key
             ];
-
     }
 
 
-    return $value;
-
+    return
+        $value;
 }
 
 
@@ -226,7 +222,6 @@ function display_value(
     ) {
 
         return 'Unknown';
-
     }
 
 
@@ -235,7 +230,6 @@ function display_value(
     ) {
 
         return 'Yes';
-
     }
 
 
@@ -244,7 +238,6 @@ function display_value(
     ) {
 
         return 'No';
-
     }
 
 
@@ -255,400 +248,91 @@ function display_value(
     ) {
 
         return '';
-
     }
 
 
     return
-        (string) $value;
-
+        (string)
+        $value;
 }
 
 
 /* =========================================================
-   SCOUT ACTIVITY
+   SCOUT REPORT IDENTIFICATION
+
+   source_type is deliberately NOT used.
+
+   A submission is a Scout Report when its original
+   submitted_at is on or after the user's original
+   scout_started_at.
+
+   This remains historical even if the person is no longer
+   an active Scout.
    ========================================================= */
 
-/*
- * Find the submitter's active Scout profile.
- */
-
-function active_scout_profile_for_user(
-    PDO $db,
-    int $userId
-): ?array {
-
-    $stmt =
-        $db->prepare(
-            '
-            SELECT
-                id,
-                user_id,
-                status,
-                scout_started_at,
-                active_through
-
-            FROM scout_profiles
-
-            WHERE user_id = ?
-              AND status = \'active\'
-
-            LIMIT 1
-            '
-        );
-
-
-    $stmt->execute([
-        $userId
-    ]);
-
-
-    $row =
-        $stmt->fetch(
-            PDO::FETCH_ASSOC
-        );
-
-
-    return
-        $row
-            ?: null;
-
-}
-
-
-/*
- * A submission only counts toward Scout activity if it was
- * submitted AFTER the person officially became a Scout.
- *
- * This prevents an older Community Scouted submission from
- * becoming Scout credit simply because it was reviewed after
- * the user's promotion.
- */
-
-function submission_qualifies_as_scout_report(
-    array $submission,
-    array $scoutProfile
+function admin_submission_is_scout_report(
+    ?string $submittedAt,
+    ?string $scoutStartedAt
 ): bool {
 
-    $submittedAt =
-        strtotime(
-            (string) (
-                $submission[
-                    'submitted_at'
-                ]
-                ?? ''
-            )
-        );
-
-
-    $scoutStartedAt =
-        strtotime(
-            (string) (
-                $scoutProfile[
-                    'scout_started_at'
-                ]
-                ?? ''
-            )
-        );
-
-
     if (
-        $submittedAt === false
+        !$submittedAt
         ||
-        $scoutStartedAt === false
+        !$scoutStartedAt
     ) {
 
         return false;
-
     }
 
 
-    return
-        $submittedAt
-        >=
-        $scoutStartedAt;
-
-}
-
-
-/*
- * Record one accepted Scout Report.
- *
- * Points stay at zero for now because we have NOT designed
- * the Scout point system yet.
- *
- * The unique database key prevents the same submission from
- * being credited more than once.
- */
-
-function record_scout_report_approval(
-    PDO $db,
-    array $scoutProfile,
-    int $submissionId
-): bool {
-
-    $stmt =
-        $db->prepare(
-            '
-            INSERT IGNORE INTO scout_activity
-            (
-                scout_profile_id,
-                user_id,
-                activity_type,
-                place_id,
-                submission_id,
-                points,
-                occurred_at
-            )
-
-            VALUES
-            (
-                ?,
-                ?,
-                \'place_approved\',
-                NULL,
-                ?,
-                0,
-                CURRENT_TIMESTAMP
-            )
-            '
+    $submittedTimestamp =
+        strtotime(
+            $submittedAt
         );
 
 
-    $stmt->execute([
-
-        (int)
-        $scoutProfile[
-            'id'
-        ],
-
-        (int)
-        $scoutProfile[
-            'user_id'
-        ],
-
-        $submissionId
-
-    ]);
-
-
-    return
-        $stmt->rowCount()
-        > 0;
-
-}
-
-
-/*
- * If approval is reversed before the Scout year is renewed,
- * remove that report's Scout credit too.
- */
-
-function remove_scout_report_approval(
-    PDO $db,
-    int $submissionId
-): void {
-
-    $stmt =
-        $db->prepare(
-            '
-            DELETE FROM scout_activity
-
-            WHERE submission_id = ?
-              AND activity_type = \'place_approved\'
-            '
-        );
-
-
-    $stmt->execute([
-        $submissionId
-    ]);
-
-}
-
-
-/*
- * Count qualifying reports in the CURRENT Scout year.
- *
- * active_through marks the end of the Scout year.
- * One year before active_through marks its beginning.
- *
- * Example:
- *
- * Aug 20 2026 → Aug 20 2027
- *
- * Reports outside that window do not count toward that
- * particular year's 3-report requirement.
- */
-
-function current_scout_year_progress(
-    PDO $db,
-    array $scoutProfile
-): array {
-
-    $scoutProfileId =
-        (int)
-        $scoutProfile[
-            'id'
-        ];
-
-
-    $activeThrough =
-        (string) (
-            $scoutProfile[
-                'active_through'
-            ]
-            ?? ''
+    $scoutStartedTimestamp =
+        strtotime(
+            $scoutStartedAt
         );
 
 
     if (
-        $scoutProfileId < 1
+        $submittedTimestamp === false
         ||
-        $activeThrough === ''
+        $scoutStartedTimestamp === false
     ) {
 
-        return [
-            'accepted' => 0,
-            'required' => 3,
-            'met' => false,
-            'year_start' => null,
-            'year_end' => null,
-        ];
-
+        return false;
     }
 
 
-    $endTimestamp =
-        strtotime(
-            $activeThrough
-        );
-
-
-    if (
-        $endTimestamp === false
-    ) {
-
-        return [
-            'accepted' => 0,
-            'required' => 3,
-            'met' => false,
-            'year_start' => null,
-            'year_end' => null,
-        ];
-
-    }
-
-
-    $startTimestamp =
-        strtotime(
-            '-1 year',
-            $endTimestamp
-        );
-
-
-    $scoutStartedAt =
-    trim(
-        (string) (
-            $scoutProfile[
-                'scout_started_at'
-            ]
-            ?? ''
-        )
-    );
-
-
-    if (
-        $scoutStartedAt !== ''
-    ) {
-    
-        $scoutStartedTimestamp =
-            strtotime(
-                $scoutStartedAt
-            );
-    
-    
-        if (
-            $scoutStartedTimestamp !== false
-            &&
-            $scoutStartedTimestamp
-            >
-            $startTimestamp
-        ) {
-    
-            $startTimestamp =
-                $scoutStartedTimestamp;
-        }
-    }
-    
-
-    $yearStart =
-        date(
-            'Y-m-d H:i:s',
-            $startTimestamp
-        );
-
-
-    $yearEnd =
-        date(
-            'Y-m-d H:i:s',
-            $endTimestamp
-        );
-
-
-    $stmt =
-        $db->prepare(
-            '
-            SELECT COUNT(*)
-
-            FROM scout_activity
-
-            WHERE scout_profile_id = ?
-
-              AND activity_type =
-                  \'place_approved\'
-
-              AND occurred_at >= ?
-
-              AND occurred_at < ?
-            '
-        );
-
-
-    $stmt->execute([
-        $scoutProfileId,
-        $yearStart,
-        $yearEnd
-    ]);
-
-
-    $accepted =
-        (int)
-        $stmt->fetchColumn();
-
-
-    return [
-        'accepted' =>
-            $accepted,
-
-        'required' =>
-            3,
-
-        'met' =>
-            $accepted >= 3,
-
-        'year_start' =>
-            $yearStart,
-
-        'year_end' =>
-            $yearEnd,
-    ];
-
+    return
+        $submittedTimestamp
+        >=
+        $scoutStartedTimestamp;
 }
 
 
 /* =========================================================
-   HANDLE REVIEW ACTION
+   REVIEW ACTIONS
+
+   Approval is NOT handled here.
+
+   The only valid state transitions on this page are:
+
+   pending
+     -> needs-changes
+     -> rejected
+
+   needs-changes
+     -> pending
+
+   rejected
+     -> pending
+
+   Once approved or linked to a Place, the submission review
+   lifecycle is finished permanently.
    ========================================================= */
 
 $actionMessage =
@@ -662,7 +346,9 @@ $actionError =
 if (
     $_SERVER[
         'REQUEST_METHOD'
-    ] === 'POST'
+    ]
+    ===
+    'POST'
 ) {
 
     $submittedToken =
@@ -699,12 +385,14 @@ if (
 
 
         $newStatus =
-            trim(
-                (string) (
-                    $_POST[
-                        'status'
-                    ]
-                    ?? ''
+            strtolower(
+                trim(
+                    (string) (
+                        $_POST[
+                            'status'
+                        ]
+                        ?? ''
+                    )
                 )
             );
 
@@ -720,21 +408,16 @@ if (
             );
 
 
-        $allowedStatuses = [
-        
-            'needs-changes',
-            'rejected',
-            'pending',
-        
-        ];
-
-
         if (
             $submissionId < 1
             ||
             !in_array(
                 $newStatus,
-                $allowedStatuses,
+                [
+                    'needs-changes',
+                    'rejected',
+                    'pending'
+                ],
                 true
             )
         ) {
@@ -757,14 +440,10 @@ if (
         ) {
 
             $actionError =
-                'Add review notes before requesting changes or rejecting a submission.';
+                'Add review notes before requesting changes or not approving a submission.';
 
 
         } else {
-
-            $db =
-                db();
-
 
             try {
 
@@ -772,21 +451,17 @@ if (
 
 
                 /* =========================================
-                   LOCK SUBMISSION
+                   LOCK CURRENT SUBMISSION
                    ========================================= */
 
-                $stmt =
+                $lockStmt =
                     $db->prepare(
                         '
                         SELECT
                             id,
                             user_id,
                             place_id,
-                            place_name,
-                            source_type,
-                            status,
-                            submitted_at,
-                            reviewed_at
+                            status
 
                         FROM place_submissions
 
@@ -799,60 +474,118 @@ if (
                     );
 
 
-                $stmt->execute([
+                $lockStmt->execute([
                     $submissionId
                 ]);
 
 
-                $submission =
-                    $stmt->fetch(
+                $lockedSubmission =
+                    $lockStmt->fetch(
                         PDO::FETCH_ASSOC
                     );
 
 
                 if (
-                    !$submission
+                    !$lockedSubmission
                 ) {
 
-                    throw new RuntimeException(
-                        'Submission not found.'
+                    throw new DomainException(
+                        'The submission could not be found.'
                     );
-
                 }
 
 
-                $submissionUserId =
-                    (int)
-                    $submission[
-                        'user_id'
-                    ];
-
-
                 $oldStatus =
-                    (string)
-                    $submission[
-                        'status'
-                    ];
-
-                    if (
-                        !empty(
-                            $submission[
-                                'place_id'
-                            ]
+                    strtolower(
+                        trim(
+                            (string) (
+                                $lockedSubmission[
+                                    'status'
+                                ]
+                                ?? ''
+                            )
                         )
-                    ) {
-    
-                        throw new RuntimeException(
-                            'This submission has already been published as a Place and can no longer be moved backward through the submission review workflow.'
-                        );
-    
-                    }
+                    );
+
 
                 /* =========================================
-                   SAVE REVIEW RESULT
+                   PUBLISHED / APPROVED GUARD
                    ========================================= */
 
-                $stmt =
+                if (
+                    !empty(
+                        $lockedSubmission[
+                            'place_id'
+                        ]
+                    )
+                ) {
+
+                    throw new DomainException(
+                        'This submission has already been published as a Llama Scout Place. Make further changes in the Place editor.'
+                    );
+                }
+
+
+                if (
+                    $oldStatus ===
+                    'approved'
+                ) {
+
+                    throw new DomainException(
+                        'An approved submission cannot be returned to the review workflow.'
+                    );
+                }
+
+
+                /* =========================================
+                   VALID STATE TRANSITION
+                   ========================================= */
+
+                $validTransition =
+                    (
+                        $oldStatus ===
+                        'pending'
+                        &&
+                        in_array(
+                            $newStatus,
+                            [
+                                'needs-changes',
+                                'rejected'
+                            ],
+                            true
+                        )
+                    )
+                    ||
+                    (
+                        in_array(
+                            $oldStatus,
+                            [
+                                'needs-changes',
+                                'rejected'
+                            ],
+                            true
+                        )
+                        &&
+                        $newStatus ===
+                        'pending'
+                    );
+
+
+                if (
+                    !$validTransition
+                ) {
+
+                    throw new DomainException(
+                        'That submission state change is no longer valid. Reload the submission and try again.'
+                    );
+                }
+
+
+                /* =========================================
+                   SAVE WITH STALE-STATE GUARD
+                   ========================================= */
+
+                $updateStmt =
                     $db->prepare(
                         '
                         UPDATE place_submissions
@@ -868,11 +601,13 @@ if (
                             reviewed_by = ?
 
                         WHERE id = ?
+                          AND status = ?
+                          AND place_id IS NULL
                         '
                     );
 
 
-                $stmt->execute([
+                $updateStmt->execute([
 
                     $newStatus,
 
@@ -880,111 +615,28 @@ if (
                         ? $reviewNotes
                         : null,
 
-                    (int)
-                    $user[
-                        'id'
-                    ],
+                    $userId,
 
-                    $submissionId
+                    $submissionId,
 
+                    $oldStatus
                 ]);
 
 
-                /* =========================================
-                   ACTIVE SCOUT
-                   ========================================= */
-
-                $scoutProfile =
-                    active_scout_profile_for_user(
-                        $db,
-                        $submissionUserId
-                    );
-
-
-                $newScoutCredit =
-                    false;
-
-
-                $scoutProgress =
-                    null;
-
-
-                /* =========================================
-                   NEW APPROVAL
-                   ========================================= */
-
                 if (
-                    $newStatus ===
-                    'approved'
-                    &&
-                    $scoutProfile
-                    &&
-                    submission_qualifies_as_scout_report(
-                        $submission,
-                        $scoutProfile
-                    )
+                    $updateStmt->rowCount()
+                    !==
+                    1
                 ) {
 
-                    $newScoutCredit =
-                        record_scout_report_approval(
-                            $db,
-                            $scoutProfile,
-                            $submissionId
-                        );
-
-
-                    $scoutProgress =
-                        current_scout_year_progress(
-                            $db,
-                            $scoutProfile
-                        );
-
-                }
-
-
-                /* =========================================
-                   APPROVAL REVERSED
-                   ========================================= */
-
-                if (
-                    $oldStatus ===
-                    'approved'
-                    &&
-                    $newStatus !==
-                    'approved'
-                ) {
-
-                    remove_scout_report_approval(
-                        $db,
-                        $submissionId
+                    throw new DomainException(
+                        'The submission changed before your review could be saved. Reload the page and try again.'
                     );
-
-
-                    if (
-                        $scoutProfile
-                    ) {
-
-                        $scoutProgress =
-                            current_scout_year_progress(
-                                $db,
-                                $scoutProfile
-                            );
-
-                    }
-
                 }
 
-
-                /* =========================================
-                   COMMIT
-                   ========================================= */
 
                 $db->commit();
 
-
-                /* =========================================
-                   MESSAGE
-                   ========================================= */
 
                 $actionMessage =
                     'Submission updated to '
@@ -996,53 +648,21 @@ if (
                     '.';
 
 
+            } catch (
+                DomainException $exception
+            ) {
+
                 if (
-                    $newScoutCredit
+                    $db->inTransaction()
                 ) {
 
-                    $actionMessage .=
-                        ' This report was added to the Scout\'s current-year activity.';
-
+                    $db->rollBack();
                 }
 
 
-                if (
-                    is_array(
-                        $scoutProgress
-                    )
-                ) {
-
-                    $accepted =
-                        (int)
-                        $scoutProgress[
-                            'accepted'
-                        ];
-
-
-                    if (
-                        $accepted >= 3
-                    ) {
-
-                        $actionMessage .=
-                            ' Their Scout-year requirement is complete at '
-                            .
-                            $accepted
-                            .
-                            ' accepted reports.';
-
-
-                    } else {
-
-                        $actionMessage .=
-                            ' Scout-year progress: '
-                            .
-                            $accepted
-                            .
-                            ' of 3 accepted reports.';
-
-                    }
-
-                }
+                $actionError =
+                    $exception
+                        ->getMessage();
 
 
             } catch (
@@ -1054,7 +674,6 @@ if (
                 ) {
 
                     $db->rollBack();
-
                 }
 
 
@@ -1068,13 +687,9 @@ if (
 
                 $actionError =
                     'Something went wrong while saving the review. Nothing was changed.';
-
             }
-
         }
-
     }
-
 }
 
 
@@ -1114,7 +729,6 @@ if (
 
     $filter =
         'pending';
-
 }
 
 
@@ -1123,32 +737,46 @@ if (
    ========================================================= */
 
 $countRows =
-    db()
-    ->query(
-        '
-        SELECT
-            status,
-            COUNT(*) AS total
-        FROM place_submissions
-        GROUP BY status
-        '
-    )
-    ->fetchAll();
+    $db
+        ->query(
+            '
+            SELECT
+                status,
+                COUNT(*) AS total
+
+            FROM place_submissions
+
+            GROUP BY status
+            '
+        )
+        ->fetchAll(
+            PDO::FETCH_ASSOC
+        );
 
 
 $counts = [
 
-    'pending' => 0,
-    'needs-changes' => 0,
-    'approved' => 0,
-    'rejected' => 0,
-    'all' => 0,
+    'pending' =>
+        0,
+
+    'needs-changes' =>
+        0,
+
+    'approved' =>
+        0,
+
+    'rejected' =>
+        0,
+
+    'all' =>
+        0,
 
 ];
 
 
 foreach (
-    $countRows as $row
+    $countRows as
+    $row
 ) {
 
     $status =
@@ -1176,7 +804,6 @@ foreach (
             $status
         ] =
             $total;
-
     }
 
 
@@ -1184,7 +811,6 @@ foreach (
         'all'
     ] +=
         $total;
-
 }
 
 
@@ -1197,6 +823,7 @@ $sql =
     SELECT
         ps.id,
         ps.user_id,
+        ps.place_id,
         ps.place_name,
         ps.source_type,
         ps.status,
@@ -1209,12 +836,19 @@ $sql =
 
         u.username,
         u.display_name,
-        u.email
+        u.email,
+
+        sp.scout_started_at
 
     FROM place_submissions ps
 
-    JOIN users u
-      ON u.id = ps.user_id
+    INNER JOIN users u
+      ON u.id =
+         ps.user_id
+
+    LEFT JOIN scout_profiles sp
+      ON sp.user_id =
+         ps.user_id
     ';
 
 
@@ -1222,7 +856,8 @@ $params = [];
 
 
 if (
-    $filter !== 'all'
+    $filter !==
+    'all'
 ) {
 
     $sql .=
@@ -1233,25 +868,27 @@ if (
 
     $params[] =
         $filter;
-
 }
 
 
 $sql .=
     '
     ORDER BY
+
         CASE
-            WHEN ps.status = "pending"
-                THEN 0
+            WHEN ps.status =
+                \'pending\'
+            THEN 0
             ELSE 1
         END,
-        ps.submitted_at ASC
+
+        ps.submitted_at ASC,
+        ps.id ASC
     ';
 
 
 $stmt =
-    db()
-    ->prepare(
+    $db->prepare(
         $sql
     );
 
@@ -1262,7 +899,9 @@ $stmt->execute(
 
 
 $submissions =
-    $stmt->fetchAll();
+    $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
 
 
 /* =========================================================
@@ -1282,7 +921,8 @@ $selectedSubmission =
     null;
 
 
-$selectedData = [];
+$selectedData =
+    [];
 
 
 if (
@@ -1290,20 +930,26 @@ if (
 ) {
 
     $selectedStmt =
-        db()
-        ->prepare(
+        $db->prepare(
             '
             SELECT
                 ps.*,
 
                 u.username,
                 u.display_name,
-                u.email
+                u.email,
+
+                sp.scout_started_at
 
             FROM place_submissions ps
 
-            JOIN users u
-              ON u.id = ps.user_id
+            INNER JOIN users u
+              ON u.id =
+                 ps.user_id
+
+            LEFT JOIN scout_profiles sp
+              ON sp.user_id =
+                 ps.user_id
 
             WHERE ps.id = ?
 
@@ -1319,7 +965,9 @@ if (
 
     $selectedSubmission =
         $selectedStmt
-        ->fetch();
+            ->fetch(
+                PDO::FETCH_ASSOC
+            );
 
 
     if (
@@ -1328,6 +976,7 @@ if (
 
         $decoded =
             json_decode(
+                (string)
                 $selectedSubmission[
                     'submission_data'
                 ],
@@ -1343,18 +992,88 @@ if (
 
             $selectedData =
                 $decoded;
-
         }
-
     }
-
 }
 
 
-$displayName =
-    $user['display_name']
-    ?: $user['username']
-    ?: $user['email'];
+/* =========================================================
+   SELECTED STATE
+   ========================================================= */
+
+$selectedStatus =
+    $selectedSubmission
+        ? strtolower(
+            trim(
+                (string) (
+                    $selectedSubmission[
+                        'status'
+                    ]
+                    ?? ''
+                )
+            )
+        )
+        : '';
+
+
+$selectedIsPublished =
+    $selectedSubmission
+    &&
+    !empty(
+        $selectedSubmission[
+            'place_id'
+        ]
+    );
+
+
+$selectedIsScoutReport =
+    $selectedSubmission
+        ? admin_submission_is_scout_report(
+            $selectedSubmission[
+                'submitted_at'
+            ]
+            ?? null,
+
+            $selectedSubmission[
+                'scout_started_at'
+            ]
+            ?? null
+        )
+        : false;
+
+
+$canApprove =
+    $selectedSubmission
+    &&
+    !$selectedIsPublished
+    &&
+    $selectedStatus ===
+        'pending';
+
+
+$canSendBack =
+    $selectedSubmission
+    &&
+    !$selectedIsPublished
+    &&
+    $selectedStatus ===
+        'pending';
+
+
+$canReturnPending =
+    $selectedSubmission
+    &&
+    !$selectedIsPublished
+    &&
+    in_array(
+        $selectedStatus,
+        [
+            'needs-changes',
+            'rejected'
+        ],
+        true
+    );
+
 
 ?>
 <!doctype html>
@@ -1371,7 +1090,7 @@ $displayName =
   >
 
   <title>
-    Community Submissions | Llama Scout Admin
+    Community Submissions | Llama Scout Basecamp
   </title>
 
   <meta
@@ -1463,10 +1182,6 @@ require_once
 <main class="admin-main">
 
 
-  <!-- =====================================================
-       PAGE INTRO
-       ===================================================== -->
-
   <section class="admin-intro">
 
     <div class="admin-intro-row">
@@ -1474,23 +1189,26 @@ require_once
       <div class="admin-intro-copy">
 
         <p class="admin-eyebrow">
-        
+
           <i
             class="<?= e($primaryRoleIcon) ?>"
             aria-hidden="true"
           ></i>
-        
+
           Llama Scout
           <?= e($primaryRoleLabel) ?>
-        
+
         </p>
+
 
         <h1>
           Community Submissions
         </h1>
 
+
         <p>
-          Review places submitted by Llama Scout members.
+          Review Community Scouted submissions and Scout
+          Reports before they become Llama Scout Places.
         </p>
 
       </div>
@@ -1500,10 +1218,6 @@ require_once
   </section>
 
 
-<!-- =====================================================
-     BASECAMP NAVIGATION
-     ===================================================== -->
-
 <?php
 
 require
@@ -1512,10 +1226,6 @@ require
 
 ?>
 
-
-  <!-- =====================================================
-       NOTICES
-       ===================================================== -->
 
   <?php if (
       $actionMessage
@@ -1529,9 +1239,7 @@ require
     >
 
       <p>
-        <?= e(
-            $actionMessage
-        ) ?>
+        <?= e($actionMessage) ?>
       </p>
 
     </div>
@@ -1551,9 +1259,7 @@ require
     >
 
       <p>
-        <?= e(
-            $actionError
-        ) ?>
+        <?= e($actionError) ?>
       </p>
 
     </div>
@@ -1561,132 +1267,70 @@ require
   <?php endif; ?>
 
 
-  <!-- =====================================================
-       COUNTS / FILTERS
-       ===================================================== -->
-
   <section
     class="admin-stats admin-stats--5"
     aria-label="Submission statistics"
   >
 
-    <article class="admin-stat">
 
-      <span class="admin-stat-label">
-        Pending
-      </span>
+    <?php
 
-      <strong class="admin-stat-value">
-        <?= (int)
-            $counts[
-                'pending'
-            ]
-        ?>
-      </strong>
+    $statLabels = [
 
-    </article>
+        'pending' =>
+            'Pending',
 
+        'needs-changes' =>
+            'Needs Changes',
 
-    <article class="admin-stat">
+        'approved' =>
+            'Approved',
 
-      <span class="admin-stat-label">
-        Needs Changes
-      </span>
+        'rejected' =>
+            'Not Approved',
 
-      <strong class="admin-stat-value">
-        <?= (int)
-            $counts[
-                'needs-changes'
-            ]
-        ?>
-      </strong>
+        'all' =>
+            'All',
+    ];
 
-    </article>
+    ?>
 
 
-    <article class="admin-stat">
+    <?php foreach (
+        $statLabels as
+        $statKey =>
+        $statLabel
+    ): ?>
 
-      <span class="admin-stat-label">
-        Approved
-      </span>
+      <article class="admin-stat">
 
-      <strong class="admin-stat-value">
-        <?= (int)
-            $counts[
-                'approved'
-            ]
-        ?>
-      </strong>
+        <span class="admin-stat-label">
+          <?= e($statLabel) ?>
+        </span>
 
-    </article>
+        <strong class="admin-stat-value">
+          <?= (int)
+              $counts[
+                  $statKey
+              ]
+          ?>
+        </strong>
 
+      </article>
 
-    <article class="admin-stat">
+    <?php endforeach; ?>
 
-      <span class="admin-stat-label">
-        Not Approved
-      </span>
-
-      <strong class="admin-stat-value">
-        <?= (int)
-            $counts[
-                'rejected'
-            ]
-        ?>
-      </strong>
-
-    </article>
-
-
-    <article class="admin-stat">
-
-      <span class="admin-stat-label">
-        All
-      </span>
-
-      <strong class="admin-stat-value">
-        <?= (int)
-            $counts[
-                'all'
-            ]
-        ?>
-      </strong>
-
-    </article>
 
   </section>
-
-
-  <?php
-
-  $filterLabels = [
-
-      'pending' =>
-          'Pending',
-
-      'needs-changes' =>
-          'Needs Changes',
-
-      'approved' =>
-          'Approved',
-
-      'rejected' =>
-          'Not Approved',
-
-      'all' =>
-          'All',
-
-  ];
-
-  ?>
 
 
   <div class="admin-toolbar">
 
     <div class="admin-toolbar-left">
 
+
       <?php foreach (
-          $filterLabels as
+          $statLabels as
           $filterKey =>
           $filterLabel
       ): ?>
@@ -1701,15 +1345,12 @@ require
                     : 'admin-button--secondary'
             ?>
           "
-
           href="?status=<?= e(
               $filterKey
           ) ?>"
         >
 
-          <?= e(
-              $filterLabel
-          ) ?>
+          <?= e($filterLabel) ?>
 
           <span>
             <?= (int)
@@ -1723,23 +1364,17 @@ require
 
       <?php endforeach; ?>
 
+
     </div>
 
   </div>
 
 
-  <!-- =====================================================
-       REVIEW LAYOUT
-       ===================================================== -->
-
   <div class="admin-detail-grid">
 
 
-    <!-- ===================================================
-         QUEUE
-         =================================================== -->
-
     <section class="admin-panel">
+
 
       <div class="admin-panel-header">
 
@@ -1750,16 +1385,20 @@ require
           </h2>
 
           <p>
+
             <?= count(
                 $submissions
             ) ?>
+
             submission<?= count(
                 $submissions
             ) === 1
                 ? ''
                 : 's'
             ?>
+
             in this view.
+
           </p>
 
         </div>
@@ -1790,21 +1429,34 @@ require
                     'id'
                 ];
 
+
+            $isScoutReport =
+                admin_submission_is_scout_report(
+                    $submission[
+                        'submitted_at'
+                    ]
+                    ?? null,
+
+                    $submission[
+                        'scout_started_at'
+                    ]
+                    ?? null
+                );
+
             ?>
 
 
             <div class="admin-detail-row">
 
+
               <div class="admin-detail-value">
 
                 <strong>
-
                   <?= e(
                       $submission[
                           'place_name'
                       ]
                   ) ?>
-
                 </strong>
 
 
@@ -1814,10 +1466,12 @@ require
                       $submission[
                           'display_name'
                       ]
-                      ?: $submission[
+                      ?:
+                      $submission[
                           'username'
                       ]
-                      ?: $submission[
+                      ?:
+                      $submission[
                           'email'
                       ]
                   ) ?>
@@ -1831,7 +1485,8 @@ require
                       admin_format_date(
                           $submission[
                               'submitted_at'
-                          ]
+                          ],
+                          $user
                       )
                   ) ?>
 
@@ -1865,6 +1520,21 @@ require
 
                   </span>
 
+
+                  <span
+                    class="
+                      admin-badge
+                      admin-badge--muted
+                    "
+                  >
+
+                    <?= $isScoutReport
+                        ? 'Scout Report'
+                        : 'Community Scouted'
+                    ?>
+
+                  </span>
+
                 </div>
 
               </div>
@@ -1881,7 +1551,6 @@ require
                         : 'admin-button--secondary'
                     ?>
                   "
-
                   href="?status=<?= e(
                       $filter
                   ) ?>&id=<?= (int)
@@ -1924,8 +1593,7 @@ require
           </h3>
 
           <p>
-            No submissions are currently
-            in this queue.
+            No submissions are currently in this queue.
           </p>
 
         </div>
@@ -1936,10 +1604,6 @@ require
 
     </section>
 
-
-    <!-- ===================================================
-         REVIEW DETAIL
-         =================================================== -->
 
     <section class="admin-panel">
 
@@ -1954,14 +1618,13 @@ require
           <div>
 
             <h2>
-
               <?= e(
                   $selectedSubmission[
                       'place_name'
                   ]
               ) ?>
-
             </h2>
+
 
             <p>
 
@@ -1973,10 +1636,12 @@ require
                     $selectedSubmission[
                         'display_name'
                     ]
-                    ?: $selectedSubmission[
+                    ?:
+                    $selectedSubmission[
                         'username'
                     ]
-                    ?: $selectedSubmission[
+                    ?:
+                    $selectedSubmission[
                         'email'
                     ]
                 ) ?>
@@ -1993,9 +1658,7 @@ require
               admin-badge
               <?= e(
                   admin_submission_badge_class(
-                      $selectedSubmission[
-                          'status'
-                      ]
+                      $selectedStatus
                   )
               ) ?>
             "
@@ -2003,9 +1666,7 @@ require
 
             <?= e(
                 admin_submission_status_label(
-                    $selectedSubmission[
-                        'status'
-                    ]
+                    $selectedStatus
                 )
             ) ?>
 
@@ -2013,10 +1674,6 @@ require
 
         </div>
 
-
-        <!-- ===============================================
-             SUMMARY
-             =============================================== -->
 
         <div class="admin-detail-list">
 
@@ -2028,12 +1685,32 @@ require
             </div>
 
             <div class="admin-detail-value">
-
               #<?= (int)
                   $selectedSubmission[
                       'id'
                   ]
               ?>
+            </div>
+
+          </div>
+
+
+          <div class="admin-detail-row">
+
+            <div class="admin-detail-label">
+              Submission Type
+            </div>
+
+            <div class="admin-detail-value">
+
+              <strong>
+
+                <?= $selectedIsScoutReport
+                    ? 'Scout Report'
+                    : 'Community Scouted'
+                ?>
+
+              </strong>
 
             </div>
 
@@ -2047,13 +1724,11 @@ require
             </div>
 
             <div class="admin-detail-value">
-
               <?= e(
                   $selectedSubmission[
                       'email'
                   ]
               ) ?>
-
             </div>
 
           </div>
@@ -2071,7 +1746,8 @@ require
                   admin_format_date(
                       $selectedSubmission[
                           'submitted_at'
-                      ]
+                      ],
+                      $user
                   )
               ) ?>
 
@@ -2080,25 +1756,40 @@ require
           </div>
 
 
-          <div class="admin-detail-row">
-
-            <div class="admin-detail-label">
-              Source
-            </div>
-
-            <div class="admin-detail-value">
-              Community Scouted
-            </div>
-
-          </div>
-
-
           <?php if (
               !empty(
                   $selectedSubmission[
-                      'place_id'
+                      'reviewed_at'
                   ]
               )
+          ): ?>
+
+            <div class="admin-detail-row">
+
+              <div class="admin-detail-label">
+                Last Reviewed
+              </div>
+
+              <div class="admin-detail-value">
+
+                <?= e(
+                    admin_format_date(
+                        $selectedSubmission[
+                            'reviewed_at'
+                        ],
+                        $user
+                    )
+                ) ?>
+
+              </div>
+
+            </div>
+
+          <?php endif; ?>
+
+
+          <?php if (
+              $selectedIsPublished
           ): ?>
 
             <div class="admin-detail-row">
@@ -2136,20 +1827,14 @@ require
         </div>
 
 
-        <!-- ===============================================
-             PLACE DETAILS
-             =============================================== -->
-
         <section class="admin-section">
 
           <div class="admin-section-header">
 
             <div>
-
               <h2>
                 Place Details
               </h2>
-
             </div>
 
           </div>
@@ -2158,183 +1843,102 @@ require
           <div class="admin-detail-list">
 
 
-            <div class="admin-detail-row">
+            <?php
 
-              <div class="admin-detail-label">
-                Place name
-              </div>
+            $placeRows = [
 
-              <div class="admin-detail-value">
+                'Place name' =>
+                    $selectedData[
+                        'name'
+                    ]
+                    ?? null,
 
-                <?= e(
-                    display_value(
-                        $selectedData[
-                            'name'
+                'Type' =>
+                    $selectedData[
+                        'type'
+                    ]
+                    ?? null,
+
+                'City' =>
+                    nested_value(
+                        $selectedData,
+                        [
+                            'location',
+                            'city'
                         ]
-                        ?? null
-                    )
-                ) ?>
+                    ),
 
-              </div>
-
-            </div>
-
-
-            <div class="admin-detail-row">
-
-              <div class="admin-detail-label">
-                Type
-              </div>
-
-              <div class="admin-detail-value">
-
-                <?= e(
-                    display_value(
-                        $selectedData[
-                            'type'
+                'State' =>
+                    nested_value(
+                        $selectedData,
+                        [
+                            'location',
+                            'state'
                         ]
-                        ?? null
-                    )
-                ) ?>
+                    ),
+
+                'Latitude' =>
+                    nested_value(
+                        $selectedData,
+                        [
+                            'location',
+                            'latitude'
+                        ]
+                    ),
+
+                'Longitude' =>
+                    nested_value(
+                        $selectedData,
+                        [
+                            'location',
+                            'longitude'
+                        ]
+                    ),
+
+                'Visit date' =>
+                    nested_value(
+                        $selectedData,
+                        [
+                            'verification',
+                            'visited'
+                        ]
+                    ),
+            ];
+
+            ?>
+
+
+            <?php foreach (
+                $placeRows as
+                $label =>
+                $value
+            ): ?>
+
+              <div class="admin-detail-row">
+
+                <div class="admin-detail-label">
+                  <?= e($label) ?>
+                </div>
+
+                <div class="admin-detail-value">
+
+                  <?= e(
+                      display_value(
+                          $value
+                      )
+                  ) ?>
+
+                </div>
 
               </div>
 
-            </div>
-
-
-            <div class="admin-detail-row">
-
-              <div class="admin-detail-label">
-                City
-              </div>
-
-              <div class="admin-detail-value">
-
-                <?= e(
-                    display_value(
-                        nested_value(
-                            $selectedData,
-                            [
-                                'location',
-                                'city'
-                            ]
-                        )
-                    )
-                ) ?>
-
-              </div>
-
-            </div>
-
-
-            <div class="admin-detail-row">
-
-              <div class="admin-detail-label">
-                State
-              </div>
-
-              <div class="admin-detail-value">
-
-                <?= e(
-                    display_value(
-                        nested_value(
-                            $selectedData,
-                            [
-                                'location',
-                                'state'
-                            ]
-                        )
-                    )
-                ) ?>
-
-              </div>
-
-            </div>
-
-
-            <div class="admin-detail-row">
-
-              <div class="admin-detail-label">
-                Latitude
-              </div>
-
-              <div class="admin-detail-value">
-
-                <?= e(
-                    display_value(
-                        nested_value(
-                            $selectedData,
-                            [
-                                'location',
-                                'latitude'
-                            ]
-                        )
-                    )
-                ) ?>
-
-              </div>
-
-            </div>
-
-
-            <div class="admin-detail-row">
-
-              <div class="admin-detail-label">
-                Longitude
-              </div>
-
-              <div class="admin-detail-value">
-
-                <?= e(
-                    display_value(
-                        nested_value(
-                            $selectedData,
-                            [
-                                'location',
-                                'longitude'
-                            ]
-                        )
-                    )
-                ) ?>
-
-              </div>
-
-            </div>
-
-
-            <div class="admin-detail-row">
-
-              <div class="admin-detail-label">
-                Visit date
-              </div>
-
-              <div class="admin-detail-value">
-
-                <?= e(
-                    display_value(
-                        nested_value(
-                            $selectedData,
-                            [
-                                'verification',
-                                'visited'
-                            ]
-                        )
-                    )
-                ) ?>
-
-              </div>
-
-            </div>
+            <?php endforeach; ?>
 
 
           </div>
 
         </section>
 
-
-        <!-- ===============================================
-             DESCRIPTION
-             =============================================== -->
 
         <?php if (
             !empty(
@@ -2349,11 +1953,9 @@ require
             <div class="admin-section-header">
 
               <div>
-
                 <h2>
                   Description
                 </h2>
-
               </div>
 
             </div>
@@ -2376,10 +1978,6 @@ require
 
         <?php endif; ?>
 
-
-        <!-- ===============================================
-             FULL STRUCTURED DATA
-             =============================================== -->
 
         <section class="admin-section">
 
@@ -2423,10 +2021,6 @@ require
         </section>
 
 
-        <!-- ===============================================
-             REVIEW FORM
-             =============================================== -->
-
         <section class="admin-section">
 
           <div class="admin-section-header">
@@ -2437,167 +2031,264 @@ require
                 Review
               </h2>
 
-              <p>
-                Approve the submission or send feedback
-                back to the member.
-              </p>
+
+              <?php if (
+                  $selectedIsPublished
+              ): ?>
+
+                <p>
+                  This submission has already become a Llama
+                  Scout Place. Further changes belong in the
+                  Place editor.
+                </p>
+
+              <?php elseif (
+                  $selectedStatus ===
+                  'approved'
+              ): ?>
+
+                <p>
+                  This submission is already approved and is
+                  locked from backward review-state changes.
+                </p>
+
+              <?php elseif (
+                  $selectedStatus ===
+                  'pending'
+              ): ?>
+
+                <p>
+                  Approve the submission, request changes, or
+                  mark it not approved.
+                </p>
+
+              <?php else: ?>
+
+                <p>
+                  Return the submission to Pending when it is
+                  ready to enter review again.
+                </p>
+
+              <?php endif; ?>
 
             </div>
 
           </div>
 
 
-          <form
-            method="post"
-            class="admin-form"
-          >
+          <?php if (
+              $selectedIsPublished
+          ): ?>
+
+            <div class="admin-form-actions">
+
+              <a
+                class="admin-button"
+                href="/place.php?id=<?= (int)
+                    $selectedSubmission[
+                        'place_id'
+                    ]
+                ?>"
+              >
+
+                <i
+                  class="fa-solid fa-location-dot"
+                  aria-hidden="true"
+                ></i>
+
+                Open Place Editor
+
+              </a>
+
+            </div>
 
 
-            <input
-              type="hidden"
-              name="csrf_token"
-              value="<?= e(
-                  $csrfToken
-              ) ?>"
-            >
+          <?php elseif (
+              $selectedStatus ===
+              'approved'
+          ): ?>
 
+            <div class="admin-notice">
 
-            <input
-              type="hidden"
-              name="submission_id"
-              value="<?= (int)
-                  $selectedSubmission[
-                      'id'
-                  ]
-              ?>"
-            >
-
-
-            <div
-              class="
-                admin-field
-                admin-field--full
-              "
-            >
-
-              <label for="review_notes">
-                Review Notes
-              </label>
-
-              <textarea
-                id="review_notes"
-                name="review_notes"
-                placeholder="Add notes for the member, corrections needed, or internal review context."
-              ><?= e(
-                  (string) (
-                      $selectedSubmission[
-                          'review_notes'
-                      ]
-                      ?? ''
-                  )
-              ) ?></textarea>
-
-              <p class="admin-field-help">
-                Notes are required when requesting
-                changes or not approving a submission.
+              <p>
+                No submission-review actions are available for
+                this approved record.
               </p>
 
             </div>
 
 
-            <div class="admin-form-actions">
+          <?php else: ?>
 
 
-              <button
-                type="submit"
-                name="status"
-                value="approved"
-                formaction="/approve-submission.php"
-                class="admin-button"
+            <form
+              method="post"
+              class="admin-form"
+            >
+
+
+              <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= e(
+                    $csrfToken
+                ) ?>"
               >
 
-                <i
-                  class="fa-solid fa-check"
-                  aria-hidden="true"
-                ></i>
 
-                Approve
+              <input
+                type="hidden"
+                name="submission_id"
+                value="<?= (int)
+                    $selectedSubmission[
+                        'id'
+                    ]
+                ?>"
+              >
 
-              </button>
 
-
-              <button
-                type="submit"
-                name="status"
-                value="needs-changes"
+              <div
                 class="
-                  admin-button
-                  admin-button--warning
+                  admin-field
+                  admin-field--full
                 "
               >
 
-                <i
-                  class="fa-solid fa-pen"
-                  aria-hidden="true"
-                ></i>
-
-                Request Changes
-
-              </button>
+                <label for="review_notes">
+                  Review Notes
+                </label>
 
 
-              <button
-                type="submit"
-                name="status"
-                value="rejected"
-                class="
-                  admin-button
-                  admin-button--danger
-                "
-              >
-
-                <i
-                  class="fa-solid fa-xmark"
-                  aria-hidden="true"
-                ></i>
-
-                Not Approved
-
-              </button>
+                <textarea
+                  id="review_notes"
+                  name="review_notes"
+                  placeholder="Add notes for the member, corrections needed, or internal review context."
+                ><?= e(
+                    (string) (
+                        $selectedSubmission[
+                            'review_notes'
+                        ]
+                        ?? ''
+                    )
+                ) ?></textarea>
 
 
-              <?php if (
-                  $selectedSubmission[
-                      'status'
-                  ] !== 'pending'
-              ): ?>
+                <p class="admin-field-help">
 
-                <button
-                  type="submit"
-                  name="status"
-                  value="pending"
-                  class="
-                    admin-button
-                    admin-button--secondary
-                  "
-                >
+                  Notes are required when requesting changes
+                  or marking a submission not approved.
 
-                  <i
-                    class="fa-solid fa-rotate-left"
-                    aria-hidden="true"
-                  ></i>
+                </p>
 
-                  Return to Pending
-
-                </button>
-
-              <?php endif; ?>
+              </div>
 
 
-            </div>
+              <div class="admin-form-actions">
 
 
-          </form>
+                <?php if (
+                    $canApprove
+                ): ?>
+
+                  <button
+                    type="submit"
+                    name="status"
+                    value="approved"
+                    formaction="/approve-submission.php"
+                    class="admin-button"
+                  >
+
+                    <i
+                      class="fa-solid fa-check"
+                      aria-hidden="true"
+                    ></i>
+
+                    Approve and Create Place
+
+                  </button>
+
+                <?php endif; ?>
+
+
+                <?php if (
+                    $canSendBack
+                ): ?>
+
+                  <button
+                    type="submit"
+                    name="status"
+                    value="needs-changes"
+                    class="
+                      admin-button
+                      admin-button--warning
+                    "
+                  >
+
+                    <i
+                      class="fa-solid fa-pen"
+                      aria-hidden="true"
+                    ></i>
+
+                    Request Changes
+
+                  </button>
+
+
+                  <button
+                    type="submit"
+                    name="status"
+                    value="rejected"
+                    class="
+                      admin-button
+                      admin-button--danger
+                    "
+                  >
+
+                    <i
+                      class="fa-solid fa-xmark"
+                      aria-hidden="true"
+                    ></i>
+
+                    Not Approved
+
+                  </button>
+
+                <?php endif; ?>
+
+
+                <?php if (
+                    $canReturnPending
+                ): ?>
+
+                  <button
+                    type="submit"
+                    name="status"
+                    value="pending"
+                    class="
+                      admin-button
+                      admin-button--secondary
+                    "
+                  >
+
+                    <i
+                      class="fa-solid fa-rotate-left"
+                      aria-hidden="true"
+                    ></i>
+
+                    Return to Pending
+
+                  </button>
+
+                <?php endif; ?>
+
+
+              </div>
+
+            </form>
+
+
+          <?php endif; ?>
+
 
         </section>
 
@@ -2617,8 +2308,8 @@ require
           </h2>
 
           <p>
-            Choose a place from the review queue
-            to inspect everything the member submitted.
+            Choose a place from the review queue to inspect
+            everything the member submitted.
           </p>
 
         </div>
@@ -2632,10 +2323,6 @@ require
 
   </div>
 
-
-  <!-- =====================================================
-       FOOT ACTIONS
-       ===================================================== -->
 
   <div class="admin-foot-actions">
 
