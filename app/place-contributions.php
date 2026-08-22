@@ -79,13 +79,79 @@ const LLAMA_CONTRIBUTION_REMOVED =
    ENSURE CONTRIBUTION TABLE
    ========================================================= */
 
+function llama_place_contributions_table_exists(
+    PDO $db
+): bool {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM information_schema.tables
+
+            WHERE table_schema = DATABASE()
+
+              AND table_name =
+                  \'place_contributions\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute();
+
+
+    return
+        $stmt->fetchColumn()
+        !==
+        false;
+
+}
+
+
+/* =========================================================
+   ENSURE CONTRIBUTION TABLE
+   ========================================================= */
+
 function llama_ensure_place_contributions_table(
     PDO $db
 ): void {
 
+    if (
+        llama_place_contributions_table_exists(
+            $db
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    /*
+     * CREATE TABLE causes an implicit COMMIT in MySQL.
+     *
+     * Never initialize this table from inside a moderation
+     * transaction because doing so would silently break the
+     * transaction boundary.
+     */
+
+    if (
+        $db->inTransaction()
+    ) {
+
+        throw new RuntimeException(
+            'Place contribution storage must be initialized before starting a transaction.'
+        );
+
+    }
+
+
     $db->exec(
         '
-        CREATE TABLE IF NOT EXISTS place_contributions
+        CREATE TABLE place_contributions
         (
             id
                 BIGINT UNSIGNED
@@ -215,7 +281,6 @@ function llama_ensure_place_contributions_table(
     );
 
 }
-
 
 /* =========================================================
    NORMALIZE CONTRIBUTOR ROLE
