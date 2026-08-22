@@ -152,6 +152,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+
+        /*
+     * Admin Place edits arrive as JSON, so the Admin Place ID
+     * must be resolved from the decoded request before image
+     * sanitizing.
+     *
+     * $_GET / $_POST do not contain JSON body fields.
+     */
+
+    $postedAdminPlaceId =
+        (int) (
+            $input[
+                'admin_place_id'
+            ]
+            ?? 0
+        );
+
+
+    $isPostedAdminPlaceEditor =
+        $postedAdminPlaceId
+        > 0;
+
+
+    if (
+        $isPostedAdminPlaceEditor
+    ) {
+
+        require_role(
+            'admin'
+        );
+    }
+
+    
     $submittedImages = $place['images'] ?? [];
 
     if (!is_array($submittedImages)) {
@@ -181,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             str_starts_with($src, '/images/places/')
             ||
             (
-                $isAdminPlaceEditor
+                $isPostedAdminPlaceEditor
                 &&
                 str_starts_with($src, 'images/')
             );
@@ -213,13 +246,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $place['images'] = $cleanImages;
 
-    $postedAdminPlaceId = (int) (
-        $input['admin_place_id']
-        ?? 0
-    );
-
-    if ($postedAdminPlaceId > 0) {
-        require_role('admin');
+    if (
+        $postedAdminPlaceId
+        > 0
+    ) {
 
         $adminMeta = $input['admin_meta'] ?? [];
 
