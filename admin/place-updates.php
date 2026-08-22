@@ -27,6 +27,14 @@ require_once
     dirname(__DIR__)
     . '/app/place-update-approval.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/place-update-conflicts.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/place-update-safe-approval.php';
+
 
 llama_require_capability(
     LLAMA_CAP_MODERATE_PLACES
@@ -44,17 +52,22 @@ $db =
     db();
 
 
+$userId =
+    (int)
+    $user[
+        'id'
+    ];
+
+
 $primaryRoleLabel =
     llama_primary_role_label(
-        (int)
-        $user['id']
+        $userId
     );
 
 
 $primaryRoleIcon =
     llama_primary_role_icon(
-        (int)
-        $user['id']
+        $userId
     );
 
 
@@ -119,6 +132,15 @@ function update_human_label(
     string $value
 ): string {
 
+    $value =
+        preg_replace(
+            '/([a-z])([A-Z])/',
+            '$1 $2',
+            $value
+        )
+        ?? $value;
+
+
     return ucwords(
         str_replace(
             [
@@ -179,7 +201,7 @@ function update_display_value(
         return implode(
             ', ',
             array_map(
-                static fn(
+                static fn (
                     mixed $item
                 ): string =>
                     (string)
@@ -200,28 +222,6 @@ function update_display_value(
     }
 
 
-    if (
-        $value === 1
-        ||
-        $value === '1'
-    ) {
-
-        return 'Yes';
-
-    }
-
-
-    if (
-        $value === 0
-        ||
-        $value === '0'
-    ) {
-
-        return 'No / 0';
-
-    }
-
-
     return
         (string)
         $value;
@@ -229,160 +229,144 @@ function update_display_value(
 }
 
 
-/* =========================================================
-   CURRENT CANONICAL VALUE
-   ========================================================= */
-
-function update_current_value(
-    PDO $db,
-    int $placeId,
-    string $path
-): mixed {
-
-    $map =
-        llama_place_update_field_map();
-
+function update_decode_json(
+    mixed $value
+): array {
 
     if (
-        !isset(
-            $map[
-                $path
-            ]
+        is_array(
+            $value
         )
     ) {
 
-        return null;
-
-    }
-
-
-    $definition =
-        $map[
-            $path
-        ];
-
-
-    $table =
-        (string)
-        $definition[0];
-
-
-    $column =
-        (string)
-        $definition[1];
-
-
-    $period =
-        $definition[3]
-        ?? null;
-
-
-    if (
-        $table ===
-        'places'
-    ) {
-
-        $sql =
-            'SELECT `'
-            .
-            $column
-            .
-            '` FROM places WHERE id = ? LIMIT 1';
-
-
-        $stmt =
-            $db->prepare(
-                $sql
-            );
-
-
-        $stmt->execute([
-            $placeId
-        ]);
-
-
-        return
-            $stmt->fetchColumn();
+        return $value;
 
     }
 
 
     if (
-        $table ===
-        'place_sensory'
+        !is_string(
+            $value
+        )
+        ||
+        trim(
+            $value
+        ) === ''
     ) {
 
-        $sql =
-            'SELECT `'
-            .
-            $column
-            .
-            '` FROM place_sensory '
-            .
-            'WHERE place_id = ? '
-            .
-            'AND period = ? '
-            .
-            'LIMIT 1';
-
-
-        $stmt =
-            $db->prepare(
-                $sql
-            );
-
-
-        $stmt->execute([
-            $placeId,
-            $period
-        ]);
-
-
-        $value =
-            $stmt->fetchColumn();
-
-
-        return
-            $value === false
-                ? null
-                : $value;
+        return [];
 
     }
 
 
-    $sql =
-        'SELECT `'
-        .
-        $column
-        .
-        '` FROM `'
-        .
-        $table
-        .
-        '` WHERE place_id = ? LIMIT 1';
-
-
-    $stmt =
-        $db->prepare(
-            $sql
+    $decoded =
+        json_decode(
+            $value,
+            true
         );
 
 
-    $stmt->execute([
-        $placeId
-    ]);
-
-
-    $value =
-        $stmt->fetchColumn();
-
-
     return
-        $value === false
-            ? null
-            : $value;
+        is_array(
+            $decoded
+        )
+            ? $decoded
+            : [];
 
 }
+
+
+function update_type_label(
+    string $type
+): string {
+
+    return match ($type) {
+
+        LLAMA_PLACE_CORRECTION =>
+            'Correction',
+
+        default =>
+            'Place Update',
+
+    };
+
+}
+
+
+function update_status_label(
+    string $status
+): string {
+
+    return match ($status) {
+
+        LLAMA_UPDATE_PENDING =>
+            'Pending',
+
+        LLAMA_UPDATE_NEEDS_CHANGES =>
+            'Needs Changes',
+
+        LLAMA_UPDATE_APPROVED =>
+            'Approved',
+
+        LLAMA_UPDATE_REJECTED =>
+            'Rejected',
+
+        LLAMA_UPDATE_WITHDRAWN =>
+            'Withdrawn',
+
+        default =>
+            update_human_label(
+                $status
+            ),
+
+    };
+
+}
+
+
+function update_role_label(
+    string $role
+): string {
+
+    return match (
+        strtolower(
+            trim(
+                $role
+            )
+        )
+    ) {
+
+        'master-scout',
+        'master_scout' =>
+            'Master Scout',
+
+        'scout' =>
+            'Llama Scout',
+
+        'admin' =>
+            'Admin',
+
+        'owner' =>
+            'Owner',
+
+        'member' =>
+            'Member',
+
+        default =>
+            'Community Member',
+
+    };
+
+}
+
+
+/* =========================================================
+   STORAGE
+   ========================================================= */
+
+llama_ensure_place_updates_table(
+    $db
+);
 
 
 /* =========================================================
@@ -410,6 +394,7 @@ if (
 
 
 $csrfToken =
+    (string)
     $_SESSION[
         'admin_place_updates_csrf'
     ];
@@ -432,11 +417,11 @@ $statusFilter =
 
 
 $allowedFilters = [
-    'pending',
-    'needs-changes',
-    'approved',
-    'rejected',
-    'withdrawn',
+    LLAMA_UPDATE_PENDING,
+    LLAMA_UPDATE_NEEDS_CHANGES,
+    LLAMA_UPDATE_APPROVED,
+    LLAMA_UPDATE_REJECTED,
+    LLAMA_UPDATE_WITHDRAWN,
     'all',
 ];
 
@@ -450,13 +435,13 @@ if (
 ) {
 
     $statusFilter =
-        'pending';
+        LLAMA_UPDATE_PENDING;
 
 }
 
 
 /* =========================================================
-   ACTION NOTICES
+   NOTICES
    ========================================================= */
 
 $message =
@@ -468,7 +453,7 @@ $error =
 
 
 /* =========================================================
-   POST MODERATION ACTION
+   MODERATION ACTION
    ========================================================= */
 
 if (
@@ -498,7 +483,6 @@ if (
 
         $error =
             'Your session could not be verified. Reload the page and try again.';
-
 
     } else {
 
@@ -540,7 +524,6 @@ if (
             $error =
                 'That update could not be identified.';
 
-
         } else {
 
             try {
@@ -554,13 +537,10 @@ if (
                 ) {
 
                     $result =
-                        llama_approve_place_update(
+                        llama_approve_place_update_safely(
                             $db,
                             $updateId,
-                            (int)
-                            $user[
-                                'id'
-                            ],
+                            $userId,
                             $reviewNotes !== ''
                                 ? $reviewNotes
                                 : null
@@ -575,6 +555,7 @@ if (
                             $result[
                                 'changed_fields'
                             ]
+                            ?? []
                         );
 
 
@@ -594,22 +575,23 @@ if (
                         ' updated';
 
 
+                    $points =
+                        (int) (
+                            $result[
+                                'points_awarded'
+                            ]
+                            ?? 0
+                        );
+
+
                     if (
-                        (int)
-                        $result[
-                            'points_awarded'
-                        ]
-                        >
-                        0
+                        $points > 0
                     ) {
 
                         $message .=
                             ' and '
                             .
-                            (int)
-                            $result[
-                                'points_awarded'
-                            ]
+                            $points
                             .
                             ' Scout points awarded';
 
@@ -639,10 +621,7 @@ if (
                     llama_place_update_needs_changes(
                         $db,
                         $updateId,
-                        (int)
-                        $user[
-                            'id'
-                        ],
+                        $userId,
                         $reviewNotes
                     );
 
@@ -662,10 +641,7 @@ if (
                     llama_reject_place_update(
                         $db,
                         $updateId,
-                        (int)
-                        $user[
-                            'id'
-                        ],
+                        $userId,
                         $reviewNotes !== ''
                             ? $reviewNotes
                             : null
@@ -715,13 +691,8 @@ if (
 
 
 /* =========================================================
-   QUEUE COUNTS
+   COUNTS
    ========================================================= */
-
-llama_ensure_place_updates_table(
-    $db
-);
-
 
 $countRows =
     $db
@@ -743,11 +714,11 @@ $countRows =
 
 
 $counts = [
-    'pending' => 0,
-    'needs-changes' => 0,
-    'approved' => 0,
-    'rejected' => 0,
-    'withdrawn' => 0,
+    LLAMA_UPDATE_PENDING => 0,
+    LLAMA_UPDATE_NEEDS_CHANGES => 0,
+    LLAMA_UPDATE_APPROVED => 0,
+    LLAMA_UPDATE_REJECTED => 0,
+    LLAMA_UPDATE_WITHDRAWN => 0,
 ];
 
 
@@ -784,7 +755,7 @@ foreach (
 
 
 /* =========================================================
-   LOAD QUEUE
+   QUEUE
    ========================================================= */
 
 $sql =
@@ -797,8 +768,7 @@ $sql =
         p.status AS place_status,
 
         u.username,
-        u.display_name,
-        u.email
+        u.display_name
 
     FROM place_update_submissions pus
 
@@ -872,6 +842,227 @@ $updates =
     );
 
 
+/* =========================================================
+   BUILD DISPLAY DATA
+   ========================================================= */
+
+$fieldMap =
+    llama_place_update_field_map();
+
+
+foreach (
+    $updates as
+    &$update
+) {
+
+    $update[
+        '_changes'
+    ] =
+        update_decode_json(
+            $update[
+                'proposed_changes'
+            ]
+            ?? null
+        );
+
+
+    $update[
+        '_original'
+    ] =
+        update_decode_json(
+            $update[
+                'original_values'
+            ]
+            ?? null
+        );
+
+
+    $update[
+        '_paths'
+    ] =
+        llama_update_field_paths(
+            $update[
+                '_changes'
+            ]
+        );
+
+
+    $update[
+        '_conflicts'
+    ] =
+        [];
+
+
+    if (
+        in_array(
+            (string)
+            $update[
+                'status'
+            ],
+            [
+                LLAMA_UPDATE_PENDING,
+                LLAMA_UPDATE_NEEDS_CHANGES,
+            ],
+            true
+        )
+    ) {
+
+        try {
+
+            $update[
+                '_conflicts'
+            ] =
+                llama_place_update_conflicted_fields(
+                    $db,
+                    (int)
+                    $update[
+                        'place_id'
+                    ],
+                    $update[
+                        '_changes'
+                    ],
+                    $update[
+                        '_original'
+                    ],
+                    $fieldMap
+                );
+
+        } catch (
+            Throwable $exception
+        ) {
+
+            $update[
+                '_conflicts'
+            ] = [
+                [
+                    'path' =>
+                        'Update data',
+
+                    'conflict' =>
+                        true,
+
+                    'reason' =>
+                        'conflict-check-error',
+
+                    'original' =>
+                        null,
+
+                    'current' =>
+                        null,
+
+                    'proposed' =>
+                        $exception
+                            ->getMessage(),
+                ],
+            ];
+
+        }
+
+    }
+
+
+    $update[
+        '_conflict_map'
+    ] =
+        [];
+
+
+    foreach (
+        $update[
+            '_conflicts'
+        ]
+        as
+        $conflict
+    ) {
+
+        $path =
+            (string) (
+                $conflict[
+                    'path'
+                ]
+                ?? ''
+            );
+
+
+        if (
+            $path !== ''
+        ) {
+
+            $update[
+                '_conflict_map'
+            ][
+                $path
+            ] =
+                $conflict;
+
+        }
+
+    }
+
+
+    $update[
+        '_has_conflicts'
+    ] =
+        !empty(
+            $update[
+                '_conflicts'
+            ]
+        );
+
+
+    $update[
+        '_estimated_points'
+    ] =
+        0;
+
+
+    try {
+
+        $score =
+            llama_score_place_update(
+                $db,
+                $update[
+                    '_changes'
+                ],
+                (string)
+                $update[
+                    'update_type'
+                ]
+            );
+
+
+        $update[
+            '_estimated_points'
+        ] =
+            max(
+                0,
+                (int) (
+                    $score[
+                        'points_awarded'
+                    ]
+                    ?? 0
+                )
+            );
+
+    } catch (
+        Throwable
+    ) {
+
+        $update[
+            '_estimated_points'
+        ] =
+            0;
+
+    }
+
+}
+
+
+unset(
+    $update
+);
+
+
 ?>
 <!doctype html>
 
@@ -879,378 +1070,433 @@ $updates =
 
 <head>
 
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
-<meta
-  name="robots"
-  content="noindex,nofollow"
->
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
 
-<title>
-  Place Updates | Llama Scout Basecamp
-</title>
+  <title>
+    Place Updates | Llama Scout Basecamp
+  </title>
 
 
-<link
-  rel="preconnect"
-  href="https://fonts.googleapis.com"
->
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
 
-<link
-  rel="preconnect"
-  href="https://fonts.gstatic.com"
-  crossorigin
->
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
 
-<link
-  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
-  rel="stylesheet"
->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+    rel="stylesheet"
+  >
 
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+  >
 
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
->
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/style.css"
+  >
 
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/admin.css"
+  >
 
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/style.css"
->
 
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/admin.css"
->
+  <style>
 
+    .update-filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
 
-<style>
 
-.update-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
-}
+    .update-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
 
+      padding: 8px 11px;
 
-.update-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+      border:
+        1px solid
+        rgba(23, 40, 34, .16);
 
-  padding: 8px 11px;
+      border-radius: 999px;
 
-  border:
-    1px solid
-    rgba(23, 40, 34, .16);
+      background: #fff;
 
-  border-radius: 999px;
+      color: inherit;
+      text-decoration: none;
 
-  background: #fff;
+      font-size: .82rem;
+      font-weight: 700;
+    }
 
-  color: inherit;
-  text-decoration: none;
 
-  font-size: .82rem;
-  font-weight: 700;
-}
+    .update-filter.is-active {
+      background: #172822;
+      color: #fff;
+    }
 
 
-.update-filter.is-active {
-  background: #172822;
-  color: #fff;
-}
+    .update-list {
+      display: grid;
+      gap: 18px;
+      margin-top: 22px;
+    }
 
 
-.update-card {
-  margin-top: 20px;
-  padding: 22px;
+    .update-card {
+      padding: 22px;
 
-  background: #fff;
+      background: #fff;
 
-  border:
-    1px solid
-    rgba(23, 40, 34, .12);
+      border:
+        1px solid
+        rgba(23, 40, 34, .12);
 
-  border-radius: 14px;
-}
+      border-radius: 16px;
+    }
 
 
-.update-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+    .update-card.has-conflict {
+      border-color:
+        rgba(163, 74, 54, .45);
+    }
 
-  gap: 20px;
 
-  margin-bottom: 18px;
-}
+    .update-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
 
+      gap: 18px;
+    }
 
-.update-card-header h3 {
-  margin:
-    0
-    0
-    5px;
-}
 
+    .update-card h2 {
+      margin:
+        0
+        0
+        5px;
 
-.update-meta {
-  display: flex;
-  flex-wrap: wrap;
+      font-size: 1.2rem;
+    }
 
-  gap:
-    7px
-    14px;
 
-  margin-top: 8px;
+    .update-meta {
+      margin: 0;
 
-  color:
-    rgba(23, 40, 34, .72);
+      color:
+        rgba(23, 40, 34, .68);
 
-  font-size: .86rem;
-}
+      font-size: .84rem;
+      line-height: 1.55;
+    }
 
 
-.update-badge {
-  display: inline-flex;
-  align-items: center;
+    .update-badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 7px;
+    }
 
-  padding:
-    6px
-    9px;
 
-  border-radius: 999px;
+    .update-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
 
-  background: #f4efe6;
+      padding: 6px 9px;
 
-  font-size: .75rem;
-  font-weight: 800;
-}
+      border-radius: 999px;
 
+      background:
+        rgba(23, 40, 34, .07);
 
-.update-diff {
-  width: 100%;
+      font-size: .75rem;
+      font-weight: 750;
+      white-space: nowrap;
+    }
 
-  margin:
-    18px
-    0;
 
-  border-collapse: collapse;
-}
+    .update-badge.conflict {
+      background:
+        rgba(163, 74, 54, .12);
 
+      color: #7d3024;
+    }
 
-.update-diff th,
-.update-diff td {
-  padding:
-    10px
-    12px;
 
-  text-align: left;
-  vertical-align: top;
+    .update-warning {
+      margin-top: 16px;
+      padding: 14px 15px;
 
-  border-bottom:
-    1px solid
-    rgba(23, 40, 34, .1);
-}
+      border-left:
+        4px solid #a34a36;
 
+      background:
+        rgba(163, 74, 54, .08);
 
-.update-diff th {
-  font-size: .78rem;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
+      line-height: 1.55;
+    }
 
 
-.update-field {
-  font-weight: 750;
-}
+    .update-warning strong {
+      display: block;
+      margin-bottom: 4px;
+    }
 
 
-.update-old {
-  color:
-    rgba(23, 40, 34, .65);
-}
+    .update-fields {
+      display: grid;
+      gap: 10px;
 
+      margin-top: 18px;
+    }
 
-.update-new {
-  font-weight: 700;
-}
 
+    .update-field {
+      padding: 14px;
 
-.update-notes {
-  padding: 14px;
+      border-radius: 11px;
 
-  margin:
-    16px
-    0;
+      background:
+        rgba(23, 40, 34, .045);
+    }
 
-  background: #f8f5ef;
 
-  border-radius: 9px;
-}
+    .update-field.is-conflict {
+      background:
+        rgba(163, 74, 54, .07);
 
+      outline:
+        1px solid
+        rgba(163, 74, 54, .18);
+    }
 
-.update-score {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
 
-  margin:
-    15px
-    0;
-}
+    .update-field-label {
+      margin-bottom: 9px;
+      font-size: .84rem;
+      font-weight: 800;
+    }
 
 
-.update-score span {
-  padding:
-    7px
-    10px;
+    .update-values {
+      display: grid;
 
-  background: #f4efe6;
+      grid-template-columns:
+        repeat(
+          3,
+          minmax(
+            0,
+            1fr
+          )
+        );
 
-  border-radius: 8px;
+      gap: 10px;
+    }
 
-  font-size: .82rem;
-  font-weight: 700;
-}
 
+    .update-value {
+      min-width: 0;
+    }
 
-.update-actions textarea {
-  width: 100%;
-  box-sizing: border-box;
 
-  min-height: 90px;
+    .update-value span {
+      display: block;
 
-  margin-bottom: 12px;
-  padding: 11px;
+      margin-bottom: 3px;
 
-  border:
-    1px solid
-    rgba(23, 40, 34, .2);
+      color:
+        rgba(23, 40, 34, .58);
 
-  border-radius: 8px;
+      font-size: .7rem;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
 
-  font: inherit;
 
-  resize: vertical;
-}
+    .update-value strong {
+      display: block;
+      overflow-wrap: anywhere;
+    }
 
 
-.update-action-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-}
+    .update-conflict-note {
+      margin:
+        10px
+        0
+        0;
 
+      color: #7d3024;
 
-.update-action-danger {
-  border-color: #8f302a;
-  color: #8f302a;
-}
+      font-size: .8rem;
+      font-weight: 700;
+    }
 
 
-.update-message,
-.update-error {
-  margin:
-    18px
-    0;
+    .update-notes {
+      margin-top: 16px;
 
-  padding:
-    14px
-    16px;
+      padding: 14px;
 
-  border-radius: 9px;
-}
+      border-radius: 11px;
 
+      background:
+        rgba(217, 196, 154, .14);
+    }
 
-.update-message {
-  background:
-    rgba(77, 126, 93, .13);
-}
 
+    .update-notes strong {
+      display: block;
+      margin-bottom: 5px;
+    }
 
-.update-error {
-  background:
-    rgba(169, 68, 61, .12);
 
-  color: #7b2621;
-}
+    .update-notes p {
+      margin: 0;
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
 
 
-.update-empty {
-  margin-top: 20px;
-  padding: 30px;
+    .update-actions {
+      margin-top: 18px;
 
-  text-align: center;
+      padding-top: 17px;
 
-  background: #fff;
+      border-top:
+        1px solid
+        rgba(23, 40, 34, .09);
+    }
 
-  border:
-    1px solid
-    rgba(23, 40, 34, .12);
 
-  border-radius: 14px;
-}
+    .update-actions textarea {
+      width: 100%;
+      box-sizing: border-box;
 
+      min-height: 90px;
 
-@media (
-  max-width: 700px
-) {
+      padding: 11px 12px;
 
-  .update-card-header {
-    display: block;
-  }
+      border:
+        1px solid
+        rgba(23, 40, 34, .18);
 
+      border-radius: 9px;
 
-  .update-card-header
-  .update-badge {
-    margin-top: 10px;
-  }
+      font: inherit;
+      resize: vertical;
+    }
 
 
-  .update-diff,
-  .update-diff tbody,
-  .update-diff tr,
-  .update-diff td {
-    display: block;
-  }
+    .update-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
 
+      margin-top: 10px;
+    }
 
-  .update-diff thead {
-    display: none;
-  }
 
+    .update-action {
+      border: 0;
+      border-radius: 9px;
 
-  .update-diff tr {
-    padding:
-      12px
-      0;
+      padding: 10px 13px;
 
-    border-bottom:
-      1px solid
-      rgba(23, 40, 34, .1);
-  }
+      font: inherit;
+      font-weight: 750;
 
+      cursor: pointer;
+    }
 
-  .update-diff td {
-    padding:
-      4px
-      0;
 
-    border: 0;
-  }
+    .update-action.approve {
+      background: #172822;
+      color: #fff;
+    }
 
-}
 
-</style>
+    .update-action.return {
+      background: #e7dcc4;
+      color: #392e1c;
+    }
+
+
+    .update-action.reject {
+      background: #8c3232;
+      color: #fff;
+    }
+
+
+    .update-action:disabled {
+      opacity: .42;
+      cursor: not-allowed;
+    }
+
+
+    .update-empty {
+      margin-top: 22px;
+      padding: 30px;
+
+      border:
+        1px solid
+        rgba(23, 40, 34, .1);
+
+      border-radius: 15px;
+
+      background: #fff;
+
+      text-align: center;
+    }
+
+
+    @media (
+      max-width: 760px
+    ) {
+
+      .update-card-header {
+        display: block;
+      }
+
+
+      .update-badges {
+        justify-content: flex-start;
+        margin-top: 11px;
+      }
+
+
+      .update-values {
+        grid-template-columns: 1fr;
+      }
+
+    }
+
+  </style>
 
 </head>
 
@@ -1270,50 +1516,45 @@ require_once
 <main class="admin-main">
 
 
-<section class="admin-intro">
+  <section class="admin-intro">
+
+    <div class="admin-intro-row">
+
+      <div class="admin-intro-copy">
+
+        <p class="admin-eyebrow">
+
+          <i
+            class="<?= e(
+                $primaryRoleIcon
+            ) ?>"
+            aria-hidden="true"
+          ></i>
+
+          Llama Scout
+          <?= e(
+              $primaryRoleLabel
+          ) ?>
+
+        </p>
 
 
-  <div class="admin-intro-row">
+        <h1>
+          Place Updates
+        </h1>
 
 
-    <div class="admin-intro-copy">
+        <p>
+          Review structured changes to existing Places.
+          Approval means the contribution is appropriate to
+          publish. Stale changes are blocked automatically.
+        </p>
 
-
-      <p class="admin-eyebrow">
-
-        <i
-          class="<?= e(
-              $primaryRoleIcon
-          ) ?>"
-          aria-hidden="true"
-        ></i>
-
-        Llama Scout
-        <?= e(
-            $primaryRoleLabel
-        ) ?>
-
-      </p>
-
-
-      <h1>
-        Place Updates
-      </h1>
-
-
-      <p>
-        Review structured community and Scout updates before
-        they change the live Place record.
-      </p>
-
+      </div>
 
     </div>
 
-
-  </div>
-
-
-</section>
+  </section>
 
 
 <?php
@@ -1325,723 +1566,815 @@ require
 ?>
 
 
-<?php if (
-    $message !== ''
-): ?>
+  <?php if (
+      $message !== ''
+  ): ?>
 
-  <div class="update-message">
-    <?= e(
-        $message
-    ) ?>
-  </div>
-
-<?php endif; ?>
-
-
-<?php if (
-    $error !== ''
-): ?>
-
-  <div class="update-error">
-    <?= e(
-        $error
-    ) ?>
-  </div>
-
-<?php endif; ?>
-
-
-<section class="admin-section">
-
-
-  <div class="admin-section-header">
-
-    <div>
-
-      <h2>
-        Moderation Queue
-      </h2>
-
-      <p>
-        Approval means the contribution follows Llama Scout
-        publishing standards. It does not guarantee every
-        reported fact.
-      </p>
-
-    </div>
-
-  </div>
-
-
-  <div class="update-filter-row">
-
-
-<?php
-
-$filterLabels = [
-
-    'pending' =>
-        'Pending',
-
-    'needs-changes' =>
-        'Needs Changes',
-
-    'approved' =>
-        'Approved',
-
-    'rejected' =>
-        'Rejected',
-
-    'withdrawn' =>
-        'Withdrawn',
-
-    'all' =>
-        'All',
-
-];
-
-
-foreach (
-    $filterLabels as
-    $filterKey =>
-    $filterLabel
-):
-
-    $count =
-        $filterKey ===
-        'all'
-
-            ? array_sum(
-                $counts
-            )
-
-            : (
-                $counts[
-                    $filterKey
-                ]
-                ?? 0
-            );
-
-?>
-
-
-    <a
+    <div
       class="
-        update-filter
-        <?= $statusFilter === $filterKey
-            ? 'is-active'
-            : ''
-        ?>
+        admin-notice
+        admin-notice--success
       "
-      href="?status=<?= e(
-          $filterKey
-      ) ?>"
     >
-
       <?= e(
-          $filterLabel
+          $message
       ) ?>
-
-      <span>
-        <?= $count ?>
-      </span>
-
-    </a>
-
-
-<?php endforeach; ?>
-
-
-  </div>
-
-
-</section>
-
-
-<section class="admin-section">
-
-
-<?php if (
-    !$updates
-): ?>
-
-
-  <div class="update-empty">
-
-    <i
-      class="fa-solid fa-check"
-      aria-hidden="true"
-    ></i>
-
-    <h2>
-      Nothing here
-    </h2>
-
-    <p>
-      There are no updates in this queue.
-    </p>
-
-  </div>
-
-
-<?php else: ?>
-
-
-<?php foreach (
-    $updates as
-    $update
-): ?>
-
-
-<?php
-
-$updateId =
-    (int)
-    $update[
-        'id'
-    ];
-
-
-$placeId =
-    (int)
-    $update[
-        'place_id'
-    ];
-
-
-$changes =
-    json_decode(
-        (string)
-        $update[
-            'proposed_changes'
-        ],
-        true
-    );
-
-
-if (
-    !is_array(
-        $changes
-    )
-) {
-
-    $changes =
-        [];
-
-}
-
-
-$fieldPaths =
-    llama_update_field_paths(
-        $changes
-    );
-
-
-$score =
-    llama_score_place_update(
-        $db,
-        $changes,
-        (string)
-        $update[
-            'update_type'
-        ]
-    );
-
-
-$contributor =
-    $update[
-        'display_name'
-    ]
-    ?:
-    $update[
-        'username'
-    ]
-    ?:
-    $update[
-        'email'
-    ];
-
-
-$moderatable =
-    in_array(
-        (string)
-        $update[
-            'status'
-        ],
-        [
-            LLAMA_UPDATE_PENDING,
-            LLAMA_UPDATE_NEEDS_CHANGES,
-        ],
-        true
-    );
-
-?>
-
-
-<article
-  class="update-card"
-  id="update-<?= $updateId ?>"
->
-
-
-  <div class="update-card-header">
-
-
-    <div>
-
-
-      <h3>
-        <?= e(
-            $update[
-                'place_name'
-            ]
-        ) ?>
-      </h3>
-
-
-      <div class="update-meta">
-
-
-        <span>
-
-          <i
-            class="fa-solid fa-user"
-            aria-hidden="true"
-          ></i>
-
-          <?= e(
-              $contributor
-          ) ?>
-
-        </span>
-
-
-        <span>
-
-          <?= e(
-              update_human_label(
-                  (string)
-                  $update[
-                      'role_at_submission'
-                  ]
-              )
-          ) ?>
-
-        </span>
-
-
-        <span>
-
-          Submitted
-
-          <?= e(
-              update_format_date(
-                  $update[
-                      'submitted_at'
-                  ],
-                  true
-              )
-          ) ?>
-
-        </span>
-
-
-        <?php if (
-            !empty(
-                $update[
-                    'visited_at'
-                ]
-            )
-        ): ?>
-
-          <span>
-
-            Visited
-
-            <?= e(
-                update_format_date(
-                    $update[
-                        'visited_at'
-                    ]
-                )
-            ) ?>
-
-          </span>
-
-        <?php endif; ?>
-
-
-      </div>
-
-
     </div>
 
+  <?php endif; ?>
 
-    <span class="update-badge">
 
+  <?php if (
+      $error !== ''
+  ): ?>
+
+    <div
+      class="
+        admin-notice
+        admin-notice--error
+      "
+    >
       <?= e(
-          update_human_label(
-              (string)
-              $update[
-                  'status'
-              ]
-          )
+          $error
       ) ?>
+    </div>
 
-    </span>
-
-
-  </div>
+  <?php endif; ?>
 
 
-  <div class="update-score">
+  <nav
+    class="update-filter-row"
+    aria-label="Place update status"
+  >
+
+    <?php
+
+    $filterLabels = [
+
+        LLAMA_UPDATE_PENDING =>
+            'Pending',
+
+        LLAMA_UPDATE_NEEDS_CHANGES =>
+            'Needs Changes',
+
+        LLAMA_UPDATE_APPROVED =>
+            'Approved',
+
+        LLAMA_UPDATE_REJECTED =>
+            'Rejected',
+
+        LLAMA_UPDATE_WITHDRAWN =>
+            'Withdrawn',
+
+        'all' =>
+            'All',
+
+    ];
+
+    ?>
 
 
-    <span>
-
-      <?= count(
-          $fieldPaths
-      ) ?>
-
-      changed
-
-      <?= count(
-          $fieldPaths
-      ) === 1
-          ? 'field'
-          : 'fields'
-      ?>
-
-    </span>
-
-
-    <span>
-
-      Type:
-
-      <?= e(
-          update_human_label(
-              (string)
-              $update[
-                  'update_type'
-              ]
-          )
-      ) ?>
-
-    </span>
-
-
-    <?php if (
-        llama_contribution_role_is_scouted(
-            (string)
-            $update[
-                'role_at_submission'
-            ]
-        )
+    <?php foreach (
+        $filterLabels as
+        $filter =>
+        $label
     ): ?>
 
-      <span>
+      <?php
 
-        Estimated Scout points:
-
-        <?= (int)
-            $score[
-                'points_awarded'
-            ]
-        ?>
-
-      </span>
-
-    <?php endif; ?>
-
-
-  </div>
-
-
-  <?php if (
-      !empty(
-          $update[
-              'contributor_notes'
-          ]
-      )
-  ): ?>
-
-    <div class="update-notes">
-
-      <strong>
-        Contributor notes
-      </strong>
-
-      <p>
-
-        <?= nl2br(
-            e(
-                $update[
-                    'contributor_notes'
-                ]
-            )
-        ) ?>
-
-      </p>
-
-    </div>
-
-  <?php endif; ?>
-
-
-  <table class="update-diff">
-
-
-    <thead>
-
-      <tr>
-
-        <th>
-          Field
-        </th>
-
-        <th>
-          Current
-        </th>
-
-        <th>
-          Proposed
-        </th>
-
-      </tr>
-
-    </thead>
-
-
-    <tbody>
-
-
-<?php foreach (
-    $fieldPaths as
-    $path
-): ?>
-
-
-<?php
-
-$oldValue =
-    update_current_value(
-        $db,
-        $placeId,
-        $path
-    );
-
-
-$newValue =
-    llama_update_get(
-        $changes,
-        $path
-    );
-
-?>
-
-
-      <tr>
-
-
-        <td class="update-field">
-
-          <?= e(
-              update_human_label(
-                  $path
+      $count =
+          $filter ===
+          'all'
+              ? array_sum(
+                  $counts
               )
-          ) ?>
+              : (
+                  $counts[
+                      $filter
+                  ]
+                  ?? 0
+              );
 
-        </td>
+      ?>
 
-
-        <td class="update-old">
-
-          <?= e(
-              update_display_value(
-                  $oldValue
-              )
-          ) ?>
-
-        </td>
-
-
-        <td class="update-new">
-
-          <?= e(
-              update_display_value(
-                  $newValue
-              )
-          ) ?>
-
-        </td>
-
-
-      </tr>
-
-
-<?php endforeach; ?>
-
-
-    </tbody>
-
-
-  </table>
-
-
-  <?php if (
-      !empty(
-          $update[
-              'review_notes'
-          ]
-      )
-  ): ?>
-
-    <div class="update-notes">
-
-      <strong>
-        Moderator notes
-      </strong>
-
-      <p>
-
-        <?= nl2br(
-            e(
-                $update[
-                    'review_notes'
-                ]
-            )
-        ) ?>
-
-      </p>
-
-    </div>
-
-  <?php endif; ?>
-
-
-  <?php if (
-      $moderatable
-  ): ?>
-
-
-    <form
-      class="update-actions"
-      method="post"
-      action="?status=<?= e(
-          $statusFilter
-      ) ?>#update-<?= $updateId ?>"
-    >
-
-
-      <input
-        type="hidden"
-        name="csrf_token"
-        value="<?= e(
-            $csrfToken
+      <a
+        class="
+          update-filter
+          <?= $statusFilter === $filter
+              ? 'is-active'
+              : ''
+          ?>
+        "
+        href="?status=<?= e(
+            $filter
         ) ?>"
       >
 
+        <?= e(
+            $label
+        ) ?>
 
-      <input
-        type="hidden"
-        name="update_id"
-        value="<?= $updateId ?>"
-      >
+        <span>
+          <?= (int)
+              $count
+          ?>
+        </span>
 
+      </a>
 
-      <label>
+    <?php endforeach; ?>
 
-        <strong>
-          Moderator notes
-        </strong>
-
-        <textarea
-          name="review_notes"
-          maxlength="3000"
-          placeholder="Optional for approval or rejection. Required when requesting changes."
-        ></textarea>
-
-      </label>
+  </nav>
 
 
-      <div class="update-action-buttons">
+  <?php if (
+      !$updates
+  ): ?>
+
+    <div class="update-empty">
+
+      No Place updates match this filter.
+
+    </div>
+
+  <?php else: ?>
+
+    <div class="update-list">
 
 
-        <button
-          class="admin-button"
-          type="submit"
-          name="action"
-          value="approve"
-        >
+      <?php foreach (
+          $updates as
+          $update
+      ): ?>
 
-          <i
-            class="fa-solid fa-check"
-            aria-hidden="true"
-          ></i>
+        <?php
 
-          Approve Update
-
-        </button>
+        $hasConflicts =
+            !empty(
+                $update[
+                    '_has_conflicts'
+                ]
+            );
 
 
-        <button
-          class="admin-button admin-button--secondary"
-          type="submit"
-          name="action"
-          value="needs-changes"
-        >
-
-          <i
-            class="fa-solid fa-rotate-left"
-            aria-hidden="true"
-          ></i>
-
-          Needs Changes
-
-        </button>
+        $isOpen =
+            in_array(
+                (string)
+                $update[
+                    'status'
+                ],
+                [
+                    LLAMA_UPDATE_PENDING,
+                    LLAMA_UPDATE_NEEDS_CHANGES,
+                ],
+                true
+            );
 
 
-        <button
+        $contributorName =
+            trim(
+                (string) (
+                    $update[
+                        'display_name'
+                    ]
+                    ?:
+                    $update[
+                        'username'
+                    ]
+                    ?:
+                    'Community Member'
+                )
+            );
+
+        ?>
+
+        <article
           class="
-            admin-button
-            admin-button--secondary
-            update-action-danger
+            update-card
+            <?= $hasConflicts
+                ? 'has-conflict'
+                : ''
+            ?>
           "
-          type="submit"
-          name="action"
-          value="reject"
         >
 
-          <i
-            class="fa-solid fa-xmark"
-            aria-hidden="true"
-          ></i>
+          <div class="update-card-header">
 
-          Reject
+            <div>
 
-        </button>
+              <h2>
+                <?= e(
+                    $update[
+                        'place_name'
+                    ]
+                ) ?>
+              </h2>
 
 
-      </div>
+              <p class="update-meta">
+
+                <?= e(
+                    update_type_label(
+                        (string)
+                        $update[
+                            'update_type'
+                        ]
+                    )
+                ) ?>
+
+                by
+
+                <strong>
+                  <?= e(
+                      $contributorName
+                  ) ?>
+                </strong>
+
+                Â·
+
+                <?= e(
+                    update_role_label(
+                        (string)
+                        $update[
+                            'role_at_submission'
+                        ]
+                    )
+                ) ?>
+
+                Â·
+
+                Submitted
+
+                <?= e(
+                    update_format_date(
+                        $update[
+                            'submitted_at'
+                        ],
+                        true
+                    )
+                ) ?>
+
+                <?php if (
+                    !empty(
+                        $update[
+                            'visited_at'
+                        ]
+                    )
+                ): ?>
+
+                  Â· Visited
+
+                  <?= e(
+                      update_format_date(
+                          $update[
+                              'visited_at'
+                          ]
+                      )
+                  ) ?>
+
+                <?php endif; ?>
+
+              </p>
+
+            </div>
 
 
-    </form>
+            <div class="update-badges">
 
+              <span class="update-badge">
+
+                <?= e(
+                    update_status_label(
+                        (string)
+                        $update[
+                            'status'
+                        ]
+                    )
+                ) ?>
+
+              </span>
+
+
+              <?php if (
+                  (int)
+                  $update[
+                      '_estimated_points'
+                  ]
+                  > 0
+              ): ?>
+
+                <span class="update-badge">
+
+                  Up to
+
+                  <?= (int)
+                      $update[
+                          '_estimated_points'
+                      ]
+                  ?>
+
+                  pts
+
+                </span>
+
+              <?php endif; ?>
+
+
+              <?php if (
+                  $hasConflicts
+              ): ?>
+
+                <span
+                  class="
+                    update-badge
+                    conflict
+                  "
+                >
+
+                  <i
+                    class="fa-solid fa-triangle-exclamation"
+                    aria-hidden="true"
+                  ></i>
+
+                  <?= count(
+                      $update[
+                          '_conflicts'
+                      ]
+                  ) ?>
+
+                  conflict<?= count(
+                      $update[
+                          '_conflicts'
+                      ]
+                  ) === 1
+                      ? ''
+                      : 's'
+                  ?>
+
+                </span>
+
+              <?php endif; ?>
+
+            </div>
+
+          </div>
+
+
+          <?php if (
+              $hasConflicts
+              &&
+              $isOpen
+          ): ?>
+
+            <div class="update-warning">
+
+              <strong>
+                This update cannot be approved as submitted.
+              </strong>
+
+              One or more canonical Place fields changed after
+              this contribution was submitted, or the original
+              field snapshot is missing. Review the highlighted
+              values and return the update for changes or reject
+              it.
+
+            </div>
+
+          <?php endif; ?>
+
+
+          <div class="update-fields">
+
+
+            <?php foreach (
+                $update[
+                    '_paths'
+                ]
+                as
+                $path
+            ): ?>
+
+              <?php
+
+              $proposedValue =
+                  llama_update_get(
+                      $update[
+                          '_changes'
+                      ],
+                      $path
+                  );
+
+
+              $originalPaths =
+                  llama_update_field_paths(
+                      $update[
+                          '_original'
+                      ]
+                  );
+
+
+              $hasOriginal =
+                  in_array(
+                      $path,
+                      $originalPaths,
+                      true
+                  );
+
+
+              $originalValue =
+                  $hasOriginal
+                      ? llama_update_get(
+                          $update[
+                              '_original'
+                          ],
+                          $path
+                      )
+                      : null;
+
+
+              $conflict =
+                  $update[
+                      '_conflict_map'
+                  ][
+                      $path
+                  ]
+                  ?? null;
+
+
+              if (
+                  $conflict
+              ) {
+
+                  $currentValue =
+                      $conflict[
+                          'current'
+                      ]
+                      ?? null;
+
+              } else {
+
+                  try {
+
+                      $currentValue =
+                          llama_update_current_field_value(
+                              $db,
+                              (int)
+                              $update[
+                                  'place_id'
+                              ],
+                              $path,
+                              $fieldMap
+                          );
+
+                  } catch (
+                      Throwable
+                  ) {
+
+                      $currentValue =
+                          null;
+
+                  }
+
+              }
+
+              ?>
+
+              <div
+                class="
+                  update-field
+                  <?= $conflict
+                      ? 'is-conflict'
+                      : ''
+                  ?>
+                "
+              >
+
+                <div class="update-field-label">
+
+                  <?= e(
+                      update_human_label(
+                          $path
+                      )
+                  ) ?>
+
+                </div>
+
+
+                <div class="update-values">
+
+
+                  <div class="update-value">
+
+                    <span>
+                      When Submitted
+                    </span>
+
+                    <strong>
+
+                      <?= $hasOriginal
+                          ? e(
+                              update_display_value(
+                                  $originalValue
+                              )
+                          )
+                          : 'No snapshot'
+                      ?>
+
+                    </strong>
+
+                  </div>
+
+
+                  <div class="update-value">
+
+                    <span>
+                      Current
+                    </span>
+
+                    <strong>
+                      <?= e(
+                          update_display_value(
+                              $currentValue
+                          )
+                      ) ?>
+                    </strong>
+
+                  </div>
+
+
+                  <div class="update-value">
+
+                    <span>
+                      Proposed
+                    </span>
+
+                    <strong>
+                      <?= e(
+                          update_display_value(
+                              $proposedValue
+                          )
+                      ) ?>
+                    </strong>
+
+                  </div>
+
+
+                </div>
+
+
+                <?php if (
+                    $conflict
+                ): ?>
+
+                  <p class="update-conflict-note">
+
+                    <i
+                      class="fa-solid fa-triangle-exclamation"
+                      aria-hidden="true"
+                    ></i>
+
+                    <?php if (
+                        (
+                            $conflict[
+                                'reason'
+                            ]
+                            ?? ''
+                        )
+                        ===
+                        'missing-original-snapshot'
+                    ): ?>
+
+                      The original value was not captured when
+                      this update was submitted.
+
+                    <?php elseif (
+                        (
+                            $conflict[
+                                'reason'
+                            ]
+                            ?? ''
+                        )
+                        ===
+                        'unmapped-field'
+                    ): ?>
+
+                      This field is not currently approved for
+                      structured updates.
+
+                    <?php else: ?>
+
+                      The canonical value changed after this
+                      update was submitted.
+
+                    <?php endif; ?>
+
+                  </p>
+
+                <?php endif; ?>
+
+
+              </div>
+
+            <?php endforeach; ?>
+
+
+          </div>
+
+
+          <?php if (
+              !empty(
+                  $update[
+                      'contributor_notes'
+                  ]
+              )
+          ): ?>
+
+            <div class="update-notes">
+
+              <strong>
+                Contributor Notes
+              </strong>
+
+              <p>
+                <?= e(
+                    $update[
+                        'contributor_notes'
+                    ]
+                ) ?>
+              </p>
+
+            </div>
+
+          <?php endif; ?>
+
+
+          <?php if (
+              !empty(
+                  $update[
+                      'review_notes'
+                  ]
+              )
+          ): ?>
+
+            <div class="update-notes">
+
+              <strong>
+                Review Notes
+              </strong>
+
+              <p>
+                <?= e(
+                    $update[
+                        'review_notes'
+                    ]
+                ) ?>
+              </p>
+
+            </div>
+
+          <?php endif; ?>
+
+
+          <?php if (
+              $isOpen
+          ): ?>
+
+            <form
+              method="post"
+              class="update-actions"
+            >
+
+              <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= e(
+                    $csrfToken
+                ) ?>"
+              >
+
+              <input
+                type="hidden"
+                name="update_id"
+                value="<?= (int)
+                    $update[
+                        'id'
+                    ]
+                ?>"
+              >
+
+
+              <textarea
+                name="review_notes"
+                placeholder="<?= $hasConflicts
+                    ? 'Explain what the contributor should re-check...'
+                    : 'Optional review note...'
+                ?>"
+              ></textarea>
+
+
+              <div class="update-action-row">
+
+
+                <button
+                  class="
+                    update-action
+                    approve
+                  "
+                  type="submit"
+                  name="action"
+                  value="approve"
+                  <?= $hasConflicts
+                      ? 'disabled'
+                      : ''
+                  ?>
+                  onclick="
+                    return confirm(
+                      'Approve and apply this structured Place update?'
+                    );
+                  "
+                >
+
+                  <i
+                    class="fa-solid fa-check"
+                    aria-hidden="true"
+                  ></i>
+
+                  Approve
+
+                </button>
+
+
+                <?php if (
+                    (string)
+                    $update[
+                        'status'
+                    ]
+                    ===
+                    LLAMA_UPDATE_PENDING
+                ): ?>
+
+                  <button
+                    class="
+                      update-action
+                      return
+                    "
+                    type="submit"
+                    name="action"
+                    value="needs-changes"
+                  >
+
+                    <i
+                      class="fa-solid fa-rotate-left"
+                      aria-hidden="true"
+                    ></i>
+
+                    Needs Changes
+
+                  </button>
+
+                <?php endif; ?>
+
+
+                <button
+                  class="
+                    update-action
+                    reject
+                  "
+                  type="submit"
+                  name="action"
+                  value="reject"
+                  onclick="
+                    return confirm(
+                      'Reject this Place update?'
+                    );
+                  "
+                >
+
+                  <i
+                    class="fa-solid fa-xmark"
+                    aria-hidden="true"
+                  ></i>
+
+                  Reject
+
+                </button>
+
+
+              </div>
+
+            </form>
+
+          <?php endif; ?>
+
+
+        </article>
+
+      <?php endforeach; ?>
+
+
+    </div>
 
   <?php endif; ?>
-
-
-</article>
-
-
-<?php endforeach; ?>
-
-
-<?php endif; ?>
-
-
-</section>
 
 
 </main>
