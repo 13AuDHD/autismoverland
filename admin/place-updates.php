@@ -520,6 +520,15 @@ if (
                 )
             );
 
+        $moderationType =
+            trim(
+                (string) (
+                    $_POST[
+                        'moderation_type'
+                    ]
+                    ?? LLAMA_PLACE_UPDATE
+                )
+            );
 
         if (
             $updateId < 1
@@ -547,7 +556,8 @@ if (
                             $userId,
                             $reviewNotes !== ''
                                 ? $reviewNotes
-                                : null
+                                : null,
+                            $moderationType
                         );
 
 
@@ -2283,6 +2293,64 @@ require
                 ?>"
               >
 
+             <div class="update-notes">
+
+                <strong>
+                  Moderation Classification
+                </strong>
+
+                <p>
+                  Classify the contribution before approval.
+                  This classification determines how the
+                  contribution is scored.
+                </p>
+
+                <select
+                  name="moderation_type"
+                  required
+                >
+
+                  <option
+                    value="<?= e(
+                        LLAMA_PLACE_UPDATE
+                    ) ?>"
+                    <?= (
+                        (string)
+                        $update[
+                            'update_type'
+                        ]
+                        ===
+                        LLAMA_PLACE_UPDATE
+                    )
+                        ? 'selected'
+                        : ''
+                    ?>
+                  >
+                    Place Update
+                  </option>
+
+                  <option
+                    value="<?= e(
+                        LLAMA_PLACE_CORRECTION
+                    ) ?>"
+                    <?= (
+                        (string)
+                        $update[
+                            'update_type'
+                        ]
+                        ===
+                        LLAMA_PLACE_CORRECTION
+                    )
+                        ? 'selected'
+                        : ''
+                    ?>
+                  >
+                    Factual Correction
+                  </option>
+
+                </select>
+
+              </div>
 
               <textarea
                 name="review_notes"
