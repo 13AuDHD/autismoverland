@@ -6,6 +6,10 @@ require_once
     dirname(__DIR__)
     . '/app/auth.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/role-display.php';
+
 
 require_role(
     'admin'
@@ -23,6 +27,25 @@ $user =
     current_user();
 
 
+$userId =
+    (int)
+    $user[
+        'id'
+    ];
+
+
+$primaryRoleLabel =
+    llama_primary_role_label(
+        $userId
+    );
+
+
+$primaryRoleIcon =
+    llama_primary_role_icon(
+        $userId
+    );
+
+
 /* =========================================================
    HELPERS
    ========================================================= */
@@ -36,7 +59,6 @@ function e(
         ENT_QUOTES,
         'UTF-8'
     );
-
 }
 
 
@@ -70,7 +92,6 @@ if (
     exit(
         'A valid place ID is required.'
     );
-
 }
 
 
@@ -94,7 +115,6 @@ if (
                 32
             )
         );
-
 }
 
 
@@ -115,6 +135,7 @@ $placeStmt =
             id,
             name,
             slug,
+            status,
             city,
             state,
             latitude,
@@ -157,7 +178,6 @@ if (
     exit(
         'Place not found.'
     );
-
 }
 
 
@@ -180,7 +200,8 @@ $error =
 if (
     $_SERVER[
         'REQUEST_METHOD'
-    ] === 'POST'
+    ] ===
+    'POST'
 ) {
 
     $submittedToken =
@@ -203,6 +224,7 @@ if (
 
         $error =
             'Your session could not be verified. Reload the page and try again.';
+
 
     } else {
 
@@ -253,20 +275,26 @@ if (
         if (
             mb_strlen(
                 $publicSummary
-            ) > 1200
+            )
+            >
+            1200
         ) {
 
             $error =
                 'The public summary must be 1,200 characters or less.';
 
+
         } elseif (
             mb_strlen(
                 $publicLocationLabel
-            ) > 150
+            )
+            >
+            150
         ) {
 
             $error =
                 'The public area name must be 150 characters or less.';
+
 
         } elseif (
             $publicLatitude !== ''
@@ -277,15 +305,18 @@ if (
                 )
                 ||
                 (float)
-                $publicLatitude < -90
+                $publicLatitude <
+                -90
                 ||
                 (float)
-                $publicLatitude > 90
+                $publicLatitude >
+                90
             )
         ) {
 
             $error =
                 'Public latitude must be between -90 and 90.';
+
 
         } elseif (
             $publicLongitude !== ''
@@ -296,15 +327,18 @@ if (
                 )
                 ||
                 (float)
-                $publicLongitude < -180
+                $publicLongitude <
+                -180
                 ||
                 (float)
-                $publicLongitude > 180
+                $publicLongitude >
+                180
             )
         ) {
 
             $error =
                 'Public longitude must be between -180 and 180.';
+
 
         } elseif (
             (
@@ -319,9 +353,52 @@ if (
             $error =
                 'Enter both public map coordinates or leave both blank.';
 
+
         } else {
 
             try {
+
+                $db->beginTransaction();
+
+
+                /*
+                 * Lock the Place while updating the public-preview
+                 * fields so simultaneous Basecamp edits cannot
+                 * silently overwrite one another.
+                 */
+
+                $lockStmt =
+                    $db->prepare(
+                        '
+                        SELECT
+                            id
+
+                        FROM places
+
+                        WHERE id = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        '
+                    );
+
+
+                $lockStmt->execute([
+                    $placeId
+                ]);
+
+
+                if (
+                    !$lockStmt
+                        ->fetchColumn()
+                ) {
+
+                    throw new RuntimeException(
+                        'Place not found.'
+                    );
+                }
+
 
                 $update =
                     $db->prepare(
@@ -360,12 +437,59 @@ if (
                           $publicLongitude
                         : null,
 
-                    $placeId,
+                    $placeId
                 ]);
 
 
+                if (
+                    $update
+                        ->rowCount() <
+                    1
+                ) {
+
+                    /*
+                     * MySQL may report 0 when values were unchanged.
+                     * Confirm the row still exists before treating it
+                     * as success.
+                     */
+
+                    $confirmStmt =
+                        $db->prepare(
+                            '
+                            SELECT
+                                id
+
+                            FROM places
+
+                            WHERE id = ?
+
+                            LIMIT 1
+                            '
+                        );
+
+
+                    $confirmStmt->execute([
+                        $placeId
+                    ]);
+
+
+                    if (
+                        !$confirmStmt
+                            ->fetchColumn()
+                    ) {
+
+                        throw new RuntimeException(
+                            'Place not found.'
+                        );
+                    }
+                }
+
+
+                $db->commit();
+
+
                 $message =
-                    'Public preview saved.';
+                    'Logged-out visitor preview saved.';
 
 
                 $placeStmt->execute([
@@ -378,9 +502,18 @@ if (
                         PDO::FETCH_ASSOC
                     );
 
+
             } catch (
                 Throwable $exception
             ) {
+
+                if (
+                    $db->inTransaction()
+                ) {
+
+                    $db->rollBack();
+                }
+
 
                 error_log(
                     'Llama Scout public preview editor error: '
@@ -392,13 +525,9 @@ if (
 
                 $error =
                     'The public preview could not be saved.';
-
             }
-
         }
-
     }
-
 }
 
 
@@ -431,8 +560,32 @@ if (
 
     $privateLocation =
         'Location not labeled';
-
 }
+
+
+$isPubliclyListed =
+    in_array(
+        (string)
+        $place[
+            'status'
+        ],
+        [
+            'active',
+            'featured'
+        ],
+        true
+    );
+
+
+$hasPublicMapPoint =
+    $place[
+        'public_latitude'
+    ] !== null
+    &&
+    $place[
+        'public_longitude'
+    ] !== null;
+
 
 ?>
 <!doctype html>
@@ -449,7 +602,7 @@ if (
   >
 
   <title>
-    Public Preview | Llama Scout Admin
+    Public Preview | Llama Scout Basecamp
   </title>
 
   <meta
@@ -552,12 +705,26 @@ require_once
       <div class="admin-intro-copy">
 
         <p class="admin-eyebrow">
-          Place Management
+
+          <i
+            class="<?= e(
+                $primaryRoleIcon
+            ) ?>"
+            aria-hidden="true"
+          ></i>
+
+          Llama Scout
+          <?= e(
+              $primaryRoleLabel
+          ) ?>
+
         </p>
+
 
         <h1>
           Public Preview
         </h1>
+
 
         <p>
 
@@ -566,6 +733,10 @@ require_once
                   'name'
               ]
           ) ?>
+
+          &middot;
+
+          Logged-Out Visitor View
 
           &middot;
 
@@ -597,29 +768,35 @@ require_once
         </a>
 
 
-        <a
-          class="
-            admin-button
-            admin-button--secondary
-          "
-          href="https://llamascout.com/place.php?place=<?= rawurlencode(
-              (string)
-              $place[
-                  'slug'
-              ]
-          ) ?>"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <?php if (
+            $isPubliclyListed
+        ): ?>
 
-          <i
-            class="fa-solid fa-arrow-up-right-from-square"
-            aria-hidden="true"
-          ></i>
+          <a
+            class="
+              admin-button
+              admin-button--secondary
+            "
+            href="https://llamascout.com/place.php?place=<?= rawurlencode(
+                (string)
+                $place[
+                    'slug'
+                ]
+            ) ?>"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
 
-          Public Page
+            <i
+              class="fa-solid fa-arrow-up-right-from-square"
+              aria-hidden="true"
+            ></i>
 
-        </a>
+            Public Page
+
+          </a>
+
+        <?php endif; ?>
 
       </div>
 
@@ -689,6 +866,110 @@ require
   <?php endif; ?>
 
 
+  <?php if (
+      !$isPubliclyListed
+  ): ?>
+
+    <div
+      class="
+        admin-notice
+        admin-notice--info
+      "
+    >
+
+      <p>
+        This Place is currently
+        <strong>
+          <?= e(
+              ucfirst(
+                  (string)
+                  $place[
+                      'status'
+                  ]
+              )
+          ) ?>
+        </strong>.
+        These visitor-preview values are stored safely,
+        but this Place is not currently available through
+        the public Places API.
+      </p>
+
+    </div>
+
+  <?php endif; ?>
+
+
+  <!-- =====================================================
+       ACCESS MODEL
+       ===================================================== -->
+
+  <section class="admin-panel">
+
+    <div class="admin-panel-header">
+
+      <div>
+
+        <h2>
+          Visitor Access Model
+        </h2>
+
+        <p>
+          This editor controls only the logged-out visitor
+          version of this Place.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div class="admin-detail-list">
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Logged-Out Visitor
+        </div>
+
+        <div class="admin-detail-value">
+          Uses the Public Area Name, Public About Summary,
+          and Public Map Coordinates stored on this page.
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Free Member
+        </div>
+
+        <div class="admin-detail-value">
+          Uses the normal approximate-location model
+          and receives the registered-member preview tier.
+        </div>
+
+      </div>
+
+
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Paid Member / Active Scout
+        </div>
+
+        <div class="admin-detail-value">
+          Receives the exact location and full Place details.
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
   <!-- =====================================================
        PRIVATE REFERENCE
        ===================================================== -->
@@ -700,7 +981,7 @@ require
       <div>
 
         <h2>
-          Private Member Location
+          Private Place Location
         </h2>
 
         <p>
@@ -771,18 +1052,36 @@ require
 
         <div class="admin-detail-value">
 
-          <code>
-            <?= e(
-                $place[
-                    'latitude'
-                ]
-            ) ?>,
-            <?= e(
-                $place[
-                    'longitude'
-                ]
-            ) ?>
-          </code>
+          <?php if (
+              $place[
+                  'latitude'
+              ] !== null
+              &&
+              $place[
+                  'longitude'
+              ] !== null
+          ): ?>
+
+            <code>
+
+              <?= e(
+                  $place[
+                      'latitude'
+                  ]
+              ) ?>,
+              <?= e(
+                  $place[
+                      'longitude'
+                  ]
+              ) ?>
+
+            </code>
+
+          <?php else: ?>
+
+            Not set
+
+          <?php endif; ?>
 
         </div>
 
@@ -795,7 +1094,7 @@ require
 
 
   <!-- =====================================================
-       PUBLIC PREVIEW EDITOR
+       LOGGED-OUT VISITOR PREVIEW EDITOR
        ===================================================== -->
 
   <section class="admin-panel">
@@ -805,12 +1104,12 @@ require
       <div>
 
         <h2>
-          What Free Visitors See
+          What Logged-Out Visitors See
         </h2>
 
         <p>
-          Create a useful public-facing preview
-          without exposing the exact campsite location.
+          Create a useful public-facing introduction
+          without exposing the exact Place location.
         </p>
 
       </div>
@@ -859,9 +1158,10 @@ require
         >
 
         <p class="admin-field-help">
-          Keep this broad. Do not include the actual road,
-          forest road number, campsite name, turnoff,
-          or directions.
+          This replaces the normal city/state label for
+          logged-out visitors. Keep it intentionally broad.
+          Do not include road numbers, campsite names,
+          turnoffs, trail names, or directions.
         </p>
 
       </div>
@@ -877,7 +1177,7 @@ require
           id="public_summary"
           name="public_summary"
           maxlength="1200"
-          placeholder="Write a useful but location-safe description of the general area."
+          placeholder="Write a useful but location-safe description for logged-out visitors."
         ><?= e(
             $place[
                 'public_summary'
@@ -886,9 +1186,11 @@ require
         ) ?></textarea>
 
         <p class="admin-field-help">
-          Avoid distances, road numbers, trail names,
-          identifiable landmarks, turnoffs,
-          or other details that reveal the exact site.
+          Logged-out visitors see this text instead of the
+          full Place description. Avoid distances, road
+          numbers, trail names, identifiable landmarks,
+          turnoffs, or anything else that could reveal
+          the exact site.
         </p>
 
       </div>
@@ -956,11 +1258,12 @@ require
       >
 
         <p>
-          The public map point is intentionally separate
-          from the real campsite coordinates. Choose a
-          representative point for the general area instead
-          of merely rounding or slightly moving the private
-          coordinates.
+          These coordinates are the only map point sent to
+          a logged-out visitor. If both fields are blank,
+          logged-out visitors receive no map coordinates.
+          Choose a representative point for the general area
+          instead of merely rounding or slightly moving the
+          private coordinates.
         </p>
 
       </div>
@@ -978,7 +1281,7 @@ require
             aria-hidden="true"
           ></i>
 
-          Save Public Preview
+          Save Visitor Preview
 
         </button>
 
@@ -991,7 +1294,7 @@ require
 
 
   <!-- =====================================================
-       CURRENT PUBLIC OUTPUT
+       CURRENT LOGGED-OUT OUTPUT
        ===================================================== -->
 
   <section class="admin-panel">
@@ -1001,15 +1304,42 @@ require
       <div>
 
         <h2>
-          Current Public Values
+          Current Logged-Out Visitor Values
         </h2>
 
         <p>
-          Quick check of what is currently stored
-          for the public-facing version.
+          These are the deliberately public-safe values
+          currently stored for this Place.
         </p>
 
       </div>
+
+
+      <?php if (
+          $isPubliclyListed
+      ): ?>
+
+        <span
+          class="
+            admin-badge
+            admin-badge--success
+          "
+        >
+          Live
+        </span>
+
+      <?php else: ?>
+
+        <span
+          class="
+            admin-badge
+            admin-badge--muted
+          "
+        >
+          Stored Only
+        </span>
+
+      <?php endif; ?>
 
     </div>
 
@@ -1029,7 +1359,8 @@ require
               $place[
                   'public_location_label'
               ]
-              ?: 'Not set'
+              ?:
+              'Not set'
           ) ?>
 
         </div>
@@ -1046,13 +1377,7 @@ require
         <div class="admin-detail-value">
 
           <?php if (
-              $place[
-                  'public_latitude'
-              ] !== null
-              &&
-              $place[
-                  'public_longitude'
-              ] !== null
+              $hasPublicMapPoint
           ): ?>
 
             <code>
@@ -1072,7 +1397,7 @@ require
 
           <?php else: ?>
 
-            Not set
+            No visitor map point
 
           <?php endif; ?>
 
@@ -1107,7 +1432,10 @@ require
 
           <?php else: ?>
 
-            Not set
+            Not set.
+            The visitor access layer will use the short
+            fallback description until a public summary
+            is written.
 
           <?php endif; ?>
 
@@ -1135,18 +1463,25 @@ require
       All Places
     </a>
 
-    <a
-      href="https://llamascout.com/place.php?place=<?= rawurlencode(
-          (string)
-          $place[
-              'slug'
-          ]
-      ) ?>"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Public Page
-    </a>
+
+    <?php if (
+        $isPubliclyListed
+    ): ?>
+
+      <a
+        href="https://llamascout.com/place.php?place=<?= rawurlencode(
+            (string)
+            $place[
+                'slug'
+            ]
+        ) ?>"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Public Page
+      </a>
+
+    <?php endif; ?>
 
   </div>
 
