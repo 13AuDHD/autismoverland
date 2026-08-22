@@ -536,37 +536,6 @@ try {
 
 
         /* =================================================
-           LATEST VERIFICATION
-           ================================================= */
-
-        $verification =
-            fetch_one(
-                $db,
-                '
-                SELECT
-                    verification_type,
-                    visited_at,
-                    verified_at,
-                    source,
-                    public_data_verified
-
-                FROM place_verifications
-
-                WHERE place_id = ?
-
-                ORDER BY
-                    verified_at DESC,
-                    id DESC
-
-                LIMIT 1
-                ',
-                [
-                    $placeId
-                ]
-            );
-
-
-        /* =================================================
            BUILD LEGACY-COMPATIBLE PLACE OBJECT
            ================================================= */
 
@@ -2232,56 +2201,6 @@ try {
             'images' =>
                 $images,
 
-
-            /* =============================================
-               VERIFICATION
-               ============================================= */
-
-            'verification' => [
-
-                'status' =>
-                    api_string(
-                        $verification[
-                            'verification_type'
-                        ]
-                        ?? null
-                    ),
-
-                'visited' =>
-                    api_date(
-                        $verification[
-                            'visited_at'
-                        ]
-                        ?? null
-                    ),
-
-                'lastVerified' =>
-                    api_date(
-                        $verification[
-                            'verified_at'
-                        ]
-                        ??
-                        $place[
-                            'last_verified_at'
-                        ]
-                    ),
-
-                'source' =>
-                    api_string(
-                        $verification[
-                            'source'
-                        ]
-                        ?? null
-                    ),
-
-                'publicDataVerified' =>
-                    api_bool(
-                        $verification[
-                            'public_data_verified'
-                        ]
-                        ?? null
-                    )
-            ]
         ];
     }
 
@@ -2321,26 +2240,6 @@ foreach (
             : public_place_preview(
                 $place
             );
-
-
-    /*
-     * Legacy verification data is intentionally excluded
-     * from every public API response.
-     *
-     * Trust and contributor history are now provided by the
-     * Place provenance system instead.
-     *
-     * Old verification tables/columns remain in the database
-     * temporarily for migration compatibility only.
-     */
-
-    unset(
-        $output[
-            $index
-        ][
-            'verification'
-        ]
-    );
 
 }
 
