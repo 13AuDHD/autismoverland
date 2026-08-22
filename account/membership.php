@@ -210,6 +210,108 @@ $hasActiveScoutAccess =
 
 
 /* =========================================================
+   ACTIVE SCOUT EXTENSION
+   ========================================================= */
+
+$activeScoutExtension =
+    null;
+
+
+if (
+    $hasActiveScoutAccess
+) {
+
+    try {
+
+        $extensionStmt =
+            $db->prepare(
+                '
+                SELECT
+                    id,
+                    scout_profile_id,
+                    user_id,
+                    granted_by,
+                    started_at,
+                    ends_at,
+                    status,
+                    accepted_reports,
+                    resolved_at
+
+                FROM scout_extensions
+
+                WHERE scout_profile_id = ?
+                  AND user_id = ?
+                  AND status = \'active\'
+
+                ORDER BY
+                    id DESC
+
+                LIMIT 1
+                '
+            );
+
+
+        $extensionStmt->execute([
+            (int)
+            $scoutProfile[
+                'id'
+            ],
+            $userId
+        ]);
+
+
+        $extension =
+            $extensionStmt->fetch(
+                PDO::FETCH_ASSOC
+            );
+
+
+        if (
+            $extension
+        ) {
+
+            $activeScoutExtension =
+                $extension;
+        }
+
+
+    } catch (
+        Throwable $exception
+    ) {
+
+        error_log(
+            'Llama Scout membership extension lookup error for user #'
+            .
+            $userId
+            .
+            ': '
+            .
+            $exception
+                ->getMessage()
+        );
+
+
+        http_response_code(
+            500
+        );
+
+
+        exit(
+            'Your Scout access information could not be loaded.'
+        );
+
+    }
+
+}
+
+
+$isScoutExtension =
+    is_array(
+        $activeScoutExtension
+    );
+
+
+/* =========================================================
    HELPERS
    ========================================================= */
 
@@ -330,7 +432,7 @@ function scout_status_label(
             'Training',
 
         'application_submitted' =>
-            'Application Complete',
+            'About You Complete',
 
         'application_started' =>
             'Onboarding',
@@ -380,6 +482,8 @@ if (
 
 } elseif (
     $isMasterScout
+    &&
+    $hasActiveScoutAccess
 ) {
 
     $primaryRole =
@@ -388,6 +492,8 @@ if (
 
 } elseif (
     $isScout
+    &&
+    $hasActiveScoutAccess
 ) {
 
     $primaryRole =
@@ -486,6 +592,16 @@ if (
 
 
 } elseif (
+    $isScoutExtension
+    &&
+    $hasActiveScoutAccess
+) {
+
+    $accessSource =
+        '30-Day Scout Extension';
+
+
+} elseif (
     $isMasterScout
     &&
     $hasActiveScoutAccess
@@ -502,15 +618,7 @@ if (
 ) {
 
     $accessSource =
-        'Scout Role';
-
-
-} elseif (
-    $isComplimentary
-) {
-
-    $accessSource =
-        'Complimentary Membership';
+        'Scout';
 
 
 } elseif (
@@ -519,6 +627,14 @@ if (
 
     $accessSource =
         'Paid Membership';
+
+
+} elseif (
+    $isComplimentary
+) {
+
+    $accessSource =
+        'Complimentary Membership';
 
 
 } else {
@@ -539,6 +655,25 @@ if (
 
     $accessThrough =
         'Never';
+
+
+} elseif (
+    $isScoutExtension
+    &&
+    !empty(
+        $activeScoutExtension[
+            'ends_at'
+        ]
+    )
+) {
+
+    $accessThrough =
+        format_membership_date(
+            $activeScoutExtension[
+                'ends_at'
+            ],
+            $membership
+        );
 
 
 } elseif (
@@ -629,6 +764,40 @@ $scoutActiveThrough =
             $membership
         )
         : 'Not scheduled';
+
+
+$extensionStarted =
+    $isScoutExtension
+    &&
+    !empty(
+        $activeScoutExtension[
+            'started_at'
+        ]
+    )
+        ? format_membership_date(
+            $activeScoutExtension[
+                'started_at'
+            ],
+            $membership
+        )
+        : 'Not applicable';
+
+
+$extensionEnds =
+    $isScoutExtension
+    &&
+    !empty(
+        $activeScoutExtension[
+            'ends_at'
+        ]
+    )
+        ? format_membership_date(
+            $activeScoutExtension[
+                'ends_at'
+            ],
+            $membership
+        )
+        : 'Not applicable';
 
 
 /* =========================================================
@@ -821,7 +990,8 @@ if (
         $_GET[
             'checkout'
         ]
-        === 'success'
+        ===
+        'success'
     ) {
 
         $checkoutMessage =
@@ -832,7 +1002,8 @@ if (
         $_GET[
             'checkout'
         ]
-        === 'canceled'
+        ===
+        'canceled'
     ) {
 
         $checkoutMessage =
@@ -1304,10 +1475,6 @@ require_once
   <?php endif; ?>
 
 
-  <!-- =====================================================
-       CURRENT MEMBERSHIP
-       ===================================================== -->
-
   <section class="membership-card">
 
     <h2>
@@ -1385,10 +1552,6 @@ require_once
   </section>
 
 
-  <!-- =====================================================
-       SCOUT STATUS
-       ===================================================== -->
-
   <?php if (
       $hasScoutProfile
   ): ?>
@@ -1404,11 +1567,19 @@ require_once
           aria-hidden="true"
         ></i>
 
-        <?= e(
-            scout_status_label(
-                $scoutStatus
-            )
-        ) ?>
+        <?php if ($isScoutExtension): ?>
+
+          30-Day Scout Extension
+
+        <?php else: ?>
+
+          <?= e(
+              scout_status_label(
+                  $scoutStatus
+              )
+          ) ?>
+
+        <?php endif; ?>
 
       </span>
 
@@ -1419,7 +1590,17 @@ require_once
 
 
       <p>
-        Scout access is separate from paid membership.
+
+        <?php if ($isScoutExtension): ?>
+
+          You currently have temporary basic Scout access.
+
+        <?php else: ?>
+
+          Scout access is separate from paid membership.
+
+        <?php endif; ?>
+
       </p>
 
 
@@ -1429,7 +1610,7 @@ require_once
         <div class="membership-item">
 
           <span>
-            Scout Since
+            Original Scout Start
           </span>
 
           <strong>
@@ -1439,34 +1620,82 @@ require_once
         </div>
 
 
-        <div class="membership-item">
-
-          <span>
-            Active Through
-          </span>
-
-          <strong>
-            <?= e($scoutActiveThrough) ?>
-          </strong>
-
-        </div>
+        <?php if ($isScoutExtension): ?>
 
 
-        <div class="membership-item">
+          <div class="membership-item">
 
-          <span>
-            Status
-          </span>
+            <span>
+              Extension Started
+            </span>
 
-          <strong>
-            <?= e(
-                scout_status_label(
-                    $scoutStatus
-                )
-            ) ?>
-          </strong>
+            <strong>
+              <?= e($extensionStarted) ?>
+            </strong>
 
-        </div>
+          </div>
+
+
+          <div class="membership-item">
+
+            <span>
+              Extension Ends
+            </span>
+
+            <strong>
+              <?= e($extensionEnds) ?>
+            </strong>
+
+          </div>
+
+
+          <div class="membership-item">
+
+            <span>
+              Rank
+            </span>
+
+            <strong>
+              Scout
+            </strong>
+
+          </div>
+
+
+        <?php else: ?>
+
+
+          <div class="membership-item">
+
+            <span>
+              Active Through
+            </span>
+
+            <strong>
+              <?= e($scoutActiveThrough) ?>
+            </strong>
+
+          </div>
+
+
+          <div class="membership-item">
+
+            <span>
+              Status
+            </span>
+
+            <strong>
+              <?= e(
+                  scout_status_label(
+                      $scoutStatus
+                  )
+              ) ?>
+            </strong>
+
+          </div>
+
+
+        <?php endif; ?>
 
 
         <div class="membership-item">
@@ -1491,6 +1720,38 @@ require_once
 
 
       <?php if (
+          $isScoutExtension
+      ): ?>
+
+        <div class="membership-note">
+
+          <i
+            class="fa-solid fa-clock"
+            aria-hidden="true"
+          ></i>
+
+          <div>
+
+            <strong>
+              Temporary Scout reinstatement
+            </strong>
+
+            This 30-day extension gives you basic Scout
+            access while you work toward three newly accepted
+            Scout Reports.
+
+            Reports from before the extension do not satisfy
+            the extension requirement.
+
+            If all three are accepted during this period,
+            you return to regular basic Scout status.
+
+          </div>
+
+        </div>
+
+
+      <?php elseif (
           $hasActiveScoutAccess
       ): ?>
 
@@ -1519,10 +1780,6 @@ require_once
   <?php endif; ?>
 
 
-  <!-- =====================================================
-       BILLING
-       ===================================================== -->
-
   <?php if (
       $showBillingSection
   ): ?>
@@ -1537,7 +1794,22 @@ require_once
 
 
       <p>
-        Your paid membership history and Stripe status.
+
+        <?php if (
+            $isComplimentary
+            &&
+            $hasActiveScoutAccess
+        ): ?>
+
+          Your complimentary access associated with Scout
+          status.
+
+        <?php else: ?>
+
+          Your paid membership history and Stripe status.
+
+        <?php endif; ?>
+
       </p>
 
 
@@ -1564,7 +1836,29 @@ require_once
           </span>
 
           <strong>
-            <?= e($billingPlan) ?>
+
+            <?php if (
+                $isComplimentary
+                &&
+                $isScoutExtension
+            ): ?>
+
+              30-Day Scout Extension
+
+            <?php elseif (
+                $isComplimentary
+                &&
+                $hasActiveScoutAccess
+            ): ?>
+
+              Scout Complimentary
+
+            <?php else: ?>
+
+              <?= e($billingPlan) ?>
+
+            <?php endif; ?>
+
           </strong>
 
         </div>
@@ -1586,7 +1880,12 @@ require_once
         <div class="membership-item">
 
           <span>
-            Paid Through
+
+            <?= $isStripeMembership
+                ? 'Paid Through'
+                : 'Access Through'
+            ?>
+
           </span>
 
           <strong>
@@ -1636,8 +1935,10 @@ require_once
             </strong>
 
             It remains active through the paid period shown
-            above. Your Scout access continues separately
-            after the paid membership ends.
+            above.
+
+            Your Scout access continues separately after the
+            paid membership ends.
 
           </div>
 
@@ -1667,6 +1968,30 @@ require_once
 
             Your paid Stripe subscription is also still active
             and currently set to renew.
+
+          </div>
+
+        </div>
+
+
+      <?php elseif (
+          $isComplimentary
+          &&
+          $isScoutExtension
+      ): ?>
+
+
+        <div class="membership-note">
+
+          <i
+            class="fa-solid fa-clock"
+            aria-hidden="true"
+          ></i>
+
+          <div>
+
+            This complimentary access ends with your current
+            30-day Scout extension.
 
           </div>
 
@@ -1709,10 +2034,6 @@ require_once
   <?php endif; ?>
 
 
-  <!-- =====================================================
-       MEMBERSHIP PLANS
-       ===================================================== -->
-
   <?php if (
       $showMembershipPlans
   ): ?>
@@ -1733,8 +2054,6 @@ require_once
 
       <div class="membership-plans">
 
-
-        <!-- MONTHLY -->
 
         <article class="membership-plan">
 
@@ -1808,8 +2127,6 @@ require_once
 
         </article>
 
-
-        <!-- ANNUAL -->
 
         <article class="membership-plan">
 
