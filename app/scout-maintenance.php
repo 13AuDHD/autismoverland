@@ -26,7 +26,7 @@ declare(strict_types=1);
        Scout access ends.
        Scout / Master Scout roles are removed.
        Complimentary membership ends.
-       Scout points are permanently destroyed.
+       Lifetime Scout points remain permanently recorded.
 
    - Admin / Owner may later grant a separate 30-day basic
      Scout extension.
@@ -37,10 +37,15 @@ declare(strict_types=1);
    - Successful extension:
        member returns as BASIC Scout for one full year.
        Master Scout is never automatically restored.
+       Existing lifetime points remain intact.
 
    - Failed extension:
-       member returns to free status and points are again
-       permanently destroyed.
+       member returns to free status.
+       Existing lifetime points remain intact.
+
+   Lifetime points represent historical contribution to
+   Llama Scout. They do not grant or preserve active Scout
+   status by themselves.
 
    ========================================================= */
 
@@ -482,43 +487,6 @@ function llama_grant_basic_scout_role(
 
 
 /* =========================================================
-   PERMANENTLY DESTROY SCOUT POINTS
-
-   Scout activity/history remains for audit purposes.
-
-   Point values themselves are deliberately zeroed.
-
-   This is irreversible by design. Historical Scout activity
-   must never be used later to reconstruct lost points.
-   ========================================================= */
-
-function llama_destroy_scout_points(
-    PDO $db,
-    int $userId
-): void {
-
-    $stmt =
-        $db->prepare(
-            '
-            UPDATE scout_activity
-
-            SET
-                points = 0
-
-            WHERE user_id = ?
-              AND points <> 0
-            '
-        );
-
-
-    $stmt->execute([
-        $userId
-    ]);
-
-}
-
-
-/* =========================================================
    END COMPLIMENTARY MEMBERSHIP
 
    Only Scout-created complimentary membership is affected.
@@ -606,9 +574,15 @@ function llama_sync_scout_membership_end(
    - failed normal Scout year
    - failed 30-day extension
 
-   This destroys rank and points.
+   This removes active Scout status and rank.
 
-   It does NOT delete the user's reports or Scout history.
+   It does NOT delete:
+   - the user's reports
+   - Scout activity/history
+   - lifetime points
+
+   Lifetime points remain part of the user's permanent
+   contribution history but do not preserve Scout status.
    ========================================================= */
 
 function llama_expire_scout_access(
@@ -662,12 +636,6 @@ function llama_expire_scout_access(
 
 
     llama_remove_scout_roles(
-        $db,
-        $userId
-    );
-
-
-    llama_destroy_scout_points(
         $db,
         $userId
     );
@@ -752,6 +720,9 @@ function llama_active_scout_extension(
 
    A fresh one-year Scout period begins at the END of the
    extension period.
+
+   Lifetime points earned before and during inactivity remain
+   intact.
    ========================================================= */
 
 function llama_complete_scout_extension(
@@ -1586,7 +1557,7 @@ function llama_run_scout_renewal_maintenance(
                Scout and Master Scout both fall completely
                back to free-member status.
 
-               Points are permanently destroyed.
+               Lifetime points remain permanently recorded.
                ============================================= */
 
             llama_expire_scout_access(
