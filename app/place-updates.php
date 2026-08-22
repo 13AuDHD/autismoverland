@@ -1073,22 +1073,91 @@ function llama_create_place_update(
         );
 
 
-    $stmt->execute([
-        $placeId,
-        $userId,
-        $updateType,
-        $roleAtSubmission,
-        $visitedAt,
-        llama_update_json(
-            $proposedChanges
-        ),
-        $originalValues !== null
-            ? llama_update_json(
-                $originalValues
-            )
-            : null,
-        $contributorNotes,
-    ]);
+    try {
+
+        $stmt->execute([
+            $placeId,
+            $userId,
+            $updateType,
+            $roleAtSubmission,
+            $visitedAt,
+            llama_update_json(
+                $proposedChanges
+            ),
+            $originalValues !== null
+                ? llama_update_json(
+                    $originalValues
+                )
+                : null,
+            $contributorNotes,
+        ]);
+
+    } catch (
+        PDOException $exception
+    ) {
+
+        /*
+         * MySQL duplicate-key errors use SQLSTATE 23000.
+         * Only translate the error when it came from the
+         * open-update uniqueness constraint. Other database
+         * integrity errors must still surface normally.
+         */
+
+        $sqlState =
+            (string) (
+                $exception
+                    ->errorInfo[0]
+                ?? $exception
+                    ->getCode()
+            );
+
+
+        $driverCode =
+            (int) (
+                $exception
+                    ->errorInfo[1]
+                ?? 0
+            );
+
+
+        $driverMessage =
+            (string) (
+                $exception
+                    ->errorInfo[2]
+                ?? $exception
+                    ->getMessage()
+            );
+
+
+        $isOpenUpdateDuplicate =
+            $sqlState ===
+            '23000'
+            &&
+            $driverCode ===
+            1062
+            &&
+            str_contains(
+                $driverMessage,
+                'uq_place_update_open'
+            );
+
+
+        if (
+            $isOpenUpdateDuplicate
+        ) {
+
+            throw new DomainException(
+                'You already have an update for this Place awaiting review or changes.',
+                0,
+                $exception
+            );
+
+        }
+
+
+        throw $exception;
+
+    }
 
 
     $updateId =
