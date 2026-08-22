@@ -39,7 +39,6 @@ async function initPlaces() {
       throw new Error(
         "Could not load Llama Scout places."
       );
-
     }
 
 
@@ -56,7 +55,6 @@ async function initPlaces() {
       throw new Error(
         "Places API did not return a list."
       );
-
     }
 
 
@@ -87,9 +85,7 @@ async function initPlaces() {
       "Llama Scout places error:",
       error
     );
-
   }
-
 }
 
 
@@ -107,7 +103,6 @@ function isLockedPlaceValue(
     !Array.isArray(value) &&
     value.locked === true
   );
-
 }
 
 
@@ -118,10 +113,12 @@ function placeNumericValue(
   if (
     value === null ||
     value === undefined ||
+    value === "" ||
     isLockedPlaceValue(
       value
     )
   ) {
+
     return null;
   }
 
@@ -137,7 +134,6 @@ function placeNumericValue(
   )
     ? number
     : null;
-
 }
 
 
@@ -152,6 +148,7 @@ function placeStringValue(
       value
     )
   ) {
+
     return "";
   }
 
@@ -164,13 +161,16 @@ function placeStringValue(
     return String(
       value
     );
-
   }
 
 
   return "";
-
 }
+
+
+/* =========================================================
+   DESCRIPTION PREVIEW
+   ========================================================= */
 
 function truncatePlaceCardDescription(
   text,
@@ -178,21 +178,23 @@ function truncatePlaceCardDescription(
 ) {
 
   text =
-    String(
-      text || ""
+    placeStringValue(
+      text
     )
-    .trim();
+      .trim();
 
 
   if (!text) {
+
     return "";
   }
 
 
   if (
     text.length <=
-      maxCharacters
+    maxCharacters
   ) {
+
     return text;
   }
 
@@ -214,7 +216,7 @@ function truncatePlaceCardDescription(
 
   if (
     sentenceEnd >=
-      maxCharacters * 0.55
+    maxCharacters * 0.55
   ) {
 
     return preview
@@ -223,7 +225,6 @@ function truncatePlaceCardDescription(
         sentenceEnd + 1
       )
       .trim();
-
   }
 
 
@@ -242,7 +243,6 @@ function truncatePlaceCardDescription(
         0,
         lastSpace
       );
-
   }
 
 
@@ -255,8 +255,12 @@ function truncatePlaceCardDescription(
     +
     "..."
   );
-
 }
+
+
+/* =========================================================
+   LOCKED DISPLAY
+   ========================================================= */
 
 function lockedPlaceText(
   value
@@ -267,6 +271,7 @@ function lockedPlaceText(
       value
     )
   ) {
+
     return "";
   }
 
@@ -275,12 +280,12 @@ function lockedPlaceText(
     value.cta ===
     "sign_up"
   ) {
+
     return "Sign up";
   }
 
 
   return "Member only";
-
 }
 
 
@@ -293,6 +298,7 @@ function lockedPlaceHref(
       value
     )
   ) {
+
     return "";
   }
 
@@ -301,7 +307,6 @@ function lockedPlaceHref(
     "sign_up"
       ? "https://account.llamascout.com/register.php"
       : "https://account.llamascout.com/membership.php";
-
 }
 
 
@@ -335,7 +340,6 @@ function bindPlaceControls() {
       "change",
       applyFilters
     );
-
 }
 
 
@@ -429,7 +433,9 @@ function applyFilters() {
           typeValue ===
             "all"
           ||
-          place.type ===
+          placeStringValue(
+            place.type
+          ) ===
             typeValue;
 
 
@@ -437,7 +443,6 @@ function applyFilters() {
           matchesSearch &&
           matchesType
         );
-
       }
     );
 
@@ -445,7 +450,6 @@ function applyFilters() {
   renderPlaces(
     filteredPlaces
   );
-
 }
 
 
@@ -464,6 +468,7 @@ function populateTypeFilter(
 
 
   if (!select) {
+
     return;
   }
 
@@ -481,12 +486,11 @@ function populateTypeFilter(
           .filter(Boolean)
       )
     ]
-    .sort();
+      .sort();
 
 
   types.forEach(
     (type) => {
-
 
       const option =
         document.createElement(
@@ -507,10 +511,8 @@ function populateTypeFilter(
       select.appendChild(
         option
       );
-
     }
   );
-
 }
 
 
@@ -541,6 +543,7 @@ function renderPlaces(
 
 
   if (!grid) {
+
     return;
   }
 
@@ -555,7 +558,6 @@ function renderPlaces(
       places.length === 1
         ? "1 place"
         : `${places.length} places`;
-
   }
 
 
@@ -567,12 +569,10 @@ function renderPlaces(
 
       empty.hidden =
         false;
-
     }
 
 
     return;
-
   }
 
 
@@ -580,7 +580,6 @@ function renderPlaces(
 
     empty.hidden =
       true;
-
   }
 
 
@@ -592,10 +591,8 @@ function renderPlaces(
           place
         )
       );
-
     }
   );
-
 }
 
 
@@ -617,14 +614,31 @@ function buildPlaceCard(
     "place-card";
 
 
+  const images =
+    Array.isArray(
+      place.images
+    )
+      ? place.images
+      : [];
+
+
   const featuredImage =
-    place.images
-      ?.find(
-        (image) =>
-          image.featured
-      )
+    images.find(
+      (image) =>
+        image &&
+        image.featured === true &&
+        placeStringValue(
+          image.src
+        )
+    )
     ||
-    place.images?.[0]
+    images.find(
+      (image) =>
+        image &&
+        placeStringValue(
+          image.src
+        )
+    )
     ||
     null;
 
@@ -648,8 +662,8 @@ function buildPlaceCard(
       city,
       state
     ]
-    .filter(Boolean)
-    .join(", ");
+      .filter(Boolean)
+      .join(", ");
 
 
   const difficulty =
@@ -694,15 +708,40 @@ function buildPlaceCard(
 
   const verified =
     verificationStatus ===
-      "field-verified";
+    "field-verified";
 
 
-   const description =
-     truncatePlaceCardDescription(
-       placeStringValue(
-         place.description
-       )
-     );
+  const description =
+    truncatePlaceCardDescription(
+      place.description
+    );
+
+
+  const placeName =
+    placeStringValue(
+      place.name
+    )
+    ||
+    "Place";
+
+
+  const placeType =
+    formatLabel(
+      placeStringValue(
+        place.type
+      )
+    );
+
+
+  const slug =
+    placeStringValue(
+      place.slug
+    )
+    ||
+    placeStringValue(
+      place.id
+    );
+
 
   article.innerHTML = `
 
@@ -720,10 +759,13 @@ function buildPlaceCard(
                 featuredImage.src
               )}"
               alt="${escapeHTML(
-                featuredImage.alt
+                placeStringValue(
+                  featuredImage.alt
+                )
                 ||
-                place.name
+                placeName
               )}"
+              loading="lazy"
             >
 
 
@@ -757,21 +799,27 @@ function buildPlaceCard(
     <div class="place-card-body">
 
 
-      <span class="place-card-type">
+      ${
+        placeType
+          ? `
 
-        ${escapeHTML(
-          formatLabel(
-            place.type
-          )
-        )}
+            <span class="place-card-type">
 
-      </span>
+              ${escapeHTML(
+                placeType
+              )}
+
+            </span>
+
+          `
+          : ""
+      }
 
 
       <h2>
 
         ${escapeHTML(
-          place.name
+          placeName
         )}
 
       </h2>
@@ -841,25 +889,33 @@ function buildPlaceCard(
       }
 
 
-      <div class="place-card-actions">
+      ${
+        slug
+          ? `
 
-        <a
-          class="btn place-map-button"
-          href="/place.php?place=${encodeURIComponent(
-            place.slug
-          )}"
-        >
+            <div class="place-card-actions">
 
-          <i
-            class="fa-solid fa-arrow-right"
-            aria-hidden="true"
-          ></i>
+              <a
+                class="btn place-map-button"
+                href="/place.php?place=${encodeURIComponent(
+                  slug
+                )}"
+              >
 
-          View Scout Report
+                <i
+                  class="fa-solid fa-arrow-right"
+                  aria-hidden="true"
+                ></i>
 
-        </a>
+                View Place Details
 
-      </div>
+              </a>
+
+            </div>
+
+          `
+          : ""
+      }
 
 
     </div>
@@ -868,7 +924,6 @@ function buildPlaceCard(
 
 
   return article;
-
 }
 
 
@@ -883,8 +938,10 @@ function ratingRow(
 
   if (
     value === null ||
-    value === undefined
+    value === undefined ||
+    value === ""
   ) {
+
     return "";
   }
 
@@ -905,10 +962,13 @@ function ratingRow(
           )}
         </span>
 
+
         <a
           class="map-popup-locked"
-          href="${lockedPlaceHref(
-            value
+          href="${escapeHTML(
+            lockedPlaceHref(
+              value
+            )
           )}"
         >
 
@@ -928,7 +988,6 @@ function ratingRow(
       </div>
 
     `;
-
   }
 
 
@@ -941,6 +1000,7 @@ function ratingRow(
   if (
     numericValue === null
   ) {
+
     return "";
   }
 
@@ -973,7 +1033,6 @@ function ratingRow(
     </div>
 
   `;
-
 }
 
 
@@ -995,12 +1054,10 @@ function makeDots(
       i <= value
         ? '<span class="rating-dot is-filled"></span>'
         : '<span class="rating-dot"></span>';
-
   }
 
 
   return output;
-
 }
 
 
@@ -1012,14 +1069,24 @@ function formatLabel(
   value
 ) {
 
-  if (!value) {
+  const text =
+    placeStringValue(
+      value
+    );
+
+
+  if (!text) {
+
     return "";
   }
 
 
-  return String(
-    value
-  )
+  return text
+
+    .replaceAll(
+      "_",
+      " "
+    )
 
     .replaceAll(
       "-",
@@ -1036,7 +1103,6 @@ function formatLabel(
       (letter) =>
         letter.toUpperCase()
     );
-
 }
 
 
@@ -1048,8 +1114,8 @@ function escapeHTML(
   value
 ) {
 
-  return String(
-    value ?? ""
+  return placeStringValue(
+    value
   )
 
     .replaceAll(
@@ -1068,7 +1134,7 @@ function escapeHTML(
     )
 
     .replaceAll(
-      "\"",
+      '"',
       "&quot;"
     )
 
@@ -1076,5 +1142,4 @@ function escapeHTML(
       "'",
       "&#039;"
     );
-
 }
