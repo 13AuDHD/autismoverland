@@ -7,16 +7,21 @@ declare(strict_types=1);
    COMMUNITY SUBMISSION -> DATABASE PLACE
    =========================================================
 
-   This file converts the structured JSON stored in
+   Converts structured JSON stored in
    place_submissions.submission_data into the normal
-   relational place tables.
+   relational Place tables.
 
-   The original submission JSON remains untouched as
-   the permanent submission/audit record.
+   The original submission JSON remains untouched as the
+   permanent submission/audit record.
 
-   Approved submissions always become DRAFT places.
-   They do not appear in the public API until an admin
-   changes the place status to active or featured.
+   Approved submissions become DRAFT Places. Approval means
+   the contribution is publishable, not that every field has
+   been independently verified.
+
+   Legacy database columns such as places.last_verified_at
+   and tables such as place_verifications remain available
+   for migration compatibility, but this publisher no longer
+   creates verification state.
    ========================================================= */
 
 
@@ -46,23 +51,38 @@ function pp_bool_db(
         return null;
     }
 
-    if (is_string($value)) {
+    if (
+        is_string(
+            $value
+        )
+    ) {
 
         $normalized =
             strtolower(
-                trim($value)
+                trim(
+                    $value
+                )
             );
 
-        if ($normalized === 'true') {
+        if (
+            $normalized ===
+            'true'
+        ) {
             return 1;
         }
 
-        if ($normalized === 'false') {
+        if (
+            $normalized ===
+            'false'
+        ) {
             return 0;
         }
     }
 
-    return $value ? 1 : 0;
+    return
+        $value
+            ? 1
+            : 0;
 }
 
 
@@ -78,13 +98,23 @@ function pp_numeric(
         return null;
     }
 
-    if (is_bool($value)) {
-        return $value ? 1 : 0;
+    if (
+        is_bool(
+            $value
+        )
+    ) {
+        return
+            $value
+                ? 1
+                : 0;
     }
 
-    return is_numeric($value)
-        ? $value + 0
-        : null;
+    return
+        is_numeric(
+            $value
+        )
+            ? $value + 0
+            : null;
 }
 
 
@@ -102,31 +132,47 @@ function pp_list(
         return null;
     }
 
-    if (is_array($value)) {
+    if (
+        is_array(
+            $value
+        )
+    ) {
 
         $items =
             array_values(
                 array_filter(
                     array_map(
-                        static fn(mixed $item): string =>
+                        static fn (
+                            mixed $item
+                        ): string =>
                             trim(
-                                (string) $item
+                                (string)
+                                $item
                             ),
                         $value
                     ),
-                    static fn(string $item): bool =>
+                    static fn (
+                        string $item
+                    ): bool =>
                         $item !== ''
                 )
             );
 
-        return $items
-            ? implode(', ', $items)
-            : null;
+        return
+            $items
+                ? implode(
+                    ', ',
+                    $items
+                )
+                : null;
     }
 
-    return trim(
-        (string) $value
-    ) ?: null;
+    return
+        trim(
+            (string)
+            $value
+        )
+        ?: null;
 }
 
 
@@ -136,40 +182,56 @@ function pp_insert_row(
     array $data
 ): void {
 
-    if (!$data) {
+    if (
+        !$data
+    ) {
         return;
     }
 
     $columns =
-        array_keys($data);
+        array_keys(
+            $data
+        );
 
     $placeholders =
         array_fill(
             0,
-            count($columns),
+            count(
+                $columns
+            ),
             '?'
         );
 
     $sql =
-        'INSERT INTO `' .
-        $table .
-        '` (`' .
+        'INSERT INTO `'
+        .
+        $table
+        .
+        '` (`'
+        .
         implode(
             '`, `',
             $columns
-        ) .
-        '`) VALUES (' .
+        )
+        .
+        '`) VALUES ('
+        .
         implode(
             ', ',
             $placeholders
-        ) .
+        )
+        .
         ')';
 
     $stmt =
-        $db->prepare($sql);
+        $db->prepare(
+            $sql
+        );
 
     $stmt->execute(
-        array_values($data)
+        array_values(
+            $data
+        )
     );
 }
 
@@ -180,7 +242,9 @@ function pp_slugify(
 
     $value =
         strtolower(
-            trim($value)
+            trim(
+                $value
+            )
         );
 
     $value =
@@ -192,13 +256,15 @@ function pp_slugify(
 
     $value =
         trim(
-            (string) $value,
+            (string)
+            $value,
             '-'
         );
 
-    return $value !== ''
-        ? $value
-        : 'community-place';
+    return
+        $value !== ''
+            ? $value
+            : 'community-place';
 }
 
 
@@ -212,8 +278,11 @@ function pp_unique_slug(
             $requested
         );
 
-    $slug = $base;
-    $suffix = 2;
+    $slug =
+        $base;
+
+    $suffix =
+        2;
 
     $check =
         $db->prepare(
@@ -225,19 +294,25 @@ function pp_unique_slug(
             '
         );
 
-    while (true) {
+    while (
+        true
+    ) {
 
         $check->execute([
             $slug
         ]);
 
-        if (!$check->fetch()) {
+        if (
+            !$check->fetch()
+        ) {
             return $slug;
         }
 
         $slug =
-            $base .
-            '-' .
+            $base
+            .
+            '-'
+            .
             $suffix;
 
         $suffix++;
@@ -251,12 +326,17 @@ function pp_section(
 ): array {
 
     $value =
-        $place[$key]
+        $place[
+            $key
+        ]
         ?? [];
 
-    return is_array($value)
-        ? $value
-        : [];
+    return
+        is_array(
+            $value
+        )
+            ? $value
+            : [];
 }
 
 
@@ -265,11 +345,13 @@ function pp_map_fields(
     array $map
 ): array {
 
-    $output = [];
+    $output =
+        [];
 
     foreach (
         $map as
-        $column => $definition
+        $column =>
+        $definition
     ) {
 
         $key =
@@ -285,17 +367,27 @@ function pp_map_fields(
                 $key
             );
 
-        $output[$column] =
-            match ($type) {
+        $output[
+            $column
+        ] =
+            match (
+                $type
+            ) {
 
                 'bool' =>
-                    pp_bool_db($value),
+                    pp_bool_db(
+                        $value
+                    ),
 
                 'number' =>
-                    pp_numeric($value),
+                    pp_numeric(
+                        $value
+                    ),
 
                 'list' =>
-                    pp_list($value),
+                    pp_list(
+                        $value
+                    ),
 
                 default =>
                     (
@@ -321,7 +413,9 @@ function publish_place_submission(
     ?string $reviewNotes = null
 ): int {
 
-    if ($submissionId < 1) {
+    if (
+        $submissionId < 1
+    ) {
 
         throw new InvalidArgumentException(
             'A valid submission ID is required.'
@@ -361,7 +455,9 @@ function publish_place_submission(
         );
 
 
-    if (!$submission) {
+    if (
+        !$submission
+    ) {
 
         throw new RuntimeException(
             'The submission could not be found.'
@@ -417,7 +513,11 @@ function publish_place_submission(
         );
 
 
-    if (!is_array($place)) {
+    if (
+        !is_array(
+            $place
+        )
+    ) {
 
         throw new RuntimeException(
             'The submission data is not valid JSON.'
@@ -428,16 +528,22 @@ function publish_place_submission(
     $name =
         trim(
             (string) (
-                $place['name']
-                ?? $submission[
+                $place[
+                    'name'
+                ]
+                ??
+                $submission[
                     'place_name'
                 ]
-                ?? ''
+                ??
+                ''
             )
         );
 
 
-    if ($name === '') {
+    if (
+        $name === ''
+    ) {
 
         throw new RuntimeException(
             'The submitted place is missing a name.'
@@ -447,14 +553,22 @@ function publish_place_submission(
 
     $submittedBy =
         (int)
-        $submission['user_id'];
+        $submission[
+            'user_id'
+        ];
 
 
     $requestedSlug =
         (string) (
-            $place['slug']
-            ?? $place['id']
-            ?? $name
+            $place[
+                'slug'
+            ]
+            ??
+            $place[
+                'id'
+            ]
+            ??
+            $name
         );
 
 
@@ -573,16 +687,14 @@ function publish_place_submission(
             'nearby'
         );
 
-    $verification =
-        pp_section(
-            $place,
-            'verification'
-        );
-
 
     /*
-     * A reviewed community submission becomes a draft.
-     * It must be deliberately activated from Basecamp.
+     * Approval creates a draft Place. It does not create
+     * factual verification state.
+     *
+     * source_type keeps its legacy database value for
+     * compatibility. Public trust is determined separately
+     * by the provenance/contribution system.
      */
 
     $placeStmt =
@@ -624,12 +736,6 @@ function publish_place_submission(
         );
 
 
-    $verifiedAt =
-        date(
-            'Y-m-d H:i:s'
-        );
-
-
     $placeStmt->execute([
 
         $slug,
@@ -637,8 +743,11 @@ function publish_place_submission(
         $name,
 
         (string) (
-            $place['type']
-            ?? 'place'
+            $place[
+                'type'
+            ]
+            ??
+            'place'
         ),
 
         'draft',
@@ -718,7 +827,7 @@ function publish_place_submission(
             'landType'
         ),
 
-        $verifiedAt
+        null
     ]);
 
 
@@ -732,7 +841,8 @@ function publish_place_submission(
        ===================================================== */
 
     $details = [
-        'place_id' => $placeId,
+        'place_id' =>
+            $placeId,
     ];
 
 
@@ -741,49 +851,92 @@ function publish_place_submission(
             $site,
             [
                 'vehicle_capacity' =>
-                    ['vehicleCapacity', 'number'],
+                    [
+                        'vehicleCapacity',
+                        'number'
+                    ],
 
                 'max_vehicle_length_feet' =>
-                    ['maxVehicleLengthFeet', 'number'],
+                    [
+                        'maxVehicleLengthFeet',
+                        'number'
+                    ],
 
                 'tent_camping_suitable' =>
-                    ['tentCampingSuitable', 'bool'],
+                    [
+                        'tentCampingSuitable',
+                        'bool'
+                    ],
 
                 'rv_suitable' =>
-                    ['rvSuitable', 'bool'],
+                    [
+                        'rvSuitable',
+                        'bool'
+                    ],
 
                 'trailer_suitable' =>
-                    ['trailerSuitable', 'bool'],
+                    [
+                        'trailerSuitable',
+                        'bool'
+                    ],
 
                 'parking_surface' =>
-                    ['parkingSurface'],
+                    [
+                        'parkingSurface'
+                    ],
 
                 'levelness' =>
-                    ['levelness', 'number'],
+                    [
+                        'levelness',
+                        'number'
+                    ],
 
                 'leveling_required' =>
-                    ['levelingRequired', 'bool'],
+                    [
+                        'levelingRequired',
+                        'bool'
+                    ],
 
                 'turnaround_space' =>
-                    ['turnaroundSpace', 'bool'],
+                    [
+                        'turnaroundSpace',
+                        'bool'
+                    ],
 
                 'pull_through' =>
-                    ['pullThrough', 'bool'],
+                    [
+                        'pullThrough',
+                        'bool'
+                    ],
 
                 'back_in' =>
-                    ['backIn', 'bool'],
+                    [
+                        'backIn',
+                        'bool'
+                    ],
 
                 'ground_condition' =>
-                    ['groundCondition'],
+                    [
+                        'groundCondition'
+                    ],
 
                 'site_open_sky' =>
-                    ['openSky', 'number'],
+                    [
+                        'openSky',
+                        'number'
+                    ],
 
                 'tree_cover' =>
-                    ['treeCover', 'number'],
+                    [
+                        'treeCover',
+                        'number'
+                    ],
 
                 'site_shade' =>
-                    ['shade', 'number'],
+                    [
+                        'shade',
+                        'number'
+                    ],
             ]
         );
 
@@ -793,58 +946,110 @@ function publish_place_submission(
             $access,
             [
                 'site_access_difficulty' =>
-                    ['siteAccessDifficulty', 'number'],
+                    [
+                        'siteAccessDifficulty',
+                        'number'
+                    ],
 
                 'road_overall_difficulty' =>
-                    ['roadOverallDifficulty', 'number'],
+                    [
+                        'roadOverallDifficulty',
+                        'number'
+                    ],
 
                 'road_difficulty' =>
-                    ['roadDifficulty', 'number'],
+                    [
+                        'roadDifficulty',
+                        'number'
+                    ],
 
                 'road_stress' =>
-                    ['roadStress', 'number'],
+                    [
+                        'roadStress',
+                        'number'
+                    ],
 
                 'sedan_accessible' =>
-                    ['sedanAccessible', 'bool'],
+                    [
+                        'sedanAccessible',
+                        'bool'
+                    ],
 
                 'high_clearance_recommended' =>
-                    ['highClearanceRecommended', 'bool'],
+                    [
+                        'highClearanceRecommended',
+                        'bool'
+                    ],
 
                 'four_wheel_drive_recommended' =>
-                    ['fourWheelDriveRecommended', 'bool'],
+                    [
+                        'fourWheelDriveRecommended',
+                        'bool'
+                    ],
 
                 'road_surface' =>
-                    ['roadSurface'],
+                    [
+                        'roadSurface'
+                    ],
 
                 'road_width' =>
-                    ['roadWidth'],
+                    [
+                        'roadWidth'
+                    ],
 
                 'rocks' =>
-                    ['rocks', 'number'],
+                    [
+                        'rocks',
+                        'number'
+                    ],
 
                 'washboards' =>
-                    ['washboards', 'number'],
+                    [
+                        'washboards',
+                        'number'
+                    ],
 
                 'potholes' =>
-                    ['potholes', 'number'],
+                    [
+                        'potholes',
+                        'number'
+                    ],
 
                 'mud_risk' =>
-                    ['mudRisk', 'number'],
+                    [
+                        'mudRisk',
+                        'number'
+                    ],
 
                 'steep_grades' =>
-                    ['steepGrades', 'number'],
+                    [
+                        'steepGrades',
+                        'number'
+                    ],
 
                 'drop_off_exposure' =>
-                    ['dropOffExposure', 'number'],
+                    [
+                        'dropOffExposure',
+                        'number'
+                    ],
 
                 'water_crossings' =>
-                    ['waterCrossings', 'bool'],
+                    [
+                        'waterCrossings',
+                        'bool'
+                    ],
 
                 'downed_tree_risk' =>
-                    ['downedTreeRisk', 'bool'],
+                    [
+                        'downedTreeRisk',
+                        'bool'
+                    ],
 
                 'seasonal_closure' =>
-                    ['seasonalClosure', 'bool'],
+                    [
+                        'seasonalClosure',
+                        'bool'
+                    ],
             ]
         );
 
@@ -854,40 +1059,76 @@ function publish_place_submission(
             $environment,
             [
                 'forest' =>
-                    ['forest', 'bool'],
+                    [
+                        'forest',
+                        'bool'
+                    ],
 
                 'mountains' =>
-                    ['mountains', 'bool'],
+                    [
+                        'mountains',
+                        'bool'
+                    ],
 
                 'water_nearby' =>
-                    ['waterNearby', 'bool'],
+                    [
+                        'waterNearby',
+                        'bool'
+                    ],
 
                 'water_view' =>
-                    ['waterView', 'bool'],
+                    [
+                        'waterView',
+                        'bool'
+                    ],
 
                 'mountain_view' =>
-                    ['mountainView', 'bool'],
+                    [
+                        'mountainView',
+                        'bool'
+                    ],
 
                 'forest_view' =>
-                    ['forestView', 'bool'],
+                    [
+                        'forestView',
+                        'bool'
+                    ],
 
                 'wildlife' =>
-                    ['wildlife', 'bool'],
+                    [
+                        'wildlife',
+                        'bool'
+                    ],
 
                 'bugs' =>
-                    ['bugs', 'bool'],
+                    [
+                        'bugs',
+                        'bool'
+                    ],
 
                 'wind_exposure' =>
-                    ['windExposure', 'number'],
+                    [
+                        'windExposure',
+                        'number'
+                    ],
 
                 'sun_exposure' =>
-                    ['sunExposure', 'number'],
+                    [
+                        'sunExposure',
+                        'number'
+                    ],
 
                 'environment_shade' =>
-                    ['shade', 'number'],
+                    [
+                        'shade',
+                        'number'
+                    ],
 
                 'environment_open_sky' =>
-                    ['openSky', 'number'],
+                    [
+                        'openSky',
+                        'number'
+                    ],
             ]
         );
 
@@ -897,25 +1138,45 @@ function publish_place_submission(
             $accessibility,
             [
                 'wheelchair_friendly' =>
-                    ['wheelchairFriendly', 'bool'],
+                    [
+                        'wheelchairFriendly',
+                        'bool'
+                    ],
 
                 'mobility_device_friendly' =>
-                    ['mobilityDeviceFriendly', 'bool'],
+                    [
+                        'mobilityDeviceFriendly',
+                        'bool'
+                    ],
 
                 'flat_walking_surface' =>
-                    ['flatWalkingSurface', 'bool'],
+                    [
+                        'flatWalkingSurface',
+                        'bool'
+                    ],
 
                 'walking_distance_from_vehicle' =>
-                    ['walkingDistanceFromVehicle'],
+                    [
+                        'walkingDistanceFromVehicle'
+                    ],
 
                 'step_free_access' =>
-                    ['stepFreeAccess', 'bool'],
+                    [
+                        'stepFreeAccess',
+                        'bool'
+                    ],
 
                 'accessible_toilet' =>
-                    ['accessibleToilet', 'bool'],
+                    [
+                        'accessibleToilet',
+                        'bool'
+                    ],
 
                 'accessible_picnic_table' =>
-                    ['accessiblePicnicTable', 'bool'],
+                    [
+                        'accessiblePicnicTable',
+                        'bool'
+                    ],
             ]
         );
 
@@ -925,34 +1186,64 @@ function publish_place_submission(
             $safety,
             [
                 'felt_safe_daytime' =>
-                    ['feltSafeDaytime', 'bool'],
+                    [
+                        'feltSafeDaytime',
+                        'bool'
+                    ],
 
                 'felt_safe_nighttime' =>
-                    ['feltSafeNighttime', 'bool'],
+                    [
+                        'feltSafeNighttime',
+                        'bool'
+                    ],
 
                 'flash_flood_risk' =>
-                    ['flashFloodRisk', 'bool'],
+                    [
+                        'flashFloodRisk',
+                        'bool'
+                    ],
 
                 'wildfire_risk' =>
-                    ['wildfireRisk', 'bool'],
+                    [
+                        'wildfireRisk',
+                        'bool'
+                    ],
 
                 'fall_hazard' =>
-                    ['fallHazard', 'bool'],
+                    [
+                        'fallHazard',
+                        'bool'
+                    ],
 
                 'cliff_exposure' =>
-                    ['cliffExposure', 'bool'],
+                    [
+                        'cliffExposure',
+                        'bool'
+                    ],
 
                 'rockfall_risk' =>
-                    ['rockfallRisk', 'bool'],
+                    [
+                        'rockfallRisk',
+                        'bool'
+                    ],
 
                 'wildlife_risk' =>
-                    ['wildlifeRisk', 'bool'],
+                    [
+                        'wildlifeRisk',
+                        'bool'
+                    ],
 
                 'traffic_hazard' =>
-                    ['trafficHazard', 'bool'],
+                    [
+                        'trafficHazard',
+                        'bool'
+                    ],
 
                 'emergency_access' =>
-                    ['emergencyAccess', 'bool'],
+                    [
+                        'emergencyAccess',
+                        'bool'
+                    ],
             ]
         );
 
@@ -962,34 +1253,64 @@ function publish_place_submission(
             $warnings,
             [
                 'warning_exposed_to_road' =>
-                    ['exposedToRoad', 'bool'],
+                    [
+                        'exposedToRoad',
+                        'bool'
+                    ],
 
                 'warning_zero_privacy' =>
-                    ['zeroPrivacy', 'bool'],
+                    [
+                        'zeroPrivacy',
+                        'bool'
+                    ],
 
                 'warning_passing_vehicle_dust' =>
-                    ['passingVehicleDust', 'bool'],
+                    [
+                        'passingVehicleDust',
+                        'bool'
+                    ],
 
                 'warning_possible_downed_trees' =>
-                    ['possibleDownedTrees', 'bool'],
+                    [
+                        'possibleDownedTrees',
+                        'bool'
+                    ],
 
                 'warning_no_tent_camping' =>
-                    ['noTentCamping', 'bool'],
+                    [
+                        'noTentCamping',
+                        'bool'
+                    ],
 
                 'warning_limited_vehicle_length' =>
-                    ['limitedVehicleLength', 'bool'],
+                    [
+                        'limitedVehicleLength',
+                        'bool'
+                    ],
 
                 'warning_leveling_may_be_required' =>
-                    ['levelingMayBeRequired', 'bool'],
+                    [
+                        'levelingMayBeRequired',
+                        'bool'
+                    ],
 
                 'warning_no_amenities' =>
-                    ['noAmenities', 'bool'],
+                    [
+                        'noAmenities',
+                        'bool'
+                    ],
 
                 'warning_motorized_recreation_traffic' =>
-                    ['motorizedRecreationTraffic', 'bool'],
+                    [
+                        'motorizedRecreationTraffic',
+                        'bool'
+                    ],
 
                 'warning_blind_turn_traffic_nearby' =>
-                    ['blindTurnTrafficNearby', 'bool'],
+                    [
+                        'blindTurnTrafficNearby',
+                        'bool'
+                    ],
             ]
         );
 
@@ -1007,15 +1328,23 @@ function publish_place_submission(
 
     foreach (
         [
-            'daytime' => $daytime,
-            'nighttime' => $nighttime,
+            'daytime' =>
+                $daytime,
+
+            'nighttime' =>
+                $nighttime,
         ]
-        as $period => $data
+        as
+        $period =>
+        $data
     ) {
 
         $row = [
-            'place_id' => $placeId,
-            'period' => $period,
+            'place_id' =>
+                $placeId,
+
+            'period' =>
+                $period,
         ];
 
 
@@ -1024,22 +1353,40 @@ function publish_place_submission(
                 $data,
                 [
                     'noise' =>
-                        ['noise', 'number'],
+                        [
+                            'noise',
+                            'number'
+                        ],
 
                     'traffic' =>
-                        ['traffic', 'number'],
+                        [
+                            'traffic',
+                            'number'
+                        ],
 
                     'crowds' =>
-                        ['crowds', 'number'],
+                        [
+                            'crowds',
+                            'number'
+                        ],
 
                     'privacy' =>
-                        ['privacy', 'number'],
+                        [
+                            'privacy',
+                            'number'
+                        ],
 
                     'light_pollution' =>
-                        ['lightPollution', 'number'],
+                        [
+                            'lightPollution',
+                            'number'
+                        ],
 
                     'sensory_comfort' =>
-                        ['sensoryComfort', 'number'],
+                        [
+                            'sensoryComfort',
+                            'number'
+                        ],
 
                     'social_interaction_likelihood' =>
                         [
@@ -1063,7 +1410,8 @@ function publish_place_submission(
        ===================================================== */
 
     $sensoryDetails = [
-        'place_id' => $placeId,
+        'place_id' =>
+            $placeId,
     ];
 
 
@@ -1072,37 +1420,70 @@ function publish_place_submission(
             $sensory,
             [
                 'dust_from_traffic' =>
-                    ['dustFromTraffic', 'number'],
+                    [
+                        'dustFromTraffic',
+                        'number'
+                    ],
 
                 'generator_noise' =>
-                    ['generatorNoise', 'number'],
+                    [
+                        'generatorNoise',
+                        'number'
+                    ],
 
                 'aircraft_noise' =>
-                    ['aircraftNoise', 'number'],
+                    [
+                        'aircraftNoise',
+                        'number'
+                    ],
 
                 'road_noise' =>
-                    ['roadNoise', 'number'],
+                    [
+                        'roadNoise',
+                        'number'
+                    ],
 
                 'human_activity' =>
-                    ['humanActivity', 'number'],
+                    [
+                        'humanActivity',
+                        'number'
+                    ],
 
                 'wildlife_noise' =>
-                    ['wildlifeNoise', 'number'],
+                    [
+                        'wildlifeNoise',
+                        'number'
+                    ],
 
                 'wind_noise' =>
-                    ['windNoise', 'number'],
+                    [
+                        'windNoise',
+                        'number'
+                    ],
 
                 'smoke_risk' =>
-                    ['smokeRisk', 'number'],
+                    [
+                        'smokeRisk',
+                        'number'
+                    ],
 
                 'strong_odors' =>
-                    ['strongOdors', 'number'],
+                    [
+                        'strongOdors',
+                        'number'
+                    ],
 
                 'visual_exposure' =>
-                    ['visualExposure', 'number'],
+                    [
+                        'visualExposure',
+                        'number'
+                    ],
 
                 'predictability' =>
-                    ['predictability', 'number'],
+                    [
+                        'predictability',
+                        'number'
+                    ],
             ]
         );
 
@@ -1120,7 +1501,8 @@ function publish_place_submission(
        ===================================================== */
 
     $connectivityRow = [
-        'place_id' => $placeId,
+        'place_id' =>
+            $placeId,
     ];
 
 
@@ -1129,28 +1511,51 @@ function publish_place_submission(
             $connectivity,
             [
                 'overall' =>
-                    ['overall', 'number'],
+                    [
+                        'overall',
+                        'number'
+                    ],
 
                 't_mobile' =>
-                    ['tMobile', 'number'],
+                    [
+                        'tMobile',
+                        'number'
+                    ],
 
                 'verizon' =>
-                    ['verizon', 'number'],
+                    [
+                        'verizon',
+                        'number'
+                    ],
 
                 'att' =>
-                    ['att', 'number'],
+                    [
+                        'att',
+                        'number'
+                    ],
 
                 'other_cell' =>
-                    ['other', 'number'],
+                    [
+                        'other',
+                        'number'
+                    ],
 
                 'starlink' =>
-                    ['starlink', 'number'],
+                    [
+                        'starlink',
+                        'number'
+                    ],
 
                 'starlink_tested' =>
-                    ['starlinkTested', 'bool'],
+                    [
+                        'starlinkTested',
+                        'bool'
+                    ],
 
                 'starlink_note' =>
-                    ['starlinkNote'],
+                    [
+                        'starlinkNote'
+                    ],
             ]
         );
 
@@ -1167,7 +1572,8 @@ function publish_place_submission(
        ===================================================== */
 
     $amenitiesRow = [
-        'place_id' => $placeId,
+        'place_id' =>
+            $placeId,
     ];
 
 
@@ -1176,34 +1582,64 @@ function publish_place_submission(
             $amenities,
             [
                 'toilets' =>
-                    ['toilets', 'bool'],
+                    [
+                        'toilets',
+                        'bool'
+                    ],
 
                 'potable_water' =>
-                    ['potableWater', 'bool'],
+                    [
+                        'potableWater',
+                        'bool'
+                    ],
 
                 'trash' =>
-                    ['trash', 'bool'],
+                    [
+                        'trash',
+                        'bool'
+                    ],
 
                 'fire_ring' =>
-                    ['fireRing', 'bool'],
+                    [
+                        'fireRing',
+                        'bool'
+                    ],
 
                 'picnic_table' =>
-                    ['picnicTable', 'bool'],
+                    [
+                        'picnicTable',
+                        'bool'
+                    ],
 
                 'bear_box' =>
-                    ['bearBox', 'bool'],
+                    [
+                        'bearBox',
+                        'bool'
+                    ],
 
                 'showers' =>
-                    ['showers', 'bool'],
+                    [
+                        'showers',
+                        'bool'
+                    ],
 
                 'electricity' =>
-                    ['electricity', 'bool'],
+                    [
+                        'electricity',
+                        'bool'
+                    ],
 
                 'dump_station' =>
-                    ['dumpStation', 'bool'],
+                    [
+                        'dumpStation',
+                        'bool'
+                    ],
 
                 'food_storage_required' =>
-                    ['foodStorageRequired', 'bool'],
+                    [
+                        'foodStorageRequired',
+                        'bool'
+                    ],
             ]
         );
 
@@ -1220,7 +1656,8 @@ function publish_place_submission(
        ===================================================== */
 
     $experienceRow = [
-        'place_id' => $placeId,
+        'place_id' =>
+            $placeId,
     ];
 
 
@@ -1229,40 +1666,76 @@ function publish_place_submission(
             $experience,
             [
                 'sunrise_view' =>
-                    ['sunriseView', 'number'],
+                    [
+                        'sunriseView',
+                        'number'
+                    ],
 
                 'sunset_view' =>
-                    ['sunsetView', 'number'],
+                    [
+                        'sunsetView',
+                        'number'
+                    ],
 
                 'mountain_view' =>
-                    ['mountainView', 'number'],
+                    [
+                        'mountainView',
+                        'number'
+                    ],
 
                 'forest_view' =>
-                    ['forestView', 'number'],
+                    [
+                        'forestView',
+                        'number'
+                    ],
 
                 'night_sky' =>
-                    ['nightSky', 'number'],
+                    [
+                        'nightSky',
+                        'number'
+                    ],
 
                 'stargazing' =>
-                    ['stargazing', 'number'],
+                    [
+                        'stargazing',
+                        'number'
+                    ],
 
                 'quiet_evening' =>
-                    ['quietEvening', 'number'],
+                    [
+                        'quietEvening',
+                        'number'
+                    ],
 
                 'overnight_comfort' =>
-                    ['overnightComfort', 'number'],
+                    [
+                        'overnightComfort',
+                        'number'
+                    ],
 
                 'extended_stay_comfort' =>
-                    ['extendedStayComfort', 'number'],
+                    [
+                        'extendedStayComfort',
+                        'number'
+                    ],
 
                 'sensory_retreat' =>
-                    ['sensoryRetreat', 'number'],
+                    [
+                        'sensoryRetreat',
+                        'number'
+                    ],
 
                 'remote_work' =>
-                    ['remoteWork', 'number'],
+                    [
+                        'remoteWork',
+                        'number'
+                    ],
 
                 'overall_scenery' =>
-                    ['overallScenery', 'number'],
+                    [
+                        'overallScenery',
+                        'number'
+                    ],
             ]
         );
 
@@ -1272,31 +1745,58 @@ function publish_place_submission(
             $recommended,
             [
                 'recommended_overnight_stop' =>
-                    ['overnightStop', 'number'],
+                    [
+                        'overnightStop',
+                        'number'
+                    ],
 
                 'recommended_quiet_evening' =>
-                    ['quietEvening', 'number'],
+                    [
+                        'quietEvening',
+                        'number'
+                    ],
 
                 'recommended_extended_stay' =>
-                    ['extendedStay', 'number'],
+                    [
+                        'extendedStay',
+                        'number'
+                    ],
 
                 'recommended_sensory_retreat' =>
-                    ['sensoryRetreat', 'number'],
+                    [
+                        'sensoryRetreat',
+                        'number'
+                    ],
 
                 'recommended_stargazing' =>
-                    ['stargazing', 'number'],
+                    [
+                        'stargazing',
+                        'number'
+                    ],
 
                 'recommended_remote_work' =>
-                    ['remoteWork', 'number'],
+                    [
+                        'remoteWork',
+                        'number'
+                    ],
 
                 'recommended_solo_travel' =>
-                    ['soloTravel', 'bool'],
+                    [
+                        'soloTravel',
+                        'bool'
+                    ],
 
                 'recommended_families' =>
-                    ['families', 'bool'],
+                    [
+                        'families',
+                        'bool'
+                    ],
 
                 'recommended_large_groups' =>
-                    ['largeGroups', 'bool'],
+                    [
+                        'largeGroups',
+                        'bool'
+                    ],
             ]
         );
 
@@ -1324,7 +1824,8 @@ function publish_place_submission(
        ===================================================== */
 
     $rulesRow = [
-        'place_id' => $placeId,
+        'place_id' =>
+            $placeId,
     ];
 
 
@@ -1333,19 +1834,34 @@ function publish_place_submission(
             $season,
             [
                 'best_months' =>
-                    ['bestMonths', 'list'],
+                    [
+                        'bestMonths',
+                        'list'
+                    ],
 
                 'winter_access' =>
-                    ['winterAccess', 'bool'],
+                    [
+                        'winterAccess',
+                        'bool'
+                    ],
 
                 'snow_risk' =>
-                    ['snowRisk', 'number'],
+                    [
+                        'snowRisk',
+                        'number'
+                    ],
 
                 'mud_season_risk' =>
-                    ['mudSeasonRisk', 'number'],
+                    [
+                        'mudSeasonRisk',
+                        'number'
+                    ],
 
                 'monsoon_risk' =>
-                    ['monsoonRisk', 'number'],
+                    [
+                        'monsoonRisk',
+                        'number'
+                    ],
 
                 'recommended_travel_season' =>
                     [
@@ -1354,7 +1870,9 @@ function publish_place_submission(
                     ],
 
                 'seasonal_access_note' =>
-                    ['seasonalAccessNote'],
+                    [
+                        'seasonalAccessNote'
+                    ],
             ]
         );
 
@@ -1376,7 +1894,10 @@ function publish_place_submission(
                     ],
 
                 'stay_limit_days' =>
-                    ['stayLimitDays', 'number'],
+                    [
+                        'stayLimitDays',
+                        'number'
+                    ],
 
                 'maximum_days_per_60_day_period' =>
                     [
@@ -1391,16 +1912,27 @@ function publish_place_submission(
                     ],
 
                 'permit_required' =>
-                    ['permitRequired', 'bool'],
+                    [
+                        'permitRequired',
+                        'bool'
+                    ],
 
                 'fee' =>
-                    ['fee', 'number'],
+                    [
+                        'fee',
+                        'number'
+                    ],
 
                 'campfire_allowed' =>
-                    ['campfireAllowed', 'bool'],
+                    [
+                        'campfireAllowed',
+                        'bool'
+                    ],
 
                 'current_fire_restrictions_url' =>
-                    ['currentFireRestrictionsUrl'],
+                    [
+                        'currentFireRestrictionsUrl'
+                    ],
             ]
         );
 
@@ -1447,22 +1979,34 @@ function publish_place_submission(
             $nearby,
             [
                 'nearest_town' =>
-                    ['nearestTown'],
+                    [
+                        'nearestTown'
+                    ],
 
                 'nearest_fuel' =>
-                    ['nearestFuel'],
+                    [
+                        'nearestFuel'
+                    ],
 
                 'nearest_grocery' =>
-                    ['nearestGrocery'],
+                    [
+                        'nearestGrocery'
+                    ],
 
                 'nearest_water' =>
-                    ['nearestWater'],
+                    [
+                        'nearestWater'
+                    ],
 
                 'nearest_toilet' =>
-                    ['nearestToilet'],
+                    [
+                        'nearestToilet'
+                    ],
 
                 'nearest_hospital' =>
-                    ['nearestHospital'],
+                    [
+                        'nearestHospital'
+                    ],
             ]
         );
 
@@ -1479,22 +2023,33 @@ function publish_place_submission(
        ===================================================== */
 
     $images =
-        $place['images']
+        $place[
+            'images'
+        ]
         ?? [];
 
 
-    if (is_array($images)) {
+    if (
+        is_array(
+            $images
+        )
+    ) {
 
         foreach (
             $images as
-            $imageIndex => $image
+            $imageIndex =>
+            $image
         ) {
 
             if (
-                !is_array($image)
+                !is_array(
+                    $image
+                )
                 ||
                 empty(
-                    $image['src']
+                    $image[
+                        'src'
+                    ]
                 )
             ) {
                 continue;
@@ -1509,10 +2064,14 @@ function publish_place_submission(
                         $placeId,
 
                     'src' =>
-                        $image['src'],
+                        $image[
+                            'src'
+                        ],
 
                     'alt_text' =>
-                        $image['alt']
+                        $image[
+                            'alt'
+                        ]
                         ?? null,
 
                     'is_featured' =>
@@ -1540,21 +2099,33 @@ function publish_place_submission(
        ===================================================== */
 
     $notes =
-        $place['notes']
+        $place[
+            'notes'
+        ]
         ?? [];
 
 
-    if (is_array($notes)) {
+    if (
+        is_array(
+            $notes
+        )
+    ) {
 
         foreach (
             $notes as
-            $noteIndex => $note
+            $noteIndex =>
+            $note
         ) {
 
             if (
-                !is_string($note)
+                !is_string(
+                    $note
+                )
                 ||
-                trim($note) === ''
+                trim(
+                    $note
+                ) ===
+                ''
             ) {
                 continue;
             }
@@ -1568,7 +2139,9 @@ function publish_place_submission(
                         $placeId,
 
                     'note' =>
-                        trim($note),
+                        trim(
+                            $note
+                        ),
 
                     'sort_order' =>
                         (int)
@@ -1582,63 +2155,14 @@ function publish_place_submission(
     }
 
 
-    /* =====================================================
-       COMMUNITY VERIFICATION
-       ===================================================== */
-
-    $visited =
-        pp_val(
-            $verification,
-            'visited'
-        );
-
-
     /*
-     * The Community Scouted form records the member's
-     * visit date. Approval records when Llama Scout
-     * reviewed that evidence.
+     * No place_verifications row is created here.
+     *
+     * Approval is a moderation decision, not factual
+     * verification. Visit history and trusted contributor
+     * provenance are recorded by the contribution/provenance
+     * system outside this publisher.
      */
-
-    pp_insert_row(
-        $db,
-        'place_verifications',
-        [
-            'place_id' =>
-                $placeId,
-
-            'verification_type' =>
-                'community-scouted',
-
-            'visited_at' =>
-                $visited ?: null,
-
-            'verified_at' =>
-                $verifiedAt,
-
-            'verified_by' =>
-                $submittedBy,
-
-            'source' =>
-                pp_val(
-                    $verification,
-                    'source'
-                )
-                ?: 'Community Scouted member submission',
-
-            'public_data_verified' =>
-                pp_bool_db(
-                    pp_val(
-                        $verification,
-                        'publicDataVerified'
-                    )
-                ),
-
-            'notes' =>
-                'Created from approved community submission #' .
-                $submissionId .
-                '.',
-        ]
-    );
 
 
     /* =====================================================
@@ -1659,8 +2183,10 @@ function publish_place_submission(
                 'draft',
 
             'reason' =>
-                'Created from approved community submission #' .
-                $submissionId .
+                'Created from approved community submission #'
+                .
+                $submissionId
+                .
                 '.',
 
             'changed_by' =>
@@ -1697,9 +2223,14 @@ function publish_place_submission(
         (
             $reviewNotes !== null
             &&
-            trim($reviewNotes) !== ''
+            trim(
+                $reviewNotes
+            )
+            !== ''
         )
-            ? trim($reviewNotes)
+            ? trim(
+                $reviewNotes
+            )
             : null,
         $reviewedBy,
         $submissionId
