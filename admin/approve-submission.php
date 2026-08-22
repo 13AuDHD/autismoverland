@@ -1259,7 +1259,8 @@ try {
         ]
         .
         '%',
-        $roleAtTime
+        $roleAtTime,
+        $reportScore
     );
 
 
