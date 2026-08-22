@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/stripe.php';
 require_once dirname(__DIR__) . '/app/timezone.php';
 require_once dirname(__DIR__) . '/app/scout-maintenance.php';
+require_once dirname(__DIR__) . '/app/role-display.php';
 
 require_role('admin');
 start_llama_session();
@@ -13,6 +14,16 @@ start_llama_session();
 $adminUser = current_user();
 $db = db();
 $adminUserId = (int) $adminUser['id'];
+$primaryRoleLabel =
+    llama_primary_role_label(
+        $adminUserId
+    );
+
+
+$primaryRoleIcon =
+    llama_primary_role_icon(
+        $adminUserId
+    );
 
 
 /* =========================================================
@@ -3261,17 +3272,31 @@ require_once
 
       <div class="admin-intro-copy">
 
-        <p class="admin-eyebrow">
-          <?= e($introEyebrow) ?>
-        </p>
+<p class="admin-eyebrow">
 
-        <h1>
-          <?= e($displayName) ?>
-        </h1>
+  <i
+    class="<?= e(
+        $primaryRoleIcon
+    ) ?>"
+    aria-hidden="true"
+  ></i>
 
-        <p>
-          <?= e($introCopy) ?>
-        </p>
+  Llama Scout
+  <?= e(
+      $primaryRoleLabel
+  ) ?>
+
+</p>
+
+<h1>
+  <?= e($displayName) ?>
+</h1>
+
+<p>
+  <?= e($introEyebrow) ?>
+  &middot;
+  <?= e($introCopy) ?>
+</p>
 
       </div>
 
