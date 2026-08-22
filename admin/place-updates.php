@@ -9,6 +9,10 @@ require_once
 
 require_once
     dirname(__DIR__)
+    . '/app/permissions.php';
+
+require_once
+    dirname(__DIR__)
     . '/app/role-display.php';
 
 require_once
@@ -24,8 +28,8 @@ require_once
     . '/app/place-update-approval.php';
 
 
-require_role(
-    'admin'
+llama_require_capability(
+    LLAMA_CAP_MODERATE_PLACES
 );
 
 
@@ -226,11 +230,7 @@ function update_display_value(
 
 
 /* =========================================================
-   CURRENT CANONICAL FIELD VALUE
-
-   Uses the same strict map as the approval engine so the
-   moderation preview always reads from the exact database
-   location that approval will later modify.
+   CURRENT CANONICAL VALUE
    ========================================================= */
 
 function update_current_value(
@@ -570,24 +570,23 @@ if (
                     $db->commit();
 
 
-                    $message =
-                        'Update approved. '
-                        .
+                    $fieldCount =
                         count(
                             $result[
                                 'changed_fields'
                             ]
-                        )
+                        );
+
+
+                    $message =
+                        'Update approved. '
+                        .
+                        $fieldCount
                         .
                         ' field'
                         .
                         (
-                            count(
-                                $result[
-                                    'changed_fields'
-                                ]
-                            )
-                            === 1
+                            $fieldCount === 1
                                 ? ''
                                 : 's'
                         )
@@ -785,7 +784,7 @@ foreach (
 
 
 /* =========================================================
-   LOAD UPDATE QUEUE
+   LOAD QUEUE
    ========================================================= */
 
 $sql =
@@ -873,24 +872,6 @@ $updates =
     );
 
 
-/* =========================================================
-   DISPLAY NAME
-   ========================================================= */
-
-$displayName =
-    $user[
-        'display_name'
-    ]
-    ?:
-    $user[
-        'username'
-    ]
-    ?:
-    $user[
-        'email'
-    ];
-
-
 ?>
 <!doctype html>
 
@@ -898,387 +879,378 @@ $displayName =
 
 <head>
 
-  <meta charset="utf-8">
+<meta charset="utf-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1"
+>
 
-  <meta
-    name="robots"
-    content="noindex,nofollow"
-  >
+<meta
+  name="robots"
+  content="noindex,nofollow"
+>
 
-  <title>
-    Place Updates | Llama Scout Basecamp
-  </title>
+<title>
+  Place Updates | Llama Scout Basecamp
+</title>
 
 
-  <link
-    rel="preconnect"
-    href="https://fonts.googleapis.com"
-  >
+<link
+  rel="preconnect"
+  href="https://fonts.googleapis.com"
+>
 
-  <link
-    rel="preconnect"
-    href="https://fonts.gstatic.com"
-    crossorigin
-  >
+<link
+  rel="preconnect"
+  href="https://fonts.gstatic.com"
+  crossorigin
+>
 
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
-    rel="stylesheet"
-  >
+<link
+  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&display=swap"
+  rel="stylesheet"
+>
 
 
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-  >
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+>
 
 
-  <link
-    rel="stylesheet"
-    href="https://llamascout.com/css/style.css"
-  >
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/style.css"
+>
 
-  <link
-    rel="stylesheet"
-    href="https://llamascout.com/css/admin.css"
-  >
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/admin.css"
+>
 
 
-  <style>
+<style>
 
-    .update-filter-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 18px;
-    }
+.update-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
 
 
-    .update-filter {
-      display: inline-flex;
-      gap: 6px;
-      align-items: center;
+.update-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 
-      padding: 8px 11px;
+  padding: 8px 11px;
 
-      border: 1px solid rgba(23, 40, 34, .16);
-      border-radius: 999px;
+  border:
+    1px solid
+    rgba(23, 40, 34, .16);
 
-      color: inherit;
-      text-decoration: none;
+  border-radius: 999px;
 
-      font-size: .82rem;
-      font-weight: 700;
+  background: #fff;
 
-      background: #fff;
-    }
+  color: inherit;
+  text-decoration: none;
 
+  font-size: .82rem;
+  font-weight: 700;
+}
 
-    .update-filter.is-active {
-      background: #172822;
-      color: #fff;
-    }
 
+.update-filter.is-active {
+  background: #172822;
+  color: #fff;
+}
 
-    .update-card {
-      margin-top: 20px;
-      padding: 22px;
 
-      background: #fff;
+.update-card {
+  margin-top: 20px;
+  padding: 22px;
 
-      border: 1px solid rgba(23, 40, 34, .12);
-      border-radius: 14px;
-    }
+  background: #fff;
 
+  border:
+    1px solid
+    rgba(23, 40, 34, .12);
 
-    .update-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+  border-radius: 14px;
+}
 
-      gap: 20px;
 
-      margin-bottom: 18px;
-    }
+.update-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 
+  gap: 20px;
 
-    .update-card-header h3 {
-      margin:
-        0
-        0
-        5px;
-    }
+  margin-bottom: 18px;
+}
 
 
-    .update-meta {
-      display: flex;
-      flex-wrap: wrap;
+.update-card-header h3 {
+  margin:
+    0
+    0
+    5px;
+}
 
-      gap:
-        7px
-        14px;
 
-      margin-top: 8px;
+.update-meta {
+  display: flex;
+  flex-wrap: wrap;
 
-      color: rgba(23, 40, 34, .72);
+  gap:
+    7px
+    14px;
 
-      font-size: .86rem;
-    }
+  margin-top: 8px;
 
+  color:
+    rgba(23, 40, 34, .72);
 
-    .update-badge {
-      display: inline-flex;
+  font-size: .86rem;
+}
 
-      align-items: center;
 
-      padding:
-        6px
-        9px;
+.update-badge {
+  display: inline-flex;
+  align-items: center;
 
-      border-radius: 999px;
+  padding:
+    6px
+    9px;
 
-      background: #f4efe6;
+  border-radius: 999px;
 
-      font-size: .75rem;
-      font-weight: 800;
-    }
+  background: #f4efe6;
 
+  font-size: .75rem;
+  font-weight: 800;
+}
 
-    .update-diff {
-      width: 100%;
 
-      margin:
-        18px
-        0;
+.update-diff {
+  width: 100%;
 
-      border-collapse: collapse;
-    }
+  margin:
+    18px
+    0;
 
+  border-collapse: collapse;
+}
 
-    .update-diff th,
-    .update-diff td {
-      padding:
-        10px
-        12px;
 
-      text-align: left;
-      vertical-align: top;
+.update-diff th,
+.update-diff td {
+  padding:
+    10px
+    12px;
 
-      border-bottom:
-        1px solid
-        rgba(23, 40, 34, .1);
-    }
+  text-align: left;
+  vertical-align: top;
 
+  border-bottom:
+    1px solid
+    rgba(23, 40, 34, .1);
+}
 
-    .update-diff th {
-      font-size: .78rem;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
 
+.update-diff th {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
 
-    .update-field {
-      font-weight: 750;
-    }
 
+.update-field {
+  font-weight: 750;
+}
 
-    .update-old {
-      color: rgba(23, 40, 34, .65);
-    }
 
+.update-old {
+  color:
+    rgba(23, 40, 34, .65);
+}
 
-    .update-new {
-      font-weight: 700;
-    }
 
+.update-new {
+  font-weight: 700;
+}
 
-    .update-notes {
-      padding: 14px;
 
-      margin:
-        16px
-        0;
+.update-notes {
+  padding: 14px;
 
-      background: #f8f5ef;
+  margin:
+    16px
+    0;
 
-      border-radius: 9px;
-    }
+  background: #f8f5ef;
 
+  border-radius: 9px;
+}
 
-    .update-score {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
 
-      margin:
-        15px
-        0;
-    }
+.update-score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 
+  margin:
+    15px
+    0;
+}
 
-    .update-score span {
-      padding:
-        7px
-        10px;
 
-      background:
-        #f4efe6;
+.update-score span {
+  padding:
+    7px
+    10px;
 
-      border-radius:
-        8px;
+  background: #f4efe6;
 
-      font-size:
-        .82rem;
-      font-weight:
-        700;
-    }
+  border-radius: 8px;
 
+  font-size: .82rem;
+  font-weight: 700;
+}
 
-    .update-actions textarea {
-      width: 100%;
-      box-sizing: border-box;
 
-      min-height: 90px;
+.update-actions textarea {
+  width: 100%;
+  box-sizing: border-box;
 
-      margin-bottom: 12px;
+  min-height: 90px;
 
-      padding: 11px;
+  margin-bottom: 12px;
+  padding: 11px;
 
-      border:
-        1px solid
-        rgba(23, 40, 34, .2);
+  border:
+    1px solid
+    rgba(23, 40, 34, .2);
 
-      border-radius: 8px;
+  border-radius: 8px;
 
-      font: inherit;
+  font: inherit;
 
-      resize: vertical;
-    }
+  resize: vertical;
+}
 
 
-    .update-action-buttons {
-      display: flex;
-      flex-wrap: wrap;
+.update-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
 
-      gap: 9px;
-    }
 
+.update-action-danger {
+  border-color: #8f302a;
+  color: #8f302a;
+}
 
-    .update-action-danger {
-      border-color: #8f302a;
-      color: #8f302a;
-    }
 
+.update-message,
+.update-error {
+  margin:
+    18px
+    0;
 
-    .update-message {
-      margin:
-        18px
-        0;
+  padding:
+    14px
+    16px;
 
-      padding:
-        14px
-        16px;
+  border-radius: 9px;
+}
 
-      border-radius:
-        9px;
 
-      background:
-        rgba(77, 126, 93, .13);
-    }
+.update-message {
+  background:
+    rgba(77, 126, 93, .13);
+}
 
 
-    .update-error {
-      margin:
-        18px
-        0;
+.update-error {
+  background:
+    rgba(169, 68, 61, .12);
 
-      padding:
-        14px
-        16px;
+  color: #7b2621;
+}
 
-      border-radius:
-        9px;
 
-      background:
-        rgba(169, 68, 61, .12);
+.update-empty {
+  margin-top: 20px;
+  padding: 30px;
 
-      color:
-        #7b2621;
-    }
+  text-align: center;
 
+  background: #fff;
 
-    .update-empty {
-      margin-top: 20px;
-      padding: 30px;
+  border:
+    1px solid
+    rgba(23, 40, 34, .12);
 
-      text-align: center;
+  border-radius: 14px;
+}
 
-      background: #fff;
 
-      border:
-        1px solid
-        rgba(23, 40, 34, .12);
+@media (
+  max-width: 700px
+) {
 
-      border-radius:
-        14px;
-    }
+  .update-card-header {
+    display: block;
+  }
 
 
-    @media (
-      max-width: 700px
-    ) {
+  .update-card-header
+  .update-badge {
+    margin-top: 10px;
+  }
 
-      .update-card-header {
-        display: block;
-      }
 
+  .update-diff,
+  .update-diff tbody,
+  .update-diff tr,
+  .update-diff td {
+    display: block;
+  }
 
-      .update-card-header
-      .update-badge {
-        margin-top: 10px;
-      }
 
+  .update-diff thead {
+    display: none;
+  }
 
-      .update-diff,
-      .update-diff tbody,
-      .update-diff tr,
-      .update-diff td {
-        display: block;
-      }
 
+  .update-diff tr {
+    padding:
+      12px
+      0;
 
-      .update-diff thead {
-        display: none;
-      }
+    border-bottom:
+      1px solid
+      rgba(23, 40, 34, .1);
+  }
 
 
-      .update-diff tr {
-        padding:
-          12px
-          0;
+  .update-diff td {
+    padding:
+      4px
+      0;
 
-        border-bottom:
-          1px solid
-          rgba(23, 40, 34, .1);
-      }
+    border: 0;
+  }
 
+}
 
-      .update-diff td {
-        padding:
-          4px
-          0;
-
-        border: 0;
-      }
-
-    }
-
-  </style>
+</style>
 
 </head>
 
@@ -1298,61 +1270,50 @@ require_once
 <main class="admin-main">
 
 
-  <section class="admin-intro">
-
-    <div class="admin-intro-row">
-
-      <div class="admin-intro-copy">
-
-        <p class="admin-eyebrow">
-
-          <i
-            class="<?= e(
-                $primaryRoleIcon
-            ) ?>"
-            aria-hidden="true"
-          ></i>
-
-          Llama Scout
-          <?= e(
-              $primaryRoleLabel
-          ) ?>
-
-        </p>
+<section class="admin-intro">
 
 
-        <h1>
-          Place Updates
-        </h1>
+  <div class="admin-intro-row">
 
 
-        <p>
-          Review structured community and Scout updates before
-          they change the live Place record.
-        </p>
-
-      </div>
+    <div class="admin-intro-copy">
 
 
-      <div class="admin-intro-actions">
+      <p class="admin-eyebrow">
 
-        <a
-          class="admin-button admin-button--secondary"
-          href="/"
-        >
-          <i
-            class="fa-solid fa-campground"
-            aria-hidden="true"
-          ></i>
+        <i
+          class="<?= e(
+              $primaryRoleIcon
+          ) ?>"
+          aria-hidden="true"
+        ></i>
 
-          Basecamp
-        </a>
+        Llama Scout
+        <?= e(
+            $primaryRoleLabel
+        ) ?>
 
-      </div>
+      </p>
+
+
+      <h1>
+        Place Updates
+      </h1>
+
+
+      <p>
+        Review structured community and Scout updates before
+        they change the live Place record.
+      </p>
+
 
     </div>
 
-  </section>
+
+  </div>
+
+
+</section>
 
 
 <?php
@@ -1364,134 +1325,140 @@ require
 ?>
 
 
-  <?php if (
-      $message !== ''
-  ): ?>
+<?php if (
+    $message !== ''
+): ?>
 
-    <div class="update-message">
+  <div class="update-message">
+    <?= e(
+        $message
+    ) ?>
+  </div>
+
+<?php endif; ?>
+
+
+<?php if (
+    $error !== ''
+): ?>
+
+  <div class="update-error">
+    <?= e(
+        $error
+    ) ?>
+  </div>
+
+<?php endif; ?>
+
+
+<section class="admin-section">
+
+
+  <div class="admin-section-header">
+
+    <div>
+
+      <h2>
+        Moderation Queue
+      </h2>
+
+      <p>
+        Approval means the contribution follows Llama Scout
+        publishing standards. It does not guarantee every
+        reported fact.
+      </p>
+
+    </div>
+
+  </div>
+
+
+  <div class="update-filter-row">
+
+
+<?php
+
+$filterLabels = [
+
+    'pending' =>
+        'Pending',
+
+    'needs-changes' =>
+        'Needs Changes',
+
+    'approved' =>
+        'Approved',
+
+    'rejected' =>
+        'Rejected',
+
+    'withdrawn' =>
+        'Withdrawn',
+
+    'all' =>
+        'All',
+
+];
+
+
+foreach (
+    $filterLabels as
+    $filterKey =>
+    $filterLabel
+):
+
+    $count =
+        $filterKey ===
+        'all'
+
+            ? array_sum(
+                $counts
+            )
+
+            : (
+                $counts[
+                    $filterKey
+                ]
+                ?? 0
+            );
+
+?>
+
+
+    <a
+      class="
+        update-filter
+        <?= $statusFilter === $filterKey
+            ? 'is-active'
+            : ''
+        ?>
+      "
+      href="?status=<?= e(
+          $filterKey
+      ) ?>"
+    >
+
       <?= e(
-          $message
-      ) ?>
-    </div>
-
-  <?php endif; ?>
-
-
-  <?php if (
-      $error !== ''
-  ): ?>
-
-    <div class="update-error">
-      <?= e(
-          $error
-      ) ?>
-    </div>
-
-  <?php endif; ?>
-
-
-  <section class="admin-section">
-
-    <div class="admin-section-header">
-
-      <div>
-
-        <h2>
-          Moderation Queue
-        </h2>
-
-        <p>
-          Approval changes the canonical Place immediately.
-          Community edits do not remove existing Llama Scouted
-          history.
-        </p>
-
-      </div>
-
-    </div>
-
-
-    <div class="update-filter-row">
-
-      <?php
-
-      $filterLabels = [
-
-          'pending' =>
-              'Pending',
-
-          'needs-changes' =>
-              'Needs Changes',
-
-          'approved' =>
-              'Approved',
-
-          'rejected' =>
-              'Rejected',
-
-          'withdrawn' =>
-              'Withdrawn',
-
-          'all' =>
-              'All',
-
-      ];
-
-
-      foreach (
-          $filterLabels as
-          $filterKey =>
           $filterLabel
-      ):
+      ) ?>
 
-          $count =
-              $filterKey ===
-              'all'
+      <span>
+        <?= $count ?>
+      </span>
 
-                  ? array_sum(
-                      $counts
-                  )
-
-                  : (
-                      $counts[
-                          $filterKey
-                      ]
-                      ?? 0
-                  );
-
-      ?>
-
-        <a
-          class="
-            update-filter
-            <?= $statusFilter === $filterKey
-                ? 'is-active'
-                : ''
-            ?>
-          "
-          href="?status=<?= e(
-              $filterKey
-          ) ?>"
-        >
-
-          <?= e(
-              $filterLabel
-          ) ?>
-
-          <span>
-            <?= $count ?>
-          </span>
-
-        </a>
-
-      <?php endforeach; ?>
-
-    </div>
-
-  </section>
+    </a>
 
 
-  <section class="admin-section">
+<?php endforeach; ?>
+
+
+  </div>
+
+
+</section>
+
+
+<section class="admin-section">
 
 
 <?php if (
@@ -1499,22 +1466,22 @@ require
 ): ?>
 
 
-    <div class="update-empty">
+  <div class="update-empty">
 
-      <i
-        class="fa-solid fa-check"
-        aria-hidden="true"
-      ></i>
+    <i
+      class="fa-solid fa-check"
+      aria-hidden="true"
+    ></i>
 
-      <h2>
-        Nothing here
-      </h2>
+    <h2>
+      Nothing here
+    </h2>
 
-      <p>
-        There are no updates in this queue.
-      </p>
+    <p>
+      There are no updates in this queue.
+    </p>
 
-    </div>
+  </div>
 
 
 <?php else: ?>
@@ -1528,505 +1495,544 @@ require
 
 <?php
 
-    $updateId =
-        (int)
+$updateId =
+    (int)
+    $update[
+        'id'
+    ];
+
+
+$placeId =
+    (int)
+    $update[
+        'place_id'
+    ];
+
+
+$changes =
+    json_decode(
+        (string)
         $update[
-            'id'
-        ];
+            'proposed_changes'
+        ],
+        true
+    );
 
 
-    $placeId =
-        (int)
-        $update[
-            'place_id'
-        ];
-
+if (
+    !is_array(
+        $changes
+    )
+) {
 
     $changes =
-        json_decode(
-            (string)
-            $update[
-                'proposed_changes'
-            ],
-            true
-        );
+        [];
+
+}
 
 
-    if (
-        !is_array(
-            $changes
-        )
-    ) {
-
-        $changes =
-            [];
-
-    }
+$fieldPaths =
+    llama_update_field_paths(
+        $changes
+    );
 
 
-    $fieldPaths =
-        llama_update_field_paths(
-            $changes
-        );
-
-
-    $score =
-        llama_score_place_update(
-            $db,
-            $changes,
-            (string)
-            $update[
-                'update_type'
-            ]
-        );
-
-
-    $contributor =
+$score =
+    llama_score_place_update(
+        $db,
+        $changes,
+        (string)
         $update[
-            'display_name'
+            'update_type'
         ]
-        ?:
-        $update[
-            'username'
-        ]
-        ?:
-        $update[
-            'email'
-        ];
+    );
 
 
-    $moderatable =
-        in_array(
-            (string)
-            $update[
-                'status'
-            ],
-            [
-                LLAMA_UPDATE_PENDING,
-                LLAMA_UPDATE_NEEDS_CHANGES,
-            ],
-            true
-        );
+$contributor =
+    $update[
+        'display_name'
+    ]
+    ?:
+    $update[
+        'username'
+    ]
+    ?:
+    $update[
+        'email'
+    ];
+
+
+$moderatable =
+    in_array(
+        (string)
+        $update[
+            'status'
+        ],
+        [
+            LLAMA_UPDATE_PENDING,
+            LLAMA_UPDATE_NEEDS_CHANGES,
+        ],
+        true
+    );
 
 ?>
 
 
-    <article
-      class="update-card"
-      id="update-<?= $updateId ?>"
-    >
+<article
+  class="update-card"
+  id="update-<?= $updateId ?>"
+>
 
 
-      <div class="update-card-header">
-
-        <div>
-
-          <h3>
-            <?= e(
-                $update[
-                    'place_name'
-                ]
-            ) ?>
-          </h3>
+  <div class="update-card-header">
 
 
-          <div class="update-meta">
-
-            <span>
-              <i
-                class="fa-solid fa-user"
-                aria-hidden="true"
-              ></i>
-
-              <?= e(
-                  $contributor
-              ) ?>
-            </span>
+    <div>
 
 
-            <span>
-              <?= e(
-                  update_human_label(
-                      (string)
-                      $update[
-                          'role_at_submission'
-                      ]
-                  )
-              ) ?>
-            </span>
+      <h3>
+        <?= e(
+            $update[
+                'place_name'
+            ]
+        ) ?>
+      </h3>
 
 
-            <span>
-              Submitted
-              <?= e(
-                  update_format_date(
-                      $update[
-                          'submitted_at'
-                      ],
-                      true
-                  )
-              ) ?>
-            </span>
+      <div class="update-meta">
 
 
-            <?php if (
-                !empty(
-                    $update[
-                        'visited_at'
-                    ]
-                )
-            ): ?>
+        <span>
 
-              <span>
-                Visited
-                <?= e(
-                    update_format_date(
-                        $update[
-                            'visited_at'
-                        ]
-                    )
-                ) ?>
-              </span>
+          <i
+            class="fa-solid fa-user"
+            aria-hidden="true"
+          ></i>
 
-            <?php endif; ?>
+          <?= e(
+              $contributor
+          ) ?>
 
-          </div>
-
-        </div>
+        </span>
 
 
-        <span class="update-badge">
+        <span>
 
           <?= e(
               update_human_label(
                   (string)
                   $update[
-                      'status'
+                      'role_at_submission'
                   ]
               )
           ) ?>
 
         </span>
 
-      </div>
-
-
-      <div class="update-score">
 
         <span>
-          <?= count(
-              $fieldPaths
-          ) ?>
-          changed
-          <?= count(
-              $fieldPaths
-          ) === 1
-              ? 'field'
-              : 'fields'
-          ?>
-        </span>
 
+          Submitted
 
-        <span>
-          Type:
           <?= e(
-              update_human_label(
-                  (string)
+              update_format_date(
                   $update[
-                      'update_type'
-                  ]
+                      'submitted_at'
+                  ],
+                  true
               )
           ) ?>
+
         </span>
 
 
         <?php if (
-            llama_contribution_role_is_scouted(
-                (string)
+            !empty(
                 $update[
-                    'role_at_submission'
+                    'visited_at'
                 ]
             )
         ): ?>
 
           <span>
-            Estimated Scout points:
-            <?= (int)
-                $score[
-                    'points_awarded'
-                ]
-            ?>
+
+            Visited
+
+            <?= e(
+                update_format_date(
+                    $update[
+                        'visited_at'
+                    ]
+                )
+            ) ?>
+
           </span>
 
         <?php endif; ?>
 
+
       </div>
 
 
-      <?php if (
-          !empty(
+    </div>
+
+
+    <span class="update-badge">
+
+      <?= e(
+          update_human_label(
+              (string)
               $update[
-                  'contributor_notes'
+                  'status'
               ]
           )
-      ): ?>
+      ) ?>
 
-        <div class="update-notes">
-
-          <strong>
-            Contributor notes
-          </strong>
-
-          <p>
-            <?= nl2br(
-                e(
-                    $update[
-                        'contributor_notes'
-                    ]
-                )
-            ) ?>
-          </p>
-
-        </div>
-
-      <?php endif; ?>
+    </span>
 
 
-      <table class="update-diff">
-
-        <thead>
-
-          <tr>
-
-            <th>
-              Field
-            </th>
-
-            <th>
-              Current
-            </th>
-
-            <th>
-              Proposed
-            </th>
-
-          </tr>
-
-        </thead>
+  </div>
 
 
-        <tbody>
+  <div class="update-score">
 
 
-        <?php foreach (
-            $fieldPaths as
-            $path
-        ): ?>
+    <span>
+
+      <?= count(
+          $fieldPaths
+      ) ?>
+
+      changed
+
+      <?= count(
+          $fieldPaths
+      ) === 1
+          ? 'field'
+          : 'fields'
+      ?>
+
+    </span>
 
 
-        <?php
+    <span>
 
-            $oldValue =
-                update_current_value(
-                    $db,
-                    $placeId,
-                    $path
-                );
+      Type:
+
+      <?= e(
+          update_human_label(
+              (string)
+              $update[
+                  'update_type'
+              ]
+          )
+      ) ?>
+
+    </span>
 
 
-            $newValue =
-                llama_update_get(
-                    $changes,
-                    $path
-                );
+    <?php if (
+        llama_contribution_role_is_scouted(
+            (string)
+            $update[
+                'role_at_submission'
+            ]
+        )
+    ): ?>
 
+      <span>
+
+        Estimated Scout points:
+
+        <?= (int)
+            $score[
+                'points_awarded'
+            ]
         ?>
 
+      </span>
 
-          <tr>
-
-            <td class="update-field">
-
-              <?= e(
-                  update_human_label(
-                      $path
-                  )
-              ) ?>
-
-            </td>
+    <?php endif; ?>
 
 
-            <td class="update-old">
-
-              <?= e(
-                  update_display_value(
-                      $oldValue
-                  )
-              ) ?>
-
-            </td>
+  </div>
 
 
-            <td class="update-new">
+  <?php if (
+      !empty(
+          $update[
+              'contributor_notes'
+          ]
+      )
+  ): ?>
 
-              <?= e(
-                  update_display_value(
-                      $newValue
-                  )
-              ) ?>
+    <div class="update-notes">
 
-            </td>
+      <strong>
+        Contributor notes
+      </strong>
 
-          </tr>
+      <p>
 
+        <?= nl2br(
+            e(
+                $update[
+                    'contributor_notes'
+                ]
+            )
+        ) ?>
 
-        <?php endforeach; ?>
+      </p>
 
+    </div>
 
-        </tbody>
-
-      </table>
-
-
-      <?php if (
-          !empty(
-              $update[
-                  'review_notes'
-              ]
-          )
-      ): ?>
-
-        <div class="update-notes">
-
-          <strong>
-            Moderator notes
-          </strong>
-
-          <p>
-            <?= nl2br(
-                e(
-                    $update[
-                        'review_notes'
-                    ]
-                )
-            ) ?>
-          </p>
-
-        </div>
-
-      <?php endif; ?>
+  <?php endif; ?>
 
 
-      <?php if (
-          $moderatable
-      ): ?>
+  <table class="update-diff">
 
 
-        <form
-          class="update-actions"
-          method="post"
-          action="?status=<?= e(
-              $statusFilter
-          ) ?>#update-<?= $updateId ?>"
+    <thead>
+
+      <tr>
+
+        <th>
+          Field
+        </th>
+
+        <th>
+          Current
+        </th>
+
+        <th>
+          Proposed
+        </th>
+
+      </tr>
+
+    </thead>
+
+
+    <tbody>
+
+
+<?php foreach (
+    $fieldPaths as
+    $path
+): ?>
+
+
+<?php
+
+$oldValue =
+    update_current_value(
+        $db,
+        $placeId,
+        $path
+    );
+
+
+$newValue =
+    llama_update_get(
+        $changes,
+        $path
+    );
+
+?>
+
+
+      <tr>
+
+
+        <td class="update-field">
+
+          <?= e(
+              update_human_label(
+                  $path
+              )
+          ) ?>
+
+        </td>
+
+
+        <td class="update-old">
+
+          <?= e(
+              update_display_value(
+                  $oldValue
+              )
+          ) ?>
+
+        </td>
+
+
+        <td class="update-new">
+
+          <?= e(
+              update_display_value(
+                  $newValue
+              )
+          ) ?>
+
+        </td>
+
+
+      </tr>
+
+
+<?php endforeach; ?>
+
+
+    </tbody>
+
+
+  </table>
+
+
+  <?php if (
+      !empty(
+          $update[
+              'review_notes'
+          ]
+      )
+  ): ?>
+
+    <div class="update-notes">
+
+      <strong>
+        Moderator notes
+      </strong>
+
+      <p>
+
+        <?= nl2br(
+            e(
+                $update[
+                    'review_notes'
+                ]
+            )
+        ) ?>
+
+      </p>
+
+    </div>
+
+  <?php endif; ?>
+
+
+  <?php if (
+      $moderatable
+  ): ?>
+
+
+    <form
+      class="update-actions"
+      method="post"
+      action="?status=<?= e(
+          $statusFilter
+      ) ?>#update-<?= $updateId ?>"
+    >
+
+
+      <input
+        type="hidden"
+        name="csrf_token"
+        value="<?= e(
+            $csrfToken
+        ) ?>"
+      >
+
+
+      <input
+        type="hidden"
+        name="update_id"
+        value="<?= $updateId ?>"
+      >
+
+
+      <label>
+
+        <strong>
+          Moderator notes
+        </strong>
+
+        <textarea
+          name="review_notes"
+          maxlength="3000"
+          placeholder="Optional for approval or rejection. Required when requesting changes."
+        ></textarea>
+
+      </label>
+
+
+      <div class="update-action-buttons">
+
+
+        <button
+          class="admin-button"
+          type="submit"
+          name="action"
+          value="approve"
         >
 
-          <input
-            type="hidden"
-            name="csrf_token"
-            value="<?= e(
-                $csrfToken
-            ) ?>"
-          >
+          <i
+            class="fa-solid fa-check"
+            aria-hidden="true"
+          ></i>
 
-          <input
-            type="hidden"
-            name="update_id"
-            value="<?= $updateId ?>"
-          >
+          Approve Update
+
+        </button>
 
 
-          <label>
+        <button
+          class="admin-button admin-button--secondary"
+          type="submit"
+          name="action"
+          value="needs-changes"
+        >
 
-            <strong>
-              Moderator notes
-            </strong>
+          <i
+            class="fa-solid fa-rotate-left"
+            aria-hidden="true"
+          ></i>
 
-            <textarea
-              name="review_notes"
-              maxlength="3000"
-              placeholder="Optional for approval or rejection. Required when requesting changes."
-            ></textarea>
+          Needs Changes
 
-          </label>
-
-
-          <div class="update-action-buttons">
-
-
-            <button
-              class="admin-button"
-              type="submit"
-              name="action"
-              value="approve"
-            >
-
-              <i
-                class="fa-solid fa-check"
-                aria-hidden="true"
-              ></i>
-
-              Approve Update
-
-            </button>
+        </button>
 
 
-            <button
-              class="admin-button admin-button--secondary"
-              type="submit"
-              name="action"
-              value="needs-changes"
-            >
+        <button
+          class="
+            admin-button
+            admin-button--secondary
+            update-action-danger
+          "
+          type="submit"
+          name="action"
+          value="reject"
+        >
 
-              <i
-                class="fa-solid fa-rotate-left"
-                aria-hidden="true"
-              ></i>
+          <i
+            class="fa-solid fa-xmark"
+            aria-hidden="true"
+          ></i>
 
-              Needs Changes
+          Reject
 
-            </button>
-
-
-            <button
-              class="
-                admin-button
-                admin-button--secondary
-                update-action-danger
-              "
-              type="submit"
-              name="action"
-              value="reject"
-            >
-
-              <i
-                class="fa-solid fa-xmark"
-                aria-hidden="true"
-              ></i>
-
-              Reject
-
-            </button>
+        </button>
 
 
-          </div>
-
-        </form>
+      </div>
 
 
-      <?php endif; ?>
+    </form>
 
 
-    </article>
+  <?php endif; ?>
+
+
+</article>
 
 
 <?php endforeach; ?>
@@ -2035,7 +2041,7 @@ require
 <?php endif; ?>
 
 
-  </section>
+</section>
 
 
 </main>
