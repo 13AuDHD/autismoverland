@@ -169,6 +169,46 @@ function llama_scout_policy_defaults(): array
 
 
 /* =========================================================
+   POLICY TABLE EXISTS
+
+   IMPORTANT:
+   CREATE TABLE causes an implicit COMMIT in MySQL.
+
+   We therefore check whether the table already exists before
+   issuing any DDL. This makes llama_ensure_scout_policy_table()
+   safe to call from code that is already inside a database
+   transaction.
+   ========================================================= */
+
+function llama_scout_policy_table_exists(
+    PDO $db
+): bool {
+
+    $stmt =
+        $db->query(
+            '
+            SELECT COUNT(*)
+
+            FROM information_schema.tables
+
+            WHERE table_schema =
+                DATABASE()
+
+              AND table_name =
+                \'scout_policy\'
+            '
+        );
+
+
+    return
+        (int)
+        $stmt->fetchColumn()
+        > 0;
+
+}
+
+
+/* =========================================================
    ENSURE POLICY TABLE
    ========================================================= */
 
@@ -176,52 +216,90 @@ function llama_ensure_scout_policy_table(
     PDO $db
 ): void {
 
-    $db->exec(
-        '
-        CREATE TABLE IF NOT EXISTS scout_policy
-        (
-            policy_key
-                VARCHAR(100)
-                NOT NULL,
+    $tableExists =
+        llama_scout_policy_table_exists(
+            $db
+        );
 
-            policy_value
-                VARCHAR(255)
-                NOT NULL,
 
-            value_type
-                ENUM(
-                    \'int\',
-                    \'float\',
-                    \'bool\',
-                    \'string\'
-                )
-                NOT NULL
-                DEFAULT \'string\',
+    if (
+        !$tableExists
+    ) {
 
-            description
-                VARCHAR(500)
-                NULL,
+        /*
+         * Creating a table inside an active MySQL transaction
+         * would implicitly commit that transaction.
+         *
+         * Table creation should normally happen before a
+         * transaction begins. Refuse to silently destroy the
+         * caller's transaction if that assumption is violated.
+         */
 
-            created_at
-                DATETIME
-                NOT NULL
-                DEFAULT CURRENT_TIMESTAMP,
+        if (
+            $db->inTransaction()
+        ) {
 
-            updated_at
-                DATETIME
-                NOT NULL
-                DEFAULT CURRENT_TIMESTAMP
-                ON UPDATE CURRENT_TIMESTAMP,
+            throw new RuntimeException(
+                'The Scout policy table must be initialized before starting a transaction.'
+            );
 
-            PRIMARY KEY
-                (policy_key)
-        )
-        ENGINE=InnoDB
-        DEFAULT CHARSET=utf8mb4
-        COLLATE=utf8mb4_unicode_ci
-        '
-    );
+        }
 
+
+        $db->exec(
+            '
+            CREATE TABLE scout_policy
+            (
+                policy_key
+                    VARCHAR(100)
+                    NOT NULL,
+
+                policy_value
+                    VARCHAR(255)
+                    NOT NULL,
+
+                value_type
+                    ENUM(
+                        \'int\',
+                        \'float\',
+                        \'bool\',
+                        \'string\'
+                    )
+                    NOT NULL
+                    DEFAULT \'string\',
+
+                description
+                    VARCHAR(500)
+                    NULL,
+
+                created_at
+                    DATETIME
+                    NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP,
+
+                updated_at
+                    DATETIME
+                    NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP
+                    ON UPDATE CURRENT_TIMESTAMP,
+
+                PRIMARY KEY
+                    (policy_key)
+            )
+            ENGINE=InnoDB
+            DEFAULT CHARSET=utf8mb4
+            COLLATE=utf8mb4_unicode_ci
+            '
+        );
+
+    }
+
+
+    /*
+     * INSERT IGNORE is ordinary DML and is safe inside an
+     * existing transaction. It also preserves any previously
+     * configured policy values.
+     */
 
     llama_seed_scout_policy_defaults(
         $db
@@ -532,6 +610,11 @@ function llama_update_scout_policy(
 
     }
 
+
+    /*
+     * This is now transaction-safe. If the table already
+     * exists no CREATE TABLE statement is executed.
+     */
 
     llama_ensure_scout_policy_table(
         $db
