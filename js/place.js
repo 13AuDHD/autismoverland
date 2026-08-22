@@ -23,7 +23,10 @@ async function initPlacePage() {
       "place-page"
     );
 
-  if (!page) return;
+
+  if (!page) {
+    return;
+  }
 
 
   const params =
@@ -33,15 +36,18 @@ async function initPlacePage() {
 
 
   const requestedPlace =
-    params.get("place");
+    params.get(
+      "place"
+    );
 
 
   if (!requestedPlace) {
 
-    renderNotFound(page);
+    renderNotFound(
+      page
+    );
 
     return;
-
   }
 
 
@@ -62,12 +68,23 @@ async function initPlacePage() {
       throw new Error(
         "Could not load places."
       );
-
     }
 
 
     const places =
       await response.json();
+
+
+    if (
+      !Array.isArray(
+        places
+      )
+    ) {
+
+      throw new Error(
+        "Unexpected places response."
+      );
+    }
 
 
     const place =
@@ -80,10 +97,11 @@ async function initPlacePage() {
 
     if (!place) {
 
-      renderNotFound(page);
+      renderNotFound(
+        page
+      );
 
       return;
-
     }
 
 
@@ -116,9 +134,7 @@ async function initPlacePage() {
       </section>
 
     `;
-
   }
-
 }
 
 
@@ -137,7 +153,9 @@ function renderPlace(
 
 
   const images =
-    Array.isArray(place.images)
+    Array.isArray(
+      place.images
+    )
       ? place.images
       : [];
 
@@ -145,8 +163,9 @@ function renderPlace(
   const featuredImage =
     images.find(
       (image) =>
-        image.featured
-    ) ||
+        image.featured === true
+    )
+    ||
     images[0];
 
 
@@ -157,10 +176,15 @@ function renderPlace(
     );
 
 
-  const location =
+  const locationLabel =
     [
-      place.location?.city,
-      place.location?.state
+      safeDisplayValue(
+        place.location?.city
+      ),
+
+      safeDisplayValue(
+        place.location?.state
+      )
     ]
       .filter(Boolean)
       .join(", ");
@@ -176,7 +200,7 @@ function renderPlace(
     ${renderHero(
       place,
       featuredImage,
-      location,
+      locationLabel,
       verified
     )}
 
@@ -187,11 +211,11 @@ function renderPlace(
 
 
         <div class="place-main">
-          
+
           ${renderAbout(place)}
-          
+
           ${renderMembershipGate(place)}
-          
+
           ${renderWarnings(place)}
 
           ${renderSensory(place)}
@@ -228,7 +252,7 @@ function renderPlace(
             place,
             remainingImages
           )}
-         
+
           ${renderReportProblem(place)}
 
         </div>
@@ -252,53 +276,163 @@ function renderPlace(
 
   `;
 
-  initSavePlaceButton();
 
+  initSavePlaceButton();
 }
 
 
 
 /* =========================================================
-   MEMBERSHIP GATE
+   ACCESS / MEMBERSHIP GATE
    ========================================================= */
 
-function renderMembershipGate(place) {
+function renderMembershipGate(
+  place
+) {
 
-  if (place.memberAccess === true) {
+  if (
+    place.memberAccess === true ||
+    place.accessLevel === "member"
+  ) {
+
     return "";
   }
 
+
+  if (
+    place.accessLevel ===
+    "visitor"
+  ) {
+
+    return `
+
+      <section class="place-section place-membership-gate">
+
+        <div class="place-section-inner">
+
+          <div class="place-membership-lock">
+
+            <i
+              class="fa-solid fa-user-plus"
+              aria-hidden="true"
+            ></i>
+
+          </div>
+
+
+          <p class="eyebrow">
+            Free Llama Scout Account
+          </p>
+
+
+          <h2>
+            See more before you go.
+          </h2>
+
+
+          <p>
+            Create a free account to get the registered-member
+            preview of this place, including the approximate
+            location and more planning information.
+          </p>
+
+
+          <ul class="place-membership-features">
+
+            <li>
+              Approximate place location
+            </li>
+
+            <li>
+              Full public photo gallery
+            </li>
+
+            <li>
+              Additional place and safety information
+            </li>
+
+            <li>
+              Save places to your account
+            </li>
+
+          </ul>
+
+
+          <a
+            class="place-membership-button"
+            href="https://account.llamascout.com/register.php"
+          >
+            Create Free Account
+          </a>
+
+        </div>
+
+      </section>
+
+    `;
+  }
+
+
   return `
+
     <section class="place-section place-membership-gate">
 
       <div class="place-section-inner">
 
         <div class="place-membership-lock">
-          <i class="fa-solid fa-lock"></i>
+
+          <i
+            class="fa-solid fa-lock"
+            aria-hidden="true"
+          ></i>
+
         </div>
+
 
         <p class="eyebrow">
           Llama Scout Membership
         </p>
 
+
         <h2>
           There's more to scout here.
         </h2>
 
+
         <p>
-          Members get the exact location plus the detailed
-          information that helps you know a place before
-          you go.
+          Upgrade your membership for the exact location
+          and complete place information.
         </p>
 
+
         <ul class="place-membership-features">
-          <li>Exact campsite location</li>
-          <li>Complete sensory profile</li>
-          <li>Road and vehicle access details</li>
-          <li>Cell carrier and Starlink connectivity</li>
-          <li>Important warnings and regulations</li>
-          <li>Nearby fuel, water, groceries, and services</li>
+
+          <li>
+            Exact place coordinates
+          </li>
+
+          <li>
+            Complete sensory profile
+          </li>
+
+          <li>
+            Road and vehicle access details
+          </li>
+
+          <li>
+            Cell carrier and Starlink connectivity
+          </li>
+
+          <li>
+            Complete warnings and regulations
+          </li>
+
+          <li>
+            Nearby fuel, water, groceries, and services
+          </li>
+
         </ul>
+
 
         <a
           class="place-membership-button"
@@ -310,6 +444,7 @@ function renderMembershipGate(place) {
       </div>
 
     </section>
+
   `;
 }
 
@@ -319,21 +454,35 @@ function renderMembershipGate(place) {
    REPORT A PROBLEM
    ========================================================= */
 
-function renderReportProblem(place) {
+function renderReportProblem(
+  place
+) {
 
   const slug =
-    place.slug ||
-    place.id;
+    safeDisplayValue(
+      place.slug
+    )
+    ||
+    safeDisplayValue(
+      place.id
+    );
+
 
   if (!slug) {
     return "";
   }
 
+
   const reportUrl =
-    "https://account.llamascout.com/report-place.php?place=" +
-    encodeURIComponent(slug);
+    "https://account.llamascout.com/report-place.php?place="
+    +
+    encodeURIComponent(
+      slug
+    );
+
 
   return `
+
     <section class="place-section place-report-problem">
 
       <div class="place-section-inner">
@@ -356,17 +505,27 @@ function renderReportProblem(place) {
 
         </div>
 
+
         <a
           class="report-place-button"
-          href="${escapeHTML(reportUrl)}"
+          href="${escapeHTML(
+            reportUrl
+          )}"
         >
-          <i class="fa-solid fa-triangle-exclamation"></i>
+
+          <i
+            class="fa-solid fa-triangle-exclamation"
+            aria-hidden="true"
+          ></i>
+
           Mark a Problem With This Place
+
         </a>
 
       </div>
 
     </section>
+
   `;
 }
 
@@ -389,15 +548,23 @@ function renderHero(
 
       ${
         image
+        &&
+        hasValue(
+          image.src
+        )
           ? `
+
             <img
               class="place-hero-image"
-              src="${escapeHTML(image.src)}"
+              src="${escapeHTML(
+                image.src
+              )}"
               alt="${escapeHTML(
                 image.alt ||
                 place.name
               )}"
             >
+
           `
           : ""
       }
@@ -410,13 +577,23 @@ function renderHero(
 
         <div class="container">
 
-          <span class="place-type">
-            ${escapeHTML(
-              formatLabel(
-                place.type
-              )
-            )}
-          </span>
+          ${
+            hasValue(
+              place.type
+            )
+              ? `
+
+                <span class="place-type">
+                  ${escapeHTML(
+                    formatLabel(
+                      place.type
+                    )
+                  )}
+                </span>
+
+              `
+              : ""
+          }
 
 
           <h1>
@@ -429,24 +606,43 @@ function renderHero(
           ${
             location
               ? `
+
                 <p class="place-location">
 
-                  <i class="fa-solid fa-location-dot"></i>
+                  <i
+                    class="fa-solid fa-location-dot"
+                    aria-hidden="true"
+                  ></i>
 
-                  ${escapeHTML(location)}
+                  ${escapeHTML(
+                    location
+                  )}
 
                 </p>
+
               `
               : ""
           }
 
 
-          ${verified ? `
-            <span class="place-verified">
-              <i class="fa-solid fa-circle-check"></i>
-              Llama Scouted
-            </span>
-          ` : ""}
+          ${
+            verified
+              ? `
+
+                <span class="place-verified">
+
+                  <i
+                    class="fa-solid fa-circle-check"
+                    aria-hidden="true"
+                  ></i>
+
+                  Llama Scouted
+
+                </span>
+
+              `
+              : ""
+          }
 
 
           <div class="place-save-area">
@@ -455,11 +651,15 @@ function renderHero(
               type="button"
               class="place-save-button"
               data-save-place="${escapeHTML(
-                place.slug || place.id
+                place.slug ||
+                place.id
               )}"
             >
 
-              <i class="fa-regular fa-bookmark"></i>
+              <i
+                class="fa-regular fa-bookmark"
+                aria-hidden="true"
+              ></i>
 
               <span>
                 Save Place
@@ -476,7 +676,6 @@ function renderHero(
     </section>
 
   `;
-
 }
 
 
@@ -485,12 +684,17 @@ function renderHero(
    ABOUT
    ========================================================= */
 
-function renderAbout(place) {
+function renderAbout(
+  place
+) {
 
-  if (!hasValue(place.description)) {
+  if (
+    !hasValue(
+      place.description
+    )
+  ) {
 
     return "";
-
   }
 
 
@@ -506,7 +710,6 @@ function renderAbout(place) {
 
     `
   );
-
 }
 
 
@@ -515,16 +718,21 @@ function renderAbout(place) {
    WARNINGS
    ========================================================= */
 
-function renderWarnings(place) {
+function renderWarnings(
+  place
+) {
 
   const warnings =
-    buildAutomaticWarnings(place);
+    buildAutomaticWarnings(
+      place
+    );
 
 
-  if (!warnings.length) {
+  if (
+    !warnings.length
+  ) {
 
     return "";
-
   }
 
 
@@ -546,11 +754,14 @@ function renderWarnings(place) {
                 }"
               >
 
-                <i class="fa-solid ${
-                  warning.priority === "high"
-                    ? "fa-circle-exclamation"
-                    : "fa-triangle-exclamation"
-                }"></i>
+                <i
+                  class="fa-solid ${
+                    warning.priority === "high"
+                      ? "fa-circle-exclamation"
+                      : "fa-triangle-exclamation"
+                  }"
+                  aria-hidden="true"
+                ></i>
 
                 ${escapeHTML(
                   warning.label
@@ -566,7 +777,6 @@ function renderWarnings(place) {
 
     `
   );
-
 }
 
 
@@ -575,9 +785,12 @@ function renderWarnings(place) {
    AUTOMATIC WARNINGS
    ========================================================= */
 
-function buildAutomaticWarnings(place) {
+function buildAutomaticWarnings(
+  place
+) {
 
-  const warnings = [];
+  const warnings =
+    [];
 
 
   function addWarning(
@@ -585,14 +798,17 @@ function buildAutomaticWarnings(place) {
     priority = "normal"
   ) {
 
-    if (!label) return;
+    if (!label) {
+      return;
+    }
 
 
     const exists =
       warnings.some(
         (warning) =>
           warning.label
-            .toLowerCase() ===
+            .toLowerCase()
+          ===
           label.toLowerCase()
       );
 
@@ -603,15 +819,14 @@ function buildAutomaticWarnings(place) {
         label,
         priority
       });
-
     }
-
   }
 
 
-
   const manualWarnings =
-    place.warnings || {};
+    safeObject(
+      place.warnings
+    );
 
 
   Object.entries(
@@ -625,315 +840,403 @@ function buildAutomaticWarnings(place) {
       ([key]) => {
 
         addWarning(
-          formatLabel(key)
+          formatLabel(
+            key
+          )
         );
-
       }
     );
 
 
+  const connectivity =
+    safeObject(
+      place.connectivity
+    );
+
+
+  const site =
+    safeObject(
+      place.site
+    );
+
+
+  const access =
+    safeObject(
+      place.access
+    );
+
+
+  const daytime =
+    safeObject(
+      safeObject(
+        place.sensory
+      ).daytime
+    );
+
+
+  const nighttime =
+    safeObject(
+      safeObject(
+        place.sensory
+      ).nighttime
+    );
+
+
+  const sensory =
+    safeObject(
+      place.sensory
+    );
+
+
+  const amenities =
+    safeObject(
+      place.amenities
+    );
+
+
+  const safety =
+    safeObject(
+      place.safety
+    );
+
+
   if (
-    place.connectivity?.overall === 1
+    connectivity.overall === 1
   ) {
 
     addWarning(
       "No Cell Phone Reception",
       "high"
     );
-
   }
 
 
   if (
-    place.connectivity?.starlink != null &&
-    place.connectivity.starlink <= 2
+    isUsableNumber(
+      connectivity.starlink
+    )
+    &&
+    Number(
+      connectivity.starlink
+    ) <= 2
   ) {
 
     addWarning(
       "Poor Starlink Visibility"
     );
-
   }
 
 
   if (
-    place.site?.tentCampingSuitable === false
+    site.tentCampingSuitable ===
+    false
   ) {
 
     addWarning(
       "No Tent Camping",
       "high"
     );
-
   }
 
 
   if (
-    place.site?.levelingRequired === true
+    site.levelingRequired ===
+    true
   ) {
 
     addWarning(
       "Leveling May Be Required"
     );
-
   }
 
 
   if (
-    place.site?.turnaroundSpace === false
+    site.turnaroundSpace ===
+    false
   ) {
 
     addWarning(
       "No Turnaround",
       "high"
     );
-
   }
 
 
   if (
-    place.site?.maxVehicleLengthFeet != null &&
-    place.site.maxVehicleLengthFeet <= 25
+    isUsableNumber(
+      site.maxVehicleLengthFeet
+    )
+    &&
+    Number(
+      site.maxVehicleLengthFeet
+    ) <= 25
   ) {
 
     addWarning(
-      `Limited Vehicle Length: ${place.site.maxVehicleLengthFeet} ft`
+      `Limited Vehicle Length: ${
+        Number(
+          site.maxVehicleLengthFeet
+        )
+      } ft`
     );
-
   }
 
 
   if (
-    place.access?.sedanAccessible === false
+    access.sedanAccessible ===
+    false
   ) {
 
     addWarning(
       "Not Sedan Accessible"
     );
-
   }
 
 
   if (
-    place.access?.highClearanceRecommended === true
+    access.highClearanceRecommended ===
+    true
   ) {
 
     addWarning(
       "High Clearance Recommended"
     );
-
   }
 
 
   if (
-    place.access?.fourWheelDriveRecommended === true
+    access.fourWheelDriveRecommended ===
+    true
   ) {
 
     addWarning(
       "4WD Recommended"
     );
-
   }
 
 
   if (
-    place.access?.dropOffExposure != null &&
-    place.access.dropOffExposure >= 4
+    isUsableNumber(
+      access.dropOffExposure
+    )
+    &&
+    Number(
+      access.dropOffExposure
+    ) >= 4
   ) {
 
     addWarning(
       "Significant Drop-Off Exposure",
       "high"
     );
-
   }
 
 
   if (
-    place.access?.mudRisk != null &&
-    place.access.mudRisk >= 4
+    isUsableNumber(
+      access.mudRisk
+    )
+    &&
+    Number(
+      access.mudRisk
+    ) >= 4
   ) {
 
     addWarning(
       "High Mud Risk"
     );
-
   }
 
 
   if (
-    place.access?.seasonalClosure === true
+    access.seasonalClosure ===
+    true
   ) {
 
     addWarning(
       "Seasonal Access"
     );
-
   }
 
 
   if (
-    place.access?.downedTreeRisk === true
+    access.downedTreeRisk ===
+    true
   ) {
 
     addWarning(
       "Possible Downed Trees"
     );
-
   }
 
 
   if (
-    place.sensory?.daytime?.privacy === 1
+    daytime.privacy ===
+    1
   ) {
 
     addWarning(
       "No Daytime Privacy",
       "high"
     );
-
   }
 
 
   if (
-    place.sensory?.daytime?.traffic != null &&
-    place.sensory.daytime.traffic >= 4
+    isUsableNumber(
+      daytime.traffic
+    )
+    &&
+    Number(
+      daytime.traffic
+    ) >= 4
   ) {
 
     addWarning(
       "Frequent Passing Traffic"
     );
-
   }
 
 
   if (
-    place.sensory?.nighttime?.noise != null &&
-    place.sensory.nighttime.noise >= 4
+    isUsableNumber(
+      nighttime.noise
+    )
+    &&
+    Number(
+      nighttime.noise
+    ) >= 4
   ) {
 
     addWarning(
       "High Nighttime Noise",
       "high"
     );
-
   }
 
 
   if (
-    place.sensory?.humanActivity != null &&
-    place.sensory.humanActivity >= 4
+    isUsableNumber(
+      sensory.humanActivity
+    )
+    &&
+    Number(
+      sensory.humanActivity
+    ) >= 4
   ) {
 
     addWarning(
       "High Human Activity"
     );
-
   }
 
 
   if (
-    place.sensory?.visualExposure != null &&
-    place.sensory.visualExposure >= 5
+    isUsableNumber(
+      sensory.visualExposure
+    )
+    &&
+    Number(
+      sensory.visualExposure
+    ) >= 5
   ) {
 
     addWarning(
       "Highly Exposed Site"
     );
-
   }
 
 
   if (
-    place.amenities?.toilets === false
+    amenities.toilets ===
+    false
   ) {
 
     addWarning(
       "No Toilets"
     );
-
   }
 
 
   if (
-    place.amenities?.potableWater === false
+    amenities.potableWater ===
+    false
   ) {
 
     addWarning(
       "No Potable Water"
     );
-
   }
 
 
   if (
-    place.amenities?.trash === false
+    amenities.trash ===
+    false
   ) {
 
     addWarning(
       "Pack Out Your Trash"
     );
-
   }
 
 
   if (
-    place.safety?.cliffExposure === true
+    safety.cliffExposure ===
+    true
   ) {
 
     addWarning(
       "Cliff Exposure",
       "high"
     );
-
   }
 
 
   if (
-    place.safety?.trafficHazard === true
+    safety.trafficHazard ===
+    true
   ) {
 
     addWarning(
       "Traffic Hazard",
       "high"
     );
-
   }
 
 
   if (
-    place.safety?.flashFloodRisk === true
+    safety.flashFloodRisk ===
+    true
   ) {
 
     addWarning(
       "Flash Flood Risk",
       "high"
     );
-
   }
 
 
   if (
-    place.safety?.rockfallRisk === true
+    safety.rockfallRisk ===
+    true
   ) {
 
     addWarning(
       "Rockfall Risk",
       "high"
     );
-
   }
 
 
   if (
-    place.safety?.fallHazard === true
+    safety.fallHazard ===
+    true
   ) {
 
     addWarning(
       "Fall Hazard",
       "high"
     );
-
   }
 
 
@@ -941,44 +1244,53 @@ function buildAutomaticWarnings(place) {
     (a, b) => {
 
       if (
-        a.priority === b.priority
+        a.priority ===
+        b.priority
       ) {
 
         return 0;
-
       }
 
 
       return (
-        a.priority === "high"
+        a.priority ===
+        "high"
           ? -1
           : 1
       );
-
     }
   );
 
 
   return warnings;
-
 }
+
+
 
 /* =========================================================
    SENSORY PROFILE
    ========================================================= */
 
-function renderSensory(place) {
+function renderSensory(
+  place
+) {
 
   const sensory =
-    place.sensory || {};
+    safeObject(
+      place.sensory
+    );
 
 
   const daytime =
-    sensory.daytime || {};
+    safeObject(
+      sensory.daytime
+    );
 
 
   const nighttime =
-    sensory.nighttime || {};
+    safeObject(
+      sensory.nighttime
+    );
 
 
   const dayCards = [
@@ -1146,17 +1458,30 @@ function renderSensory(place) {
   ].join("");
 
 
+  const summary =
+    hasValue(
+      place.sensorySummary
+    )
+      ? `
+
+        <p class="place-summary">
+          ${escapeHTML(
+            place.sensorySummary
+          )}
+        </p>
+
+      `
+      : "";
+
+
   if (
     !dayCards &&
     !nightCards &&
     !environmentalCards &&
-    !hasValue(
-      place.sensorySummary
-    )
+    !summary
   ) {
 
     return "";
-
   }
 
 
@@ -1167,7 +1492,9 @@ function renderSensory(place) {
       ${
         dayCards
           ? `
-            ${subheading("Daytime")}
+            ${subheading(
+              "Daytime"
+            )}
 
             <div class="place-rating-grid">
               ${dayCards}
@@ -1180,7 +1507,9 @@ function renderSensory(place) {
       ${
         nightCards
           ? `
-            ${subheading("Nighttime")}
+            ${subheading(
+              "Nighttime"
+            )}
 
             <div class="place-rating-grid">
               ${nightCards}
@@ -1205,23 +1534,10 @@ function renderSensory(place) {
       }
 
 
-      ${
-        hasValue(
-          place.sensorySummary
-        )
-          ? `
-            <p class="place-summary">
-              ${escapeHTML(
-                place.sensorySummary
-              )}
-            </p>
-          `
-          : ""
-      }
+      ${summary}
 
     `
   );
-
 }
 
 
@@ -1230,10 +1546,14 @@ function renderSensory(place) {
    SITE + VEHICLE
    ========================================================= */
 
-function renderSiteAndVehicle(place) {
+function renderSiteAndVehicle(
+  place
+) {
 
   const site =
-    place.site || {};
+    safeObject(
+      place.site
+    );
 
 
   const facts = [
@@ -1354,7 +1674,6 @@ function renderSiteAndVehicle(place) {
   ) {
 
     return "";
-
   }
 
 
@@ -1385,7 +1704,6 @@ function renderSiteAndVehicle(place) {
 
     `
   );
-
 }
 
 
@@ -1394,10 +1712,14 @@ function renderSiteAndVehicle(place) {
    ROAD ACCESS
    ========================================================= */
 
-function renderRoadAccess(place) {
+function renderRoadAccess(
+  place
+) {
 
   const access =
-    place.access || {};
+    safeObject(
+      place.access
+    );
 
 
   const ratings = [
@@ -1410,8 +1732,10 @@ function renderRoadAccess(place) {
 
     ratingCard(
       "Road difficulty",
-      access.roadOverallDifficulty ??
-      access.roadDifficulty,
+      firstUsableValue(
+        access.roadOverallDifficulty,
+        access.roadDifficulty
+      ),
       "fa-mountain"
     ),
 
@@ -1519,16 +1843,29 @@ function renderRoadAccess(place) {
   ].join("");
 
 
+  const summary =
+    hasValue(
+      place.accessSummary
+    )
+      ? `
+
+        <p class="place-summary">
+          ${escapeHTML(
+            place.accessSummary
+          )}
+        </p>
+
+      `
+      : "";
+
+
   if (
     !ratings &&
     !facts &&
-    !hasValue(
-      place.accessSummary
-    )
+    !summary
   ) {
 
     return "";
-
   }
 
 
@@ -1558,23 +1895,10 @@ function renderRoadAccess(place) {
       }
 
 
-      ${
-        hasValue(
-          place.accessSummary
-        )
-          ? `
-            <p class="place-summary">
-              ${escapeHTML(
-                place.accessSummary
-              )}
-            </p>
-          `
-          : ""
-      }
+      ${summary}
 
     `
   );
-
 }
 
 
@@ -1583,10 +1907,14 @@ function renderRoadAccess(place) {
    CONNECTIVITY
    ========================================================= */
 
-function renderConnectivity(place) {
+function renderConnectivity(
+  place
+) {
 
   const data =
-    place.connectivity || {};
+    safeObject(
+      place.connectivity
+    );
 
 
   const ratings = [
@@ -1642,16 +1970,29 @@ function renderConnectivity(place) {
   ].join("");
 
 
+  const note =
+    hasValue(
+      data.starlinkNote
+    )
+      ? `
+
+        <p class="place-small-note">
+          ${escapeHTML(
+            data.starlinkNote
+          )}
+        </p>
+
+      `
+      : "";
+
+
   if (
     !ratings &&
     !facts &&
-    !hasValue(
-      data.starlinkNote
-    )
+    !note
   ) {
 
     return "";
-
   }
 
 
@@ -1681,80 +2022,91 @@ function renderConnectivity(place) {
       }
 
 
-      ${
-        hasValue(
-          data.starlinkNote
-        )
-          ? `
-            <p class="place-small-note">
-              ${escapeHTML(
-                data.starlinkNote
-              )}
-            </p>
-          `
-          : ""
-      }
+      ${note}
 
     `
   );
-
 }
+
+
 
 /* =========================================================
    AMENITIES
    ========================================================= */
 
-function renderAmenities(place) {
+function renderAmenities(
+  place
+) {
 
   const data =
-    place.amenities || {};
+    safeObject(
+      place.amenities
+    );
 
 
   const facts = [
 
     fact(
       "Toilets",
-      yesNo(data.toilets)
+      yesNo(
+        data.toilets
+      )
     ),
 
     fact(
       "Potable water",
-      yesNo(data.potableWater)
+      yesNo(
+        data.potableWater
+      )
     ),
 
     fact(
       "Trash service",
-      yesNo(data.trash)
+      yesNo(
+        data.trash
+      )
     ),
 
     fact(
       "Fire ring",
-      yesNo(data.fireRing)
+      yesNo(
+        data.fireRing
+      )
     ),
 
     fact(
       "Picnic table",
-      yesNo(data.picnicTable)
+      yesNo(
+        data.picnicTable
+      )
     ),
 
     fact(
       "Bear box",
-      yesNo(data.bearBox)
+      yesNo(
+        data.bearBox
+      )
     ),
 
     fact(
       "Showers",
-      yesNo(data.showers)
+      yesNo(
+        data.showers
+      )
     ),
 
     fact(
       "Electricity",
-      yesNo(data.electricity)
+      yesNo(
+        data.electricity
+      )
     ),
 
     fact(
       "Dump station",
-      yesNo(data.dumpStation)
+      yesNo(
+        data.dumpStation
+      )
     ),
 
     fact(
@@ -1767,18 +2119,21 @@ function renderAmenities(place) {
   ].join("");
 
 
-  if (!facts) return "";
+  if (!facts) {
+    return "";
+  }
 
 
   return placeSection(
     "Amenities",
     `
+
       <div class="place-facts">
         ${facts}
       </div>
+
     `
   );
-
 }
 
 
@@ -1787,52 +2142,72 @@ function renderAmenities(place) {
    ENVIRONMENT
    ========================================================= */
 
-function renderEnvironment(place) {
+function renderEnvironment(
+  place
+) {
 
   const data =
-    place.environment || {};
+    safeObject(
+      place.environment
+    );
 
 
   const facts = [
 
     fact(
       "Forest",
-      yesNo(data.forest)
+      yesNo(
+        data.forest
+      )
     ),
 
     fact(
       "Mountains",
-      yesNo(data.mountains)
+      yesNo(
+        data.mountains
+      )
     ),
 
     fact(
       "Water nearby",
-      yesNo(data.waterNearby)
+      yesNo(
+        data.waterNearby
+      )
     ),
 
     fact(
       "Water view",
-      yesNo(data.waterView)
+      yesNo(
+        data.waterView
+      )
     ),
 
     fact(
       "Mountain view",
-      yesNo(data.mountainView)
+      yesNo(
+        data.mountainView
+      )
     ),
 
     fact(
       "Forest view",
-      yesNo(data.forestView)
+      yesNo(
+        data.forestView
+      )
     ),
 
     fact(
       "Wildlife common",
-      yesNo(data.wildlife)
+      yesNo(
+        data.wildlife
+      )
     ),
 
     fact(
       "Bugs significant",
-      yesNo(data.bugs)
+      yesNo(
+        data.bugs
+      )
     )
 
   ].join("");
@@ -1873,7 +2248,6 @@ function renderEnvironment(place) {
   ) {
 
     return "";
-
   }
 
 
@@ -1904,7 +2278,6 @@ function renderEnvironment(place) {
 
     `
   );
-
 }
 
 
@@ -1913,10 +2286,14 @@ function renderEnvironment(place) {
    ACCESSIBILITY
    ========================================================= */
 
-function renderAccessibility(place) {
+function renderAccessibility(
+  place
+) {
 
   const data =
-    place.accessibility || {};
+    safeObject(
+      place.accessibility
+    );
 
 
   const facts = [
@@ -1971,7 +2348,9 @@ function renderAccessibility(place) {
   ].join("");
 
 
-  if (!facts) return "";
+  if (!facts) {
+    return "";
+  }
 
 
   return placeSection(
@@ -1980,12 +2359,15 @@ function renderAccessibility(place) {
 
       <div class="place-section-intro">
 
-        <i class="fa-solid fa-universal-access"></i>
+        <i
+          class="fa-solid fa-universal-access"
+          aria-hidden="true"
+        ></i>
 
         <p>
-          Accessibility observations describe the site as observed
-          and may change with weather, erosion, vegetation, or other
-          conditions.
+          Accessibility observations describe the site as
+          observed and may change with weather, erosion,
+          vegetation, or other conditions.
         </p>
 
       </div>
@@ -1997,7 +2379,6 @@ function renderAccessibility(place) {
 
     `
   );
-
 }
 
 
@@ -2006,10 +2387,14 @@ function renderAccessibility(place) {
    SAFETY
    ========================================================= */
 
-function renderSafety(place) {
+function renderSafety(
+  place
+) {
 
   const data =
-    place.safety || {};
+    safeObject(
+      place.safety
+    );
 
 
   const facts = [
@@ -2087,18 +2472,21 @@ function renderSafety(place) {
   ].join("");
 
 
-  if (!facts) return "";
+  if (!facts) {
+    return "";
+  }
 
 
   return placeSection(
     "Safety",
     `
+
       <div class="place-facts">
         ${facts}
       </div>
+
     `
   );
-
 }
 
 
@@ -2107,10 +2495,14 @@ function renderSafety(place) {
    EXPERIENCE
    ========================================================= */
 
-function renderExperience(place) {
+function renderExperience(
+  place
+) {
 
   const data =
-    place.experience || {};
+    safeObject(
+      place.experience
+    );
 
 
   const ratings = [
@@ -2190,18 +2582,21 @@ function renderExperience(place) {
   ].join("");
 
 
-  if (!ratings) return "";
+  if (!ratings) {
+    return "";
+  }
 
 
   return placeSection(
     "Experience",
     `
+
       <div class="place-rating-grid">
         ${ratings}
       </div>
+
     `
   );
-
 }
 
 
@@ -2210,10 +2605,14 @@ function renderExperience(place) {
    RECOMMENDED FOR
    ========================================================= */
 
-function renderRecommendedFor(place) {
+function renderRecommendedFor(
+  place
+) {
 
   const data =
-    place.recommendedFor || {};
+    safeObject(
+      place.recommendedFor
+    );
 
 
   const ratings = [
@@ -2261,17 +2660,23 @@ function renderRecommendedFor(place) {
 
     fact(
       "Solo travel",
-      yesNo(data.soloTravel)
+      yesNo(
+        data.soloTravel
+      )
     ),
 
     fact(
       "Families",
-      yesNo(data.families)
+      yesNo(
+        data.families
+      )
     ),
 
     fact(
       "Large groups",
-      yesNo(data.largeGroups)
+      yesNo(
+        data.largeGroups
+      )
     )
 
   ].join("");
@@ -2280,9 +2685,11 @@ function renderRecommendedFor(place) {
   const notRecommended =
     Array.isArray(
       place.notRecommendedFor
-    ) &&
+    )
+    &&
     place.notRecommendedFor.length
       ? `
+
         ${subheading(
           "Not Recommended For"
         )}
@@ -2290,13 +2697,22 @@ function renderRecommendedFor(place) {
         <ul class="place-notes">
 
           ${place.notRecommendedFor
+            .filter(
+              hasValue
+            )
             .map(
-              (item) =>
-                `<li>${escapeHTML(item)}</li>`
+              (item) => `
+                <li>
+                  ${escapeHTML(
+                    item
+                  )}
+                </li>
+              `
             )
             .join("")}
 
         </ul>
+
       `
       : "";
 
@@ -2308,7 +2724,6 @@ function renderRecommendedFor(place) {
   ) {
 
     return "";
-
   }
 
 
@@ -2342,17 +2757,22 @@ function renderRecommendedFor(place) {
 
     `
   );
-
 }
+
+
 
 /* =========================================================
    SEASON
    ========================================================= */
 
-function renderSeason(place) {
+function renderSeason(
+  place
+) {
 
   const data =
-    place.season || {};
+    safeObject(
+      place.season
+    );
 
 
   const facts = [
@@ -2373,7 +2793,9 @@ function renderSeason(place) {
 
     fact(
       "Recommended season",
-      data.recommendedTravelSeason
+      formatFlexibleList(
+        data.recommendedTravelSeason
+      )
     )
 
   ].join("");
@@ -2402,16 +2824,29 @@ function renderSeason(place) {
   ].join("");
 
 
+  const note =
+    hasValue(
+      data.seasonalAccessNote
+    )
+      ? `
+
+        <p class="place-summary">
+          ${escapeHTML(
+            data.seasonalAccessNote
+          )}
+        </p>
+
+      `
+      : "";
+
+
   if (
     !facts &&
     !ratings &&
-    !hasValue(
-      data.seasonalAccessNote
-    )
+    !note
   ) {
 
     return "";
-
   }
 
 
@@ -2441,23 +2876,10 @@ function renderSeason(place) {
       }
 
 
-      ${
-        hasValue(
-          data.seasonalAccessNote
-        )
-          ? `
-            <p class="place-summary">
-              ${escapeHTML(
-                data.seasonalAccessNote
-              )}
-            </p>
-          `
-          : ""
-      }
+      ${note}
 
     `
   );
-
 }
 
 
@@ -2466,10 +2888,14 @@ function renderSeason(place) {
    REGULATIONS
    ========================================================= */
 
-function renderRegulations(place) {
+function renderRegulations(
+  place
+) {
 
   const data =
-    place.regulations || {};
+    safeObject(
+      place.regulations
+    );
 
 
   const facts = [
@@ -2536,28 +2962,37 @@ function renderRegulations(place) {
   ].join("");
 
 
-  const restrictionsLink =
-    hasValue(
+  const restrictionsUrl =
+    safeDisplayValue(
       data.currentFireRestrictionsUrl
-    )
+    );
+
+
+  const restrictionsLink =
+    restrictionsUrl
       ? `
+
         <p class="place-resource-link">
 
           <a
             href="${escapeHTML(
-              data.currentFireRestrictionsUrl
+              restrictionsUrl
             )}"
             target="_blank"
             rel="noopener noreferrer"
           >
 
-            <i class="fa-solid fa-fire"></i>
+            <i
+              class="fa-solid fa-fire"
+              aria-hidden="true"
+            ></i>
 
             Check current fire restrictions
 
           </a>
 
         </p>
+
       `
       : "";
 
@@ -2568,7 +3003,6 @@ function renderRegulations(place) {
   ) {
 
     return "";
-
   }
 
 
@@ -2578,7 +3012,10 @@ function renderRegulations(place) {
 
       <div class="place-section-intro">
 
-        <i class="fa-solid fa-circle-info"></i>
+        <i
+          class="fa-solid fa-circle-info"
+          aria-hidden="true"
+        ></i>
 
         <p>
           Land-use rules and restrictions can change.
@@ -2604,7 +3041,6 @@ function renderRegulations(place) {
 
     `
   );
-
 }
 
 
@@ -2613,10 +3049,14 @@ function renderRegulations(place) {
    LAND USE RULES
    ========================================================= */
 
-function renderLandUseRules(place) {
+function renderLandUseRules(
+  place
+) {
 
   const data =
-    place.landUseRules || {};
+    safeObject(
+      place.landUseRules
+    );
 
 
   const facts = [
@@ -2661,18 +3101,21 @@ function renderLandUseRules(place) {
   ].join("");
 
 
-  if (!facts) return "";
+  if (!facts) {
+    return "";
+  }
 
 
   return placeSection(
     "Land Use",
     `
+
       <div class="place-facts">
         ${facts}
       </div>
+
     `
   );
-
 }
 
 
@@ -2681,10 +3124,14 @@ function renderLandUseRules(place) {
    NEARBY
    ========================================================= */
 
-function renderNearby(place) {
+function renderNearby(
+  place
+) {
 
   const data =
-    place.nearby || {};
+    safeObject(
+      place.nearby
+    );
 
 
   const facts = [
@@ -2722,18 +3169,21 @@ function renderNearby(place) {
   ].join("");
 
 
-  if (!facts) return "";
+  if (!facts) {
+    return "";
+  }
 
 
   return placeSection(
     "Nearby Services",
     `
+
       <div class="place-facts">
         ${facts}
       </div>
+
     `
   );
-
 }
 
 
@@ -2742,15 +3192,32 @@ function renderNearby(place) {
    FIELD NOTES
    ========================================================= */
 
-function renderFieldNotes(place) {
+function renderFieldNotes(
+  place
+) {
 
   if (
-    !Array.isArray(place.notes) ||
-    !place.notes.length
+    !Array.isArray(
+      place.notes
+    )
   ) {
 
     return "";
+  }
 
+
+  const notes =
+    place.notes
+      .filter(
+        hasValue
+      );
+
+
+  if (
+    !notes.length
+  ) {
+
+    return "";
   }
 
 
@@ -2760,14 +3227,17 @@ function renderFieldNotes(place) {
 
       <ul class="place-notes">
 
-        ${place.notes
+        ${notes
           .map(
-            (note) =>
-              `
-                <li>
-                  ${escapeHTML(note)}
-                </li>
-              `
+            (note) => `
+
+              <li>
+                ${escapeHTML(
+                  note
+                )}
+              </li>
+
+            `
           )
           .join("")}
 
@@ -2775,7 +3245,6 @@ function renderFieldNotes(place) {
 
     `
   );
-
 }
 
 
@@ -2789,10 +3258,34 @@ function renderGallery(
   images
 ) {
 
-  if (!images.length) {
+  if (
+    !Array.isArray(
+      images
+    )
+    ||
+    !images.length
+  ) {
 
     return "";
+  }
 
+
+  const usableImages =
+    images.filter(
+      (image) =>
+        image
+        &&
+        hasValue(
+          image.src
+        )
+    );
+
+
+  if (
+    !usableImages.length
+  ) {
+
+    return "";
   }
 
 
@@ -2802,12 +3295,14 @@ function renderGallery(
 
       <div class="place-gallery">
 
-        ${images
+        ${usableImages
           .map(
             (image) => `
 
               <img
-                src="${escapeHTML(image.src)}"
+                src="${escapeHTML(
+                  image.src
+                )}"
                 alt="${escapeHTML(
                   image.alt ||
                   place.name
@@ -2823,35 +3318,164 @@ function renderGallery(
 
     `
   );
-
 }
+
+
 
 /* =========================================================
    SIDEBAR
    ========================================================= */
 
-function renderQuickInfo(place) {
+function renderQuickInfo(
+  place
+) {
 
   const location =
-    place.location || {};
+    safeObject(
+      place.location
+    );
 
 
   const regulations =
-    place.regulations || {};
+    safeObject(
+      place.regulations
+    );
 
 
   const elevation =
-    isLockedPlaceValueSafe(
+    isUsableNumber(
       location.elevationFeet
     )
-      ? location.elevationFeet
-      : (
-          location.elevationFeet != null
-            ? `${Number(
-                location.elevationFeet
-              ).toLocaleString()} ft`
-            : null
-        );
+      ? `${Number(
+          location.elevationFeet
+        ).toLocaleString()} ft`
+      : null;
+
+
+  const facts = [
+
+    fact(
+      "Elevation",
+      elevation
+    ),
+
+    fact(
+      "Road",
+      location.road
+    ),
+
+    fact(
+      "County",
+      location.county
+    ),
+
+    fact(
+      "Region",
+      location.region
+    ),
+
+    fact(
+      "Land",
+      location.landType
+    ),
+
+    fact(
+      "Manager",
+      location.landManager
+    ),
+
+    fact(
+      "Stay limit",
+      unitValue(
+        regulations.stayLimitDays,
+        "days"
+      )
+    ),
+
+    fact(
+      "Fee",
+      formatFee(
+        regulations.fee
+      )
+    )
+
+  ].join("");
+
+
+  const coordinates =
+    hasCoordinates(
+      place
+    )
+      ? `
+
+        <p class="place-coordinates">
+
+          <i
+            class="fa-solid fa-location-crosshairs"
+            aria-hidden="true"
+          ></i>
+
+          ${
+            place.exactLocationAvailable ===
+            true
+              ? `
+
+                ${Number(
+                  location.latitude
+                ).toFixed(5)},
+                ${Number(
+                  location.longitude
+                ).toFixed(5)}
+
+              `
+              : (
+                  place.accessLevel ===
+                  "visitor"
+                    ? "General area"
+                    : "Approximate location"
+                )
+          }
+
+        </p>
+
+      `
+      : "";
+
+
+  const mapLink =
+    hasCoordinates(
+      place
+    )
+      ? `
+
+        <a
+          class="btn place-sidebar-map"
+          href="/map.php?place=${encodeURIComponent(
+            place.slug
+          )}"
+        >
+
+          <i
+            class="fa-solid fa-map-location-dot"
+            aria-hidden="true"
+          ></i>
+
+          View on Map
+
+        </a>
+
+      `
+      : "";
+
+
+  if (
+    !facts &&
+    !coordinates &&
+    !mapLink
+  ) {
+
+    return "";
+  }
 
 
   return `
@@ -2862,113 +3486,22 @@ function renderQuickInfo(place) {
         Quick Info
       </h2>
 
+      ${facts}
 
-      ${fact(
-        "Elevation",
-        elevation
-      )}
+      ${coordinates}
 
-
-      ${fact(
-        "Road",
-        location.road
-      )}
-
-
-      ${fact(
-        "County",
-        location.county
-      )}
-
-
-      ${fact(
-        "Region",
-        location.region
-      )}
-
-
-      ${fact(
-        "Land",
-        location.landType
-      )}
-
-
-      ${fact(
-        "Manager",
-        location.landManager
-      )}
-
-
-      ${fact(
-        "Stay limit",
-        unitValue(
-          regulations.stayLimitDays,
-          "days"
-        )
-      )}
-
-
-      ${fact(
-        "Fee",
-        formatFee(
-          regulations.fee
-        )
-      )}
-
-
-      ${
-        hasCoordinates(place)
-          ? `
-
-            <p class="place-coordinates">
-
-              <i
-                class="fa-solid fa-location-crosshairs"
-                aria-hidden="true"
-              ></i>
-
-              ${
-                place.exactLocationAvailable === true
-                  ? `
-                    ${Number(
-                      location.latitude
-                    ).toFixed(5)},
-                    ${Number(
-                      location.longitude
-                    ).toFixed(5)}
-                  `
-                  : `
-                    Approximate location
-                  `
-              }
-
-            </p>
-
-          `
-          : ""
-      }
-
-
-      <a
-        class="btn place-sidebar-map"
-        href="/map.php?place=${encodeURIComponent(
-          place.slug
-        )}"
-      >
-
-        <i class="fa-solid fa-map-location-dot"></i>
-
-        View on Map
-
-      </a>
+      ${mapLink}
 
     </div>
 
   `;
-
 }
 
 
+
+/* =========================================================
+   VERIFICATION
+   ========================================================= */
 
 function renderVerification(
   place,
@@ -2976,15 +3509,76 @@ function renderVerification(
 ) {
 
   const data =
-    place.verification || {};
+    safeObject(
+      place.verification
+    );
+
+
+  const facts = [
+
+    !verified
+      ? fact(
+          "Status",
+          formatLabel(
+            data.status
+          )
+        )
+      : "",
+
+    fact(
+      "Visited",
+      formatDate(
+        data.visited
+      )
+    ),
+
+    fact(
+      "Last scouted",
+      formatDate(
+        data.lastVerified
+      )
+    ),
+
+    fact(
+      "Source",
+      data.source
+    ),
+
+    fact(
+      "Public data checked",
+      yesNo(
+        data.publicDataVerified
+      )
+    )
+
+  ].join("");
+
+
+  const verifiedStatus =
+    verified
+      ? `
+
+        <p class="place-verification-status">
+
+          <i
+            class="fa-solid fa-circle-check"
+            aria-hidden="true"
+          ></i>
+
+          Llama Scouted
+
+        </p>
+
+      `
+      : "";
 
 
   if (
-    !hasAnyKnownValue(data)
+    !verifiedStatus &&
+    !facts
   ) {
 
     return "";
-
   }
 
 
@@ -2996,66 +3590,13 @@ function renderVerification(
         Verification
       </h2>
 
+      ${verifiedStatus}
 
-      ${
-        verified
-          ? `
-            <p class="place-verification-status">
-
-              <i class="fa-solid fa-circle-check"></i>
-
-              Llama Scouted
-
-            </p>
-          `
-          : `
-            ${fact(
-              "Status",
-              formatLabel(
-                data.status
-              )
-            )}
-          `
-      }
-
-
-      ${fact(
-        "Visited",
-        data.visited
-          ? formatDate(
-              data.visited
-            )
-          : null
-      )}
-
-
-      ${fact(
-        "Last scouted",
-        data.lastVerified
-          ? formatDate(
-              data.lastVerified
-            )
-          : null
-      )}
-
-
-      ${fact(
-        "Source",
-        data.source
-      )}
-
-
-      ${fact(
-        "Public data checked",
-        yesNo(
-          data.publicDataVerified
-        )
-      )}
+      ${facts}
 
     </div>
 
   `;
-
 }
 
 
@@ -3069,10 +3610,13 @@ function placeSection(
   content
 ) {
 
-  if (!content.trim()) {
+  if (
+    !String(
+      content ?? ""
+    ).trim()
+  ) {
 
     return "";
-
   }
 
 
@@ -3081,7 +3625,9 @@ function placeSection(
     <section class="place-section">
 
       <h2>
-        ${escapeHTML(title)}
+        ${escapeHTML(
+          title
+        )}
       </h2>
 
       ${content}
@@ -3089,21 +3635,23 @@ function placeSection(
     </section>
 
   `;
-
 }
 
 
 
-function subheading(title) {
+function subheading(
+  title
+) {
 
   return `
 
     <h3 class="place-subheading">
-      ${escapeHTML(title)}
+      ${escapeHTML(
+        title
+      )}
     </h3>
 
   `;
-
 }
 
 
@@ -3119,29 +3667,19 @@ function ratingCard(
 ) {
 
   if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-
-    return "";
-
-  }
-
-
-  const numericValue =
-    Number(value);
-
-
-  if (
-    !Number.isFinite(
-      numericValue
+    !isUsableNumber(
+      value
     )
   ) {
 
     return "";
-
   }
+
+
+  const numericValue =
+    Number(
+      value
+    );
 
 
   return `
@@ -3150,10 +3688,17 @@ function ratingCard(
 
       <div class="place-rating-title">
 
-        <i class="fa-solid ${icon}"></i>
+        <i
+          class="fa-solid ${escapeHTML(
+            icon
+          )}"
+          aria-hidden="true"
+        ></i>
 
         <span>
-          ${escapeHTML(label)}
+          ${escapeHTML(
+            label
+          )}
         </span>
 
       </div>
@@ -3182,7 +3727,6 @@ function ratingCard(
     </div>
 
   `;
-
 }
 
 
@@ -3196,10 +3740,13 @@ function fact(
   value
 ) {
 
-  if (!hasValue(value)) {
+  if (
+    !hasValue(
+      value
+    )
+  ) {
 
     return "";
-
   }
 
 
@@ -3208,17 +3755,20 @@ function fact(
     <div class="place-fact">
 
       <span>
-        ${escapeHTML(label)}
+        ${escapeHTML(
+          label
+        )}
       </span>
 
       <strong>
-        ${escapeHTML(value)}
+        ${escapeHTML(
+          value
+        )}
       </strong>
 
     </div>
 
   `;
-
 }
 
 
@@ -3227,9 +3777,12 @@ function fact(
    DOTS
    ========================================================= */
 
-function makeDots(value) {
+function makeDots(
+  value
+) {
 
-  let output = "";
+  let output =
+    "";
 
 
   for (
@@ -3241,89 +3794,132 @@ function makeDots(value) {
     output +=
       i <= value
         ? `
+
           <span
             class="rating-dot is-filled"
           ></span>
+
         `
         : `
+
           <span
             class="rating-dot"
           ></span>
-        `;
 
+        `;
   }
 
 
   return output;
-
 }
+
+
 
 /* =========================================================
    FORMATTING HELPERS
    ========================================================= */
 
-function yesNo(value) {
+function yesNo(
+  value
+) {
 
-  if (value === true) {
+  if (
+    isLockedPlaceValue(
+      value
+    )
+  ) {
+
+    return null;
+  }
+
+
+  if (
+    value === true
+  ) {
 
     return "Yes";
-
   }
 
 
-  if (value === false) {
+  if (
+    value === false
+  ) {
 
     return "No";
-
   }
 
 
   return null;
-
 }
 
 
 
-function allowedText(value) {
+function allowedText(
+  value
+) {
 
-  if (value === true) {
+  if (
+    isLockedPlaceValue(
+      value
+    )
+  ) {
+
+    return null;
+  }
+
+
+  if (
+    value === true
+  ) {
 
     return "Allowed";
-
   }
 
 
-  if (value === false) {
+  if (
+    value === false
+  ) {
 
     return "Not allowed";
-
   }
 
 
   return null;
-
 }
 
 
 
-function recommendation(value) {
+function recommendation(
+  value
+) {
 
-  if (value === true) {
+  if (
+    isLockedPlaceValue(
+      value
+    )
+  ) {
 
-    return "Recommended";
-
+    return null;
   }
 
 
-  if (value === false) {
+  if (
+    value === true
+  ) {
+
+    return "Recommended";
+  }
+
+
+  if (
+    value === false
+  ) {
 
     return "Not required";
-
   }
 
 
   return null;
-
 }
 
 
@@ -3334,108 +3930,189 @@ function unitValue(
 ) {
 
   if (
-    value === null ||
-    value === undefined ||
-    value === ""
+    !hasValue(
+      value
+    )
   ) {
 
     return null;
-
   }
 
 
-  return `${value} ${unit}`;
-
+  return `${safeDisplayValue(
+    value
+  )} ${unit}`;
 }
 
 
 
-function vehicleCount(value) {
+function vehicleCount(
+  value
+) {
 
   if (
-    value === null ||
-    value === undefined
+    !hasValue(
+      value
+    )
   ) {
 
     return null;
-
   }
 
 
-  return Number(value) === 1
+  const number =
+    Number(
+      value
+    );
+
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+
+    return null;
+  }
+
+
+  return number === 1
     ? "1 vehicle"
-    : `${value} vehicles`;
-
+    : `${number} vehicles`;
 }
 
 
 
-function formatFee(value) {
+function formatFee(
+  value
+) {
 
   if (
-    value === null ||
-    value === undefined ||
-    value === ""
+    !hasValue(
+      value
+    )
   ) {
 
     return null;
-
   }
 
 
   if (
-    value === false ||
-    Number(value) === 0
+    value === false
+    ||
+    Number(
+      value
+    ) === 0
   ) {
 
     return "Free";
-
   }
+
+
+  const numeric =
+    Number(
+      value
+    );
 
 
   if (
-    typeof value === "number"
+    Number.isFinite(
+      numeric
+    )
   ) {
 
-    return `$${value.toFixed(2)}`;
-
+    return `$${numeric.toFixed(
+      2
+    )}`;
   }
 
 
-  return String(value);
-
+  return safeDisplayValue(
+    value
+  );
 }
 
 
 
-function formatArray(value) {
+function formatArray(
+  value
+) {
 
   if (
-    !Array.isArray(value) ||
+    !Array.isArray(
+      value
+    )
+    ||
     !value.length
   ) {
 
     return null;
-
   }
 
 
-  return value.join(", ");
+  const usable =
+    value
+      .filter(
+        hasValue
+      )
+      .map(
+        safeDisplayValue
+      )
+      .filter(Boolean);
 
+
+  return usable.length
+    ? usable.join(", ")
+    : null;
 }
 
 
 
-function formatLabel(value) {
+function formatFlexibleList(
+  value
+) {
 
-  if (!hasValue(value)) {
+  if (
+    Array.isArray(
+      value
+    )
+  ) {
 
-    return null;
-
+    return formatArray(
+      value
+    );
   }
 
 
-  return String(value)
+  return safeDisplayValue(
+    value
+  );
+}
+
+
+
+function formatLabel(
+  value
+) {
+
+  if (
+    !hasValue(
+      value
+    )
+  ) {
+
+    return null;
+  }
+
+
+  return safeDisplayValue(
+    value
+  )
+
+    .replaceAll(
+      "_",
+      " "
+    )
 
     .replaceAll(
       "-",
@@ -3452,7 +4129,6 @@ function formatLabel(value) {
       (letter) =>
         letter.toUpperCase()
     );
-
 }
 
 
@@ -3461,17 +4137,41 @@ function formatDate(
   dateString
 ) {
 
-  if (!dateString) {
+  if (
+    !hasValue(
+      dateString
+    )
+  ) {
 
-    return "";
+    return null;
+  }
 
+
+  const safeDate =
+    safeDisplayValue(
+      dateString
+    );
+
+
+  if (!safeDate) {
+    return null;
   }
 
 
   const date =
     new Date(
-      `${dateString}T12:00:00`
+      `${safeDate}T12:00:00`
     );
+
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+
+    return safeDate;
+  }
 
 
   return date.toLocaleDateString(
@@ -3482,76 +4182,264 @@ function formatDate(
       day: "numeric"
     }
   );
-
 }
 
 
 
 /* =========================================================
-   VALUE TESTS
+   LOCK / VALUE HELPERS
    ========================================================= */
 
-function hasValue(value) {
-
-  return !(
-    value === null ||
-    value === undefined ||
-    value === ""
-  );
-
-}
-
-
-
-function hasAnyKnownValue(object) {
-
-  return Object.values(
-    object
-  ).some(
-    (value) =>
-      value !== null &&
-      value !== undefined &&
-      value !== ""
-  );
-
-}
-
-
-
-function isLockedPlaceValueSafe(value) {
+function isLockedPlaceValue(
+  value
+) {
 
   return Boolean(
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    value.locked === true
+    value
+    &&
+    typeof value ===
+    "object"
+    &&
+    !Array.isArray(
+      value
+    )
+    &&
+    value.locked ===
+    true
   );
-
 }
 
 
 
-function hasCoordinates(place) {
+function hasValue(
+  value
+) {
+
+  if (
+    isLockedPlaceValue(
+      value
+    )
+  ) {
+
+    return false;
+  }
+
+
+  if (
+    value === null
+    ||
+    value === undefined
+    ||
+    value === ""
+  ) {
+
+    return false;
+  }
+
+
+  if (
+    typeof value ===
+    "number"
+  ) {
+
+    return Number.isFinite(
+      value
+    );
+  }
+
+
+  return true;
+}
+
+
+
+function safeDisplayValue(
+  value
+) {
+
+  if (
+    !hasValue(
+      value
+    )
+  ) {
+
+    return null;
+  }
+
+
+  if (
+    Array.isArray(
+      value
+    )
+  ) {
+
+    return formatArray(
+      value
+    );
+  }
+
+
+  if (
+    typeof value ===
+    "object"
+  ) {
+
+    return null;
+  }
+
+
+  return String(
+    value
+  );
+}
+
+
+
+function safeObject(
+  value
+) {
+
+  if (
+    !value
+    ||
+    typeof value !==
+    "object"
+    ||
+    Array.isArray(
+      value
+    )
+    ||
+    isLockedPlaceValue(
+      value
+    )
+  ) {
+
+    return {};
+  }
+
+
+  return value;
+}
+
+
+
+function isUsableNumber(
+  value
+) {
 
   return (
-    !isLockedPlaceValueSafe(
-      place.location?.latitude
-    ) &&
-    !isLockedPlaceValueSafe(
-      place.location?.longitude
-    ) &&
+    hasValue(
+      value
+    )
+    &&
+    !isLockedPlaceValue(
+      value
+    )
+    &&
     Number.isFinite(
       Number(
-        place.location?.latitude
-      )
-    ) &&
-    Number.isFinite(
-      Number(
-        place.location?.longitude
+        value
       )
     )
   );
+}
 
+
+
+function firstUsableValue(
+  ...values
+) {
+
+  for (
+    const value of
+    values
+  ) {
+
+    if (
+      hasValue(
+        value
+      )
+    ) {
+
+      return value;
+    }
+  }
+
+
+  return null;
+}
+
+
+
+function hasCoordinates(
+  place
+) {
+
+  const latitude =
+    place.location?.latitude;
+
+
+  const longitude =
+    place.location?.longitude;
+
+
+  if (
+    !hasValue(
+      latitude
+    )
+    ||
+    !hasValue(
+      longitude
+    )
+  ) {
+
+    return false;
+  }
+
+
+  if (
+    isLockedPlaceValue(
+      latitude
+    )
+    ||
+    isLockedPlaceValue(
+      longitude
+    )
+  ) {
+
+    return false;
+  }
+
+
+  const lat =
+    Number(
+      latitude
+    );
+
+
+  const lng =
+    Number(
+      longitude
+    );
+
+
+  return (
+    Number.isFinite(
+      lat
+    )
+    &&
+    Number.isFinite(
+      lng
+    )
+    &&
+    lat >= -90
+    &&
+    lat <= 90
+    &&
+    lng >= -180
+    &&
+    lng <= 180
+  );
 }
 
 
@@ -3560,11 +4448,25 @@ function hasCoordinates(place) {
    HTML SAFETY
    ========================================================= */
 
-function escapeHTML(value) {
+function escapeHTML(
+  value
+) {
 
-  return String(
-    value ?? ""
-  )
+  const safeValue =
+    safeDisplayValue(
+      value
+    );
+
+
+  if (
+    safeValue === null
+  ) {
+
+    return "";
+  }
+
+
+  return safeValue
 
     .replaceAll(
       "&",
@@ -3590,7 +4492,6 @@ function escapeHTML(value) {
       "'",
       "&#039;"
     );
-
 }
 
 
@@ -3599,13 +4500,18 @@ function escapeHTML(value) {
    NOT FOUND
    ========================================================= */
 
-function renderNotFound(page) {
+function renderNotFound(
+  page
+) {
 
   page.innerHTML = `
 
     <section class="place-error">
 
-      <i class="fa-solid fa-location-question"></i>
+      <i
+        class="fa-solid fa-location-question"
+        aria-hidden="true"
+      ></i>
 
       <h1>
         Place not found.
@@ -3625,8 +4531,9 @@ function renderNotFound(page) {
     </section>
 
   `;
-
 }
+
+
 
 /* =========================================================
    SAVE PLACE
@@ -3639,11 +4546,20 @@ async function initSavePlaceButton() {
       "[data-save-place]"
     );
 
-  if (!button) return;
+
+  if (!button) {
+    return;
+  }
 
 
   const placeId =
-    button.dataset.savePlace;
+    button.dataset
+      .savePlace;
+
+
+  if (!placeId) {
+    return;
+  }
 
 
   try {
@@ -3664,11 +4580,21 @@ async function initSavePlaceButton() {
       await response.json();
 
 
-    if (!result.logged_in) {
+    if (
+      !result.logged_in
+    ) {
 
       button.innerHTML = `
-        <i class="fa-regular fa-bookmark"></i>
-        <span>Log In to Save</span>
+
+        <i
+          class="fa-regular fa-bookmark"
+          aria-hidden="true"
+        ></i>
+
+        <span>
+          Log In to Save
+        </span>
+
       `;
 
 
@@ -3678,9 +4604,9 @@ async function initSavePlaceButton() {
 
           window.location.href =
             "https://account.llamascout.com/login.php";
-
         }
       );
+
 
       return;
     }
@@ -3693,7 +4619,9 @@ async function initSavePlaceButton() {
 
 
     button.dataset.csrf =
-      result.csrf_token;
+      result.csrf_token
+      ||
+      "";
 
 
     button.addEventListener(
@@ -3708,33 +4636,41 @@ async function initSavePlaceButton() {
       "Llama Scout save-place error:",
       error
     );
-
   }
-
 }
 
 
 
-async function toggleSavedPlace(event) {
+async function toggleSavedPlace(
+  event
+) {
 
   const button =
     event.currentTarget;
 
 
   const placeId =
-    button.dataset.savePlace;
+    button.dataset
+      .savePlace;
 
 
   const csrf =
-    button.dataset.csrf;
+    button.dataset
+      .csrf;
 
 
-  if (!placeId || !csrf) {
+  if (
+    !placeId
+    ||
+    !csrf
+  ) {
+
     return;
   }
 
 
-  button.disabled = true;
+  button.disabled =
+    true;
 
 
   try {
@@ -3777,13 +4713,15 @@ async function toggleSavedPlace(event) {
       await response.json();
 
 
-    if (!response.ok) {
+    if (
+      !response.ok
+    ) {
 
       throw new Error(
-        result.message ||
+        result.message
+        ||
         "Could not update saved place."
       );
-
     }
 
 
@@ -3803,10 +4741,9 @@ async function toggleSavedPlace(event) {
 
   } finally {
 
-    button.disabled = false;
-
+    button.disabled =
+      false;
   }
-
 }
 
 
@@ -3824,8 +4761,16 @@ function updateSavePlaceButton(
 
 
     button.innerHTML = `
-      <i class="fa-solid fa-bookmark"></i>
-      <span>Saved</span>
+
+      <i
+        class="fa-solid fa-bookmark"
+        aria-hidden="true"
+      ></i>
+
+      <span>
+        Saved
+      </span>
+
     `;
 
 
@@ -3837,10 +4782,16 @@ function updateSavePlaceButton(
 
 
     button.innerHTML = `
-      <i class="fa-regular fa-bookmark"></i>
-      <span>Save Place</span>
+
+      <i
+        class="fa-regular fa-bookmark"
+        aria-hidden="true"
+      ></i>
+
+      <span>
+        Save Place
+      </span>
+
     `;
-
   }
-
 }
