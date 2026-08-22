@@ -695,7 +695,8 @@ function llama_record_place_contribution(
     int $pointsAwarded = 0,
     ?array $fieldsChanged = null,
     ?string $notes = null,
-    ?string $roleAtTime = null
+    ?string $roleAtTime = null,
+    ?array $scoringSnapshot = null
 ): int {
 
     if (
@@ -805,6 +806,36 @@ function llama_record_place_contribution(
         );
 
 
+    $scoringJson =
+        null;
+
+
+    if (
+        $scoringSnapshot !== null
+    ) {
+
+        $scoringJson =
+            json_encode(
+                $scoringSnapshot,
+                JSON_UNESCAPED_SLASHES
+                |
+                JSON_UNESCAPED_UNICODE
+            );
+
+
+        if (
+            $scoringJson === false
+        ) {
+
+            throw new RuntimeException(
+                'Contribution scoring snapshot could not be encoded.'
+            );
+
+        }
+
+    }
+
+
     $notes =
         $notes !== null
             ? trim($notes)
@@ -838,11 +869,13 @@ function llama_record_place_contribution(
                 moderated_by,
                 points_awarded,
                 fields_changed,
+                scoring_snapshot,
                 notes
             )
 
             VALUES
             (
+                ?,
                 ?,
                 ?,
                 ?,
@@ -876,6 +909,7 @@ function llama_record_place_contribution(
         $moderatedBy,
         $pointsAwarded,
         $fieldsJson,
+        $scoringJson,
         $notes,
     ]);
 
