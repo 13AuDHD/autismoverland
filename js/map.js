@@ -74,7 +74,6 @@ async function initMap() {
       throw new Error(
         "Could not load Llama Scout places."
       );
-
     }
 
 
@@ -82,12 +81,15 @@ async function initMap() {
       await response.json();
 
 
-    if (!Array.isArray(places)) {
+    if (
+      !Array.isArray(
+        places
+      )
+    ) {
 
       throw new Error(
         "Places API did not return a list."
       );
-
     }
 
 
@@ -172,9 +174,7 @@ async function initMap() {
       "Llama Scout map error:",
       error
     );
-
   }
-
 }
 
 
@@ -192,7 +192,6 @@ function isLockedMapValue(
     !Array.isArray(value) &&
     value.locked === true
   );
-
 }
 
 
@@ -203,20 +202,27 @@ function mapNumericValue(
   if (
     value === null ||
     value === undefined ||
-    isLockedMapValue(value)
+    value === "" ||
+    isLockedMapValue(
+      value
+    )
   ) {
+
     return null;
   }
 
 
   const number =
-    Number(value);
+    Number(
+      value
+    );
 
 
-  return Number.isFinite(number)
+  return Number.isFinite(
+    number
+  )
     ? number
     : null;
-
 }
 
 
@@ -225,24 +231,32 @@ function mapBooleanValue(
 ) {
 
   if (
-    isLockedMapValue(value)
+    isLockedMapValue(
+      value
+    )
   ) {
+
     return null;
   }
 
 
-  if (value === true) {
+  if (
+    value === true
+  ) {
+
     return true;
   }
 
 
-  if (value === false) {
+  if (
+    value === false
+  ) {
+
     return false;
   }
 
 
   return null;
-
 }
 
 
@@ -253,8 +267,11 @@ function mapStringValue(
   if (
     value === null ||
     value === undefined ||
-    isLockedMapValue(value)
+    isLockedMapValue(
+      value
+    )
   ) {
+
     return "";
   }
 
@@ -264,13 +281,13 @@ function mapStringValue(
     typeof value === "number"
   ) {
 
-    return String(value);
-
+    return String(
+      value
+    );
   }
 
 
   return "";
-
 }
 
 
@@ -283,8 +300,11 @@ function mapLockedText(
 ) {
 
   if (
-    !isLockedMapValue(value)
+    !isLockedMapValue(
+      value
+    )
   ) {
+
     return "";
   }
 
@@ -292,6 +312,7 @@ function mapLockedText(
   if (
     value.cta === "sign_up"
   ) {
+
     return "Sign up";
   }
 
@@ -299,12 +320,12 @@ function mapLockedText(
   if (
     value.cta === "upgrade"
   ) {
+
     return "Member only";
   }
 
 
   return "Member only";
-
 }
 
 
@@ -313,8 +334,11 @@ function mapLockedHref(
 ) {
 
   if (
-    !isLockedMapValue(value)
+    !isLockedMapValue(
+      value
+    )
   ) {
+
     return "";
   }
 
@@ -322,7 +346,6 @@ function mapLockedHref(
   return value.cta === "sign_up"
     ? "https://account.llamascout.com/register.php"
     : "https://account.llamascout.com/membership.php";
-
 }
 
 
@@ -331,8 +354,11 @@ function mapLockedLink(
 ) {
 
   if (
-    !isLockedMapValue(value)
+    !isLockedMapValue(
+      value
+    )
   ) {
+
     return "";
   }
 
@@ -341,8 +367,10 @@ function mapLockedLink(
 
     <a
       class="map-popup-locked"
-      href="${mapLockedHref(
-        value
+      href="${escapeHTML(
+        mapLockedHref(
+          value
+        )
       )}"
     >
 
@@ -360,7 +388,6 @@ function mapLockedLink(
     </a>
 
   `;
-
 }
 
 
@@ -377,7 +404,6 @@ function createMarkers(
 
   places.forEach(
     (place) => {
-
 
       const latitude =
         mapNumericValue(
@@ -397,6 +423,7 @@ function createMarkers(
         latitude === null ||
         longitude === null
       ) {
+
         return;
       }
 
@@ -417,15 +444,27 @@ function createMarkers(
       );
 
 
-      placeMarkers.set(
-        place.slug ||
-        place.id,
-        marker
-      );
+      const markerKey =
+        mapStringValue(
+          place.slug
+        )
+        ||
+        mapStringValue(
+          place.id
+        );
 
+
+      if (
+        markerKey
+      ) {
+
+        placeMarkers.set(
+          markerKey,
+          marker
+        );
+      }
     }
   );
-
 }
 
 
@@ -519,7 +558,6 @@ function populateDynamicFilters(
         )
     )
   );
-
 }
 
 
@@ -536,6 +574,7 @@ function populateSelect(
 
 
   if (!select) {
+
     return;
   }
 
@@ -557,18 +596,17 @@ function populateSelect(
         cleanValues
       )
     ]
-    .sort(
-      (a, b) =>
-        String(a)
-          .localeCompare(
-            String(b)
-          )
-    );
+      .sort(
+        (a, b) =>
+          String(a)
+            .localeCompare(
+              String(b)
+            )
+      );
 
 
   unique.forEach(
     (item) => {
-
 
       const option =
         document.createElement(
@@ -591,10 +629,8 @@ function populateSelect(
       select.appendChild(
         option
       );
-
     }
   );
-
 }
 
 
@@ -611,7 +647,6 @@ function bindFilterEvents() {
     .forEach(
       (element) => {
 
-
         element.addEventListener(
           "change",
           applyMapFilters
@@ -627,9 +662,7 @@ function bindFilterEvents() {
             "input",
             applyMapFilters
           );
-
         }
-
       }
     );
 
@@ -662,7 +695,6 @@ function bindFilterEvents() {
       "click",
       toggleFilterPanel
     );
-
 }
 
 
@@ -691,7 +723,6 @@ function applyMapFilters() {
   fitMapToPlaces(
     filtered
   );
-
 }
 
 
@@ -707,7 +738,7 @@ function placeMatchesFilters(
     value(
       "map-search"
     )
-    .toLowerCase();
+      .toLowerCase();
 
 
   if (search) {
@@ -758,9 +789,9 @@ function placeMatchesFilters(
         )
 
       ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
 
 
     if (
@@ -768,9 +799,9 @@ function placeMatchesFilters(
         search
       )
     ) {
+
       return false;
     }
-
   }
 
 
@@ -783,6 +814,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -796,6 +828,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -809,6 +842,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -822,6 +856,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -834,6 +869,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -847,6 +883,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -860,6 +897,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -876,6 +914,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -889,6 +928,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -907,6 +947,7 @@ function placeMatchesFilters(
       capacity
     )
   ) {
+
     return false;
   }
 
@@ -925,6 +966,7 @@ function placeMatchesFilters(
       length
     )
   ) {
+
     return false;
   }
 
@@ -937,6 +979,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -949,6 +992,7 @@ function placeMatchesFilters(
       false
     )
   ) {
+
     return false;
   }
 
@@ -961,6 +1005,7 @@ function placeMatchesFilters(
       false
     )
   ) {
+
     return false;
   }
 
@@ -973,6 +1018,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -985,6 +1031,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -997,6 +1044,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1011,6 +1059,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1025,6 +1074,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1039,6 +1089,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1053,6 +1104,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1067,6 +1119,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1081,6 +1134,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1094,6 +1148,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1107,6 +1162,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1120,6 +1176,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1133,6 +1190,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1146,6 +1204,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1159,6 +1218,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1172,6 +1232,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1184,6 +1245,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1196,6 +1258,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1208,6 +1271,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1220,6 +1284,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1232,6 +1297,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1244,6 +1310,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1256,6 +1323,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1268,6 +1336,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1280,6 +1349,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1292,6 +1362,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1304,6 +1375,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1320,6 +1392,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1332,6 +1405,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1344,6 +1418,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1356,6 +1431,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1368,6 +1444,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1380,6 +1457,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1392,6 +1470,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1404,6 +1483,7 @@ function placeMatchesFilters(
       false
     )
   ) {
+
     return false;
   }
 
@@ -1416,6 +1496,7 @@ function placeMatchesFilters(
       false
     )
   ) {
+
     return false;
   }
 
@@ -1428,6 +1509,7 @@ function placeMatchesFilters(
       true
     )
   ) {
+
     return false;
   }
 
@@ -1441,6 +1523,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1454,6 +1537,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1467,6 +1551,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1480,6 +1565,7 @@ function placeMatchesFilters(
       )
     )
   ) {
+
     return false;
   }
 
@@ -1501,14 +1587,13 @@ function placeMatchesFilters(
       status !==
       "field-verified"
     ) {
+
       return false;
     }
-
   }
 
 
   return true;
-
 }
 
 
@@ -1522,6 +1607,7 @@ function matchesExact(
 ) {
 
   if (!selected) {
+
     return true;
   }
 
@@ -1533,6 +1619,7 @@ function matchesExact(
 
 
   if (!cleanActual) {
+
     return false;
   }
 
@@ -1541,7 +1628,6 @@ function matchesExact(
     cleanActual ===
     selected
   );
-
 }
 
 
@@ -1551,6 +1637,7 @@ function minRatingMatch(
 ) {
 
   if (!selected) {
+
     return true;
   }
 
@@ -1564,15 +1651,17 @@ function minRatingMatch(
   if (
     cleanActual === null
   ) {
+
     return false;
   }
 
 
   return (
     cleanActual >=
-    Number(selected)
+    Number(
+      selected
+    )
   );
-
 }
 
 
@@ -1582,6 +1671,7 @@ function maxRatingMatch(
 ) {
 
   if (!selected) {
+
     return true;
   }
 
@@ -1595,15 +1685,17 @@ function maxRatingMatch(
   if (
     cleanActual === null
   ) {
+
     return false;
   }
 
 
   return (
     cleanActual <=
-    Number(selected)
+    Number(
+      selected
+    )
   );
-
 }
 
 
@@ -1621,6 +1713,7 @@ function minimumNumberMatch(
   if (
     cleanActual === null
   ) {
+
     return false;
   }
 
@@ -1629,7 +1722,6 @@ function minimumNumberMatch(
     cleanActual >=
     minimum
   );
-
 }
 
 
@@ -1644,6 +1736,7 @@ function booleanFilterMatch(
       controlId
     )
   ) {
+
     return true;
   }
 
@@ -1657,6 +1750,7 @@ function booleanFilterMatch(
   if (
     cleanActual === null
   ) {
+
     return false;
   }
 
@@ -1665,7 +1759,6 @@ function booleanFilterMatch(
     cleanActual ===
     expected
   );
-
 }
 
 
@@ -1677,18 +1770,28 @@ function updateMarkers(
   places
 ) {
 
-  if (!llamaScoutMap) {
+  if (
+    !llamaScoutMap
+  ) {
+
     return;
   }
 
 
   const visible =
     new Set(
-      places.map(
-        (place) =>
-          place.slug ||
-          place.id
-      )
+      places
+        .map(
+          (place) =>
+            mapStringValue(
+              place.slug
+            )
+            ||
+            mapStringValue(
+              place.id
+            )
+        )
+        .filter(Boolean)
     );
 
 
@@ -1697,7 +1800,6 @@ function updateMarkers(
       marker,
       key
     ) => {
-
 
       if (
         visible.has(
@@ -1715,12 +1817,10 @@ function updateMarkers(
           marker.addTo(
             llamaScoutMap
           );
-
         }
 
 
       } else {
-
 
         if (
           llamaScoutMap
@@ -1733,14 +1833,10 @@ function updateMarkers(
             .removeLayer(
               marker
             );
-
         }
-
       }
-
     }
   );
-
 }
 
 
@@ -1752,7 +1848,10 @@ function fitMapToPlaces(
   places
 ) {
 
-  if (!llamaScoutMap) {
+  if (
+    !llamaScoutMap
+  ) {
+
     return;
   }
 
@@ -1768,6 +1867,7 @@ function fitMapToPlaces(
       "place"
     )
   ) {
+
     return;
   }
 
@@ -1776,7 +1876,6 @@ function fitMapToPlaces(
     places
       .map(
         (place) => {
-
 
           const latitude =
             mapNumericValue(
@@ -1796,6 +1895,7 @@ function fitMapToPlaces(
             latitude === null ||
             longitude === null
           ) {
+
             return null;
           }
 
@@ -1804,13 +1904,15 @@ function fitMapToPlaces(
             latitude,
             longitude
           ];
-
         }
       )
       .filter(Boolean);
 
 
-  if (!bounds.length) {
+  if (
+    !bounds.length
+  ) {
+
     return;
   }
 
@@ -1828,8 +1930,8 @@ function fitMapToPlaces(
         )
       );
 
-    return;
 
+    return;
   }
 
 
@@ -1850,7 +1952,6 @@ function fitMapToPlaces(
           )
       }
     );
-
 }
 
 
@@ -1860,7 +1961,10 @@ function fitMapToPlaces(
 
 function handleRequestedPlace() {
 
-  if (!llamaScoutMap) {
+  if (
+    !llamaScoutMap
+  ) {
+
     return;
   }
 
@@ -1878,6 +1982,7 @@ function handleRequestedPlace() {
 
 
   if (!requestedPlace) {
+
     return;
   }
 
@@ -1885,24 +1990,42 @@ function handleRequestedPlace() {
   const place =
     allPlaces.find(
       (item) =>
-        item.slug ===
+        mapStringValue(
+          item.slug
+        ) ===
           requestedPlace
         ||
-        item.id ===
+        mapStringValue(
+          item.id
+        ) ===
           requestedPlace
+    );
+
+
+  if (!place) {
+
+    return;
+  }
+
+
+  const markerKey =
+    mapStringValue(
+      place.slug
+    )
+    ||
+    mapStringValue(
+      place.id
     );
 
 
   const marker =
     placeMarkers.get(
-      requestedPlace
+      markerKey
     );
 
 
-  if (
-    !place ||
-    !marker
-  ) {
+  if (!marker) {
+
     return;
   }
 
@@ -1925,6 +2048,7 @@ function handleRequestedPlace() {
     latitude === null ||
     longitude === null
   ) {
+
     return;
   }
 
@@ -1939,7 +2063,6 @@ function handleRequestedPlace() {
     marker.addTo(
       llamaScoutMap
     );
-
   }
 
 
@@ -1957,7 +2080,6 @@ function handleRequestedPlace() {
 
 
   marker.openPopup();
-
 }
 
 
@@ -1981,7 +2103,6 @@ function updateFilterCount(
       places.length === 1
         ? "1 place"
         : `${places.length} places`;
-
   }
 
 
@@ -2005,9 +2126,7 @@ function updateFilterCount(
               : "filters"
           }`
         : "";
-
   }
-
 }
 
 
@@ -2024,7 +2143,6 @@ function clearMapFilters() {
     .forEach(
       (input) => {
 
-
         if (
           input.type ===
           "checkbox"
@@ -2038,9 +2156,7 @@ function clearMapFilters() {
 
           input.value =
             "";
-
         }
-
       }
     );
 
@@ -2054,7 +2170,6 @@ function clearMapFilters() {
 
         select.value =
           "";
-
       }
     );
 
@@ -2069,12 +2184,10 @@ function clearMapFilters() {
 
     search.value =
       "";
-
   }
 
 
   applyMapFilters();
-
 }
 
 
@@ -2100,6 +2213,7 @@ function toggleFilterPanel() {
     !panel ||
     !button
   ) {
+
     return;
   }
 
@@ -2116,7 +2230,6 @@ function toggleFilterPanel() {
       !hidden
     )
   );
-
 }
 
 
@@ -2137,8 +2250,7 @@ function value(
     ||
     ""
   )
-  .trim();
-
+    .trim();
 }
 
 
@@ -2153,12 +2265,15 @@ function numberValue(
 
 
   if (!raw) {
+
     return null;
   }
 
 
   const number =
-    Number(raw);
+    Number(
+      raw
+    );
 
 
   return Number.isFinite(
@@ -2166,7 +2281,6 @@ function numberValue(
   )
     ? number
     : null;
-
 }
 
 
@@ -2181,7 +2295,6 @@ function checked(
       )
       ?.checked
   );
-
 }
 
 
@@ -2191,7 +2304,8 @@ function checked(
 
 function countActiveFilters() {
 
-  let count = 0;
+  let count =
+    0;
 
 
   document
@@ -2201,7 +2315,6 @@ function countActiveFilters() {
     .forEach(
       (element) => {
 
-
         if (
           element.type ===
           "checkbox"
@@ -2210,20 +2323,21 @@ function countActiveFilters() {
           if (
             element.checked
           ) {
+
             count++;
           }
 
-          return;
 
+          return;
         }
 
 
         if (
           element.value
         ) {
+
           count++;
         }
-
       }
     );
 
@@ -2233,12 +2347,12 @@ function countActiveFilters() {
       "map-search"
     )
   ) {
+
     count++;
   }
 
 
   return count;
-
 }
 
 
@@ -2250,14 +2364,31 @@ function buildPopup(
   place
 ) {
 
+  const images =
+    Array.isArray(
+      place.images
+    )
+      ? place.images
+      : [];
+
+
   const featuredImage =
-    place.images
-      ?.find(
-        (image) =>
-          image.featured
-      )
+    images.find(
+      (image) =>
+        image &&
+        image.featured === true &&
+        mapStringValue(
+          image.src
+        )
+    )
     ||
-    place.images?.[0]
+    images.find(
+      (image) =>
+        image &&
+        mapStringValue(
+          image.src
+        )
+    )
     ||
     null;
 
@@ -2272,9 +2403,13 @@ function buildPopup(
             featuredImage.src
           )}"
           alt="${escapeHTML(
-            featuredImage.alt
+            mapStringValue(
+              featuredImage.alt
+            )
             ||
-            place.name
+            mapStringValue(
+              place.name
+            )
           )}"
         >
 
@@ -2301,8 +2436,8 @@ function buildPopup(
       city,
       state
     ]
-    .filter(Boolean)
-    .join(", ");
+      .filter(Boolean)
+      .join(", ");
 
 
   const difficulty =
@@ -2338,15 +2473,32 @@ function buildPopup(
     null;
 
 
-  const approximateLocation =
-    place.exactLocationAvailable
-      !== true;
+  const locationDisclosureLabel =
+    place.exactLocationAvailable ===
+    true
+      ? ""
+      : (
+          place.accessLevel ===
+          "visitor"
+            ? "General area"
+            : "Approximate location"
+        );
 
 
   const verificationStatus =
     mapStringValue(
       place.verification
         ?.status
+    );
+
+
+  const slug =
+    mapStringValue(
+      place.slug
+    )
+    ||
+    mapStringValue(
+      place.id
     );
 
 
@@ -2359,22 +2511,38 @@ function buildPopup(
 
         ${imageHTML}
 
+
         <div class="map-popup-hero-overlay">
 
-          <span class="map-popup-type">
+          ${
+            mapStringValue(
+              place.type
+            )
+              ? `
 
-            ${escapeHTML(
-              formatLabel(
-                place.type
-              )
-            )}
+                <span class="map-popup-type">
 
-          </span>
+                  ${escapeHTML(
+                    formatLabel(
+                      place.type
+                    )
+                  )}
+
+                </span>
+
+              `
+              : ""
+          }
+
 
           <h2>
 
             ${escapeHTML(
-              place.name
+              mapStringValue(
+                place.name
+              )
+              ||
+              "Place"
             )}
 
           </h2>
@@ -2412,7 +2580,7 @@ function buildPopup(
 
 
           ${
-            approximateLocation
+            locationDisclosureLabel
               ? `
 
                 <span>
@@ -2422,7 +2590,9 @@ function buildPopup(
                     aria-hidden="true"
                   ></i>
 
-                  Approximate location
+                  ${escapeHTML(
+                    locationDisclosureLabel
+                  )}
 
                 </span>
 
@@ -2460,40 +2630,48 @@ function buildPopup(
 
         ${
           verificationStatus ===
-            "field-verified"
-              ? `
+          "field-verified"
+            ? `
 
-                <p class="verified-place">
+              <p class="verified-place">
 
-                  <i
-                    class="fa-solid fa-circle-check"
-                    aria-hidden="true"
-                  ></i>
+                <i
+                  class="fa-solid fa-circle-check"
+                  aria-hidden="true"
+                ></i>
 
-                  Llama Scouted
+                Llama Scouted
 
-                </p>
+              </p>
 
-              `
-              : ""
+            `
+            : ""
         }
 
 
-        <a
-          class="map-popup-details"
-          href="/place.php?place=${encodeURIComponent(
-            place.slug
-          )}"
-        >
+        ${
+          slug
+            ? `
 
-          View Scout Report
+              <a
+                class="map-popup-details"
+                href="/place.php?place=${encodeURIComponent(
+                  slug
+                )}"
+              >
 
-          <i
-            class="fa-solid fa-arrow-right"
-            aria-hidden="true"
-          ></i>
+                View Place Details
 
-        </a>
+                <i
+                  class="fa-solid fa-arrow-right"
+                  aria-hidden="true"
+                ></i>
+
+              </a>
+
+            `
+            : ""
+        }
 
 
       </div>
@@ -2501,8 +2679,8 @@ function buildPopup(
     </article>
 
   `;
-
 }
+
 
 /* =========================================================
    POPUP RATINGS
@@ -2515,8 +2693,10 @@ function ratingRow(
 
   if (
     value === null ||
-    value === undefined
+    value === undefined ||
+    value === ""
   ) {
+
     return "";
   }
 
@@ -2544,7 +2724,6 @@ function ratingRow(
       </div>
 
     `;
-
   }
 
 
@@ -2557,6 +2736,7 @@ function ratingRow(
   if (
     numericValue === null
   ) {
+
     return "";
   }
 
@@ -2588,7 +2768,6 @@ function ratingRow(
     </div>
 
   `;
-
 }
 
 
@@ -2610,12 +2789,10 @@ function makeDots(
       i <= value
         ? '<span class="rating-dot is-filled"></span>'
         : '<span class="rating-dot"></span>';
-
   }
 
 
   return output;
-
 }
 
 
@@ -2627,12 +2804,24 @@ function formatLabel(
   value
 ) {
 
-  if (!value) {
+  const text =
+    mapStringValue(
+      value
+    );
+
+
+  if (!text) {
+
     return "";
   }
 
 
-  return String(value)
+  return text
+
+    .replaceAll(
+      "_",
+      " "
+    )
 
     .replaceAll(
       "-",
@@ -2649,7 +2838,6 @@ function formatLabel(
       (letter) =>
         letter.toUpperCase()
     );
-
 }
 
 
@@ -2661,8 +2849,8 @@ function escapeHTML(
   value
 ) {
 
-  return String(
-    value ?? ""
+  return mapStringValue(
+    value
   )
 
     .replaceAll(
@@ -2681,7 +2869,7 @@ function escapeHTML(
     )
 
     .replaceAll(
-      "\"",
+      '"',
       "&quot;"
     )
 
@@ -2689,5 +2877,4 @@ function escapeHTML(
       "'",
       "&#039;"
     );
-
 }
