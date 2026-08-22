@@ -585,18 +585,73 @@ function llama_place_update_field_conflict(
         );
 
 
+    $proposedMatchesCurrent =
+        llama_update_conflict_values_equal(
+            $proposedValue,
+            $currentValue,
+            $type
+        );
+
+
+    /*
+     * Three possible states:
+     *
+     * 1. current == original
+     *    Safe to apply the contributor's proposed change.
+     *
+     * 2. current == proposed
+     *    Someone already changed the canonical Place to the
+     *    contributor's proposed value. Do not apply it again
+     *    and do not award duplicate contribution points.
+     *
+     * 3. current differs from both original and proposed
+     *    This is a genuine stale conflict requiring review.
+     */
+
+    $conflict =
+        !$originalMatchesCurrent;
+
+
+    $reason =
+        null;
+
+
+    if (
+        !$originalMatchesCurrent
+        &&
+        $proposedMatchesCurrent
+    ) {
+
+        $reason =
+            'already-current';
+
+    } elseif (
+        !$originalMatchesCurrent
+    ) {
+
+        $reason =
+            'canonical-value-changed';
+
+    }
+
+
     return [
 
         'path' =>
             $path,
 
+        /*
+         * already-current deliberately remains blocked from
+         * automatic approval. This prevents duplicate points.
+         *
+         * The reason field distinguishes it from a genuine
+         * competing canonical change.
+         */
         'conflict' =>
-            !$originalMatchesCurrent,
+            $conflict,
 
         'reason' =>
-            $originalMatchesCurrent
-                ? null
-                : 'canonical-value-changed',
+            $reason,
 
         'type' =>
             $type,
