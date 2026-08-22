@@ -189,20 +189,14 @@ function renderPlace(
       .filter(Boolean)
       .join(", ");
 
-
-  const verified =
-    place.verification?.status ===
-    "field-verified";
-
-
+   
   page.innerHTML = `
 
-    ${renderHero(
-      place,
-      featuredImage,
-      locationLabel,
-      verified
-    )}
+${renderHero(
+  place,
+  featuredImage,
+  locationLabel
+)}
 
 
     <section class="place-content">
@@ -261,11 +255,6 @@ function renderPlace(
         <aside class="place-sidebar">
 
           ${renderQuickInfo(place)}
-
-          ${renderVerification(
-            place,
-            verified
-          )}
 
         </aside>
 
@@ -538,8 +527,7 @@ function renderReportProblem(
 function renderHero(
   place,
   image,
-  location,
-  verified
+  location
 ) {
 
   return `
@@ -619,26 +607,6 @@ function renderHero(
                   )}
 
                 </p>
-
-              `
-              : ""
-          }
-
-
-          ${
-            verified
-              ? `
-
-                <span class="place-verified">
-
-                  <i
-                    class="fa-solid fa-circle-check"
-                    aria-hidden="true"
-                  ></i>
-
-                  Llama Scouted
-
-                </span>
 
               `
               : ""
@@ -3496,109 +3464,6 @@ function renderQuickInfo(
 
   `;
 }
-
-
-
-/* =========================================================
-   VERIFICATION
-   ========================================================= */
-
-function renderVerification(
-  place,
-  verified
-) {
-
-  const data =
-    safeObject(
-      place.verification
-    );
-
-
-  const facts = [
-
-    !verified
-      ? fact(
-          "Status",
-          formatLabel(
-            data.status
-          )
-        )
-      : "",
-
-    fact(
-      "Visited",
-      formatDate(
-        data.visited
-      )
-    ),
-
-    fact(
-      "Last scouted",
-      formatDate(
-        data.lastVerified
-      )
-    ),
-
-    fact(
-      "Source",
-      data.source
-    ),
-
-    fact(
-      "Public data checked",
-      yesNo(
-        data.publicDataVerified
-      )
-    )
-
-  ].join("");
-
-
-  const verifiedStatus =
-    verified
-      ? `
-
-        <p class="place-verification-status">
-
-          <i
-            class="fa-solid fa-circle-check"
-            aria-hidden="true"
-          ></i>
-
-          Llama Scouted
-
-        </p>
-
-      `
-      : "";
-
-
-  if (
-    !verifiedStatus &&
-    !facts
-  ) {
-
-    return "";
-  }
-
-
-  return `
-
-    <div class="place-sidebar-card">
-
-      <h2>
-        Verification
-      </h2>
-
-      ${verifiedStatus}
-
-      ${facts}
-
-    </div>
-
-  `;
-}
-
 
 
 /* =========================================================
