@@ -287,65 +287,342 @@ function free_place_view(array $place): array
    VISITOR VIEW
    ========================================================= */
 
-function visitor_place_view(array $place): array
-{
-    $place = free_place_view($place);
-    $place['accessLevel'] = 'visitor';
+function visitor_place_view(
+    array $place
+): array {
 
-    if (isset($place['safety']) && is_array($place['safety'])) {
-        foreach ($place['safety'] as $field => $value) {
-            if (is_array($value) && ($value['locked'] ?? false)) {
-                continue;
+    /*
+     * Start with the Free Member view so coordinates are
+     * approximated before anything leaves the API.
+     */
+
+    $place =
+        free_place_view(
+            $place
+        );
+
+
+    $place[
+        'accessLevel'
+    ] =
+        'visitor';
+
+
+    $place[
+        'memberAccess'
+    ] =
+        false;
+
+
+    $place[
+        'exactLocationAvailable'
+    ] =
+        false;
+
+
+    /* =====================================================
+       LOCATION
+
+       Visitors receive only broad location context.
+
+       Road, county, region, land manager, and land type can
+       narrow a remote site considerably, so those require a
+       free Llama Scout account.
+       ===================================================== */
+
+    if (
+        isset(
+            $place[
+                'location'
+            ]
+        )
+        &&
+        is_array(
+            $place[
+                'location'
+            ]
+        )
+    ) {
+
+        foreach (
+            [
+                'road',
+                'county',
+                'region',
+                'landManager',
+                'landType'
+            ]
+            as
+            $field
+        ) {
+
+            if (
+                array_key_exists(
+                    $field,
+                    $place[
+                        'location'
+                    ]
+                )
+            ) {
+
+                $place[
+                    'location'
+                ][
+                    $field
+                ] =
+                    place_locked_value(
+                        'visitor',
+                        'free'
+                    );
             }
-
-            $place['safety'][$field] = place_locked_value('visitor', 'free');
         }
     }
 
-    $place['warnings'] = lock_place_section($place['warnings'] ?? [], 'visitor', 'free');
 
-    if (isset($place['season']) && is_array($place['season'])) {
-        foreach (['bestMonths', 'winterAccess', 'snowRisk', 'mudSeasonRisk', 'monsoonRisk'] as $field) {
-            if (array_key_exists($field, $place['season'])) {
-                $place['season'][$field] = place_locked_value('visitor', 'free');
-            }
-        }
-    }
+    /* =====================================================
+       REGISTERED-MEMBER PREVIEW DATA
 
-    if (isset($place['nearby']) && is_array($place['nearby'])) {
-        foreach (['nearestFuel', 'nearestGrocery'] as $field) {
-            if (array_key_exists($field, $place['nearby'])) {
-                $place['nearby'][$field] = place_locked_value('visitor', 'free');
-            }
-        }
-    }
+       These sections are available only after creating a
+       free account. Paid membership is still required for
+       the detailed site/sensory/access data already locked
+       by free_place_view().
+       ===================================================== */
 
-    $place['photoAccess'] = 'featured_only';
-    $place['photoModalAccess'] = false;
+    $place[
+        'amenities'
+    ] =
+        lock_place_section(
+            $place[
+                'amenities'
+            ]
+            ?? [],
+            'visitor',
+            'free'
+        );
 
-    if (isset($place['images']) && is_array($place['images'])) {
+
+    $place[
+        'environment'
+    ] =
+        lock_place_section(
+            $place[
+                'environment'
+            ]
+            ?? [],
+            'visitor',
+            'free'
+        );
+
+
+    $place[
+        'safety'
+    ] =
+        lock_place_section(
+            $place[
+                'safety'
+            ]
+            ?? [],
+            'visitor',
+            'free'
+        );
+
+
+    $place[
+        'warnings'
+    ] =
+        lock_place_section(
+            $place[
+                'warnings'
+            ]
+            ?? [],
+            'visitor',
+            'free'
+        );
+
+
+    $place[
+        'season'
+    ] =
+        lock_place_section(
+            $place[
+                'season'
+            ]
+            ?? [],
+            'visitor',
+            'free'
+        );
+
+
+    $place[
+        'regulations'
+    ] =
+        lock_place_section(
+            $place[
+                'regulations'
+            ]
+            ?? [],
+            'visitor',
+            'free'
+        );
+
+
+    $place[
+        'landUseRules'
+    ] =
+        lock_place_section(
+            $place[
+                'landUseRules'
+            ]
+            ?? [],
+            'visitor',
+            'free'
+        );
+
+
+    $place[
+        'nearby'
+    ] =
+        lock_place_section(
+            $place[
+                'nearby'
+            ]
+            ?? [],
+            'visitor',
+            'free'
+        );
+
+
+    /*
+     * Keep only a short public introduction.
+     */
+
+    $place[
+        'description'
+    ] =
+        place_truncate_about(
+            is_string(
+                $place[
+                    'description'
+                ]
+                ?? null
+            )
+                ? $place[
+                    'description'
+                ]
+                : null,
+            180
+        );
+
+
+    $place[
+        'aboutTruncated'
+    ] =
+        true;
+
+
+    /* =====================================================
+       PHOTOS
+
+       Logged-out visitors receive only the featured/header
+       image. Free registered Members receive the gallery.
+       ===================================================== */
+
+    $place[
+        'photoAccess'
+    ] =
+        'featured_only';
+
+
+    $place[
+        'photoModalAccess'
+    ] =
+        false;
+
+
+    if (
+        isset(
+            $place[
+                'images'
+            ]
+        )
+        &&
+        is_array(
+            $place[
+                'images'
+            ]
+        )
+    ) {
+
         $featured = [];
 
-        foreach ($place['images'] as $image) {
-            if (!empty($image['featured'])) {
-                $featured[] = $image;
+
+        foreach (
+            $place[
+                'images'
+            ]
+            as
+            $image
+        ) {
+
+            if (
+                !empty(
+                    $image[
+                        'featured'
+                    ]
+                )
+            ) {
+
+                $featured[] =
+                    $image;
+
                 break;
             }
         }
 
-        if (!$featured && !empty($place['images'])) {
-            $featured[] = $place['images'][0];
+
+        if (
+            !$featured
+            &&
+            !empty(
+                $place[
+                    'images'
+                ]
+            )
+        ) {
+
+            $featured[] =
+                $place[
+                    'images'
+                ][0];
         }
 
-        $place['images'] = $featured;
+
+        $place[
+            'images'
+        ] =
+            $featured;
     }
 
-    $place['verification'] = [
-        'createdAt' => $place['createdAt'] ?? null,
+
+    /*
+     * Public visitors do not receive verification history.
+     */
+
+    $place[
+        'verification'
+    ] = [
+        'createdAt' =>
+            $place[
+                'createdAt'
+            ]
+            ?? null
     ];
 
-    return $place;
+
+    return
+        $place;
 }
+
 
 /* =========================================================
    LEGACY API COMPATIBILITY
