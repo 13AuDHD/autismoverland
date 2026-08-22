@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+
 require_once
     dirname(__DIR__)
     . '/app/auth.php';
@@ -9,6 +10,18 @@ require_once
 require_once
     dirname(__DIR__)
     . '/app/place-publisher.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/scout-policy.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/place-contributions.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/place-provenance.php';
 
 
 require_role(
@@ -45,6 +58,7 @@ if (
     exit(
         'Method not allowed.'
     );
+
 }
 
 
@@ -91,6 +105,7 @@ if (
     exit(
         'Your session could not be verified. Reload the submission page and try again.'
     );
+
 }
 
 
@@ -130,17 +145,13 @@ if (
     exit(
         'A valid submission is required.'
     );
+
 }
 
 
 /* =========================================================
    HELPER
    FIND + LOCK ACTIVE SCOUT PROFILE
-
-   This is called only while the approval transaction is open.
-   Locking the profile prevents Scout status from changing
-   while the same approval is deciding whether Scout credit
-   should be recorded.
    ========================================================= */
 
 function approval_active_scout_profile(
@@ -161,7 +172,9 @@ function approval_active_scout_profile(
             FROM scout_profiles
 
             WHERE user_id = ?
-              AND status = \'active\'
+
+              AND status =
+                  \'active\'
 
             LIMIT 1
 
@@ -184,6 +197,7 @@ function approval_active_scout_profile(
     return
         $row
         ?: null;
+
 }
 
 
@@ -226,24 +240,180 @@ function approval_submission_qualifies(
     ) {
 
         return false;
+
     }
 
 
     /*
      * Reports submitted before the person officially became
-     * a Scout do not count toward Scout renewal.
+     * a Scout do not count toward Scout maintenance.
      */
 
     return
         $submittedAt
         >=
         $scoutStartedAt;
+
+}
+
+
+/* =========================================================
+   HELPER
+   EXTRACT VISIT DATE FROM SUBMITTED PLACE DATA
+
+   Older submission data uses:
+
+       verification.visited
+
+   We retain compatibility with that old JSON structure while
+   treating the value strictly as a FIELD VISIT DATE.
+
+   No verification claim is made from this value.
+   ========================================================= */
+
+function approval_submission_visit_date(
+    array $submission
+): ?string {
+
+    $raw =
+        $submission[
+            'submission_data'
+        ]
+        ?? null;
+
+
+    if (
+        !is_string(
+            $raw
+        )
+        ||
+        trim($raw) === ''
+    ) {
+
+        return null;
+
+    }
+
+
+    $place =
+        json_decode(
+            $raw,
+            true
+        );
+
+
+    if (
+        !is_array(
+            $place
+        )
+    ) {
+
+        return null;
+
+    }
+
+
+    $candidates = [];
+
+
+    if (
+        isset(
+            $place['verification']
+        )
+        &&
+        is_array(
+            $place['verification']
+        )
+    ) {
+
+        $candidates[] =
+            $place['verification']['visited']
+            ?? null;
+
+        $candidates[] =
+            $place['verification']['visitDate']
+            ?? null;
+
+    }
+
+
+    $candidates[] =
+        $place['visitedAt']
+        ?? null;
+
+    $candidates[] =
+        $place['visitDate']
+        ?? null;
+
+    $candidates[] =
+        $place['dateVisited']
+        ?? null;
+
+
+    foreach (
+        $candidates
+        as
+        $candidate
+    ) {
+
+        $candidate =
+            trim(
+                (string)
+                $candidate
+            );
+
+
+        if (
+            $candidate === ''
+        ) {
+
+            continue;
+
+        }
+
+
+        $timestamp =
+            strtotime(
+                $candidate
+            );
+
+
+        if (
+            $timestamp === false
+        ) {
+
+            continue;
+
+        }
+
+
+        return
+            date(
+                'Y-m-d H:i:s',
+                $timestamp
+            );
+
+    }
+
+
+    return null;
+
 }
 
 
 /* =========================================================
    HELPER
    RECORD SCOUT REPORT CREDIT
+
+   Returns:
+
+   [
+       "id" => activity row ID,
+       "new" => whether this approval created the credit
+   ]
+
+   Points remain zero until the report scoring system is
+   deliberately activated.
    ========================================================= */
 
 function approval_record_scout_activity(
@@ -252,15 +422,7 @@ function approval_record_scout_activity(
     int $submissionId,
     int $placeId,
     string $occurredAt
-): bool {
-
-    /*
-     * INSERT IGNORE works with the unique Scout activity key
-     * so the same report cannot be credited more than once.
-     *
-     * Points remain zero until the Scout points system is
-     * deliberately designed.
-     */
+): array {
 
     $stmt =
         $db->prepare(
@@ -311,21 +473,109 @@ function approval_record_scout_activity(
     ]);
 
 
-    return
+    $isNew =
         $stmt->rowCount()
         > 0;
+
+
+    $find =
+        $db->prepare(
+            '
+            SELECT
+                id
+
+            FROM scout_activity
+
+            WHERE scout_profile_id = ?
+
+              AND user_id = ?
+
+              AND activity_type =
+                  \'place_approved\'
+
+              AND submission_id = ?
+
+            ORDER BY
+                id DESC
+
+            LIMIT 1
+            '
+        );
+
+
+    $find->execute([
+
+        (int)
+        $scoutProfile[
+            'id'
+        ],
+
+        (int)
+        $scoutProfile[
+            'user_id'
+        ],
+
+        $submissionId
+
+    ]);
+
+
+    $activityId =
+        (int)
+        $find->fetchColumn();
+
+
+    if (
+        $activityId < 1
+    ) {
+
+        throw new RuntimeException(
+            'Scout activity credit could not be located after approval.'
+        );
+
+    }
+
+
+    return [
+
+        'id' =>
+            $activityId,
+
+        'new' =>
+            $isNew,
+
+    ];
+
 }
 
 
 /* =========================================================
    HELPER
-   CURRENT SCOUT YEAR PROGRESS
+   CURRENT SCOUT PERIOD PROGRESS
+
+   Uses central Scout policy instead of hardcoded values.
    ========================================================= */
 
 function approval_current_scout_year_progress(
     PDO $db,
     array $scoutProfile
 ): array {
+
+    $required =
+        llama_scout_policy_int(
+            $db,
+            'annual_new_places_required',
+            1
+        );
+
+
+    $periodMonths =
+        llama_scout_policy_int(
+            $db,
+            'scout_period_months',
+            1
+        );
+
 
     $scoutProfileId =
         (int) (
@@ -376,13 +626,27 @@ function approval_current_scout_year_progress(
     ) {
 
         return [
-            'accepted' => 0,
-            'required' => 3,
-            'remaining' => 3,
-            'met' => false,
-            'year_start' => null,
-            'year_end' => null,
+
+            'accepted' =>
+                0,
+
+            'required' =>
+                $required,
+
+            'remaining' =>
+                $required,
+
+            'met' =>
+                false,
+
+            'year_start' =>
+                null,
+
+            'year_end' =>
+                null,
+
         ];
+
     }
 
 
@@ -397,21 +661,52 @@ function approval_current_scout_year_progress(
     ) {
 
         return [
-            'accepted' => 0,
-            'required' => 3,
-            'remaining' => 3,
-            'met' => false,
-            'year_start' => null,
-            'year_end' => null,
+
+            'accepted' =>
+                0,
+
+            'required' =>
+                $required,
+
+            'remaining' =>
+                $required,
+
+            'met' =>
+                false,
+
+            'year_start' =>
+                null,
+
+            'year_end' =>
+                null,
+
         ];
+
     }
+
+
+    $yearStart =
+        llama_policy_subtract_months(
+            $activeThrough,
+            $periodMonths
+        );
 
 
     $startTimestamp =
         strtotime(
-            '-1 year',
-            $endTimestamp
+            $yearStart
         );
+
+
+    if (
+        $startTimestamp === false
+    ) {
+
+        throw new RuntimeException(
+            'Scout period start could not be determined.'
+        );
+
+    }
 
 
     if (
@@ -434,7 +729,9 @@ function approval_current_scout_year_progress(
 
             $startTimestamp =
                 $scoutStartedTimestamp;
+
         }
+
     }
 
 
@@ -492,16 +789,20 @@ function approval_current_scout_year_progress(
             $accepted,
 
         'required' =>
-            3,
+            $required,
 
         'remaining' =>
             max(
                 0,
-                3 - $accepted
+                $required
+                -
+                $accepted
             ),
 
         'met' =>
-            $accepted >= 3,
+            $accepted
+            >=
+            $required,
 
         'year_start' =>
             $yearStart,
@@ -510,6 +811,7 @@ function approval_current_scout_year_progress(
             $yearEnd,
 
     ];
+
 }
 
 
@@ -536,6 +838,7 @@ try {
                 place_name,
                 source_type,
                 status,
+                submission_data,
                 submitted_at,
                 reviewed_at
 
@@ -568,18 +871,12 @@ try {
         throw new DomainException(
             'The submission could not be found.'
         );
+
     }
 
 
     /* =====================================================
        APPROVAL STATE GUARD
-
-       Only a currently pending submission may enter the
-       approval/publishing workflow.
-
-       needs-changes and rejected submissions must first be
-       edited and resubmitted by the member, which returns
-       them to pending.
        ===================================================== */
 
     $submissionStatus =
@@ -603,17 +900,12 @@ try {
         throw new DomainException(
             'This submission is no longer pending review. Reload the submission before taking another action.'
         );
+
     }
 
 
     /* =====================================================
        PUBLISHED PLACE GUARD
-
-       Once a submission has a place_id, it has already been
-       converted into a normal Llama Scout Place.
-
-       Future changes belong in the Place editor, not back in
-       the submission approval workflow.
        ===================================================== */
 
     if (
@@ -627,6 +919,7 @@ try {
         throw new DomainException(
             'This submission is already linked to a Llama Scout Place. Make further changes from the Place editor.'
         );
+
     }
 
 
@@ -644,14 +937,18 @@ try {
         throw new RuntimeException(
             'The submission is missing its submitting user.'
         );
+
     }
+
+
+    $visitDate =
+        approval_submission_visit_date(
+            $submission
+        );
 
 
     /* =====================================================
        LOCK SCOUT PROFILE BEFORE PUBLISHING
-
-       This keeps the Scout-credit decision stable throughout
-       the same approval transaction.
        ===================================================== */
 
     $scoutProfile =
@@ -663,9 +960,6 @@ try {
 
     /* =====================================================
        CREATE DRAFT PLACE
-
-       publish_place_submission() creates the relational Place,
-       links the submission, and marks the submission approved.
        ===================================================== */
 
     $placeId =
@@ -689,6 +983,7 @@ try {
         throw new RuntimeException(
             'The approved submission did not create a valid Place.'
         );
+
     }
 
 
@@ -704,6 +999,7 @@ try {
                 user_id,
                 place_id,
                 status,
+                submission_data,
                 submitted_at,
                 reviewed_at
 
@@ -734,6 +1030,7 @@ try {
         throw new RuntimeException(
             'The approved submission could not be reloaded.'
         );
+
     }
 
 
@@ -751,6 +1048,7 @@ try {
         throw new RuntimeException(
             'The submission was not marked approved.'
         );
+
     }
 
 
@@ -768,11 +1066,82 @@ try {
         throw new RuntimeException(
             'The approved submission was not linked to the expected Place.'
         );
+
+    }
+
+
+    $approvedAt =
+        trim(
+            (string) (
+                $approvedSubmission[
+                    'reviewed_at'
+                ]
+                ?? ''
+            )
+        );
+
+
+    if (
+        $approvedAt === ''
+    ) {
+
+        throw new RuntimeException(
+            'The approval timestamp could not be determined.'
+        );
+
     }
 
 
     /* =====================================================
+       ORIGINAL PLACE PROVENANCE
+
+       Determine the contributor's authority at the time the
+       new Place was created.
+
+       Examples:
+
+       normal user  -> community
+       Scout        -> scout
+       Master Scout -> scout
+       Admin        -> admin
+       Owner        -> owner
+       ===================================================== */
+
+    $roleAtTime =
+        llama_contribution_role(
+            $db,
+            $submissionUserId
+        );
+
+
+    $originType =
+        llama_origin_from_role(
+            $roleAtTime
+        );
+
+
+    llama_record_place_provenance(
+        $db,
+        $placeId,
+        $originType,
+        $submissionUserId,
+        $submissionId,
+        (string)
+        $approvedSubmission[
+            'submitted_at'
+        ]
+    );
+
+
+    /* =====================================================
        SCOUT ACTIVITY CREDIT
+
+       Only active Scouts get annual Scout-report credit.
+
+       The resulting activity ID is linked to the permanent
+       Place contribution history.
+
+       Points remain zero until scoring is activated.
        ===================================================== */
 
     $newScoutCredit =
@@ -780,6 +1149,10 @@ try {
 
 
     $scoutProgress =
+        null;
+
+
+    $scoutActivityId =
         null;
 
 
@@ -792,41 +1165,28 @@ try {
         )
     ) {
 
-        /*
-         * Credit occurs when the Scout Report is accepted.
-         * reviewed_at is written by the publisher during this
-         * same transaction.
-         */
-
-        $approvalOccurredAt =
-            trim(
-                (string) (
-                    $approvedSubmission[
-                        'reviewed_at'
-                    ]
-                    ?? ''
-                )
-            );
-
-
-        if (
-            $approvalOccurredAt === ''
-        ) {
-
-            throw new RuntimeException(
-                'The approval timestamp could not be determined.'
-            );
-        }
-
-
-        $newScoutCredit =
+        $activity =
             approval_record_scout_activity(
                 $db,
                 $scoutProfile,
                 $submissionId,
                 $placeId,
-                $approvalOccurredAt
+                $approvedAt
             );
+
+
+        $scoutActivityId =
+            (int)
+            $activity[
+                'id'
+            ];
+
+
+        $newScoutCredit =
+            (bool)
+            $activity[
+                'new'
+            ];
 
 
         $scoutProgress =
@@ -834,7 +1194,51 @@ try {
                 $db,
                 $scoutProfile
             );
+
     }
+
+
+    /* =====================================================
+       PERMANENT PLACE CONTRIBUTION
+
+       Every approved new Place gets a contribution row,
+       regardless of contributor role.
+
+       This is where the provenance trail actually begins.
+
+       A Scout/Admin/Owner contribution with visited_at set
+       will automatically qualify the Place as Llama Scouted
+       through place-provenance.php.
+
+       A normal community contribution remains Community
+       Contributed.
+
+       points_awarded remains zero until the scoring engine
+       is activated.
+       ===================================================== */
+
+    llama_record_place_contribution(
+        $db,
+        $placeId,
+        $submissionUserId,
+        LLAMA_CONTRIBUTION_NEW_PLACE,
+        LLAMA_CONTRIBUTION_APPROVED,
+        $submissionId,
+        $scoutActivityId,
+        $visitDate,
+        (string)
+        $approvedSubmission[
+            'submitted_at'
+        ],
+        $approvedAt,
+        (int)
+        $user[
+            'id'
+        ],
+        0,
+        null,
+        null
+    );
 
 
     /* =====================================================
@@ -846,9 +1250,6 @@ try {
 
     /* =====================================================
        REDIRECT TO PLACE EDITOR
-
-       admin.llamascout.com uses /admin as its document root,
-       so place.php is the correct Basecamp-relative route.
        ===================================================== */
 
     $redirectUrl =
@@ -885,7 +1286,9 @@ try {
                         'accepted'
                     ]
                 );
+
         }
+
     }
 
 
@@ -912,6 +1315,7 @@ try {
     ) {
 
         $db->rollBack();
+
     }
 
 
@@ -1079,4 +1483,5 @@ a {
 <?php
 
     exit;
+
 }
