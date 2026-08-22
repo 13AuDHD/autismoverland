@@ -3,11 +3,6 @@
 declare(strict_types=1);
 
 
-require_once
-    __DIR__
-    . '/permissions.php';
-
-
 /* =========================================================
    LLAMA SCOUT
    SHARED BASECAMP NAVIGATION
@@ -30,9 +25,10 @@ $currentAdminPage =
     );
 
 
-/* =========================================================
-   ACTIVE SECTION
-   ========================================================= */
+/*
+ * Map child management pages back to their
+ * main Basecamp navigation section.
+ */
 
 $activeAdminSection =
     match (
@@ -106,41 +102,6 @@ function llama_admin_nav_current(
 }
 
 
-/* =========================================================
-   NAVIGATION AUTHORITY
-   ========================================================= */
-
-$currentNavUser =
-    current_user();
-
-
-$currentNavUserId =
-    $currentNavUser
-        ? (int)
-            $currentNavUser[
-                'id'
-            ]
-        : 0;
-
-
-$isFullAdmin =
-    $currentNavUserId > 0
-    &&
-    user_has_role(
-        'admin',
-        $currentNavUserId
-    );
-
-
-$canModeratePlaces =
-    $currentNavUserId > 0
-    &&
-    llama_user_can(
-        LLAMA_CAP_MODERATE_PLACES,
-        $currentNavUserId
-    );
-
-
 ?>
 
 
@@ -152,182 +113,158 @@ $canModeratePlaces =
   <div class="admin-nav-inner">
 
 
-    <?php if (
-        $isFullAdmin
-    ): ?>
+    <a
+      class="<?= llama_admin_nav_active(
+          'basecamp',
+          $activeAdminSection
+      ) ?>"
+      href="/"
+      <?= llama_admin_nav_current(
+          'basecamp',
+          $activeAdminSection
+      ) ?>
+    >
+
+      <i
+        class="fa-solid fa-campground"
+        aria-hidden="true"
+      ></i>
+
+      Basecamp
+
+    </a>
 
 
-      <a
-        class="<?= llama_admin_nav_active(
-            'basecamp',
-            $activeAdminSection
-        ) ?>"
-        href="/"
-        <?= llama_admin_nav_current(
-            'basecamp',
-            $activeAdminSection
-        ) ?>
-      >
+    <a
+      class="<?= llama_admin_nav_active(
+          'places',
+          $activeAdminSection
+      ) ?>"
+      href="/places.php"
+      <?= llama_admin_nav_current(
+          'places',
+          $activeAdminSection
+      ) ?>
+    >
 
-        <i
-          class="fa-solid fa-campground"
-          aria-hidden="true"
-        ></i>
+      <i
+        class="fa-solid fa-location-dot"
+        aria-hidden="true"
+      ></i>
 
-        Basecamp
+      Places
 
-      </a>
-
-
-      <a
-        class="<?= llama_admin_nav_active(
-            'places',
-            $activeAdminSection
-        ) ?>"
-        href="/places.php"
-        <?= llama_admin_nav_current(
-            'places',
-            $activeAdminSection
-        ) ?>
-      >
-
-        <i
-          class="fa-solid fa-location-dot"
-          aria-hidden="true"
-        ></i>
-
-        Places
-
-      </a>
+    </a>
 
 
-    <?php endif; ?>
+    <a
+      class="<?= llama_admin_nav_active(
+          'submissions',
+          $activeAdminSection
+      ) ?>"
+      href="/submissions.php"
+      <?= llama_admin_nav_current(
+          'submissions',
+          $activeAdminSection
+      ) ?>
+    >
+
+      <i
+        class="fa-solid fa-inbox"
+        aria-hidden="true"
+      ></i>
+
+      Submissions
+
+    </a>
 
 
-    <?php if (
-        $canModeratePlaces
-    ): ?>
+    <a
+      class="<?= llama_admin_nav_active(
+          'updates',
+          $activeAdminSection
+      ) ?>"
+      href="/place-updates.php"
+      <?= llama_admin_nav_current(
+          'updates',
+          $activeAdminSection
+      ) ?>
+    >
+
+      <i
+        class="fa-solid fa-pen-to-square"
+        aria-hidden="true"
+      ></i>
+
+      Updates
+
+    </a>
 
 
-      <a
-        class="<?= llama_admin_nav_active(
-            'submissions',
-            $activeAdminSection
-        ) ?>"
-        href="/submissions.php"
-        <?= llama_admin_nav_current(
-            'submissions',
-            $activeAdminSection
-        ) ?>
-      >
+    <a
+      class="<?= llama_admin_nav_active(
+          'users',
+          $activeAdminSection
+      ) ?>"
+      href="/users.php"
+      <?= llama_admin_nav_current(
+          'users',
+          $activeAdminSection
+      ) ?>
+    >
 
-        <i
-          class="fa-solid fa-inbox"
-          aria-hidden="true"
-        ></i>
+      <i
+        class="fa-solid fa-users"
+        aria-hidden="true"
+      ></i>
 
-        Submissions
+      Users
 
-      </a>
-
-
-      <a
-        class="<?= llama_admin_nav_active(
-            'updates',
-            $activeAdminSection
-        ) ?>"
-        href="/place-updates.php"
-        <?= llama_admin_nav_current(
-            'updates',
-            $activeAdminSection
-        ) ?>
-      >
-
-        <i
-          class="fa-solid fa-pen-to-square"
-          aria-hidden="true"
-        ></i>
-
-        Updates
-
-      </a>
+    </a>
 
 
-    <?php endif; ?>
+    <a
+      class="<?= llama_admin_nav_active(
+          'scouts',
+          $activeAdminSection
+      ) ?>"
+      href="/scouts.php"
+      <?= llama_admin_nav_current(
+          'scouts',
+          $activeAdminSection
+      ) ?>
+    >
+
+      <i
+        class="fa-solid fa-binoculars"
+        aria-hidden="true"
+      ></i>
+
+      Scouts
+
+    </a>
 
 
-    <?php if (
-        $isFullAdmin
-    ): ?>
+    <a
+      class="<?= llama_admin_nav_active(
+          'import',
+          $activeAdminSection
+      ) ?>"
+      href="/import-places.php"
+      <?= llama_admin_nav_current(
+          'import',
+          $activeAdminSection
+      ) ?>
+    >
 
+      <i
+        class="fa-solid fa-file-import"
+        aria-hidden="true"
+      ></i>
 
-      <a
-        class="<?= llama_admin_nav_active(
-            'users',
-            $activeAdminSection
-        ) ?>"
-        href="/users.php"
-        <?= llama_admin_nav_current(
-            'users',
-            $activeAdminSection
-        ) ?>
-      >
+      Import
 
-        <i
-          class="fa-solid fa-users"
-          aria-hidden="true"
-        ></i>
-
-        Users
-
-      </a>
-
-
-      <a
-        class="<?= llama_admin_nav_active(
-            'scouts',
-            $activeAdminSection
-        ) ?>"
-        href="/scouts.php"
-        <?= llama_admin_nav_current(
-            'scouts',
-            $activeAdminSection
-        ) ?>
-      >
-
-        <i
-          class="fa-solid fa-binoculars"
-          aria-hidden="true"
-        ></i>
-
-        Scouts
-
-      </a>
-
-
-      <a
-        class="<?= llama_admin_nav_active(
-            'import',
-            $activeAdminSection
-        ) ?>"
-        href="/import-places.php"
-        <?= llama_admin_nav_current(
-            'import',
-            $activeAdminSection
-        ) ?>
-      >
-
-        <i
-          class="fa-solid fa-file-import"
-          aria-hidden="true"
-        ></i>
-
-        Import
-
-      </a>
-
-
-    <?php endif; ?>
+    </a>
 
 
   </div>
