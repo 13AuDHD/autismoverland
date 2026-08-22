@@ -1570,7 +1570,8 @@ function llama_approve_place_update(
                     'role_at_submission'
                 ]
                 ?? 'user'
-            )
+            ),
+            $score
         );
 
 
