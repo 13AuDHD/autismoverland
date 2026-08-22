@@ -1153,16 +1153,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  * Lifetime points are NEVER destroyed here.
                  */
 
-                llama_change_scout_rank(
+                llama_assign_current_scout_rank(
                     $db,
                     $scoutUserId,
-                    LLAMA_SCOUT_RANK_SCOUT,
-                    LLAMA_RANK_REASON_REACTIVATED,
-                    $adminUserId,
-                    null,
-                    'Temporary basic Llama Scout access granted for the configured reactivation window. Former Master Scout rank is not restored.'
+                    LLAMA_SCOUT_RANK_SCOUT
                 );
-
+               
                 $membershipStatus =
                     strtolower(
                         trim(
