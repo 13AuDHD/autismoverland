@@ -10,6 +10,10 @@ require_once
     dirname(__DIR__)
     . '/app/role-display.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/place-access.php';
+
 
 require_role(
     'admin'
@@ -142,9 +146,7 @@ $placeStmt =
             longitude,
             description,
             public_summary,
-            public_location_label,
-            public_latitude,
-            public_longitude
+            public_location_label
 
         FROM places
 
@@ -195,6 +197,14 @@ $error =
 
 /* =========================================================
    SAVE PUBLIC PREVIEW
+
+   Only public-facing text is editable here.
+
+   Map coordinates are never entered manually.
+
+   Visitor and Free account coordinates are always derived
+   automatically from the real Place coordinates by rounding
+   latitude and longitude to one decimal place.
    ========================================================= */
 
 if (
@@ -250,28 +260,6 @@ if (
             );
 
 
-        $publicLatitude =
-            trim(
-                (string) (
-                    $_POST[
-                        'public_latitude'
-                    ]
-                    ?? ''
-                )
-            );
-
-
-        $publicLongitude =
-            trim(
-                (string) (
-                    $_POST[
-                        'public_longitude'
-                    ]
-                    ?? ''
-                )
-            );
-
-
         if (
             mb_strlen(
                 $publicSummary
@@ -296,64 +284,6 @@ if (
                 'The public area name must be 150 characters or less.';
 
 
-        } elseif (
-            $publicLatitude !== ''
-            &&
-            (
-                !is_numeric(
-                    $publicLatitude
-                )
-                ||
-                (float)
-                $publicLatitude <
-                -90
-                ||
-                (float)
-                $publicLatitude >
-                90
-            )
-        ) {
-
-            $error =
-                'Public latitude must be between -90 and 90.';
-
-
-        } elseif (
-            $publicLongitude !== ''
-            &&
-            (
-                !is_numeric(
-                    $publicLongitude
-                )
-                ||
-                (float)
-                $publicLongitude <
-                -180
-                ||
-                (float)
-                $publicLongitude >
-                180
-            )
-        ) {
-
-            $error =
-                'Public longitude must be between -180 and 180.';
-
-
-        } elseif (
-            (
-                $publicLatitude === ''
-            )
-            xor
-            (
-                $publicLongitude === ''
-            )
-        ) {
-
-            $error =
-                'Enter both public map coordinates or leave both blank.';
-
-
         } else {
 
             try {
@@ -362,9 +292,9 @@ if (
 
 
                 /*
-                 * Lock the Place while updating the public-preview
-                 * fields so simultaneous Basecamp edits cannot
-                 * silently overwrite one another.
+                 * Lock the Place while updating the public
+                 * preview text so simultaneous Basecamp edits
+                 * cannot silently overwrite one another.
                  */
 
                 $lockStmt =
@@ -408,8 +338,6 @@ if (
                         SET
                             public_summary = ?,
                             public_location_label = ?,
-                            public_latitude = ?,
-                            public_longitude = ?,
                             updated_at =
                                 CURRENT_TIMESTAMP
 
@@ -427,30 +355,23 @@ if (
                         ? $publicLocationLabel
                         : null,
 
-                    $publicLatitude !== ''
-                        ? (float)
-                          $publicLatitude
-                        : null,
-
-                    $publicLongitude !== ''
-                        ? (float)
-                          $publicLongitude
-                        : null,
-
                     $placeId
                 ]);
 
 
                 if (
                     $update
-                        ->rowCount() <
+                        ->rowCount()
+                    <
                     1
                 ) {
 
                     /*
-                     * MySQL may report 0 when values were unchanged.
-                     * Confirm the row still exists before treating it
-                     * as success.
+                     * MySQL may report zero changed rows when
+                     * the submitted values were identical.
+                     *
+                     * Confirm that the Place still exists
+                     * before treating that as success.
                      */
 
                     $confirmStmt =
@@ -577,14 +498,41 @@ $isPubliclyListed =
     );
 
 
-$hasPublicMapPoint =
-    $place[
-        'public_latitude'
-    ] !== null
+/*
+ * This is the exact same calculation used by the public
+ * access layer for both Visitor and Free accounts.
+ */
+
+$approximateCoordinates =
+    place_limit_coordinates(
+        $place[
+            'latitude'
+        ]
+        ?? null,
+
+        $place[
+            'longitude'
+        ]
+        ?? null
+    );
+
+
+$approximateLatitude =
+    $approximateCoordinates[
+        'latitude'
+    ];
+
+
+$approximateLongitude =
+    $approximateCoordinates[
+        'longitude'
+    ];
+
+
+$hasApproximateMapPoint =
+    $approximateLatitude !== null
     &&
-    $place[
-        'public_longitude'
-    ] !== null;
+    $approximateLongitude !== null;
 
 
 ?>
@@ -805,9 +753,9 @@ require_once
   </section>
 
 
-<!-- =====================================================
-     BASECAMP NAVIGATION
-     ===================================================== -->
+  <!-- =====================================================
+       BASECAMP NAVIGATION
+       ===================================================== -->
 
 <?php
 
@@ -889,7 +837,7 @@ require
               )
           ) ?>
         </strong>.
-        These visitor-preview values are stored safely,
+        Its visitor-preview values are stored,
         but this Place is not currently available through
         the public Places API.
       </p>
@@ -910,12 +858,12 @@ require
       <div>
 
         <h2>
-          Visitor Access Model
+          Place Access Model
         </h2>
 
         <p>
-          This editor controls only the logged-out visitor
-          version of this Place.
+          Coordinate precision is controlled automatically
+          by the Place access layer.
         </p>
 
       </div>
@@ -932,8 +880,8 @@ require
         </div>
 
         <div class="admin-detail-value">
-          Uses the Public Area Name, Public About Summary,
-          and Public Map Coordinates stored on this page.
+          Receives coordinates rounded to one decimal place,
+          plus the public-facing text configured below.
         </div>
 
       </div>
@@ -946,8 +894,9 @@ require
         </div>
 
         <div class="admin-detail-value">
-          Uses the normal approximate-location model
-          and receives the registered-member preview tier.
+          Receives the same one-decimal rounded coordinates
+          as a logged-out visitor, plus the registered-member
+          preview tier.
         </div>
 
       </div>
@@ -956,11 +905,13 @@ require
       <div class="admin-detail-row">
 
         <div class="admin-detail-label">
-          Paid Member / Active Scout
+          Full Access
         </div>
 
         <div class="admin-detail-value">
-          Receives the exact location and full Place details.
+          Paid and complimentary Members, active Scouts,
+          Admins, and Owners receive the exact coordinates
+          and complete Place details.
         </div>
 
       </div>
@@ -971,7 +922,7 @@ require
 
 
   <!-- =====================================================
-       PRIVATE REFERENCE
+       LOCATION REFERENCE
        ===================================================== -->
 
   <section class="admin-panel">
@@ -981,26 +932,16 @@ require
       <div>
 
         <h2>
-          Private Place Location
+          Place Location
         </h2>
 
         <p>
-          This is the real stored location.
-          Use it only as a reference when choosing
-          a safe public-facing area point.
+          The exact coordinates are stored once.
+          Approximate coordinates are generated automatically
+          from these values.
         </p>
 
       </div>
-
-
-      <span
-        class="
-          admin-badge
-          admin-badge--warning
-        "
-      >
-        Private
-      </span>
 
     </div>
 
@@ -1047,7 +988,7 @@ require
       <div class="admin-detail-row">
 
         <div class="admin-detail-label">
-          Real Coordinates
+          Exact Coordinates
         </div>
 
         <div class="admin-detail-value">
@@ -1088,6 +1029,53 @@ require
       </div>
 
 
+      <div class="admin-detail-row">
+
+        <div class="admin-detail-label">
+          Visitor / Free Coordinates
+        </div>
+
+        <div class="admin-detail-value">
+
+          <?php if (
+              $hasApproximateMapPoint
+          ): ?>
+
+            <code>
+
+              <?= e(
+                  number_format(
+                      (float)
+                      $approximateLatitude,
+                      1,
+                      '.',
+                      ''
+                  )
+              ) ?>,
+              <?= e(
+                  number_format(
+                      (float)
+                      $approximateLongitude,
+                      1,
+                      '.',
+                      ''
+                  )
+              ) ?>
+
+            </code>
+
+          <?php else: ?>
+
+            Not available because the real coordinates
+            are missing or invalid.
+
+          <?php endif; ?>
+
+        </div>
+
+      </div>
+
+
     </div>
 
   </section>
@@ -1108,8 +1096,8 @@ require
         </h2>
 
         <p>
-          Create a useful public-facing introduction
-          without exposing the exact Place location.
+          Configure public-facing text without changing
+          or exposing the exact Place coordinates.
         </p>
 
       </div>
@@ -1187,65 +1175,11 @@ require
 
         <p class="admin-field-help">
           Logged-out visitors see this text instead of the
-          full Place description. Avoid distances, road
-          numbers, trail names, identifiable landmarks,
-          turnoffs, or anything else that could reveal
-          the exact site.
+          fuller registered-member description. Avoid road
+          numbers, turnoffs, precise directions, identifiable
+          landmarks, or other details that could reveal the
+          exact site.
         </p>
-
-      </div>
-
-
-      <div class="admin-form-grid">
-
-
-        <div class="admin-field">
-
-          <label for="public_latitude">
-            Public Map Latitude
-          </label>
-
-          <input
-            id="public_latitude"
-            name="public_latitude"
-            type="number"
-            step="0.0000001"
-            min="-90"
-            max="90"
-            value="<?= e(
-                $place[
-                    'public_latitude'
-                ]
-                ?? ''
-            ) ?>"
-          >
-
-        </div>
-
-
-        <div class="admin-field">
-
-          <label for="public_longitude">
-            Public Map Longitude
-          </label>
-
-          <input
-            id="public_longitude"
-            name="public_longitude"
-            type="number"
-            step="0.0000001"
-            min="-180"
-            max="180"
-            value="<?= e(
-                $place[
-                    'public_longitude'
-                ]
-                ?? ''
-            ) ?>"
-          >
-
-        </div>
-
 
       </div>
 
@@ -1253,17 +1187,53 @@ require
       <div
         class="
           admin-notice
-          admin-notice--warning
+          admin-notice--info
         "
       >
 
         <p>
-          These coordinates are the only map point sent to
-          a logged-out visitor. If both fields are blank,
-          logged-out visitors receive no map coordinates.
-          Choose a representative point for the general area
-          instead of merely rounding or slightly moving the
-          private coordinates.
+
+          Map coordinates are automatic.
+
+          <?php if (
+              $hasApproximateMapPoint
+          ): ?>
+
+            Visitors and Free Members currently receive
+
+            <strong>
+
+              <?= e(
+                  number_format(
+                      (float)
+                      $approximateLatitude,
+                      1,
+                      '.',
+                      ''
+                  )
+              ) ?>,
+              <?= e(
+                  number_format(
+                      (float)
+                      $approximateLongitude,
+                      1,
+                      '.',
+                      ''
+                  )
+              ) ?>
+
+            </strong>.
+
+          <?php else: ?>
+
+            This Place does not currently have valid
+            coordinates to place on the public map.
+
+          <?php endif; ?>
+
+          Exact coordinates are reserved for full-access
+          accounts.
+
         </p>
 
       </div>
@@ -1308,8 +1278,8 @@ require
         </h2>
 
         <p>
-          These are the deliberately public-safe values
-          currently stored for this Place.
+          This shows the public-facing values currently used
+          for this Place.
         </p>
 
       </div>
@@ -1371,33 +1341,46 @@ require
       <div class="admin-detail-row">
 
         <div class="admin-detail-label">
-          Public Coordinates
+          Map Coordinates
         </div>
 
         <div class="admin-detail-value">
 
           <?php if (
-              $hasPublicMapPoint
+              $hasApproximateMapPoint
           ): ?>
 
             <code>
 
               <?= e(
-                  $place[
-                      'public_latitude'
-                  ]
+                  number_format(
+                      (float)
+                      $approximateLatitude,
+                      1,
+                      '.',
+                      ''
+                  )
               ) ?>,
               <?= e(
-                  $place[
-                      'public_longitude'
-                  ]
+                  number_format(
+                      (float)
+                      $approximateLongitude,
+                      1,
+                      '.',
+                      ''
+                  )
               ) ?>
 
             </code>
 
+            <span>
+              Automatically rounded from the exact
+              Place coordinates.
+            </span>
+
           <?php else: ?>
 
-            No visitor map point
+            No map point available
 
           <?php endif; ?>
 
@@ -1433,9 +1416,8 @@ require
           <?php else: ?>
 
             Not set.
-            The visitor access layer will use the short
-            fallback description until a public summary
-            is written.
+            The visitor access layer uses the short fallback
+            description until a public summary is written.
 
           <?php endif; ?>
 
