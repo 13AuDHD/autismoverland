@@ -43,42 +43,165 @@ function llama_update_conflict_normalize(
     }
 
 
-    return match ($type) {
+    if (
+        $type ===
+        'bool'
+    ) {
 
-        'bool' =>
-            (bool)
-            $value,
+        if (
+            is_bool(
+                $value
+            )
+        ) {
 
-        'int' =>
-            (
-                $value === ''
-                    ? null
-                    : (int)
-                    $value
-            ),
+            return $value;
 
-        'float' =>
-            (
-                $value === ''
-                    ? null
-                    : (float)
-                    $value
-            ),
+        }
 
-        default =>
-            (
-                trim(
-                    (string)
-                    $value
-                ) === ''
-                    ? null
-                    : trim(
-                        (string)
+
+        if (
+            is_int(
+                $value
+            )
+            ||
+            is_float(
+                $value
+            )
+        ) {
+
+            return
+                (int)
+                $value
+                !==
+                0;
+
+        }
+
+
+        if (
+            is_string(
+                $value
+            )
+        ) {
+
+            $normalized =
+                strtolower(
+                    trim(
                         $value
                     )
-            ),
+                );
 
-    };
+
+            if (
+                $normalized ===
+                ''
+            ) {
+
+                return null;
+
+            }
+
+
+            if (
+                in_array(
+                    $normalized,
+                    [
+                        '1',
+                        'true',
+                        'yes',
+                        'on',
+                    ],
+                    true
+                )
+            ) {
+
+                return true;
+
+            }
+
+
+            if (
+                in_array(
+                    $normalized,
+                    [
+                        '0',
+                        'false',
+                        'no',
+                        'off',
+                    ],
+                    true
+                )
+            ) {
+
+                return false;
+
+            }
+
+        }
+
+
+        throw new InvalidArgumentException(
+            'Invalid boolean value in Place update comparison.'
+        );
+
+    }
+
+
+    if (
+        $type ===
+        'int'
+    ) {
+
+        if (
+            $value ===
+            ''
+        ) {
+
+            return null;
+
+        }
+
+
+        return
+            (int)
+            $value;
+
+    }
+
+
+    if (
+        $type ===
+        'float'
+    ) {
+
+        if (
+            $value ===
+            ''
+        ) {
+
+            return null;
+
+        }
+
+
+        return
+            (float)
+            $value;
+
+    }
+
+
+    $value =
+        trim(
+            (string)
+            $value
+        );
+
+
+    return
+        $value === ''
+            ? null
+            : $value;
 
 }
 
