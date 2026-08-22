@@ -509,6 +509,377 @@ function llama_update_current_field_value(
 
 
 /* =========================================================
+   READ ALL CURRENT CANONICAL VALUES
+
+   Used by contributor-facing forms that need to display the
+   entire structured update field map.
+
+   This avoids performing one SELECT for every editable field.
+
+   Conflict checking still uses the single-field reader so
+   moderation always compares canonical values as late as
+   possible.
+   ========================================================= */
+
+function llama_place_update_current_values(
+    PDO $db,
+    int $placeId,
+    array $fieldMap
+): array {
+
+    if (
+        $placeId < 1
+    ) {
+
+        throw new InvalidArgumentException(
+            'A valid Place is required.'
+        );
+
+    }
+
+
+    $allowedTables = [
+
+        'places',
+        'place_details',
+        'place_sensory',
+        'place_sensory_details',
+        'place_connectivity',
+        'place_amenities',
+        'place_experience',
+
+    ];
+
+
+    $tableRows =
+        [];
+
+
+    /*
+     * Load each ordinary one-row-per-Place table once.
+     */
+
+    foreach (
+        $allowedTables as
+        $table
+    ) {
+
+        if (
+            $table ===
+            'place_sensory'
+        ) {
+
+            continue;
+
+        }
+
+
+        $idColumn =
+            $table ===
+            'places'
+                ? 'id'
+                : 'place_id';
+
+
+        try {
+
+            $stmt =
+                $db->prepare(
+                    'SELECT * '
+                    .
+                    'FROM `'
+                    .
+                    $table
+                    .
+                    '` '
+                    .
+                    'WHERE `'
+                    .
+                    $idColumn
+                    .
+                    '` = ? '
+                    .
+                    'LIMIT 1'
+                );
+
+
+            $stmt->execute([
+                $placeId
+            ]);
+
+
+            $row =
+                $stmt->fetch(
+                    PDO::FETCH_ASSOC
+                );
+
+
+            $tableRows[
+                $table
+            ] =
+                is_array(
+                    $row
+                )
+                    ? $row
+                    : [];
+
+        } catch (
+            Throwable
+        ) {
+
+            /*
+             * Preserve the contributor form's previous
+             * behavior. An unavailable optional table causes
+             * its fields to display as Unknown rather than
+             * breaking the entire page.
+             */
+
+            $tableRows[
+                $table
+            ] =
+                [];
+
+        }
+
+    }
+
+
+    /*
+     * Sensory information has two rows per Place, separated
+     * by daytime/nighttime.
+     */
+
+    $sensoryRows = [
+        'daytime' => [],
+        'nighttime' => [],
+    ];
+
+
+    try {
+
+        $stmt =
+            $db->prepare(
+                '
+                SELECT *
+
+                FROM place_sensory
+
+                WHERE place_id = ?
+
+                  AND period IN
+                  (
+                      \'daytime\',
+                      \'nighttime\'
+                  )
+                '
+            );
+
+
+        $stmt->execute([
+            $placeId
+        ]);
+
+
+        while (
+            $row =
+                $stmt->fetch(
+                    PDO::FETCH_ASSOC
+                )
+        ) {
+
+            $period =
+                (string) (
+                    $row[
+                        'period'
+                    ]
+                    ?? ''
+                );
+
+
+            if (
+                isset(
+                    $sensoryRows[
+                        $period
+                    ]
+                )
+            ) {
+
+                $sensoryRows[
+                    $period
+                ] =
+                    $row;
+
+            }
+
+        }
+
+    } catch (
+        Throwable
+    ) {
+
+        /*
+         * Keep both sensory rows empty so those fields render
+         * as Unknown.
+         */
+
+    }
+
+
+    $values =
+        [];
+
+
+    foreach (
+        $fieldMap as
+        $path =>
+        $definition
+    ) {
+
+        $path =
+            (string)
+            $path;
+
+
+        $table =
+            (string) (
+                $definition[0]
+                ?? ''
+            );
+
+
+        $column =
+            (string) (
+                $definition[1]
+                ?? ''
+            );
+
+
+        $type =
+            (string) (
+                $definition[2]
+                ?? 'string'
+            );
+
+
+        $period =
+            isset(
+                $definition[3]
+            )
+                ? (string)
+                    $definition[3]
+                : null;
+
+
+        if (
+            !in_array(
+                $table,
+                $allowedTables,
+                true
+            )
+        ) {
+
+            $values[
+                $path
+            ] =
+                null;
+
+
+            continue;
+
+        }
+
+
+        $rawValue =
+            null;
+
+
+        if (
+            $table ===
+            'place_sensory'
+        ) {
+
+            if (
+                $period !== null
+                &&
+                isset(
+                    $sensoryRows[
+                        $period
+                    ]
+                )
+                &&
+                array_key_exists(
+                    $column,
+                    $sensoryRows[
+                        $period
+                    ]
+                )
+            ) {
+
+                $rawValue =
+                    $sensoryRows[
+                        $period
+                    ][
+                        $column
+                    ];
+
+            }
+
+        } elseif (
+            isset(
+                $tableRows[
+                    $table
+                ]
+            )
+            &&
+            array_key_exists(
+                $column,
+                $tableRows[
+                    $table
+                ]
+            )
+        ) {
+
+            $rawValue =
+                $tableRows[
+                    $table
+                ][
+                    $column
+                ];
+
+        }
+
+
+        try {
+
+            $values[
+                $path
+            ] =
+                llama_update_conflict_normalize(
+                    $rawValue,
+                    $type
+                );
+
+        } catch (
+            Throwable
+        ) {
+
+            $values[
+                $path
+            ] =
+                null;
+
+        }
+
+    }
+
+
+    return
+        $values;
+
+}
+
+
+/* =========================================================
    FIELD CONFLICT
    ========================================================= */
 
