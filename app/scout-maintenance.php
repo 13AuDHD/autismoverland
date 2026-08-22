@@ -566,7 +566,8 @@ function llama_sync_scout_membership_end(
 function llama_expire_scout_access(
     PDO $db,
     int $scoutProfileId,
-    int $userId
+    int $userId,
+    bool $recordRankHistory = true
 ): void {
 
     $stmt =
@@ -613,18 +614,37 @@ function llama_expire_scout_access(
     }
 
 
-    /*
-     * Remove the current Scout/Master Scout rank and
-     * permanently record what rank was lost.
-     */
+    if (
+        $recordRankHistory
+    ) {
 
-    llama_end_current_scout_rank(
-        $db,
-        $userId,
-        LLAMA_RANK_REASON_SCOUT_EXPIRED,
-        null,
-        'Scout period ended without the required number of approved new Places.'
-    );
+        /*
+         * Normal annual expiration removes an earned rank and
+         * permanently records the rank that was lost.
+         */
+
+        llama_end_current_scout_rank(
+            $db,
+            $userId,
+            LLAMA_RANK_REASON_SCOUT_EXPIRED,
+            null,
+            'Scout period ended without the required number of approved new Places.'
+        );
+
+    } else {
+
+        /*
+         * A failed reactivation window only removes temporary
+         * contributor access. No earned Scout rank existed
+         * during the probationary window.
+         */
+
+        llama_clear_current_scout_rank(
+            $db,
+            $userId
+        );
+
+    }
 
 
     llama_end_scout_complimentary_membership(
@@ -849,13 +869,16 @@ function llama_complete_scout_extension(
     }
 
 
-llama_return_to_basic_scout(
-    $db,
-    $userId,
-    null,
-    LLAMA_RANK_REASON_REACTIVATED,
-    'Successfully completed the Scout reactivation requirement.'
-);
+    llama_record_scout_rank_change(
+        $db,
+        $userId,
+        LLAMA_SCOUT_RANK_NONE,
+        LLAMA_SCOUT_RANK_SCOUT,
+        LLAMA_RANK_REASON_REACTIVATED,
+        null,
+        null,
+        'Successfully completed the Scout reactivation requirement.'
+    );
 
 
     llama_sync_scout_membership_end(
@@ -939,9 +962,9 @@ function llama_fail_scout_extension(
     llama_expire_scout_access(
         $db,
         $scoutProfileId,
-        $userId
+        $userId,
+        false
     );
-
 }
 
 
