@@ -952,14 +952,16 @@ if (
     } else {
 
         $updateType =
-            trim(
-                (string) (
-                    $_POST[
+            $editUpdate
+
+                ? (string) (
+                    $editUpdate[
                         'update_type'
                     ]
                     ?? LLAMA_PLACE_UPDATE
                 )
-            );
+
+                : LLAMA_PLACE_UPDATE;
 
 
         $visitedDate =
@@ -2025,80 +2027,16 @@ require_once
       <section class="update-place-card">
 
         <h2>
-          What kind of contribution is this?
+          Contribution type
         </h2>
 
         <p>
-          Choose the option that best describes what you are
-          changing.
+          Submit the specific Place information that needs to
+          change. Moderation will classify the contribution as
+          a Place Update or Factual Correction during review so
+          the same classification standard is applied
+          consistently.
         </p>
-
-
-        <div class="update-kind-grid">
-
-
-          <label class="update-kind">
-
-            <strong>
-
-              <input
-                type="radio"
-                name="update_type"
-                value="<?= e(
-                    LLAMA_PLACE_UPDATE
-                ) ?>"
-                <?= $updateType ===
-                    LLAMA_PLACE_UPDATE
-                        ? 'checked'
-                        : ''
-                ?>
-              >
-
-              Place Update
-
-            </strong>
-
-            <span>
-              New observations from a visit, changed road or
-              site conditions, new connectivity information,
-              amenities, sensory conditions, accessibility,
-              or similar updates.
-            </span>
-
-          </label>
-
-
-          <label class="update-kind">
-
-            <strong>
-
-              <input
-                type="radio"
-                name="update_type"
-                value="<?= e(
-                    LLAMA_PLACE_CORRECTION
-                ) ?>"
-                <?= $updateType ===
-                    LLAMA_PLACE_CORRECTION
-                        ? 'checked'
-                        : ''
-                ?>
-              >
-
-              Factual Correction
-
-            </strong>
-
-            <span>
-              A specific existing value is simply wrong, such
-              as a misspelled road, incorrect land manager,
-              wrong capacity, or similar factual error.
-            </span>
-
-          </label>
-
-
-        </div>
 
       </section>
 
