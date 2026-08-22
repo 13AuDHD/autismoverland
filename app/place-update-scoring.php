@@ -37,6 +37,17 @@ require_once
 
    ========================================================= */
 
+/*
+ * Increment this whenever the scoring algorithm, field
+ * weighting model, or interpretation of score results changes.
+ *
+ * Changing policy values such as the maximum available points
+ * does not necessarily require a new algorithm version because
+ * those values are captured separately in each score result.
+ */
+
+const LLAMA_PLACE_UPDATE_SCORING_VERSION =
+    '1.0';
 
 /* =========================================================
    BUILD FIELD WEIGHT MAP
@@ -193,6 +204,9 @@ function llama_score_place_update(
 
         return [
 
+            'scoring_version' =>
+                LLAMA_PLACE_UPDATE_SCORING_VERSION,
+
             'points_awarded' =>
                 0,
 
@@ -209,7 +223,6 @@ function llama_score_place_update(
                 [],
 
         ];
-
     }
 
 
@@ -236,6 +249,9 @@ function llama_score_place_update(
 
 
         return [
+
+            'scoring_version' =>
+                LLAMA_PLACE_UPDATE_SCORING_VERSION,
 
             'points_awarded' =>
                 $points,
@@ -389,6 +405,9 @@ function llama_score_place_update(
 
     return [
 
+        'scoring_version' =>
+            LLAMA_PLACE_UPDATE_SCORING_VERSION,
+
         'points_awarded' =>
             min(
                 $maxPoints,
@@ -413,5 +432,4 @@ function llama_score_place_update(
             $unscoredFields,
 
     ];
-
 }
