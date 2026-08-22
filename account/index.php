@@ -68,7 +68,7 @@ $canModeratePlaces =
 
 
 /* =========================================================
-   SCOUT PROFILE
+   SCOUT SUMMARY
    ========================================================= */
 
 $scoutSummary =
@@ -83,18 +83,16 @@ $hasActiveScoutAccess =
     &&
     $scoutSummary
     &&
-    $scoutSummary[
-        'active'
-    ];
+    !empty(
+        $scoutSummary[
+            'active'
+        ]
+    );
 
 
 /* =========================================================
    SCOUT ONBOARDING STATUS
    ========================================================= */
-
-$scoutProfile =
-    null;
-
 
 $stmt =
     $db->prepare(
@@ -132,10 +130,6 @@ $scoutProfile =
     )
     ?: null;
 
-
-/* =========================================================
-   ONBOARDING CARD
-   ========================================================= */
 
 $showScoutOnboarding =
     false;
@@ -197,9 +191,6 @@ if (
             $showScoutOnboarding =
                 true;
 
-            $scoutOnboardingTitle =
-                'Scout Onboarding';
-
             $scoutOnboardingDescription =
                 'Tell us a little more about you and continue your Scout onboarding.';
 
@@ -213,7 +204,6 @@ if (
 
 
         case 'application_submitted':
-
         case 'training':
 
             $showScoutOnboarding =
@@ -254,14 +244,6 @@ if (
             break;
 
 
-        case 'active':
-
-            $showScoutOnboarding =
-                false;
-
-            break;
-
-
         case 'declined':
 
             $showScoutOnboarding =
@@ -276,15 +258,10 @@ if (
             $scoutOnboardingHref =
                 'scout-invite.php';
 
-            $scoutOnboardingStep =
-                '';
-
             break;
 
 
-        case 'inactive':
-
-        case 'removed':
+        default:
 
             $showScoutOnboarding =
                 false;
@@ -334,7 +311,8 @@ function account_scout_date(
 
 
     if (
-        $timestamp === false
+        $timestamp ===
+        false
     ) {
 
         return $date;
@@ -342,11 +320,10 @@ function account_scout_date(
     }
 
 
-    return
-        date(
-            'M j, Y',
-            $timestamp
-        );
+    return date(
+        'M j, Y',
+        $timestamp
+    );
 
 }
 
@@ -424,35 +401,13 @@ $displayName =
     }
 
 
-    .scout-onboarding-card::after {
-      content: "";
-
-      position: absolute;
-
-      width: 120px;
-      height: 120px;
-
-      right: -45px;
-      bottom: -60px;
-
-      border:
-        1px solid
-        rgba(23, 40, 34, .08);
-
-      border-radius: 50%;
-    }
-
-
     .scout-onboarding-meta {
       display: inline-flex;
       align-items: center;
       gap: 7px;
 
       margin-bottom: 10px;
-
-      padding:
-        6px
-        9px;
+      padding: 6px 9px;
 
       border-radius: 999px;
 
@@ -485,16 +440,12 @@ $displayName =
       align-items: flex-start;
 
       gap: 18px;
-
       margin-bottom: 18px;
     }
 
 
     .scout-summary-header h3 {
-      margin:
-        0
-        0
-        5px;
+      margin: 0 0 5px;
     }
 
 
@@ -509,9 +460,7 @@ $displayName =
       align-items: center;
       gap: 6px;
 
-      padding:
-        7px
-        10px;
+      padding: 7px 10px;
 
       border-radius: 999px;
 
@@ -520,15 +469,12 @@ $displayName =
 
       font-size: .76rem;
       font-weight: 800;
-
       white-space: nowrap;
     }
 
 
     .scout-status-badge.is-active {
-      background:
-        #172822;
-
+      background: #172822;
       color: #fff;
     }
 
@@ -561,7 +507,6 @@ $displayName =
 
     .scout-summary-stat span {
       display: block;
-
       margin-bottom: 5px;
 
       font-size: .74rem;
@@ -583,7 +528,6 @@ $displayName =
     .scout-progress-label {
       display: flex;
       justify-content: space-between;
-
       gap: 10px;
 
       margin-bottom: 7px;
@@ -615,15 +559,29 @@ $displayName =
 
 
     .scout-progress-note {
-      margin:
-        10px
-        0
-        0;
+      margin: 10px 0 0;
 
       font-size: .8rem;
       line-height: 1.5;
 
       opacity: .72;
+    }
+
+
+    .account-dashboard-card .card-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      width: 34px;
+      height: 34px;
+
+      margin-bottom: 10px;
+
+      border-radius: 9px;
+
+      background:
+        rgba(23, 40, 34, .07);
     }
 
 
@@ -683,19 +641,15 @@ require_once
   <header class="account-header">
 
     <h1>
-
       Welcome,
-
       <?= e(
           $displayName
       ) ?>
-
     </h1>
 
-
     <p>
-      Manage your Llama Scout account,
-      places, submissions, and access.
+      Manage your Llama Scout account, Places, contributions,
+      and access.
     </p>
 
   </header>
@@ -717,8 +671,8 @@ require_once
       </strong>
 
       <p>
-        You'll need to verify your email before
-        contributing or making protected changes.
+        You'll need to verify your email before contributing
+        or making protected changes.
       </p>
 
     </section>
@@ -731,6 +685,7 @@ require_once
   ): ?>
 
     <section class="scout-summary">
+
 
       <div class="scout-summary-header">
 
@@ -751,9 +706,11 @@ require_once
         <span
           class="
             scout-status-badge
-            <?= $scoutSummary[
-                'active'
-            ]
+            <?= !empty(
+                $scoutSummary[
+                    'active'
+                ]
+            )
                 ? 'is-active'
                 : ''
             ?>
@@ -771,11 +728,13 @@ require_once
               ]
           ) ?>
 
-          ·
+          Â·
 
-          <?= $scoutSummary[
-              'active'
-          ]
+          <?= !empty(
+              $scoutSummary[
+                  'active'
+              ]
+          )
               ? 'Active'
               : 'Inactive'
           ?>
@@ -864,6 +823,7 @@ require_once
           <strong
             style="font-size: 1rem;"
           >
+
             <?= e(
                 account_scout_date(
                     $scoutSummary[
@@ -871,6 +831,7 @@ require_once
                     ]
                 )
             ) ?>
+
           </strong>
 
         </div>
@@ -894,7 +855,6 @@ require_once
             ) ?>
           </span>
 
-
           <span>
 
             <?= (int)
@@ -915,7 +875,7 @@ require_once
                 ]
             ?>
 
-            new places
+            new Places
 
           </span>
 
@@ -945,18 +905,19 @@ require_once
         <p class="scout-progress-note">
 
           <?php if (
-              $scoutSummary[
-                  'period'
-              ][
-                  'requirement_met'
-              ]
+              !empty(
+                  $scoutSummary[
+                      'period'
+                  ][
+                      'requirement_met'
+                  ]
+              )
           ): ?>
 
-            Annual new-place requirement complete.
-
-            Additional new places, updates, corrections,
-            and other approved contributions can continue
-            earning lifetime points.
+            Current new-Place requirement complete.
+            Additional new Places, updates, corrections, and
+            other approved contributions can continue earning
+            lifetime points.
 
           <?php else: ?>
 
@@ -977,12 +938,11 @@ require_once
                     'remaining_new_places'
                 ]
                 === 1
-                    ? 'place is'
-                    : 'places are'
+                    ? 'Place is'
+                    : 'Places are'
             ?>
 
             required for the current Scout period.
-
             Lifetime points do not replace this requirement.
 
           <?php endif; ?>
@@ -1013,13 +973,22 @@ require_once
         class="account-dashboard-card"
       >
 
+        <span class="card-icon">
+
+          <i
+            class="fa-solid fa-user"
+            aria-hidden="true"
+          ></i>
+
+        </span>
+
         <h3>
           Profile
         </h3>
 
         <p>
-          Manage your username, display name,
-          email, and account information.
+          Manage your username, display name, email, and
+          account information.
         </p>
 
       </a>
@@ -1030,13 +999,21 @@ require_once
         class="account-dashboard-card"
       >
 
+        <span class="card-icon">
+
+          <i
+            class="fa-solid fa-id-card"
+            aria-hidden="true"
+          ></i>
+
+        </span>
+
         <h3>
           Membership
         </h3>
 
         <p>
-          View your membership,
-          plan, and account access.
+          View your membership, plan, and account access.
         </p>
 
       </a>
@@ -1047,13 +1024,21 @@ require_once
         class="account-dashboard-card"
       >
 
+        <span class="card-icon">
+
+          <i
+            class="fa-solid fa-bookmark"
+            aria-hidden="true"
+          ></i>
+
+        </span>
+
         <h3>
           Saved Places
         </h3>
 
         <p>
-          Keep track of places you want
-          to visit or return to.
+          Keep track of Places you want to visit or return to.
         </p>
 
       </a>
@@ -1091,7 +1076,6 @@ require_once
             </span>
 
           <?php endif; ?>
-
 
           <h3>
             <?= e(
@@ -1134,13 +1118,22 @@ require_once
           class="account-dashboard-card"
         >
 
+          <span class="card-icon">
+
+            <i
+              class="fa-solid fa-location-dot"
+              aria-hidden="true"
+            ></i>
+
+          </span>
+
           <h3>
             Add a Place
           </h3>
 
           <p>
-            Share a dispersed campsite or other place
-            you've personally visited.
+            Share a dispersed campsite or other Place you've
+            personally visited.
           </p>
 
         </a>
@@ -1151,12 +1144,49 @@ require_once
           class="account-dashboard-card"
         >
 
+          <span class="card-icon">
+
+            <i
+              class="fa-solid fa-map-location-dot"
+              aria-hidden="true"
+            ></i>
+
+          </span>
+
           <h3>
-            My Submissions
+            My New Place Submissions
           </h3>
 
           <p>
-            View and manage your submitted places.
+            Track new Places you submitted and their review
+            status.
+          </p>
+
+        </a>
+
+
+        <a
+          href="my-place-updates.php"
+          class="account-dashboard-card"
+        >
+
+          <span class="card-icon">
+
+            <i
+              class="fa-solid fa-pen-to-square"
+              aria-hidden="true"
+            ></i>
+
+          </span>
+
+          <h3>
+            My Place Updates
+          </h3>
+
+          <p>
+            Track updates and factual corrections to existing
+            Places, revise returned updates, and see points
+            earned after approval.
           </p>
 
         </a>
@@ -1188,13 +1218,22 @@ require_once
           class="account-dashboard-card"
         >
 
+          <span class="card-icon">
+
+            <i
+              class="fa-solid fa-compass"
+              aria-hidden="true"
+            ></i>
+
+          </span>
+
           <h3>
             Scout Basecamp
           </h3>
 
           <p>
-            View your full Scout record,
-            reports, progress, and field tools.
+            View your Scout record, current-period progress,
+            lifetime contributions, and Master Scout progress.
           </p>
 
         </a>
@@ -1211,8 +1250,17 @@ require_once
             class="account-dashboard-card"
           >
 
+            <span class="card-icon">
+
+              <i
+                class="fa-solid fa-clipboard-check"
+                aria-hidden="true"
+              ></i>
+
+            </span>
+
             <h3>
-              Moderation
+              Place Moderation
             </h3>
 
             <p>
@@ -1251,14 +1299,22 @@ require_once
           class="account-dashboard-card"
         >
 
+          <span class="card-icon">
+
+            <i
+              class="fa-solid fa-shield-halved"
+              aria-hidden="true"
+            ></i>
+
+          </span>
+
           <h3>
             Admin Basecamp
           </h3>
 
           <p>
-            Manage users, places,
-            submissions, Scouts,
-            memberships, and Llama Scout.
+            Manage users, Places, submissions, Scouts,
+            memberships, policy, and moderation.
           </p>
 
         </a>
@@ -1273,9 +1329,7 @@ require_once
 
   <footer class="account-footer">
 
-    <a
-      href="https://llamascout.com"
-    >
+    <a href="https://llamascout.com">
       Back to Llama Scout
     </a>
 
