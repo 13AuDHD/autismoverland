@@ -64,6 +64,9 @@ llama_ensure_place_submission_role_column(
     $db
 );
 
+llama_ensure_place_contributions_table(
+    $db
+);
 
 /* =========================================================
    POST ONLY
