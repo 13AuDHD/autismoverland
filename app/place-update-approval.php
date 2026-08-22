@@ -1506,7 +1506,13 @@ function llama_approve_place_update(
             $reviewedBy,
             $pointsAwarded,
             $changedFields,
-            $reviewNotes
+            $reviewNotes,
+            (string) (
+                $update[
+                    'role_at_submission'
+                ]
+                ?? 'user'
+            )
         );
 
 
