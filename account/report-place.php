@@ -2,58 +2,78 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
+
 
 require_verified_email();
 
-$user = current_user();
+
+$user =
+    current_user();
+
 
 start_llama_session();
 
-$db = db();
+
+$db =
+    db();
+
+
+$userId =
+    (int)
+    $user['id'];
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function e(mixed $value): string
-{
+function e(
+    mixed $value
+): string {
+
     return htmlspecialchars(
-        (string) $value,
+        (string)
+        $value,
         ENT_QUOTES,
         'UTF-8'
     );
 }
 
 
-function remove_uploaded_files(array $paths): void
-{
-    foreach ($paths as $path) {
+function remove_uploaded_files(
+    array $paths
+): void {
+
+    foreach (
+        $paths as
+        $path
+    ) {
 
         if (
-            is_string($path) &&
-            is_file($path)
+            is_string(
+                $path
+            )
+            &&
+            is_file(
+                $path
+            )
         ) {
-            @unlink($path);
+
+            @unlink(
+                $path
+            );
         }
     }
 }
 
 
 /*
- * Detect an uploaded image based primarily on
- * its real contents rather than trusting the
- * browser-provided extension or MIME type.
- *
- * Returns:
- *
- * [
- *   'extension' => 'jpg',
- *   'mime_type' => 'image/jpeg'
- * ]
- *
- * or null when unsupported/invalid.
+ * Detect an uploaded image primarily from its actual
+ * contents rather than trusting the browser-provided
+ * extension or MIME type.
  */
 
 function detect_image_upload_format(
@@ -62,9 +82,17 @@ function detect_image_upload_format(
 ): ?array {
 
     if (
-        !is_file($tmpName) ||
-        filesize($tmpName) < 8
+        !is_file(
+            $tmpName
+        )
+        ||
+        filesize(
+            $tmpName
+        )
+        <
+        8
     ) {
+
         return null;
     }
 
@@ -76,7 +104,10 @@ function detect_image_upload_format(
         );
 
 
-    if (!$handle) {
+    if (
+        !$handle
+    ) {
+
         return null;
     }
 
@@ -88,22 +119,29 @@ function detect_image_upload_format(
         );
 
 
-    fclose($handle);
+    fclose(
+        $handle
+    );
 
 
     if (
-        !is_string($header) ||
-        strlen($header) < 8
+        !is_string(
+            $header
+        )
+        ||
+        strlen(
+            $header
+        )
+        <
+        8
     ) {
+
         return null;
     }
 
 
     /* =====================================================
        JPEG / JPEG_R / ULTRA HDR JPEG
-
-       Standard JPEG magic:
-       FF D8 FF
        ===================================================== */
 
     if (
@@ -111,20 +149,23 @@ function detect_image_upload_format(
             $header,
             0,
             3
-        ) === "\xFF\xD8\xFF"
+        )
+        ===
+        "\xFF\xD8\xFF"
     ) {
 
         return [
-            'extension' => 'jpg',
-            'mime_type' => 'image/jpeg'
+            'extension' =>
+                'jpg',
+
+            'mime_type' =>
+                'image/jpeg'
         ];
     }
 
 
     /* =====================================================
        PNG
-
-       89 50 4E 47 0D 0A 1A 0A
        ===================================================== */
 
     if (
@@ -132,21 +173,23 @@ function detect_image_upload_format(
             $header,
             0,
             8
-        ) ===
+        )
+        ===
         "\x89PNG\x0D\x0A\x1A\x0A"
     ) {
 
         return [
-            'extension' => 'png',
-            'mime_type' => 'image/png'
+            'extension' =>
+                'png',
+
+            'mime_type' =>
+                'image/png'
         ];
     }
 
 
     /* =====================================================
        WEBP
-
-       RIFF .... WEBP
        ===================================================== */
 
     if (
@@ -154,30 +197,31 @@ function detect_image_upload_format(
             $header,
             0,
             4
-        ) === 'RIFF' &&
+        )
+        ===
+        'RIFF'
+        &&
         substr(
             $header,
             8,
             4
-        ) === 'WEBP'
+        )
+        ===
+        'WEBP'
     ) {
 
         return [
-            'extension' => 'webp',
-            'mime_type' => 'image/webp'
+            'extension' =>
+                'webp',
+
+            'mime_type' =>
+                'image/webp'
         ];
     }
 
 
     /* =====================================================
        HEIC / HEIF / AVIF
-
-       These are ISO Base Media File Format containers.
-
-       Common structure:
-       ....ftypXXXX
-
-       where XXXX identifies the brand.
        ===================================================== */
 
     $ftypPosition =
@@ -188,9 +232,14 @@ function detect_image_upload_format(
 
 
     if (
-        $ftypPosition !== false &&
-        strlen($header) >=
-            $ftypPosition + 8
+        $ftypPosition !==
+        false
+        &&
+        strlen(
+            $header
+        )
+        >=
+        $ftypPosition + 8
     ) {
 
         $brand =
@@ -203,23 +252,13 @@ function detect_image_upload_format(
             );
 
 
-        /*
-         * HEIC / HEIF brands.
-         */
-
         $heifBrands = [
-
             'heic',
             'heix',
             'hevc',
             'hevx',
             'heim',
             'heis',
-
-            /*
-             * Generic HEIF containers.
-             */
-
             'mif1',
             'msf1'
         ];
@@ -242,30 +281,25 @@ function detect_image_upload_format(
                 );
 
 
-            /*
-             * Preserve HEIF extension when
-             * the actual upload used .heif.
-             */
-
             $extension =
-                $originalExtension === 'heif'
+                $originalExtension ===
+                'heif'
                     ? 'heif'
                     : 'heic';
 
 
             return [
-                'extension' => $extension,
+                'extension' =>
+                    $extension,
+
                 'mime_type' =>
-                    $extension === 'heif'
+                    $extension ===
+                    'heif'
                         ? 'image/heif'
                         : 'image/heic'
             ];
         }
 
-
-        /*
-         * AVIF brands.
-         */
 
         if (
             in_array(
@@ -279,8 +313,11 @@ function detect_image_upload_format(
         ) {
 
             return [
-                'extension' => 'avif',
-                'mime_type' => 'image/avif'
+                'extension' =>
+                    'avif',
+
+                'mime_type' =>
+                    'image/avif'
             ];
         }
     }
@@ -288,12 +325,6 @@ function detect_image_upload_format(
 
     /* =====================================================
        MIME FALLBACK
-
-       Useful when a valid system MIME detector
-       recognizes a supported format that was
-       not caught above.
-
-       We still restrict this to known image types.
        ===================================================== */
 
     $finfo =
@@ -308,51 +339,76 @@ function detect_image_upload_format(
         );
 
 
-    if (!is_string($mime)) {
+    if (
+        !is_string(
+            $mime
+        )
+    ) {
+
         return null;
     }
 
 
-    return match ($mime) {
+    return match (
+        $mime
+    ) {
 
         'image/jpeg',
         'image/jpeg_r' =>
             [
-                'extension' => 'jpg',
-                'mime_type' => $mime
+                'extension' =>
+                    'jpg',
+
+                'mime_type' =>
+                    $mime
             ],
 
         'image/png' =>
             [
-                'extension' => 'png',
-                'mime_type' => 'image/png'
+                'extension' =>
+                    'png',
+
+                'mime_type' =>
+                    'image/png'
             ],
 
         'image/webp' =>
             [
-                'extension' => 'webp',
-                'mime_type' => 'image/webp'
+                'extension' =>
+                    'webp',
+
+                'mime_type' =>
+                    'image/webp'
             ],
 
         'image/heic',
         'image/vnd.android.heic',
         'image/heic-sequence' =>
             [
-                'extension' => 'heic',
-                'mime_type' => 'image/heic'
+                'extension' =>
+                    'heic',
+
+                'mime_type' =>
+                    'image/heic'
             ],
 
         'image/heif',
         'image/heif-sequence' =>
             [
-                'extension' => 'heif',
-                'mime_type' => 'image/heif'
+                'extension' =>
+                    'heif',
+
+                'mime_type' =>
+                    'image/heif'
             ],
 
         'image/avif' =>
             [
-                'extension' => 'avif',
-                'mime_type' => 'image/avif'
+                'extension' =>
+                    'avif',
+
+                'mime_type' =>
+                    'image/avif'
             ],
 
         default =>
@@ -368,22 +424,41 @@ function detect_image_upload_format(
 $slug =
     trim(
         (string) (
-            $_GET['place']
-            ?? $_POST['place_slug']
-            ?? ''
+            $_GET[
+                'place'
+            ]
+            ??
+            $_POST[
+                'place_slug'
+            ]
+            ??
+            ''
         )
     );
 
 
-if ($slug === '') {
+if (
+    $slug === ''
+) {
 
-    http_response_code(400);
+    http_response_code(
+        400
+    );
+
 
     exit(
         'A place is required.'
     );
 }
 
+
+/*
+ * Initial lookup controls whether the form itself may be
+ * displayed.
+ *
+ * The Place is checked and locked again inside the POST
+ * transaction before any report is created.
+ */
 
 $placeStmt =
     $db->prepare(
@@ -399,9 +474,11 @@ $placeStmt =
         FROM places
 
         WHERE slug = ?
-          AND status IN (
-              "active",
-              "featured"
+
+          AND status IN
+          (
+              \'active\',
+              \'featured\'
           )
 
         LIMIT 1
@@ -420,9 +497,14 @@ $place =
     );
 
 
-if (!$place) {
+if (
+    !$place
+) {
 
-    http_response_code(404);
+    http_response_code(
+        404
+    );
+
 
     exit(
         'That place is not currently available.'
@@ -446,7 +528,9 @@ if (
         'report_place_csrf'
     ] =
         bin2hex(
-            random_bytes(32)
+            random_bytes(
+                32
+            )
         );
 }
 
@@ -499,27 +583,44 @@ $allowedTypes = [
    FORM STATE
    ========================================================= */
 
-$problemType = '';
+$problemType =
+    '';
 
-$details = '';
 
-$error = '';
+$details =
+    '';
 
-$success = false;
 
-$submittedReportId = null;
+$error =
+    '';
 
-$successfulPhotoCount = 0;
+
+$success =
+    false;
+
+
+$submittedReportId =
+    null;
+
+
+$successfulPhotoCount =
+    0;
 
 
 /* =========================================================
    UPLOAD SETTINGS
    ========================================================= */
 
-$maxPhotos = 3;
+$maxPhotos =
+    3;
+
 
 $maxPhotoBytes =
-    8 * 1024 * 1024;
+    8
+    *
+    1024
+    *
+    1024;
 
 
 /* =========================================================
@@ -527,19 +628,25 @@ $maxPhotoBytes =
    ========================================================= */
 
 if (
-    $_SERVER['REQUEST_METHOD']
-    === 'POST'
+    $_SERVER[
+        'REQUEST_METHOD'
+    ]
+    ===
+    'POST'
 ) {
 
     $submittedToken =
-        $_POST['csrf_token']
+        $_POST[
+            'csrf_token'
+        ]
         ?? '';
 
 
     if (
         !is_string(
             $submittedToken
-        ) ||
+        )
+        ||
         !hash_equals(
             $csrfToken,
             $submittedToken
@@ -548,6 +655,7 @@ if (
 
         $error =
             'Your session could not be verified. Reload the page and try again.';
+
 
     } else {
 
@@ -565,7 +673,9 @@ if (
         $details =
             trim(
                 (string) (
-                    $_POST['details']
+                    $_POST[
+                        'details'
+                    ]
                     ?? ''
                 )
             );
@@ -585,19 +695,25 @@ if (
             $error =
                 'Choose the type of problem you found.';
 
+
         } elseif (
             mb_strlen(
                 $details
-            ) < 10
+            )
+            <
+            10
         ) {
 
             $error =
                 'Please give us a little more detail about what changed or what you found.';
 
+
         } elseif (
             mb_strlen(
                 $details
-            ) > 3000
+            )
+            >
+            3000
         ) {
 
             $error =
@@ -609,16 +725,25 @@ if (
            BUILD UPLOAD LIST
            ================================================= */
 
-        $uploads = [];
+        $uploads =
+            [];
 
 
         if (
-            $error === '' &&
+            $error === ''
+            &&
             isset(
-                $_FILES['photos']
-            ) &&
+                $_FILES[
+                    'photos'
+                ]
+            )
+            &&
             is_array(
-                $_FILES['photos']['name']
+                $_FILES[
+                    'photos'
+                ][
+                    'name'
+                ]
                 ?? null
             )
         ) {
@@ -627,7 +752,9 @@ if (
                 count(
                     $_FILES[
                         'photos'
-                    ]['name']
+                    ][
+                        'name'
+                    ]
                 );
 
 
@@ -640,14 +767,20 @@ if (
                 $uploadError =
                     $_FILES[
                         'photos'
-                    ]['error'][$i]
-                    ?? UPLOAD_ERR_NO_FILE;
+                    ][
+                        'error'
+                    ][
+                        $i
+                    ]
+                    ??
+                    UPLOAD_ERR_NO_FILE;
 
 
                 if (
-                    $uploadError
-                    === UPLOAD_ERR_NO_FILE
+                    $uploadError ===
+                    UPLOAD_ERR_NO_FILE
                 ) {
+
                     continue;
                 }
 
@@ -657,19 +790,31 @@ if (
                     'name' =>
                         $_FILES[
                             'photos'
-                        ]['name'][$i]
+                        ][
+                            'name'
+                        ][
+                            $i
+                        ]
                         ?? '',
 
                     'tmp_name' =>
                         $_FILES[
                             'photos'
-                        ]['tmp_name'][$i]
+                        ][
+                            'tmp_name'
+                        ][
+                            $i
+                        ]
                         ?? '',
 
                     'size' =>
                         $_FILES[
                             'photos'
-                        ]['size'][$i]
+                        ][
+                            'size'
+                        ][
+                            $i
+                        ]
                         ?? 0,
 
                     'error' =>
@@ -684,8 +829,12 @@ if (
            ================================================= */
 
         if (
-            $error === '' &&
-            count($uploads) >
+            $error === ''
+            &&
+            count(
+                $uploads
+            )
+            >
             $maxPhotos
         ) {
 
@@ -698,22 +847,28 @@ if (
            VALIDATE PHOTOS
            ================================================= */
 
-        $validatedUploads = [];
+        $validatedUploads =
+            [];
 
 
         if (
-            $error === '' &&
+            $error === ''
+            &&
             $uploads
         ) {
 
             foreach (
                 $uploads as
-                $index => $upload
+                $index =>
+                $upload
             ) {
 
                 if (
-                    $upload['error']
-                    !== UPLOAD_ERR_OK
+                    $upload[
+                        'error'
+                    ]
+                    !==
+                    UPLOAD_ERR_OK
                 ) {
 
                     $error =
@@ -725,7 +880,10 @@ if (
 
                 if (
                     (int)
-                    $upload['size'] >
+                    $upload[
+                        'size'
+                    ]
+                    >
                     $maxPhotoBytes
                 ) {
 
@@ -738,8 +896,11 @@ if (
 
                 if (
                     (int)
-                    $upload['size']
-                    < 1
+                    $upload[
+                        'size'
+                    ]
+                    <
+                    1
                 ) {
 
                     $error =
@@ -769,19 +930,20 @@ if (
                 }
 
 
-                /* =========================================
-                   DETECT ACTUAL IMAGE FORMAT
-                   ========================================= */
-
                 $detected =
                     detect_image_upload_format(
                         $tmpName,
                         (string)
-                        $upload['name']
+                        $upload[
+                            'name'
+                        ]
                     );
 
 
-                if ($detected === null) {
+                if (
+                    $detected ===
+                    null
+                ) {
 
                     $error =
                         'That photo format is not supported. Please upload a photo from your phone or camera.';
@@ -790,14 +952,14 @@ if (
                 }
 
 
-                /* =========================================
-                   ADDITIONAL VALIDATION FOR FORMATS
-                   PHP CAN DECODE RELIABLY
-
-                   HEIC / HEIF / AVIF are already
-                   container-validated above and may not
-                   be decodable by every web server.
-                   ========================================= */
+                /*
+                 * JPEG, PNG and WebP can be decoded reliably
+                 * by the PHP runtime used here.
+                 *
+                 * HEIC, HEIF and AVIF were already
+                 * container-validated above and may not be
+                 * decodable by every server installation.
+                 */
 
                 if (
                     in_array(
@@ -820,7 +982,8 @@ if (
 
 
                     if (
-                        $imageInfo === false
+                        $imageInfo ===
+                        false
                     ) {
 
                         $error =
@@ -839,12 +1002,16 @@ if (
                     'original_name' =>
                         basename(
                             (string)
-                            $upload['name']
+                            $upload[
+                                'name'
+                            ]
                         ),
 
                     'size' =>
                         (int)
-                        $upload['size'],
+                        $upload[
+                            'size'
+                        ],
 
                     'mime_type' =>
                         $detected[
@@ -864,58 +1031,159 @@ if (
 
 
         /* =================================================
-           EXISTING OPEN REPORT
-           ================================================= */
-
-        if ($error === '') {
-
-            $existingStmt =
-                $db->prepare(
-                    '
-                    SELECT id
-
-                    FROM place_reports
-
-                    WHERE place_id = ?
-                      AND user_id = ?
-                      AND status IN (
-                          "open",
-                          "investigating"
-                      )
-
-                    LIMIT 1
-                    '
-                );
-
-
-            $existingStmt->execute([
-                $place['id'],
-                $user['id']
-            ]);
-
-
-            if (
-                $existingStmt->fetch()
-            ) {
-
-                $error =
-                    'You already have an open report for this place.';
-            }
-        }
-
-
-        /* =================================================
            SAVE REPORT + PHOTOS
+
+           The Place row is locked first.
+
+           This provides one serialization point for reports
+           against the same Place and lets us safely check:
+
+           1. The Place is still public.
+           2. This user does not already have an open report.
+
+           No report is created from a stale form.
            ================================================= */
 
-        if ($error === '') {
+        if (
+            $error === ''
+        ) {
 
-            $movedFiles = [];
+            $movedFiles =
+                [];
 
 
             try {
 
                 $db->beginTransaction();
+
+
+                /* =========================================
+                   LOCK + REVALIDATE PLACE
+                   ========================================= */
+
+                $lockedPlaceStmt =
+                    $db->prepare(
+                        '
+                        SELECT
+                            id,
+                            slug,
+                            name,
+                            status,
+                            city,
+                            state
+
+                        FROM places
+
+                        WHERE id = ?
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        '
+                    );
+
+
+                $lockedPlaceStmt->execute([
+                    (int)
+                    $place[
+                        'id'
+                    ]
+                ]);
+
+
+                $lockedPlace =
+                    $lockedPlaceStmt->fetch(
+                        PDO::FETCH_ASSOC
+                    );
+
+
+                if (
+                    !$lockedPlace
+                ) {
+
+                    throw new DomainException(
+                        'That place no longer exists.'
+                    );
+                }
+
+
+                if (
+                    !in_array(
+                        (string)
+                        $lockedPlace[
+                            'status'
+                        ],
+                        [
+                            'active',
+                            'featured'
+                        ],
+                        true
+                    )
+                ) {
+
+                    throw new DomainException(
+                        'That place is no longer publicly available.'
+                    );
+                }
+
+
+                /*
+                 * Keep the rendered Place data synchronized
+                 * with the row we just locked.
+                 */
+
+                $place =
+                    $lockedPlace;
+
+
+                /* =========================================
+                   EXISTING OPEN REPORT
+
+                   This happens while the Place lock is held,
+                   preventing two simultaneous requests from
+                   both passing the duplicate check.
+                   ========================================= */
+
+                $existingStmt =
+                    $db->prepare(
+                        '
+                        SELECT id
+
+                        FROM place_reports
+
+                        WHERE place_id = ?
+                          AND user_id = ?
+
+                          AND status IN
+                          (
+                              \'open\',
+                              \'investigating\'
+                          )
+
+                        LIMIT 1
+
+                        FOR UPDATE
+                        '
+                    );
+
+
+                $existingStmt->execute([
+                    (int)
+                    $place[
+                        'id'
+                    ],
+                    $userId
+                ]);
+
+
+                if (
+                    $existingStmt->fetchColumn()
+                ) {
+
+                    throw new DomainException(
+                        'You already have an open report for this place.'
+                    );
+                }
 
 
                 /* =========================================
@@ -925,32 +1193,33 @@ if (
                 $insertReport =
                     $db->prepare(
                         '
-                        INSERT INTO place_reports (
+                        INSERT INTO place_reports
+                        (
                             place_id,
                             user_id,
                             problem_type,
                             details,
                             status
                         )
-                        VALUES (
+                        VALUES
+                        (
                             ?,
                             ?,
                             ?,
                             ?,
-                            "open"
+                            \'open\'
                         )
                         '
                     );
 
 
                 $insertReport->execute([
-
-                    $place['id'],
-
-                    $user['id'],
-
+                    (int)
+                    $place[
+                        'id'
+                    ],
+                    $userId,
                     $problemType,
-
                     $details
                 ]);
 
@@ -960,28 +1229,49 @@ if (
                     $db->lastInsertId();
 
 
+                if (
+                    $reportId < 1
+                ) {
+
+                    throw new RuntimeException(
+                        'The report could not be created.'
+                    );
+                }
+
+
                 /* =========================================
                    PHOTO DIRECTORY
                    ========================================= */
 
-                if ($validatedUploads) {
+                if (
+                    $validatedUploads
+                ) {
 
                     $year =
-                        date('Y');
+                        date(
+                            'Y'
+                        );
+
 
                     $month =
-                        date('m');
+                        date(
+                            'm'
+                        );
 
 
                     $relativeDirectory =
-                        '/uploads/place-reports/' .
-                        $year .
-                        '/' .
+                        '/uploads/place-reports/'
+                        .
+                        $year
+                        .
+                        '/'
+                        .
                         $month;
 
 
                     $absoluteDirectory =
-                        dirname(__DIR__) .
+                        dirname(__DIR__)
+                        .
                         $relativeDirectory;
 
 
@@ -996,7 +1286,8 @@ if (
                                 $absoluteDirectory,
                                 0755,
                                 true
-                            ) &&
+                            )
+                            &&
                             !is_dir(
                                 $absoluteDirectory
                             )
@@ -1019,27 +1310,38 @@ if (
                     ) {
 
                         $randomName =
-                            'report-' .
-                            $reportId .
-                            '-' .
+                            'report-'
+                            .
+                            $reportId
+                            .
+                            '-'
+                            .
                             bin2hex(
-                                random_bytes(12)
-                            ) .
-                            '.' .
+                                random_bytes(
+                                    12
+                                )
+                            )
+                            .
+                            '.'
+                            .
                             $upload[
                                 'extension'
                             ];
 
 
                         $absolutePath =
-                            $absoluteDirectory .
-                            '/' .
+                            $absoluteDirectory
+                            .
+                            '/'
+                            .
                             $randomName;
 
 
                         $relativePath =
-                            $relativeDirectory .
-                            '/' .
+                            $relativeDirectory
+                            .
+                            '/'
+                            .
                             $randomName;
 
 
@@ -1062,10 +1364,6 @@ if (
                             $absolutePath;
 
 
-                        /* =================================
-                           DATABASE PHOTO RECORD
-                           ================================= */
-
                         $imageStmt =
                             $db->prepare(
                                 '
@@ -1079,7 +1377,8 @@ if (
                                     file_size,
                                     sort_order
                                 )
-                                VALUES (
+                                VALUES
+                                (
                                     ?,
                                     ?,
                                     ?,
@@ -1092,23 +1391,17 @@ if (
 
 
                         $imageStmt->execute([
-
                             $reportId,
-
                             $relativePath,
-
                             $upload[
                                 'original_name'
                             ],
-
                             $upload[
                                 'mime_type'
                             ],
-
                             $upload[
                                 'size'
                             ],
-
                             $upload[
                                 'sort_order'
                             ]
@@ -1123,30 +1416,38 @@ if (
                 $submittedReportId =
                     $reportId;
 
+
                 $successfulPhotoCount =
                     count(
                         $validatedUploads
                     );
 
+
                 $success =
                     true;
 
+
                 $problemType =
                     '';
+
 
                 $details =
                     '';
 
 
                 /*
-                 * Rotate token after success.
+                 * Rotate the CSRF token after successful
+                 * submission so the same form cannot simply
+                 * be replayed.
                  */
 
                 $_SESSION[
                     'report_place_csrf'
                 ] =
                     bin2hex(
-                        random_bytes(32)
+                        random_bytes(
+                            32
+                        )
                     );
 
 
@@ -1154,6 +1455,28 @@ if (
                     $_SESSION[
                         'report_place_csrf'
                     ];
+
+
+            } catch (
+                DomainException $exception
+            ) {
+
+                if (
+                    $db->inTransaction()
+                ) {
+
+                    $db->rollBack();
+                }
+
+
+                remove_uploaded_files(
+                    $movedFiles
+                );
+
+
+                $error =
+                    $exception
+                        ->getMessage();
 
 
             } catch (
@@ -1169,8 +1492,9 @@ if (
 
 
                 /*
-                 * Database rollback cannot
-                 * delete files already moved.
+                 * Database rollback cannot remove files that
+                 * have already been moved into permanent
+                 * storage.
                  */
 
                 remove_uploaded_files(
@@ -1179,8 +1503,10 @@ if (
 
 
                 error_log(
-                    'Llama Scout place report error: ' .
-                    $exception->getMessage()
+                    'Llama Scout place report error: '
+                    .
+                    $exception
+                        ->getMessage()
                 );
 
 
@@ -1190,6 +1516,7 @@ if (
         }
     }
 }
+
 
 ?>
 <!doctype html>
@@ -1250,8 +1577,10 @@ require_once
 
   <a
     class="report-back"
-    href="https://llamascout.com/place.html?place=<?= urlencode(
-        $place['slug']
+    href="https://llamascout.com/place.php?place=<?= urlencode(
+        $place[
+            'slug'
+        ]
     ) ?>"
   >
 
@@ -1260,7 +1589,7 @@ require_once
       aria-hidden="true"
     ></i>
 
-    Back to Scout Report
+    Back to Place
 
   </a>
 
@@ -1281,14 +1610,20 @@ require_once
     <p class="report-place-name">
 
       <?= e(
-          $place['name']
+          $place[
+              'name'
+          ]
       ) ?>
 
 
       <?php if (
-          $place['city']
+          $place[
+              'city'
+          ]
           ||
-          $place['state']
+          $place[
+              'state'
+          ]
       ): ?>
 
         &middot;
@@ -1297,8 +1632,12 @@ require_once
             implode(
                 ', ',
                 array_filter([
-                    $place['city'],
-                    $place['state']
+                    $place[
+                        'city'
+                    ],
+                    $place[
+                        'state'
+                    ]
                 ])
             )
         ) ?>
@@ -1333,16 +1672,19 @@ require_once
 
 
         <?php if (
-            $successfulPhotoCount > 0
+            $successfulPhotoCount
+            >
+            0
         ): ?>
 
           <br><br>
 
           <?= $successfulPhotoCount ?>
 
-          <?= $successfulPhotoCount === 1
-              ? 'photo was'
-              : 'photos were'
+          <?= $successfulPhotoCount ===
+              1
+                  ? 'photo was'
+                  : 'photos were'
           ?>
 
           attached successfully.
@@ -1379,8 +1721,10 @@ require_once
 
         <a
           class="report-primary-link"
-          href="https://llamascout.com/place.html?place=<?= urlencode(
-              $place['slug']
+          href="https://llamascout.com/place.php?place=<?= urlencode(
+              $place[
+                  'slug'
+              ]
           ) ?>"
         >
 
@@ -1389,7 +1733,7 @@ require_once
             aria-hidden="true"
           ></i>
 
-          Return to Scout Report
+          Return to Place
 
         </a>
 
@@ -1457,7 +1801,9 @@ require_once
           type="hidden"
           name="place_slug"
           value="<?= e(
-              $place['slug']
+              $place[
+                  'slug'
+              ]
           ) ?>"
         >
 
@@ -1491,20 +1837,19 @@ require_once
 
 
             <?php foreach (
-                $allowedTypes
-                as $value => $label
+                $allowedTypes as
+                $value =>
+                $label
             ): ?>
 
               <option
                 value="<?= e(
                     $value
                 ) ?>"
-                <?= (
-                    $problemType
-                    === $value
-                )
-                    ? 'selected'
-                    : ''
+                <?= $problemType ===
+                    $value
+                        ? 'selected'
+                        : ''
                 ?>
               >
 
