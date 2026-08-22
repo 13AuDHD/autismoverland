@@ -1382,23 +1382,29 @@ if (
                     );
 
 
+                $extensionEligibleStatuses = [
+                    'inactive',
+                    'removed'
+                ];
+
+
                 if (
                     !$freshProfile
                     ||
-                    (
+                    !in_array(
                         (string) (
                             $freshProfile[
                                 'status'
                             ]
                             ?? ''
-                        )
-                        !==
-                        'inactive'
+                        ),
+                        $extensionEligibleStatuses,
+                        true
                     )
                 ) {
 
                     throw new RuntimeException(
-                        'Only an inactive former Scout can receive a 30-day Scout extension.'
+                        'Only an inactive or removed former Scout can receive a 30-day Scout extension.'
                     );
                 }
 
@@ -1622,8 +1628,11 @@ if (
 
                         WHERE id = ?
                           AND user_id = ?
-                          AND status =
-                              \'inactive\'
+                          AND status IN
+                          (
+                              \'inactive\',
+                              \'removed\'
+                          )
                         '
                     );
 
@@ -2541,9 +2550,14 @@ $activeExtension =
 
 
 $canGrantExtension =
-    $scoutStatus
-    ===
-    'inactive'
+    in_array(
+        $scoutStatus,
+        [
+            'inactive',
+            'removed'
+        ],
+        true
+    )
     &&
     !$activeExtension;
 
