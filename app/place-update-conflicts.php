@@ -859,20 +859,117 @@ function llama_assert_place_update_not_stale(
     }
 
 
+    $alreadyCurrent =
+        array_values(
+            array_filter(
+                $conflicts,
+                static fn (
+                    array $conflict
+                ): bool =>
+                    (
+                        $conflict[
+                            'reason'
+                        ]
+                        ?? ''
+                    )
+                    ===
+                    'already-current'
+            )
+        );
+
+
+    $trueConflicts =
+        array_values(
+            array_filter(
+                $conflicts,
+                static fn (
+                    array $conflict
+                ): bool =>
+                    (
+                        $conflict[
+                            'reason'
+                        ]
+                        ?? ''
+                    )
+                    !==
+                    'already-current'
+            )
+        );
+
+
+    if (
+        $alreadyCurrent
+        &&
+        !$trueConflicts
+    ) {
+
+        $paths =
+            array_values(
+                array_map(
+                    static fn (
+                        array $conflict
+                    ): string =>
+                        (string) (
+                            $conflict[
+                                'path'
+                            ]
+                            ?? 'unknown field'
+                        ),
+                    $alreadyCurrent
+                )
+            );
+
+
+        $message =
+            count(
+                $paths
+            )
+            ===
+            1
+
+                ? 'This update cannot be approved because '
+                    .
+                    $paths[0]
+                    .
+                    ' already matches the proposed value.'
+
+                : 'This update cannot be approved because '
+                    .
+                    count(
+                        $paths
+                    )
+                    .
+                    ' proposed fields already match the current Place values: '
+                    .
+                    implode(
+                        ', ',
+                        $paths
+                    )
+                    .
+                    '.';
+
+
+        throw new DomainException(
+            $message
+        );
+
+    }
+
+
     $paths =
         array_values(
             array_map(
                 static fn (
                     array $conflict
                 ): string =>
-                    (string)
-                    (
+                    (string) (
                         $conflict[
                             'path'
                         ]
                         ?? 'unknown field'
                     ),
-                $conflicts
+                $trueConflicts
+                    ?: $conflicts
             )
         );
 
@@ -905,6 +1002,10 @@ function llama_assert_place_update_not_stale(
                 .
                 '.';
 
+
+    throw new DomainException(
+        $message
+    );
 
     throw new DomainException(
         $message
