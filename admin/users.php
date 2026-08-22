@@ -35,14 +35,30 @@ $db =
     db();
 
 
+$currentUserId =
+    (int)
+    $user['id'];
+
+
 /* =========================================================
    CURRENT AUTHORITY
    ========================================================= */
 
 $currentUserIsOwner =
     user_is_owner(
-        (int)
-        $user['id']
+        $currentUserId
+    );
+
+
+$primaryRoleLabel =
+    llama_primary_role_label(
+        $currentUserId
+    );
+
+
+$primaryRoleIcon =
+    llama_primary_role_icon(
+        $currentUserId
     );
 
 
@@ -62,9 +78,10 @@ if (
         'admin_users_csrf'
     ] =
         bin2hex(
-            random_bytes(32)
+            random_bytes(
+                32
+            )
         );
-
 }
 
 
@@ -87,7 +104,6 @@ function e(
         ENT_QUOTES,
         'UTF-8'
     );
-
 }
 
 
@@ -104,7 +120,6 @@ function format_date(
     ) {
 
         return 'Never';
-
     }
 
 
@@ -115,7 +130,6 @@ function format_date(
             ? 'M j, Y g:i A'
             : 'M j, Y'
     );
-
 }
 
 
@@ -150,9 +164,7 @@ function status_label(
                     (string) $status
                 )
             ),
-
     };
-
 }
 
 
@@ -191,9 +203,7 @@ function role_label(
                     $role
                 )
             ),
-
     };
-
 }
 
 
@@ -209,16 +219,16 @@ function scout_status_label(
             'Invited',
 
         'application_started' =>
-            'Application Started',
+            'About You',
 
         'application_submitted' =>
-            'Application Submitted',
+            'About You Complete',
 
         'training' =>
             'Training',
 
         'pending_approval' =>
-            'Pending Approval',
+            'Awaiting Approval',
 
         'active' =>
             'Active Scout',
@@ -234,11 +244,13 @@ function scout_status_label(
 
         default =>
             'Not a Scout',
-
     };
-
 }
 
+
+/* =========================================================
+   SCOUT INVITATION EMAIL
+   ========================================================= */
 
 function send_scout_invitation_email(
     array $candidate
@@ -250,16 +262,23 @@ function send_scout_invitation_email(
                 $candidate[
                     'display_name'
                 ]
-                ?: $candidate[
+                ?:
+                $candidate[
                     'username'
                 ]
-                ?: 'there'
+                ?:
+                'there'
             )
         );
 
 
+    /*
+     * scout-invite.php is the one canonical account-side
+     * Scout invitation page.
+     */
+
     $url =
-        'https://account.llamascout.com/scout-invitation.php';
+        'https://account.llamascout.com/scout-invite.php';
 
 
     $subject =
@@ -271,13 +290,19 @@ function send_scout_invitation_email(
         .
         "You've been invited to join the Llama Scout team as a Scout.\n\n"
         .
-        "Scout invitations are earned by community members who have shown that they can contribute useful place information to Llama Scout.\n\n"
+        "Scout invitations are offered to community members whose contributions suggest they may be a good fit for the Scout team.\n\n"
         .
-        "Scouts receive access to additional Scout tools and full free annual Llama Scout access while their Scout status remains active.\n\n"
+        "Active Scouts receive Scout tools and complimentary full Llama Scout access while their Scout status remains active.\n\n"
         .
-        "Becoming a Scout is optional. You can review the invitation, application requirements, and expectations before deciding.\n\n"
+        "Becoming a Scout is optional. You can review the invitation and Scout expectations before deciding.\n\n"
         .
-        "View your invitation:\n{$url}\n\n"
+        "Your invitation expires 30 days after it was sent.\n\n"
+        .
+        "Review your invitation:\n"
+        .
+        $url
+        .
+        "\n\n"
         .
         "Llama Scout\n"
         .
@@ -303,6 +328,7 @@ function send_scout_invitation_email(
     $html = <<<HTML
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
 </head>
@@ -355,15 +381,15 @@ function send_scout_invitation_email(
       </p>
 
       <p style="line-height:1.6;">
-        Scout invitations are earned by community members
-        who have shown that they can contribute useful place
-        information to Llama Scout.
+        Scout invitations are offered to community members
+        whose contributions suggest they may be a good fit
+        for the Scout team.
       </p>
 
       <p style="line-height:1.6;">
-        Scouts receive additional Scout tools and full free 
-        Llama Scout access while their Scout status remains
-        active.
+        Active Scouts receive Scout tools and complimentary
+        full Llama Scout access while their Scout status
+        remains active.
       </p>
 
       <p style="
@@ -393,7 +419,15 @@ function send_scout_invitation_email(
         line-height:1.6;
       ">
         Becoming a Scout is optional. You can review
-        the invitation and expectations before deciding.
+        the invitation and Scout expectations before deciding.
+      </p>
+
+      <p style="
+        color:#667069;
+        font-size:14px;
+        line-height:1.6;
+      ">
+        This invitation expires 30 days after it was sent.
       </p>
 
       <hr style="
@@ -416,6 +450,7 @@ function send_scout_invitation_email(
   </div>
 
 </body>
+
 </html>
 HTML;
 
@@ -429,7 +464,6 @@ HTML;
         $text,
         $html
     );
-
 }
 
 
@@ -447,6 +481,18 @@ $error =
 
 /* =========================================================
    HANDLE SCOUT INVITATION
+
+   Normal invitation rules:
+
+   - active account
+   - verified email
+   - not Owner/Admin
+   - not current Scout/Master Scout
+   - at least one approved community submission
+   - no Scout profile OR previous invitation declined
+
+   Former inactive/removed Scouts are not restarted here.
+   Those accounts use the separate Scout extension process.
    ========================================================= */
 
 if (
@@ -523,20 +569,37 @@ if (
                             u.username,
                             u.display_name,
                             u.status,
+                            u.email_verified_at,
+
+                            COUNT(
+                                DISTINCT CASE
+                                    WHEN ps.status =
+                                        \'approved\'
+                                    THEN ps.id
+                                END
+                            )
+                                AS approved_submission_count,
 
                             GROUP_CONCAT(
                                 DISTINCT r.slug
                                 ORDER BY r.slug
                                 SEPARATOR \',\'
-                            ) AS role_slugs
+                            )
+                                AS role_slugs
 
                         FROM users u
 
                         LEFT JOIN user_roles ur
-                          ON ur.user_id = u.id
+                          ON ur.user_id =
+                             u.id
 
                         LEFT JOIN roles r
-                          ON r.id = ur.role_id
+                          ON r.id =
+                             ur.role_id
+
+                        LEFT JOIN place_submissions ps
+                          ON ps.user_id =
+                             u.id
 
                         WHERE u.id = ?
 
@@ -545,7 +608,8 @@ if (
                             u.email,
                             u.username,
                             u.display_name,
-                            u.status
+                            u.status,
+                            u.email_verified_at
 
                         LIMIT 1
                         '
@@ -579,11 +643,16 @@ if (
                                 'role_slugs'
                             ]
                         )
-                            ? explode(
-                                ',',
-                                $candidate[
-                                    'role_slugs'
-                                ]
+                            ? array_values(
+                                array_filter(
+                                    explode(
+                                        ',',
+                                        (string)
+                                        $candidate[
+                                            'role_slugs'
+                                        ]
+                                    )
+                                )
                             )
                             : [];
 
@@ -631,12 +700,34 @@ if (
                     } elseif (
                         $candidate[
                             'status'
-                        ]
-                        !== 'active'
+                        ] !== 'active'
                     ) {
 
                         $error =
                             'Only active accounts can be invited to become Scouts.';
+
+
+                    } elseif (
+                        empty(
+                            $candidate[
+                                'email_verified_at'
+                            ]
+                        )
+                    ) {
+
+                        $error =
+                            'The account must verify its email address before receiving a Scout invitation.';
+
+
+                    } elseif (
+                        (int)
+                        $candidate[
+                            'approved_submission_count'
+                        ] < 1
+                    ) {
+
+                        $error =
+                            'Scout candidates need at least one approved community submission.';
 
 
                     } else {
@@ -675,26 +766,24 @@ if (
                                 );
 
 
+                            /*
+                             * A declined invitation may be offered again.
+                             *
+                             * Inactive and removed former Scouts use the
+                             * separate 30-day Scout extension process.
+                             */
+
                             if (
                                 $existingScout
                                 &&
-                                !in_array(
-                                    $existingScout[
-                                        'status'
-                                    ],
-                                    [
-                                        'declined',
-                                        'inactive',
-                                        'removed',
-                                    ],
-                                    true
-                                )
+                                $existingScout[
+                                    'status'
+                                ] !== 'declined'
                             ) {
 
                                 throw new RuntimeException(
-                                    'This user already has an active Scout invitation or Scout process.'
+                                    'This user already has a Scout profile and cannot be invited through the new-Scout invitation process.'
                                 );
-
                             }
 
 
@@ -756,19 +845,38 @@ if (
                                                 NULL,
 
                                             removal_reason =
-                                                NULL
+                                                NULL,
 
-                                        WHERE user_id = ?
+                                            updated_at =
+                                                CURRENT_TIMESTAMP
+
+                                        WHERE id = ?
+                                          AND user_id = ?
+                                          AND status =
+                                              \'declined\'
                                         '
                                     );
 
 
                                 $update->execute([
-                                    $user[
+                                    $currentUserId,
+                                    (int)
+                                    $existingScout[
                                         'id'
                                     ],
                                     $candidateId
                                 ]);
+
+
+                                if (
+                                    $update->rowCount()
+                                    < 1
+                                ) {
+
+                                    throw new RuntimeException(
+                                        'The Scout invitation could not be restarted because its status changed.'
+                                    );
+                                }
 
 
                             } else {
@@ -802,16 +910,19 @@ if (
 
                                 $insert->execute([
                                     $candidateId,
-                                    $user[
-                                        'id'
-                                    ]
+                                    $currentUserId
                                 ]);
-
                             }
 
 
                             $db->commit();
 
+
+                            /*
+                             * The invitation remains valid even if SMTP is
+                             * temporarily unavailable. Basecamp reports the
+                             * mail failure separately.
+                             */
 
                             $sent =
                                 send_scout_invitation_email(
@@ -830,10 +941,12 @@ if (
                                         $candidate[
                                             'display_name'
                                         ]
-                                        ?: $candidate[
+                                        ?:
+                                        $candidate[
                                             'username'
                                         ]
-                                        ?: $candidate[
+                                        ?:
+                                        $candidate[
                                             'email'
                                         ]
                                     )
@@ -845,7 +958,6 @@ if (
 
                                 $message =
                                     'The Scout invitation was created, but the email could not be sent.';
-
                             }
 
 
@@ -858,7 +970,6 @@ if (
                             ) {
 
                                 $db->rollBack();
-
                             }
 
 
@@ -871,15 +982,10 @@ if (
 
 
                             $error =
-                                $exception
-                                    ->getMessage();
-
+                                'The Scout invitation could not be created. Check the Scout profile and try again.';
                         }
-
                     }
-
                 }
-
             }
 
 
@@ -887,11 +993,8 @@ if (
 
             $error =
                 'That admin action is not supported.';
-
         }
-
     }
-
 }
 
 
@@ -998,6 +1101,7 @@ foreach (
                 array_filter(
                     explode(
                         ',',
+                        (string)
                         $row[
                             'role_slugs'
                         ]
@@ -1110,7 +1214,6 @@ foreach (
                 * 100
             )
             : 0;
-
 }
 
 
@@ -1124,30 +1227,31 @@ unset(
    ========================================================= */
 
 $roles =
-    $db->query(
-        "
-        SELECT
-            id,
-            slug
+    $db
+        ->query(
+            "
+            SELECT
+                id,
+                slug
 
-        FROM roles
+            FROM roles
 
-        ORDER BY
-            CASE slug
-                WHEN 'owner' THEN 1
-                WHEN 'admin' THEN 2
-                WHEN 'master-scout' THEN 3
-                WHEN 'master_scout' THEN 3
-                WHEN 'scout' THEN 4
-                WHEN 'member' THEN 5
-                ELSE 10
-            END,
-            slug ASC
-        "
-    )
-    ->fetchAll(
-        PDO::FETCH_ASSOC
-    );
+            ORDER BY
+                CASE slug
+                    WHEN 'owner' THEN 1
+                    WHEN 'admin' THEN 2
+                    WHEN 'master-scout' THEN 3
+                    WHEN 'master_scout' THEN 3
+                    WHEN 'scout' THEN 4
+                    WHEN 'member' THEN 5
+                    ELSE 10
+                END,
+                slug ASC
+            "
+        )
+        ->fetchAll(
+            PDO::FETCH_ASSOC
+        );
 
 
 /* =========================================================
@@ -1187,7 +1291,6 @@ foreach (
     ) {
 
         $activeUsers++;
-
     }
 
 
@@ -1198,7 +1301,6 @@ foreach (
     ) {
 
         $verifiedUsers++;
-
     }
 
 
@@ -1213,11 +1315,33 @@ foreach (
     ) {
 
         $activeScouts++;
-
     }
 
 
+    $rowScoutStatus =
+        (string) (
+            $row[
+                'scout_status'
+            ]
+            ?? ''
+        );
+
+
+    $eligibleScoutProfile =
+        $rowScoutStatus === ''
+        ||
+        $rowScoutStatus === 'declined';
+
+
     if (
+        $row[
+            'status'
+        ] === 'active'
+        &&
+        $row[
+            'is_verified'
+        ]
+        &&
         $row[
             'approved_submission_count'
         ] > 0
@@ -1237,12 +1361,12 @@ foreach (
         !$row[
             'is_master_scout'
         ]
+        &&
+        $eligibleScoutProfile
     ) {
 
         $scoutCandidates++;
-
     }
-
 }
 
 ?>
@@ -1332,17 +1456,17 @@ require_once
 
         <p class="admin-eyebrow">
 
-          <?php if (
-              $currentUserIsOwner
-          ): ?>
+          <i
+            class="<?= e(
+                $primaryRoleIcon
+            ) ?>"
+            aria-hidden="true"
+          ></i>
 
-            Llama Scout Owner
-
-          <?php else: ?>
-
-            Llama Scout Admin
-
-          <?php endif; ?>
+          Llama Scout
+          <?= e(
+              $primaryRoleLabel
+          ) ?>
 
         </p>
 
@@ -1362,9 +1486,9 @@ require_once
   </section>
 
 
-<!-- =====================================================
-     BASECAMP NAVIGATION
-     ===================================================== -->
+  <!-- =====================================================
+       BASECAMP NAVIGATION
+       ===================================================== -->
 
 <?php
 
@@ -1429,52 +1553,67 @@ require
   >
 
     <article class="admin-stat">
+
       <span class="admin-stat-label">
         Users
       </span>
+
       <strong class="admin-stat-value">
         <?= $totalUsers ?>
       </strong>
+
     </article>
 
 
     <article class="admin-stat">
+
       <span class="admin-stat-label">
         Active
       </span>
+
       <strong class="admin-stat-value">
         <?= $activeUsers ?>
       </strong>
+
     </article>
 
 
     <article class="admin-stat">
+
       <span class="admin-stat-label">
         Verified
       </span>
+
       <strong class="admin-stat-value">
         <?= $verifiedUsers ?>
       </strong>
+
     </article>
 
 
     <article class="admin-stat">
+
       <span class="admin-stat-label">
         Scout Candidates
       </span>
+
       <strong class="admin-stat-value">
         <?= $scoutCandidates ?>
       </strong>
+
     </article>
 
 
     <article class="admin-stat">
+
       <span class="admin-stat-label">
         Scouts
       </span>
+
       <strong class="admin-stat-value">
         <?= $activeScouts ?>
       </strong>
+
     </article>
 
   </section>
@@ -1568,6 +1707,7 @@ require
           >
             <?= e(
                 role_label(
+                    (string)
                     $role[
                         'slug'
                     ]
@@ -1607,11 +1747,15 @@ require
         </option>
 
         <option value="application">
-          Applications
+          Onboarding
         </option>
 
         <option value="active">
           Active Scouts
+        </option>
+
+        <option value="former">
+          Former Scouts
         </option>
 
         <option value="none">
@@ -1698,10 +1842,12 @@ require
                   $row[
                       'display_name'
                   ]
-                  ?: $row[
+                  ?:
+                  $row[
                       'username'
                   ]
-                  ?: $row[
+                  ?:
+                  $row[
                       'email'
                   ]
               )
@@ -1768,111 +1914,115 @@ require
               'is_master_scout'
           ];
 
-        if (
-    $rowIsOwner
-) {
 
-    $rowPrimaryRole =
-        'owner';
+      if (
+          $rowIsOwner
+      ) {
 
-} elseif (
-    $rowIsAdmin
-) {
-
-    $rowPrimaryRole =
-        'admin';
-
-} elseif (
-    (bool)
-    $row[
-        'is_master_scout'
-    ]
-) {
-
-    $rowPrimaryRole =
-        'master-scout';
-
-} elseif (
-    (bool)
-    $row[
-        'is_scout'
-    ]
-) {
-
-    $rowPrimaryRole =
-        'scout';
-
-} elseif (
-    in_array(
-        'member',
-        $row[
-            'roles'
-        ],
-        true
-    )
-) {
-
-    $rowPrimaryRole =
-        'member';
-
-} else {
-
-    $rowPrimaryRole =
-        'user';
-
-}
+          $rowPrimaryRole =
+              'owner';
 
 
-$rowPrimaryRoleLabel =
-    match (
-        $rowPrimaryRole
-    ) {
+      } elseif (
+          $rowIsAdmin
+      ) {
 
-        'owner' =>
-            'Owner',
-
-        'admin' =>
-            'Admin',
-
-        'master-scout' =>
-            'Master Scout',
-
-        'scout' =>
-            'Scout',
-
-        'member' =>
-            'Member',
-
-        default =>
-            'User',
-
-    };
+          $rowPrimaryRole =
+              'admin';
 
 
-$rowPrimaryRoleIcon =
-    match (
-        $rowPrimaryRole
-    ) {
+      } elseif (
+          (bool)
+          $row[
+              'is_master_scout'
+          ]
+      ) {
 
-        'owner' =>
-            'fa-solid fa-crown',
+          $rowPrimaryRole =
+              'master-scout';
 
-        'admin' =>
-            'fa-solid fa-shield-halved',
 
-        'master-scout' =>
-            'fa-solid fa-compass',
+      } elseif (
+          (bool)
+          $row[
+              'is_scout'
+          ]
+      ) {
 
-        'scout' =>
-            'fa-solid fa-binoculars',
+          $rowPrimaryRole =
+              'scout';
 
-        'member' =>
-            'fa-solid fa-user',
 
-        default =>
-            'fa-regular fa-user',
+      } elseif (
+          in_array(
+              'member',
+              $row[
+                  'roles'
+              ],
+              true
+          )
+      ) {
 
-    };
+          $rowPrimaryRole =
+              'member';
+
+
+      } else {
+
+          $rowPrimaryRole =
+              'user';
+      }
+
+
+      $rowPrimaryRoleLabel =
+          match (
+              $rowPrimaryRole
+          ) {
+
+              'owner' =>
+                  'Owner',
+
+              'admin' =>
+                  'Admin',
+
+              'master-scout' =>
+                  'Master Scout',
+
+              'scout' =>
+                  'Scout',
+
+              'member' =>
+                  'Member',
+
+              default =>
+                  'User',
+          };
+
+
+      $rowPrimaryRoleIcon =
+          match (
+              $rowPrimaryRole
+          ) {
+
+              'owner' =>
+                  'fa-solid fa-crown',
+
+              'admin' =>
+                  'fa-solid fa-shield-halved',
+
+              'master-scout' =>
+                  'fa-solid fa-compass',
+
+              'scout' =>
+                  'fa-solid fa-binoculars',
+
+              'member' =>
+                  'fa-solid fa-user',
+
+              default =>
+                  'fa-regular fa-user',
+          };
+
 
       $rowIsProtectedStaff =
           $rowIsOwner
@@ -1901,6 +2051,15 @@ $rowPrimaryRoleIcon =
 
       $isCandidate =
           $row[
+              'status'
+          ] === 'active'
+          &&
+          (bool)
+          $row[
+              'is_verified'
+          ]
+          &&
+          $row[
               'approved_submission_count'
           ] > 0
           &&
@@ -1908,29 +2067,18 @@ $rowPrimaryRoleIcon =
           &&
           !$rowIsAdmin
           &&
-          !$rowIsScout;
-
-
-      $canInvite =
-          $isCandidate
-          &&
-          $row[
-              'status'
-          ] === 'active'
+          !$rowIsScout
           &&
           (
               !$hasScoutProcess
               ||
-              in_array(
-                  $scoutStatus,
-                  [
-                      'declined',
-                      'inactive',
-                      'removed',
-                  ],
-                  true
-              )
+              $scoutStatus ===
+                  'declined'
           );
+
+
+      $canInvite =
+          $isCandidate;
 
 
       $scoutFilter =
@@ -1940,7 +2088,8 @@ $rowPrimaryRoleIcon =
       if (
           $rowIsScout
           ||
-          $scoutStatus === 'active'
+          $scoutStatus ===
+              'active'
       ) {
 
           $scoutFilter =
@@ -1948,7 +2097,8 @@ $rowPrimaryRoleIcon =
 
 
       } elseif (
-          $scoutStatus === 'invited'
+          $scoutStatus ===
+              'invited'
       ) {
 
           $scoutFilter =
@@ -1973,14 +2123,27 @@ $rowPrimaryRoleIcon =
 
 
       } elseif (
+          in_array(
+              $scoutStatus,
+              [
+                  'inactive',
+                  'removed',
+              ],
+              true
+          )
+      ) {
+
+          $scoutFilter =
+              'former';
+
+
+      } elseif (
           $isCandidate
       ) {
 
           $scoutFilter =
               'candidate';
-
       }
-
 
       ?>
 
@@ -2115,7 +2278,7 @@ $rowPrimaryRoleIcon =
               class="
                 admin-user-badge
                 admin-user-role
-            
+
                 <?= in_array(
                     $rowPrimaryRole,
                     [
@@ -2127,7 +2290,7 @@ $rowPrimaryRoleIcon =
                     ? 'admin-user-role--admin'
                     : ''
                 ?>
-            
+
                 <?= in_array(
                     $rowPrimaryRole,
                     [
@@ -2141,19 +2304,20 @@ $rowPrimaryRoleIcon =
                 ?>
               "
             >
-            
+
               <i
                 class="<?= e(
                     $rowPrimaryRoleIcon
                 ) ?>"
                 aria-hidden="true"
               ></i>
-            
+
               <?= e(
                   $rowPrimaryRoleLabel
               ) ?>
-            
+
             </span>
+
 
             <?php if (
                 $hasScoutProcess
@@ -2175,6 +2339,24 @@ $rowPrimaryRoleIcon =
             <?php endif; ?>
 
 
+            <?php if (
+                !$row[
+                    'is_verified'
+                ]
+            ): ?>
+
+              <span
+                class="
+                  admin-user-badge
+                  admin-badge--warning
+                "
+              >
+                Email Unverified
+              </span>
+
+            <?php endif; ?>
+
+
           </div>
 
         </div>
@@ -2185,7 +2367,11 @@ $rowPrimaryRoleIcon =
         <div class="admin-user-meta">
 
           <span>
-            <i class="fa-solid fa-paper-plane"></i>
+
+            <i
+              class="fa-solid fa-paper-plane"
+              aria-hidden="true"
+            ></i>
 
             <?= (int)
                 $row[
@@ -2199,11 +2385,16 @@ $rowPrimaryRoleIcon =
                 ? ''
                 : 's'
             ?>
+
           </span>
 
 
           <span>
-            <i class="fa-solid fa-circle-check"></i>
+
+            <i
+              class="fa-solid fa-circle-check"
+              aria-hidden="true"
+            ></i>
 
             <?= (int)
                 $row[
@@ -2212,6 +2403,7 @@ $rowPrimaryRoleIcon =
             ?>
 
             approved
+
           </span>
 
 
@@ -2222,7 +2414,11 @@ $rowPrimaryRoleIcon =
           ): ?>
 
             <span>
-              <i class="fa-solid fa-percent"></i>
+
+              <i
+                class="fa-solid fa-percent"
+                aria-hidden="true"
+              ></i>
 
               <?= (int)
                   $row[
@@ -2231,13 +2427,18 @@ $rowPrimaryRoleIcon =
               ?>%
 
               approval
+
             </span>
 
           <?php endif; ?>
 
 
           <span>
-            <i class="fa-regular fa-calendar"></i>
+
+            <i
+              class="fa-regular fa-calendar"
+              aria-hidden="true"
+            ></i>
 
             Joined
 
@@ -2248,11 +2449,16 @@ $rowPrimaryRoleIcon =
                     ]
                 )
             ) ?>
+
           </span>
 
 
           <span>
-            <i class="fa-solid fa-right-to-bracket"></i>
+
+            <i
+              class="fa-solid fa-right-to-bracket"
+              aria-hidden="true"
+            ></i>
 
             Last login
 
@@ -2264,13 +2470,15 @@ $rowPrimaryRoleIcon =
                     true
                 )
             ) ?>
+
           </span>
 
         </div>
 
 
         <?php if (
-            $scoutStatus === 'invited'
+            $scoutStatus ===
+            'invited'
         ): ?>
 
           <div
@@ -2282,7 +2490,9 @@ $rowPrimaryRoleIcon =
           >
 
             <p>
+
               Scout invitation sent
+
               <?= e(
                   format_date(
                       $row[
@@ -2292,6 +2502,7 @@ $rowPrimaryRoleIcon =
               ) ?>.
 
               Invitation expires
+
               <?= e(
                   format_date(
                       $row[
@@ -2299,6 +2510,37 @@ $rowPrimaryRoleIcon =
                       ]
                   )
               ) ?>.
+
+            </p>
+
+          </div>
+
+        <?php endif; ?>
+
+
+        <?php if (
+            in_array(
+                $scoutStatus,
+                [
+                    'inactive',
+                    'removed',
+                ],
+                true
+            )
+        ): ?>
+
+          <div
+            class="
+              admin-notice
+              admin-notice--info
+            "
+            style="margin-top:16px;"
+          >
+
+            <p>
+              This account is a former Scout.
+              Reinstatement is handled from the Scout profile,
+              not through a new Scout invitation.
             </p>
 
           </div>
@@ -2324,8 +2566,14 @@ $rowPrimaryRoleIcon =
                   ]
               ?>"
             >
-              <i class="fa-solid fa-gear"></i>
+
+              <i
+                class="fa-solid fa-gear"
+                aria-hidden="true"
+              ></i>
+
               Manage
+
             </a>
 
 
@@ -2341,8 +2589,14 @@ $rowPrimaryRoleIcon =
                   ]
               ?>"
             >
-              <i class="fa-solid fa-user-pen"></i>
+
+              <i
+                class="fa-solid fa-user-pen"
+                aria-hidden="true"
+              ></i>
+
               Edit Account
+
             </a>
 
 
@@ -2356,12 +2610,17 @@ $rowPrimaryRoleIcon =
               "
               aria-disabled="true"
             >
-              <i class="fa-solid fa-lock"></i>
+
+              <i
+                class="fa-solid fa-lock"
+                aria-hidden="true"
+              ></i>
 
               <?= $rowIsOwner
                   ? 'Protected Owner'
                   : 'Owner Managed'
               ?>
+
             </span>
 
           <?php endif; ?>
@@ -2411,12 +2670,47 @@ $rowPrimaryRoleIcon =
                   admin-button--small
                 "
               >
-                <i class="fa-solid fa-binoculars"></i>
+
+                <i
+                  class="fa-solid fa-binoculars"
+                  aria-hidden="true"
+                ></i>
 
                 Invite to Scout Team
+
               </button>
 
             </form>
+
+          <?php endif; ?>
+
+
+          <?php if (
+              $scoutStatus !== ''
+          ): ?>
+
+            <a
+              class="
+                admin-button
+                admin-button--secondary
+                admin-button--small
+              "
+              href="/scout.php?id=<?= (int)
+                  (
+                      /*
+                       * The Scout detail link is available
+                       * from /user.php as well. We do not
+                       * have the profile ID in this query,
+                       * so leave management routed through
+                       * the user record here.
+                       */
+                      0
+                  )
+              ?>"
+              hidden
+              aria-hidden="true"
+              tabindex="-1"
+            ></a>
 
           <?php endif; ?>
 
@@ -2490,6 +2784,7 @@ require_once
 
 
   if (!list) {
+
     return;
   }
 
@@ -2615,38 +2910,41 @@ require_once
 
           visible =
             false;
-
         }
 
 
         if (
-          status !== "all"
+          status !==
+          "all"
           &&
-          cardStatus !== status
+          cardStatus !==
+          status
         ) {
 
           visible =
             false;
-
         }
 
 
         if (
-          role === "none"
+          role ===
+          "none"
           &&
-          cardRoles.length > 0
+          cardRoles.length >
+          0
         ) {
 
           visible =
             false;
-
         }
 
 
         if (
-          role !== "all"
+          role !==
+          "all"
           &&
-          role !== "none"
+          role !==
+          "none"
           &&
           !cardRoles.includes(
             role
@@ -2655,19 +2953,19 @@ require_once
 
           visible =
             false;
-
         }
 
 
         if (
-          scout !== "all"
+          scout !==
+          "all"
           &&
-          cardScout !== scout
+          cardScout !==
+          scout
         ) {
 
           visible =
             false;
-
         }
 
 
@@ -2680,9 +2978,7 @@ require_once
         ) {
 
           visibleCount++;
-
         }
-
       }
     );
 
@@ -2697,7 +2993,6 @@ require_once
             ? "user."
             : "users."
         }`;
-
     }
 
 
@@ -2706,10 +3001,9 @@ require_once
     ) {
 
       empty.hidden =
-        visibleCount !== 0;
-
+        visibleCount !==
+        0;
     }
-
   }
 
 
@@ -2811,7 +3105,8 @@ require_once
 
 
         if (
-          sort === "approval-rate"
+          sort ===
+          "approval-rate"
         ) {
 
           return (
@@ -2823,54 +3118,53 @@ require_once
             approvedB -
             approvedA
           );
-
         }
 
 
         if (
-          sort === "submissions"
+          sort ===
+          "submissions"
         ) {
 
           return (
             submissionsB -
             submissionsA
           );
-
         }
 
 
         if (
-          sort === "newest"
+          sort ===
+          "newest"
         ) {
 
           return (
             createdB -
             createdA
           );
-
         }
 
 
         if (
-          sort === "recent-login"
+          sort ===
+          "recent-login"
         ) {
 
           return (
             loginB -
             loginA
           );
-
         }
 
 
         if (
-          sort === "name"
+          sort ===
+          "name"
         ) {
 
           return nameA.localeCompare(
             nameB
           );
-
         }
 
 
@@ -2893,7 +3187,6 @@ require_once
           submissionsB -
           submissionsA
         );
-
       }
     );
 
@@ -2904,10 +3197,8 @@ require_once
         list.appendChild(
           card
         );
-
       }
     );
-
   }
 
 
@@ -2928,7 +3219,6 @@ require_once
         "change",
         applyFilters
       );
-
     }
   );
 
@@ -2940,7 +3230,6 @@ require_once
       applySort();
 
       applyFilters();
-
     }
   );
 
