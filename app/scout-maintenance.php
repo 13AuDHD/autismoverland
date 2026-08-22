@@ -7,6 +7,9 @@ require_once
     __DIR__
     . '/scout-policy.php';
 
+require_once
+    __DIR__
+    . '/scout-ranks.php';
 
 /* =========================================================
    LLAMA SCOUT
@@ -610,9 +613,17 @@ function llama_expire_scout_access(
     }
 
 
-    llama_remove_scout_roles(
+    /*
+     * Remove the current Scout/Master Scout rank and
+     * permanently record what rank was lost.
+     */
+
+    llama_end_current_scout_rank(
         $db,
-        $userId
+        $userId,
+        LLAMA_RANK_REASON_SCOUT_EXPIRED,
+        null,
+        'Scout period ended without the required number of approved new Places.'
     );
 
 
@@ -838,10 +849,13 @@ function llama_complete_scout_extension(
     }
 
 
-    llama_grant_basic_scout_role(
-        $db,
-        $userId
-    );
+llama_return_to_basic_scout(
+    $db,
+    $userId,
+    null,
+    LLAMA_RANK_REASON_REACTIVATED,
+    'Successfully completed the Scout reactivation requirement.'
+);
 
 
     llama_sync_scout_membership_end(
