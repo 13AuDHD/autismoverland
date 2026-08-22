@@ -369,6 +369,10 @@ llama_ensure_place_updates_table(
 );
 
 
+llama_ensure_place_contributions_table(
+    $db
+);
+
 /* =========================================================
    CSRF
    ========================================================= */
