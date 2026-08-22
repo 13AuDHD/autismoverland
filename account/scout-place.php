@@ -294,15 +294,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $place['status'] = 'draft';
     $place['featured'] = false;
 
-    $place['verification'] =
-        is_array($place['verification'] ?? null)
-            ? $place['verification']
-            : [];
-
-    $place['verification']['status'] = 'community-scouted';
-    $place['verification']['source'] = 'Community Scouted member submission';
-    $place['verification']['publicDataVerified'] = null;
-
     $submissionJson = json_encode(
         $place,
         JSON_UNESCAPED_SLASHES
@@ -449,7 +440,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'success' => true,
             'submission_id' => (int) $db->lastInsertId(),
             'updated' => false,
-            'message' => 'Your Community Scouted place has been submitted for review.'
+            'message' => 'Your Place has been submitted for review.'
         ]);
 
         exit;
