@@ -2305,23 +2305,44 @@ try {
         );
 
 
-    foreach (
-        $output as
-        $index =>
-        $place
-    ) {
+foreach (
+    $output as
+    $index =>
+    $place
+) {
 
+    $output[
+        $index
+    ] =
+        $hasProtectedAccess
+            ? member_place_view(
+                $place
+            )
+            : public_place_preview(
+                $place
+            );
+
+
+    /*
+     * Legacy verification data is intentionally excluded
+     * from every public API response.
+     *
+     * Trust and contributor history are now provided by the
+     * Place provenance system instead.
+     *
+     * Old verification tables/columns remain in the database
+     * temporarily for migration compatibility only.
+     */
+
+    unset(
         $output[
             $index
-        ] =
-            $hasProtectedAccess
-                ? member_place_view(
-                    $place
-                )
-                : public_place_preview(
-                    $place
-                );
-    }
+        ][
+            'verification'
+        ]
+    );
+
+}
 
 
     /*
