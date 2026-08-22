@@ -549,7 +549,8 @@ function llama_record_place_contribution(
     ?int $moderatedBy = null,
     int $pointsAwarded = 0,
     ?array $fieldsChanged = null,
-    ?string $notes = null
+    ?string $notes = null,
+    ?string $roleAtTime = null
 ): int {
 
     if (
@@ -616,11 +617,41 @@ function llama_record_place_contribution(
     );
 
 
-    $roleAtTime =
-        llama_contribution_role(
-            $db,
-            $userId
-        );
+    if (
+        $roleAtTime === null
+        ||
+        trim(
+            $roleAtTime
+        ) === ''
+    ) {
+
+        $roleAtTime =
+            llama_contribution_role(
+                $db,
+                $userId
+            );
+
+    } else {
+
+        $roleAtTime =
+            strtolower(
+                trim(
+                    $roleAtTime
+                )
+            );
+
+
+        if (
+            $roleAtTime ===
+            'master_scout'
+        ) {
+
+            $roleAtTime =
+                'master-scout';
+
+        }
+
+    }
 
 
     $fieldsJson =
