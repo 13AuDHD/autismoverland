@@ -3,6 +3,10 @@
    MAIN.JS
 
    Homepage place cards + homepage map.
+
+   Access rules are enforced by /api/places.php.
+   This file only displays data the current visitor
+   is allowed to receive.
    ========================================================= */
 
 
@@ -10,53 +14,62 @@
    VALUE HELPERS
    ========================================================= */
 
-function isLockedValue(value) {
+function isLockedValue(
+  value
+) {
 
   return Boolean(
     value &&
     typeof value === "object" &&
+    !Array.isArray(value) &&
     value.locked === true
   );
 }
 
 
-function numericPlaceValue(value) {
+function numericPlaceValue(
+  value
+) {
 
   if (
     value === null ||
     value === undefined ||
     value === "" ||
-    isLockedValue(value)
+    isLockedValue(
+      value
+    )
   ) {
+
     return null;
   }
 
 
-  if (
-    typeof value === "number" &&
-    Number.isFinite(value)
-  ) {
-    return value;
-  }
-
-
   const number =
-    Number(value);
+    Number(
+      value
+    );
 
 
-  return Number.isFinite(number)
+  return Number.isFinite(
+    number
+  )
     ? number
     : null;
 }
 
 
-function searchablePlaceValue(value) {
+function searchablePlaceValue(
+  value
+) {
 
   if (
     value === null ||
     value === undefined ||
-    isLockedValue(value)
+    isLockedValue(
+      value
+    )
   ) {
+
     return "";
   }
 
@@ -65,7 +78,10 @@ function searchablePlaceValue(value) {
     typeof value === "string" ||
     typeof value === "number"
   ) {
-    return String(value);
+
+    return String(
+      value
+    );
   }
 
 
@@ -73,9 +89,16 @@ function searchablePlaceValue(value) {
 }
 
 
-function lockedValueLabel(value) {
+function lockedValueLabel(
+  value
+) {
 
-  if (!isLockedValue(value)) {
+  if (
+    !isLockedValue(
+      value
+    )
+  ) {
+
     return "";
   }
 
@@ -84,6 +107,7 @@ function lockedValueLabel(value) {
     value.cta ===
     "sign_up"
   ) {
+
     return "Sign up";
   }
 
@@ -92,7 +116,30 @@ function lockedValueLabel(value) {
 }
 
 
-function displayRatingValue(value) {
+function lockedValueHref(
+  value
+) {
+
+  if (
+    !isLockedValue(
+      value
+    )
+  ) {
+
+    return "";
+  }
+
+
+  return value.cta ===
+    "sign_up"
+      ? "https://account.llamascout.com/register.php"
+      : "https://account.llamascout.com/membership.php";
+}
+
+
+function displayRatingValue(
+  value
+) {
 
   const numeric =
     numericPlaceValue(
@@ -124,11 +171,18 @@ function displayRatingValue(value) {
 }
 
 
-function ratingIsAvailable(value) {
+function ratingIsAvailable(
+  value
+) {
 
   return (
-    numericPlaceValue(value) !== null ||
-    isLockedValue(value)
+    numericPlaceValue(
+      value
+    ) !== null
+    ||
+    isLockedValue(
+      value
+    )
   );
 }
 
@@ -137,27 +191,38 @@ function ratingIsAvailable(value) {
    SAFE HTML
    ========================================================= */
 
-function escapeHTML(value) {
+function escapeHTML(
+  value
+) {
 
-  return String(
-    value ?? ""
-  )
+  const text =
+    searchablePlaceValue(
+      value
+    );
+
+
+  return text
+
     .replaceAll(
       "&",
       "&amp;"
     )
+
     .replaceAll(
       "<",
       "&lt;"
     )
+
     .replaceAll(
       ">",
       "&gt;"
     )
+
     .replaceAll(
-      "\"",
+      '"',
       "&quot;"
     )
+
     .replaceAll(
       "'",
       "&#039;"
@@ -169,23 +234,85 @@ function escapeHTML(value) {
    PLACE TYPE
    ========================================================= */
 
-function formatHomepageType(value) {
+function formatHomepageType(
+  value
+) {
 
-  if (!value) {
+  const text =
+    searchablePlaceValue(
+      value
+    );
+
+
+  if (!text) {
+
     return "";
   }
 
 
-  return String(value)
+  return text
+
+    .replaceAll(
+      "_",
+      " "
+    )
+
     .replaceAll(
       "-",
       " "
     )
+
+    .replace(
+      /([a-z])([A-Z])/g,
+      "$1 $2"
+    )
+
     .replace(
       /\b\w/g,
       (letter) =>
         letter.toUpperCase()
     );
+}
+
+
+/* =========================================================
+   ACCESS LABELS
+   ========================================================= */
+
+function homepageAccessLevel(
+  place
+) {
+
+  const level =
+    searchablePlaceValue(
+      place?.accessLevel
+    );
+
+
+  return level ||
+    "visitor";
+}
+
+
+function homepageLocationDisclosure(
+  place
+) {
+
+  if (
+    place?.exactLocationAvailable ===
+    true
+  ) {
+
+    return "";
+  }
+
+
+  return homepageAccessLevel(
+    place
+  ) ===
+    "visitor"
+      ? "General area"
+      : "Approximate location";
 }
 
 
@@ -202,6 +329,7 @@ async function initFeaturedLocations() {
 
 
   if (!grid) {
+
     return;
   }
 
@@ -248,18 +376,21 @@ async function initFeaturedLocations() {
     let featuredPlaces =
       places.filter(
         (place) =>
+          place &&
           place.featured === true &&
           place.status === "active"
       );
 
 
     if (
-      featuredPlaces.length === 0
+      featuredPlaces.length ===
+      0
     ) {
 
       featuredPlaces =
         places.filter(
           (place) =>
+            place &&
             place.status === "active"
         );
     }
@@ -276,6 +407,7 @@ async function initFeaturedLocations() {
       grid,
       featuredPlaces
     );
+
 
   } catch (error) {
 
@@ -296,21 +428,39 @@ function renderFeaturedLocations(
   places
 ) {
 
-  grid.innerHTML = "";
+  grid.innerHTML =
+    "";
 
 
   places.forEach(
     (place) => {
 
+      const images =
+        Array.isArray(
+          place.images
+        )
+          ? place.images
+          : [];
+
 
       const image =
-        place.images?.find(
+        images.find(
           (item) =>
-            item.featured
+            item &&
+            item.featured === true &&
+            searchablePlaceValue(
+              item.src
+            )
         )
-        ??
-        place.images?.[0]
-        ??
+        ||
+        images.find(
+          (item) =>
+            item &&
+            searchablePlaceValue(
+              item.src
+            )
+        )
+        ||
         null;
 
 
@@ -360,7 +510,8 @@ function renderFeaturedLocations(
       );
 
 
-      const detailRows = [];
+      const detailRows =
+        [];
 
 
       /* =====================================================
@@ -527,17 +678,39 @@ function renderFeaturedLocations(
 
 
       /* =====================================================
-         MEMBER-ONLY DETAILS
-
-         Locked Road / Privacy / Cell values are represented
-         once instead of repeating Member only three times.
+         LOCKED DETAIL MESSAGE
          ===================================================== */
+
+      const accessLevel =
+        homepageAccessLevel(
+          place
+        );
+
+
+      const lockedDetailHref =
+        accessLevel ===
+        "visitor"
+          ? "https://account.llamascout.com/register.php"
+          : "https://account.llamascout.com/membership.php";
+
+
+      const lockedDetailText =
+        accessLevel ===
+        "visitor"
+          ? "Sign up for more details"
+          : "Member details";
+
 
       const memberDetailsHTML =
         lockedRatings.length > 0
           ? `
 
-            <div class="homepage-member-details">
+            <a
+              class="homepage-member-details"
+              href="${escapeHTML(
+                lockedDetailHref
+              )}"
+            >
 
               <i
                 class="fa-solid fa-lock"
@@ -545,10 +718,12 @@ function renderFeaturedLocations(
               ></i>
 
               <span>
-                Member details
+                ${escapeHTML(
+                  lockedDetailText
+                )}
               </span>
 
-            </div>
+            </a>
 
           `
           : "";
@@ -564,10 +739,34 @@ function renderFeaturedLocations(
         "location-card";
 
 
+      const slug =
+        searchablePlaceValue(
+          place.slug
+        )
+        ||
+        searchablePlaceValue(
+          place.id
+        );
+
+
+      if (!slug) {
+
+        return;
+      }
+
+
       const placeURL =
         `/place.php?place=${encodeURIComponent(
-          place.slug
+          slug
         )}`;
+
+
+      const placeName =
+        searchablePlaceValue(
+          place.name
+        )
+        ||
+        "Place";
 
 
       card.innerHTML = `
@@ -577,10 +776,12 @@ function renderFeaturedLocations(
             ? `
 
               <a
-                href="${placeURL}"
+                href="${escapeHTML(
+                  placeURL
+                )}"
                 class="location-card-image-link"
                 aria-label="View ${escapeHTML(
-                  place.name
+                  placeName
                 )}"
               >
 
@@ -589,10 +790,13 @@ function renderFeaturedLocations(
                     image.src
                   )}"
                   alt="${escapeHTML(
-                    image.alt
+                    searchablePlaceValue(
+                      image.alt
+                    )
                     ||
-                    place.name
+                    placeName
                   )}"
+                  loading="lazy"
                 >
 
               </a>
@@ -601,10 +805,12 @@ function renderFeaturedLocations(
             : `
 
               <a
-                href="${placeURL}"
+                href="${escapeHTML(
+                  placeURL
+                )}"
                 class="location-card-image-link"
                 aria-label="View ${escapeHTML(
-                  place.name
+                  placeName
                 )}"
               >
 
@@ -633,16 +839,17 @@ function renderFeaturedLocations(
 
         <div class="card-body">
 
-
           <h3>
 
             <a
-              href="${placeURL}"
+              href="${escapeHTML(
+                placeURL
+              )}"
               class="location-card-title"
             >
 
               ${escapeHTML(
-                place.name
+                placeName
               )}
 
             </a>
@@ -666,7 +873,6 @@ function renderFeaturedLocations(
 
 
           ${memberDetailsHTML}
-
 
         </div>
 
@@ -696,8 +902,9 @@ async function initHomepageMap() {
   if (
     !mapElement ||
     typeof L ===
-      "undefined"
+    "undefined"
   ) {
+
     return;
   }
 
@@ -760,11 +967,10 @@ async function initHomepageMap() {
 
 
           return (
+            place &&
             place.status ===
-              "active"
-            &&
-            lat !== null
-            &&
+              "active" &&
+            lat !== null &&
             lng !== null
           );
         }
@@ -772,10 +978,25 @@ async function initHomepageMap() {
 
 
     if (
-      validPlaces.length === 0
+      validPlaces.length ===
+      0
     ) {
+
       return;
     }
+
+
+    const mapAccessLevel =
+      homepageAccessLevel(
+        validPlaces[0]
+      );
+
+
+    const mapMaximumZoom =
+      mapAccessLevel ===
+      "member"
+        ? 19
+        : 11;
 
 
     const firstPlace =
@@ -798,17 +1019,27 @@ async function initHomepageMap() {
       );
 
 
+    if (
+      firstLat === null ||
+      firstLng === null
+    ) {
+
+      return;
+    }
+
+
     const map =
       L.map(
         "homepage-map",
         {
-
           zoomControl:
             false,
 
           scrollWheelZoom:
-            false
+            false,
 
+          maxZoom:
+            mapMaximumZoom
         }
       )
       .setView(
@@ -816,20 +1047,21 @@ async function initHomepageMap() {
           firstLat,
           firstLng
         ],
-        10
+        Math.min(
+          10,
+          mapMaximumZoom
+        )
       );
 
 
     L.tileLayer(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       {
-
         maxZoom:
-          19,
+          mapMaximumZoom,
 
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-
       }
     )
     .addTo(
@@ -868,23 +1100,63 @@ async function initHomepageMap() {
       }
 
 
-      const locked =
+      if (
         isLockedValue(
           value
-        );
+        )
+      ) {
+
+        const href =
+          lockedValueHref(
+            value
+          );
+
+
+        return `
+
+          <div
+            class="
+              map-rating
+              map-rating--locked
+            "
+          >
+
+            <span>
+              ${escapeHTML(
+                label
+              )}
+            </span>
+
+
+            <a
+              class="map-popup-locked"
+              href="${escapeHTML(
+                href
+              )}"
+            >
+
+              <i
+                class="fa-solid fa-lock"
+                aria-hidden="true"
+              ></i>
+
+              ${escapeHTML(
+                lockedValueLabel(
+                  value
+                )
+              )}
+
+            </a>
+
+          </div>
+
+        `;
+      }
 
 
       return `
 
-        <div
-          class="
-            map-rating
-            ${locked
-                ? "map-rating--locked"
-                : ""
-            }
-          "
-        >
+        <div class="map-rating">
 
           <span>
             ${escapeHTML(
@@ -895,28 +1167,11 @@ async function initHomepageMap() {
 
           <strong>
 
-            ${
-              locked
-                ? `
-
-                  <i
-                    class="fa-solid fa-lock"
-                    aria-hidden="true"
-                  ></i>
-
-                  ${escapeHTML(
-                    lockedValueLabel(
-                      value
-                    )
-                  )}
-
-                `
-                : escapeHTML(
-                    displayRatingValue(
-                      value
-                    )
-                  )
-            }
+            ${escapeHTML(
+              displayRatingValue(
+                value
+              )
+            )}
 
           </strong>
 
@@ -938,12 +1193,12 @@ async function initHomepageMap() {
         .clearLayers();
 
 
-      const bounds = [];
+      const bounds =
+        [];
 
 
       filteredPlaces.forEach(
         (place) => {
-
 
           const lat =
             numericPlaceValue(
@@ -963,6 +1218,7 @@ async function initHomepageMap() {
             lat === null ||
             lng === null
           ) {
+
             return;
           }
 
@@ -993,18 +1249,36 @@ async function initHomepageMap() {
               )
 
             ]
-            .filter(Boolean)
-            .join(", ");
+              .filter(Boolean)
+              .join(", ");
+
+
+          const images =
+            Array.isArray(
+              place.images
+            )
+              ? place.images
+              : [];
 
 
           const featuredImage =
-            place.images?.find(
+            images.find(
               (image) =>
-                image.featured
+                image &&
+                image.featured === true &&
+                searchablePlaceValue(
+                  image.src
+                )
             )
-            ??
-            place.images?.[0]
-            ??
+            ||
+            images.find(
+              (image) =>
+                image &&
+                searchablePlaceValue(
+                  image.src
+                )
+            )
+            ||
             null;
 
 
@@ -1053,21 +1327,36 @@ async function initHomepageMap() {
             "field-verified";
 
 
-          const accessLevel =
-            searchablePlaceValue(
-              place.accessLevel
+          const locationDisclosure =
+            homepageLocationDisclosure(
+              place
             );
 
 
-          const approximateLocation =
-            accessLevel !==
-            "member";
+          const slug =
+            searchablePlaceValue(
+              place.slug
+            )
+            ||
+            searchablePlaceValue(
+              place.id
+            );
 
 
           const placeURL =
-            `/place.php?place=${encodeURIComponent(
-              place.slug
-            )}`;
+            slug
+              ? `/place.php?place=${encodeURIComponent(
+                  slug
+                )}`
+              : "";
+
+
+          const placeName =
+            searchablePlaceValue(
+              place.name
+            )
+            ||
+            "Place";
 
 
           marker.bindPopup(`
@@ -1076,7 +1365,6 @@ async function initHomepageMap() {
 
 
               <div class="map-popup-hero">
-
 
                 ${
                   featuredImage
@@ -1088,9 +1376,11 @@ async function initHomepageMap() {
                           featuredImage.src
                         )}"
                         alt="${escapeHTML(
-                          featuredImage.alt
+                          searchablePlaceValue(
+                            featuredImage.alt
+                          )
                           ||
-                          place.name
+                          placeName
                         )}"
                       >
 
@@ -1101,38 +1391,43 @@ async function initHomepageMap() {
 
                 <div class="map-popup-hero-overlay">
 
+                  ${
+                    searchablePlaceValue(
+                      place.type
+                    )
+                      ? `
 
-                  <span class="map-popup-type">
+                        <span class="map-popup-type">
 
-                    ${escapeHTML(
-                      formatHomepageType(
-                        place.type
-                      )
-                    )}
+                          ${escapeHTML(
+                            formatHomepageType(
+                              place.type
+                            )
+                          )}
 
-                  </span>
+                        </span>
+
+                      `
+                      : ""
+                  }
 
 
                   <h2>
 
                     ${escapeHTML(
-                      place.name
+                      placeName
                     )}
 
                   </h2>
 
-
                 </div>
-
 
               </div>
 
 
               <div class="map-popup-body">
 
-
                 <div class="map-popup-meta">
-
 
                   ${
                     location
@@ -1157,7 +1452,7 @@ async function initHomepageMap() {
 
 
                   ${
-                    approximateLocation
+                    locationDisclosure
                       ? `
 
                         <span>
@@ -1167,7 +1462,9 @@ async function initHomepageMap() {
                             aria-hidden="true"
                           ></i>
 
-                          Approximate location
+                          ${escapeHTML(
+                            locationDisclosure
+                          )}
 
                         </span>
 
@@ -1175,36 +1472,30 @@ async function initHomepageMap() {
                       : ""
                   }
 
-
                 </div>
 
 
                 <div class="map-popup-ratings">
-
 
                   ${popupRating(
                     "Road",
                     difficulty
                   )}
 
-
                   ${popupRating(
                     "Night noise",
                     nightNoise
                   )}
-
 
                   ${popupRating(
                     "Privacy",
                     privacy
                   )}
 
-
                   ${popupRating(
                     "Cell",
                     cell
                   )}
-
 
                 </div>
 
@@ -1229,23 +1520,31 @@ async function initHomepageMap() {
                 }
 
 
-                <a
-                  class="map-popup-details"
-                  href="${placeURL}"
-                >
+                ${
+                  placeURL
+                    ? `
 
-                  View Scout Report
+                      <a
+                        class="map-popup-details"
+                        href="${escapeHTML(
+                          placeURL
+                        )}"
+                      >
 
-                  <i
-                    class="fa-solid fa-arrow-right"
-                    aria-hidden="true"
-                  ></i>
+                        View Place Details
 
-                </a>
+                        <i
+                          class="fa-solid fa-arrow-right"
+                          aria-hidden="true"
+                        ></i>
 
+                      </a>
+
+                    `
+                    : ""
+                }
 
               </div>
-
 
             </article>
 
@@ -1269,7 +1568,6 @@ async function initHomepageMap() {
         map.fitBounds(
           bounds,
           {
-
             padding:
               [
                 30,
@@ -1277,10 +1575,13 @@ async function initHomepageMap() {
               ],
 
             maxZoom:
-              10
-
+              Math.min(
+                10,
+                mapMaximumZoom
+              )
           }
         );
+
 
       } else if (
         bounds.length === 1
@@ -1288,7 +1589,10 @@ async function initHomepageMap() {
 
         map.setView(
           bounds[0],
-          11
+          Math.min(
+            11,
+            mapMaximumZoom
+          )
         );
       }
     }
@@ -1346,7 +1650,6 @@ async function initHomepageMap() {
         validPlaces.filter(
           (place) => {
 
-
             const searchableText =
               [
 
@@ -1383,9 +1686,9 @@ async function initHomepageMap() {
                 )
 
               ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase();
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
 
 
             const difficulty =
@@ -1412,14 +1715,18 @@ async function initHomepageMap() {
                 search
               )
             ) {
+
               return false;
             }
 
 
             if (
               type !== "all" &&
-              place.type !== type
+              searchablePlaceValue(
+                place.type
+              ) !== type
             ) {
+
               return false;
             }
 
@@ -1429,9 +1736,12 @@ async function initHomepageMap() {
               (
                 difficulty === null ||
                 difficulty >
-                  Number(road)
+                  Number(
+                    road
+                  )
               )
             ) {
+
               return false;
             }
 
@@ -1441,9 +1751,12 @@ async function initHomepageMap() {
               (
                 nightNoise === null ||
                 nightNoise >
-                  Number(noise)
+                  Number(
+                    noise
+                  )
               )
             ) {
+
               return false;
             }
 
@@ -1476,7 +1789,6 @@ async function initHomepageMap() {
     controls.forEach(
       (id) => {
 
-
         const element =
           document.getElementById(
             id
@@ -1484,6 +1796,7 @@ async function initHomepageMap() {
 
 
         if (!element) {
+
           return;
         }
 
@@ -1506,6 +1819,7 @@ async function initHomepageMap() {
     renderMarkers(
       validPlaces
     );
+
 
   } catch (error) {
 
@@ -1532,6 +1846,7 @@ function populateHomepageTypeFilter(
 
 
   if (!select) {
+
     return;
   }
 
@@ -1541,10 +1856,10 @@ function populateHomepageTypeFilter(
       Array.from(
         select.options
       )
-      .map(
-        (option) =>
-          option.value
-      )
+        .map(
+          (option) =>
+            option.value
+        )
     );
 
 
@@ -1554,23 +1869,25 @@ function populateHomepageTypeFilter(
         places
           .map(
             (place) =>
-              place.type
+              searchablePlaceValue(
+                place.type
+              )
           )
           .filter(Boolean)
       )
     ]
-    .sort();
+      .sort();
 
 
   types.forEach(
     (type) => {
-
 
       if (
         existingValues.has(
           type
         )
       ) {
+
         return;
       }
 
