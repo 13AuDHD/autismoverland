@@ -14,6 +14,21 @@ let allPlaces = [];
 
 
 /* =========================================================
+   PUBLIC STATUS
+   ========================================================= */
+
+function isPublicPlaceStatus(
+  status
+) {
+
+  return (
+    status === "active" ||
+    status === "featured"
+  );
+}
+
+
+/* =========================================================
    INIT
    ========================================================= */
 
@@ -61,8 +76,12 @@ async function initPlaces() {
     allPlaces =
       places.filter(
         (place) =>
-          place &&
-          place.status === "active"
+          Boolean(
+            place &&
+            isPublicPlaceStatus(
+              place.status
+            )
+          )
       );
 
 
