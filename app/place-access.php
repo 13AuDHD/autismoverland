@@ -17,10 +17,50 @@ function place_access_level(?array $user = null): string
     }
 
     if (
-        user_has_role('admin', (int) $user['id']) ||
-        user_has_role('scout', (int) $user['id'])
+        user_has_role(
+            'admin',
+            (int) $user['id']
+        )
     ) {
+
         return 'member';
+    }
+
+
+    if (
+        user_has_role(
+            'scout',
+            (int) $user['id']
+        )
+    ) {
+
+        $scoutStmt =
+            db()->prepare(
+                '
+                SELECT
+                    id
+
+                FROM scout_profiles
+
+                WHERE user_id = ?
+                  AND status = \'active\'
+
+                LIMIT 1
+                '
+            );
+
+
+        $scoutStmt->execute([
+            (int) $user['id']
+        ]);
+
+
+        if (
+            $scoutStmt->fetchColumn()
+        ) {
+
+            return 'member';
+        }
     }
 
     if (user_has_membership($user)) {
