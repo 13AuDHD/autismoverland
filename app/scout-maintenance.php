@@ -8,14 +8,39 @@ declare(strict_types=1);
    DAILY SCOUT MAINTENANCE
    =========================================================
 
-   This file is designed to be included by the application.
+   Runs Scout renewal / expiration maintenance at most once
+   per day.
 
-   It runs Scout renewal maintenance at most once per day.
+   No cron is required. The first qualifying application
+   request after the maintenance interval runs the check.
 
-   It does NOT depend on cron.
+   Scout policy:
 
-   The first qualifying application request of the day runs
-   the maintenance check. Later requests that day do nothing.
+   - Standard Scout year:
+       3 accepted Scout Reports required.
+
+   - Requirement met:
+       extend exactly one year.
+
+   - Requirement not met:
+       Scout access ends.
+       Scout / Master Scout roles are removed.
+       Complimentary membership ends.
+       Scout points are permanently destroyed.
+
+   - Admin / Owner may later grant a separate 30-day basic
+     Scout extension.
+
+   - A 30-day extension requires 3 newly accepted Scout
+     Reports during that exact extension window.
+
+   - Successful extension:
+       member returns as BASIC Scout for one full year.
+       Master Scout is never automatically restored.
+
+   - Failed extension:
+       member returns to free status and points are again
+       permanently destroyed.
 
    ========================================================= */
 
@@ -28,18 +53,12 @@ const LLAMA_SCOUT_REPORTS_REQUIRED =
     3;
 
 
-/*
- * Maintenance frequency.
- *
- * 86400 seconds = 24 hours.
- */
-
 const LLAMA_SCOUT_MAINTENANCE_INTERVAL =
     86400;
 
 
 /* =========================================================
-   ENSURE MAINTENANCE TABLE EXISTS
+   MAINTENANCE TABLE
    ========================================================= */
 
 function llama_ensure_maintenance_table(
@@ -77,6 +96,109 @@ function llama_ensure_maintenance_table(
 
 
 /* =========================================================
+   SCOUT EXTENSIONS TABLE
+
+   A reinstatement extension is intentionally separate from
+   scout_profiles.
+
+   This preserves the original Scout start date and gives us
+   an exact 30-day qualification window.
+   ========================================================= */
+
+function llama_ensure_scout_extensions_table(
+    PDO $db
+): void {
+
+    $db->exec(
+        '
+        CREATE TABLE IF NOT EXISTS scout_extensions
+        (
+            id
+                BIGINT UNSIGNED
+                NOT NULL
+                AUTO_INCREMENT,
+
+            scout_profile_id
+                BIGINT UNSIGNED
+                NOT NULL,
+
+            user_id
+                BIGINT UNSIGNED
+                NOT NULL,
+
+            granted_by
+                BIGINT UNSIGNED
+                NULL,
+
+            started_at
+                DATETIME
+                NOT NULL,
+
+            ends_at
+                DATETIME
+                NOT NULL,
+
+            status
+                ENUM(
+                    \'active\',
+                    \'completed\',
+                    \'failed\',
+                    \'canceled\'
+                )
+                NOT NULL
+                DEFAULT \'active\',
+
+            accepted_reports
+                INT UNSIGNED
+                NOT NULL
+                DEFAULT 0,
+
+            resolved_at
+                DATETIME
+                NULL,
+
+            created_at
+                DATETIME
+                NOT NULL
+                DEFAULT CURRENT_TIMESTAMP,
+
+            updated_at
+                DATETIME
+                NOT NULL
+                DEFAULT CURRENT_TIMESTAMP
+                ON UPDATE CURRENT_TIMESTAMP,
+
+            PRIMARY KEY
+                (id),
+
+            KEY idx_scout_extension_profile
+                (
+                    scout_profile_id,
+                    status
+                ),
+
+            KEY idx_scout_extension_user
+                (
+                    user_id,
+                    status
+                ),
+
+            KEY idx_scout_extension_end
+                (
+                    status,
+                    ends_at
+                )
+        )
+        ENGINE=InnoDB
+        DEFAULT CHARSET=utf8mb4
+        COLLATE=utf8mb4_unicode_ci
+        '
+    );
+
+}
+
+
+/* =========================================================
    CHECK WHETHER MAINTENANCE IS DUE
    ========================================================= */
 
@@ -85,6 +207,11 @@ function llama_scout_maintenance_is_due(
 ): bool {
 
     llama_ensure_maintenance_table(
+        $db
+    );
+
+
+    llama_ensure_scout_extensions_table(
         $db
     );
 
@@ -117,7 +244,6 @@ function llama_scout_maintenance_is_due(
     ) {
 
         return true;
-
     }
 
 
@@ -133,7 +259,6 @@ function llama_scout_maintenance_is_due(
     ) {
 
         return true;
-
     }
 
 
@@ -186,6 +311,700 @@ function llama_mark_scout_maintenance_run(
 
 
 /* =========================================================
+   COUNT ACCEPTED SCOUT REPORTS IN A FIXED PERIOD
+   ========================================================= */
+
+function llama_count_scout_reports(
+    PDO $db,
+    int $scoutProfileId,
+    int $userId,
+    string $periodStart,
+    string $periodEnd
+): int {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT COUNT(*)
+
+            FROM scout_activity
+
+            WHERE scout_profile_id = ?
+
+              AND user_id = ?
+
+              AND activity_type =
+                  \'place_approved\'
+
+              AND occurred_at >= ?
+
+              AND occurred_at < ?
+            '
+        );
+
+
+    $stmt->execute([
+        $scoutProfileId,
+        $userId,
+        $periodStart,
+        $periodEnd
+    ]);
+
+
+    return
+        (int)
+        $stmt->fetchColumn();
+
+}
+
+
+/* =========================================================
+   REMOVE SCOUT / MASTER SCOUT ROLES
+   ========================================================= */
+
+function llama_remove_scout_roles(
+    PDO $db,
+    int $userId
+): void {
+
+    $stmt =
+        $db->prepare(
+            '
+            DELETE ur
+
+            FROM user_roles ur
+
+            INNER JOIN roles r
+              ON r.id = ur.role_id
+
+            WHERE ur.user_id = ?
+
+              AND r.slug IN
+              (
+                  \'scout\',
+                  \'master-scout\',
+                  \'master_scout\'
+              )
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+}
+
+
+/* =========================================================
+   ENSURE BASIC SCOUT ROLE
+
+   Used after a successful 30-day reinstatement.
+
+   Master Scout is deliberately NOT restored.
+   ========================================================= */
+
+function llama_grant_basic_scout_role(
+    PDO $db,
+    int $userId
+): void {
+
+    llama_remove_scout_roles(
+        $db,
+        $userId
+    );
+
+
+    $stmt =
+        $db->prepare(
+            '
+            INSERT IGNORE INTO user_roles
+            (
+                user_id,
+                role_id
+            )
+
+            SELECT
+                ?,
+                r.id
+
+            FROM roles r
+
+            WHERE r.slug =
+                \'scout\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    $check =
+        $db->prepare(
+            '
+            SELECT COUNT(*)
+
+            FROM user_roles ur
+
+            INNER JOIN roles r
+              ON r.id = ur.role_id
+
+            WHERE ur.user_id = ?
+
+              AND r.slug =
+                  \'scout\'
+            '
+        );
+
+
+    $check->execute([
+        $userId
+    ]);
+
+
+    if (
+        (int)
+        $check->fetchColumn()
+        < 1
+    ) {
+
+        throw new RuntimeException(
+            'The Scout role could not be granted.'
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   PERMANENTLY DESTROY SCOUT POINTS
+
+   Scout activity/history remains for audit purposes.
+
+   Point values themselves are deliberately zeroed.
+
+   This is irreversible by design. Historical Scout activity
+   must never be used later to reconstruct lost points.
+   ========================================================= */
+
+function llama_destroy_scout_points(
+    PDO $db,
+    int $userId
+): void {
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE scout_activity
+
+            SET
+                points = 0
+
+            WHERE user_id = ?
+              AND points <> 0
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+}
+
+
+/* =========================================================
+   END COMPLIMENTARY MEMBERSHIP
+
+   Only Scout-created complimentary membership is affected.
+
+   A legitimate separate paid Stripe membership is never
+   silently canceled by Scout maintenance.
+   ========================================================= */
+
+function llama_end_scout_complimentary_membership(
+    PDO $db,
+    int $userId
+): void {
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE users
+
+            SET
+                membership_status =
+                    \'canceled\',
+
+                membership_ends_at =
+                    CURRENT_TIMESTAMP
+
+            WHERE id = ?
+
+              AND membership_status =
+                  \'complimentary\'
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+}
+
+
+/* =========================================================
+   SYNC COMPLIMENTARY MEMBERSHIP TO SCOUT DATE
+   ========================================================= */
+
+function llama_sync_scout_membership_end(
+    PDO $db,
+    int $userId,
+    int $scoutProfileId
+): void {
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE users u
+
+            INNER JOIN scout_profiles sp
+              ON sp.user_id = u.id
+
+            SET
+                u.membership_ends_at =
+                    sp.active_through
+
+            WHERE u.id = ?
+
+              AND sp.id = ?
+
+              AND u.membership_status =
+                  \'complimentary\'
+            '
+        );
+
+
+    $stmt->execute([
+        $userId,
+        $scoutProfileId
+    ]);
+
+}
+
+
+/* =========================================================
+   EXPIRE SCOUT ACCESS
+
+   Used for:
+   - failed normal Scout year
+   - failed 30-day extension
+
+   This destroys rank and points.
+
+   It does NOT delete the user's reports or Scout history.
+   ========================================================= */
+
+function llama_expire_scout_access(
+    PDO $db,
+    int $scoutProfileId,
+    int $userId
+): void {
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE scout_profiles
+
+            SET
+                status =
+                    \'inactive\',
+
+                inactive_at =
+                    CURRENT_TIMESTAMP,
+
+                updated_at =
+                    CURRENT_TIMESTAMP
+
+            WHERE id = ?
+
+              AND user_id = ?
+
+              AND status =
+                  \'active\'
+            '
+        );
+
+
+    $stmt->execute([
+        $scoutProfileId,
+        $userId
+    ]);
+
+
+    if (
+        $stmt->rowCount()
+        !==
+        1
+    ) {
+
+        throw new RuntimeException(
+            'Scout deactivation failed.'
+        );
+
+    }
+
+
+    llama_remove_scout_roles(
+        $db,
+        $userId
+    );
+
+
+    llama_destroy_scout_points(
+        $db,
+        $userId
+    );
+
+
+    llama_end_scout_complimentary_membership(
+        $db,
+        $userId
+    );
+
+}
+
+
+/* =========================================================
+   ACTIVE REINSTATEMENT EXTENSION
+   ========================================================= */
+
+function llama_active_scout_extension(
+    PDO $db,
+    int $scoutProfileId,
+    int $userId
+): ?array {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                scout_profile_id,
+                user_id,
+                granted_by,
+                started_at,
+                ends_at,
+                status,
+                accepted_reports
+
+            FROM scout_extensions
+
+            WHERE scout_profile_id = ?
+
+              AND user_id = ?
+
+              AND status =
+                  \'active\'
+
+            ORDER BY
+                id DESC
+
+            LIMIT 1
+
+            FOR UPDATE
+            '
+        );
+
+
+    $stmt->execute([
+        $scoutProfileId,
+        $userId
+    ]);
+
+
+    $row =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    return
+        $row
+        ?: null;
+
+}
+
+
+/* =========================================================
+   COMPLETE 30-DAY EXTENSION
+
+   Successful reinstatement always returns the person as
+   BASIC Scout.
+
+   Their former Master Scout rank is not restored.
+
+   A fresh one-year Scout period begins at the END of the
+   extension period.
+   ========================================================= */
+
+function llama_complete_scout_extension(
+    PDO $db,
+    array $extension,
+    int $acceptedReports
+): void {
+
+    $extensionId =
+        (int)
+        $extension[
+            'id'
+        ];
+
+
+    $scoutProfileId =
+        (int)
+        $extension[
+            'scout_profile_id'
+        ];
+
+
+    $userId =
+        (int)
+        $extension[
+            'user_id'
+        ];
+
+
+    $extensionEnd =
+        trim(
+            (string)
+            $extension[
+                'ends_at'
+            ]
+        );
+
+
+    if (
+        $extensionEnd === ''
+        ||
+        strtotime(
+            $extensionEnd
+        ) === false
+    ) {
+
+        throw new RuntimeException(
+            'The Scout extension end date is invalid.'
+        );
+
+    }
+
+
+    /*
+     * Convert the temporary extension into a fresh,
+     * full one-year basic Scout period.
+     */
+
+    $profileStmt =
+        $db->prepare(
+            '
+            UPDATE scout_profiles
+
+            SET
+                status =
+                    \'active\',
+
+                active_through =
+                    DATE_ADD(
+                        ?,
+                        INTERVAL 1 YEAR
+                    ),
+
+                inactive_at =
+                    NULL,
+
+                updated_at =
+                    CURRENT_TIMESTAMP
+
+            WHERE id = ?
+
+              AND user_id = ?
+
+              AND status =
+                  \'active\'
+            '
+        );
+
+
+    $profileStmt->execute([
+        $extensionEnd,
+        $scoutProfileId,
+        $userId
+    ]);
+
+
+    if (
+        $profileStmt->rowCount()
+        !==
+        1
+    ) {
+
+        throw new RuntimeException(
+            'The Scout extension could not be converted into annual Scout access.'
+        );
+
+    }
+
+
+    $extensionStmt =
+        $db->prepare(
+            '
+            UPDATE scout_extensions
+
+            SET
+                status =
+                    \'completed\',
+
+                accepted_reports = ?,
+
+                resolved_at =
+                    CURRENT_TIMESTAMP,
+
+                updated_at =
+                    CURRENT_TIMESTAMP
+
+            WHERE id = ?
+
+              AND status =
+                  \'active\'
+            '
+        );
+
+
+    $extensionStmt->execute([
+        $acceptedReports,
+        $extensionId
+    ]);
+
+
+    if (
+        $extensionStmt->rowCount()
+        !==
+        1
+    ) {
+
+        throw new RuntimeException(
+            'The Scout extension could not be marked complete.'
+        );
+
+    }
+
+
+    llama_grant_basic_scout_role(
+        $db,
+        $userId
+    );
+
+
+    llama_sync_scout_membership_end(
+        $db,
+        $userId,
+        $scoutProfileId
+    );
+
+}
+
+
+/* =========================================================
+   FAIL 30-DAY EXTENSION
+   ========================================================= */
+
+function llama_fail_scout_extension(
+    PDO $db,
+    array $extension,
+    int $acceptedReports
+): void {
+
+    $extensionId =
+        (int)
+        $extension[
+            'id'
+        ];
+
+
+    $scoutProfileId =
+        (int)
+        $extension[
+            'scout_profile_id'
+        ];
+
+
+    $userId =
+        (int)
+        $extension[
+            'user_id'
+        ];
+
+
+    $extensionStmt =
+        $db->prepare(
+            '
+            UPDATE scout_extensions
+
+            SET
+                status =
+                    \'failed\',
+
+                accepted_reports = ?,
+
+                resolved_at =
+                    CURRENT_TIMESTAMP,
+
+                updated_at =
+                    CURRENT_TIMESTAMP
+
+            WHERE id = ?
+
+              AND status =
+                  \'active\'
+            '
+        );
+
+
+    $extensionStmt->execute([
+        $acceptedReports,
+        $extensionId
+    ]);
+
+
+    if (
+        $extensionStmt->rowCount()
+        !==
+        1
+    ) {
+
+        throw new RuntimeException(
+            'The expired Scout extension could not be closed.'
+        );
+
+    }
+
+
+    llama_expire_scout_access(
+        $db,
+        $scoutProfileId,
+        $userId
+    );
+
+}
+
+
+/* =========================================================
    RUN SCOUT RENEWAL MAINTENANCE
    ========================================================= */
 
@@ -196,8 +1015,15 @@ function llama_run_scout_renewal_maintenance(
     $summary = [
 
         'processed' => 0,
+
         'renewed' => 0,
+
         'inactive' => 0,
+
+        'extensions_completed' => 0,
+
+        'extensions_failed' => 0,
+
         'errors' => 0,
 
     ];
@@ -216,8 +1042,15 @@ function llama_run_scout_renewal_maintenance(
 
 
     /*
-     * Get all active Scouts whose current Scout year
-     * has already ended.
+     * Load every active Scout whose current access period
+     * has expired.
+
+     * active_through is used for both:
+     *
+     * - normal one-year Scout periods
+     * - temporary 30-day reinstatement periods
+     *
+     * scout_extensions tells us which kind of period it is.
      */
 
     $stmt =
@@ -300,6 +1133,7 @@ function llama_run_scout_renewal_maintenance(
                     FROM scout_profiles
 
                     WHERE id = ?
+
                       AND user_id = ?
 
                     LIMIT 1
@@ -372,14 +1206,14 @@ function llama_run_scout_renewal_maintenance(
             }
 
 
-            $yearEndTimestamp =
+            $periodEndTimestamp =
                 strtotime(
                     $activeThrough
                 );
 
 
             if (
-                $yearEndTimestamp === false
+                $periodEndTimestamp === false
             ) {
 
                 throw new RuntimeException(
@@ -390,12 +1224,12 @@ function llama_run_scout_renewal_maintenance(
 
 
             /*
-             * Another request might have renewed this Scout
-             * after the original expired list was loaded.
+             * Another request may have renewed the Scout
+             * after the original expired list was selected.
              */
 
             if (
-                $yearEndTimestamp
+                $periodEndTimestamp
                 >
                 time()
             ) {
@@ -408,14 +1242,194 @@ function llama_run_scout_renewal_maintenance(
 
 
             /* =============================================
-               DETERMINE SCOUT YEAR
+               IS THIS A 30-DAY REINSTATEMENT?
+               ============================================= */
+
+            $extension =
+                llama_active_scout_extension(
+                    $db,
+                    $scoutProfileId,
+                    $userId
+                );
+
+
+            if (
+                $extension
+            ) {
+
+                $extensionStart =
+                    trim(
+                        (string) (
+                            $extension[
+                                'started_at'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                $extensionEnd =
+                    trim(
+                        (string) (
+                            $extension[
+                                'ends_at'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                if (
+                    $extensionStart === ''
+                    ||
+                    $extensionEnd === ''
+                    ||
+                    strtotime(
+                        $extensionStart
+                    ) === false
+                    ||
+                    strtotime(
+                        $extensionEnd
+                    ) === false
+                ) {
+
+                    throw new RuntimeException(
+                        'Scout extension dates were invalid.'
+                    );
+
+                }
+
+
+                /*
+                 * If the extension record somehow ends later
+                 * than the profile access date, repair the
+                 * profile instead of prematurely expiring it.
+                 */
+
+                if (
+                    strtotime(
+                        $extensionEnd
+                    )
+                    >
+                    time()
+                ) {
+
+                    $repairStmt =
+                        $db->prepare(
+                            '
+                            UPDATE scout_profiles
+
+                            SET
+                                active_through = ?,
+
+                                updated_at =
+                                    CURRENT_TIMESTAMP
+
+                            WHERE id = ?
+
+                              AND user_id = ?
+
+                              AND status =
+                                  \'active\'
+                            '
+                        );
+
+
+                    $repairStmt->execute([
+                        $extensionEnd,
+                        $scoutProfileId,
+                        $userId
+                    ]);
+
+
+                    $db->commit();
+
+                    continue;
+
+                }
+
+
+                $acceptedReports =
+                    llama_count_scout_reports(
+                        $db,
+                        $scoutProfileId,
+                        $userId,
+                        $extensionStart,
+                        $extensionEnd
+                    );
+
+
+                if (
+                    $acceptedReports
+                    >=
+                    LLAMA_SCOUT_REPORTS_REQUIRED
+                ) {
+
+                    llama_complete_scout_extension(
+                        $db,
+                        $extension,
+                        $acceptedReports
+                    );
+
+
+                    $db->commit();
+
+
+                    $summary[
+                        'extensions_completed'
+                    ]++;
+
+
+                    continue;
+
+                }
+
+
+                llama_fail_scout_extension(
+                    $db,
+                    $extension,
+                    $acceptedReports
+                );
+
+
+                $db->commit();
+
+
+                $summary[
+                    'extensions_failed'
+                ]++;
+
+
+                $summary[
+                    'inactive'
+                ]++;
+
+
+                continue;
+
+            }
+
+
+            /* =============================================
+               NORMAL ONE-YEAR SCOUT PERIOD
                ============================================= */
 
             $yearStartTimestamp =
                 strtotime(
                     '-1 year',
-                    $yearEndTimestamp
+                    $periodEndTimestamp
                 );
+
+
+            if (
+                $yearStartTimestamp === false
+            ) {
+
+                throw new RuntimeException(
+                    'Scout year start date could not be determined.'
+                );
+
+            }
 
 
             $scoutStartedAt =
@@ -428,6 +1442,11 @@ function llama_run_scout_renewal_maintenance(
                     )
                 );
 
+
+            /*
+             * First Scout year can never begin before the
+             * person actually became a Scout.
+             */
 
             if (
                 $scoutStartedAt !== ''
@@ -465,51 +1484,22 @@ function llama_run_scout_renewal_maintenance(
             $yearEnd =
                 date(
                     'Y-m-d H:i:s',
-                    $yearEndTimestamp
+                    $periodEndTimestamp
                 );
-
-
-            /* =============================================
-               COUNT ACCEPTED SCOUT REPORTS
-               ============================================= */
-
-            $activityStmt =
-                $db->prepare(
-                    '
-                    SELECT COUNT(*)
-
-                    FROM scout_activity
-
-                    WHERE scout_profile_id = ?
-
-                      AND user_id = ?
-
-                      AND activity_type =
-                          \'place_approved\'
-
-                      AND occurred_at >= ?
-
-                      AND occurred_at < ?
-                    '
-                );
-
-
-            $activityStmt->execute([
-                $scoutProfileId,
-                $userId,
-                $yearStart,
-                $yearEnd
-            ]);
 
 
             $acceptedReports =
-                (int)
-                $activityStmt
-                    ->fetchColumn();
+                llama_count_scout_reports(
+                    $db,
+                    $scoutProfileId,
+                    $userId,
+                    $yearStart,
+                    $yearEnd
+                );
 
 
             /* =============================================
-               REQUIREMENT MET
+               NORMAL YEAR REQUIREMENT MET
                ============================================= */
 
             if (
@@ -542,7 +1532,9 @@ function llama_run_scout_renewal_maintenance(
                                 CURRENT_TIMESTAMP
 
                         WHERE id = ?
+
                           AND user_id = ?
+
                           AND status =
                               \'active\'
                         '
@@ -568,41 +1560,11 @@ function llama_run_scout_renewal_maintenance(
                 }
 
 
-                /*
-                 * If this Scout is currently using the
-                 * complimentary membership record, extend
-                 * that membership to the same Scout date.
-                 *
-                 * Paid Stripe membership records are left
-                 * alone.
-                 */
-
-                $membershipStmt =
-                    $db->prepare(
-                        '
-                        UPDATE users u
-
-                        INNER JOIN scout_profiles sp
-                          ON sp.user_id = u.id
-
-                        SET
-                            u.membership_ends_at =
-                                sp.active_through
-
-                        WHERE u.id = ?
-
-                          AND sp.id = ?
-
-                          AND u.membership_status =
-                              \'complimentary\'
-                        '
-                    );
-
-
-                $membershipStmt->execute([
+                llama_sync_scout_membership_end(
+                    $db,
                     $userId,
                     $scoutProfileId
-                ]);
+                );
 
 
                 $db->commit();
@@ -619,114 +1581,19 @@ function llama_run_scout_renewal_maintenance(
 
 
             /* =============================================
-               REQUIREMENT NOT MET
+               NORMAL YEAR REQUIREMENT NOT MET
+
+               Scout and Master Scout both fall completely
+               back to free-member status.
+
+               Points are permanently destroyed.
                ============================================= */
 
-            $inactiveStmt =
-                $db->prepare(
-                    '
-                    UPDATE scout_profiles
-
-                    SET
-                        status =
-                            \'inactive\',
-
-                        inactive_at =
-                            CURRENT_TIMESTAMP,
-
-                        updated_at =
-                            CURRENT_TIMESTAMP
-
-                    WHERE id = ?
-                      AND user_id = ?
-                      AND status =
-                          \'active\'
-                    '
-                );
-
-
-            $inactiveStmt->execute([
+            llama_expire_scout_access(
+                $db,
                 $scoutProfileId,
                 $userId
-            ]);
-
-
-            if (
-                $inactiveStmt->rowCount()
-                !==
-                1
-            ) {
-
-                throw new RuntimeException(
-                    'Scout deactivation failed.'
-                );
-
-            }
-
-
-            /* =============================================
-               REMOVE SCOUT ROLES
-               ============================================= */
-
-            $removeRolesStmt =
-                $db->prepare(
-                    '
-                    DELETE ur
-
-                    FROM user_roles ur
-
-                    INNER JOIN roles r
-                      ON r.id = ur.role_id
-
-                    WHERE ur.user_id = ?
-
-                      AND r.slug IN
-                      (
-                          \'scout\',
-                          \'master-scout\',
-                          \'master_scout\'
-                      )
-                    '
-                );
-
-
-            $removeRolesStmt->execute([
-                $userId
-            ]);
-
-
-            /* =============================================
-               END COMPLIMENTARY MEMBERSHIP
-
-               Only touch complimentary membership.
-
-               Never alter an unrelated paid Stripe
-               subscription here.
-               ============================================= */
-
-            $membershipStmt =
-                $db->prepare(
-                    '
-                    UPDATE users
-
-                    SET
-                        membership_status =
-                            \'canceled\',
-
-                        membership_ends_at =
-                            CURRENT_TIMESTAMP
-
-                    WHERE id = ?
-
-                      AND membership_status =
-                          \'complimentary\'
-                    '
-                );
-
-
-            $membershipStmt->execute([
-                $userId
-            ]);
+            );
 
 
             $db->commit();
@@ -772,11 +1639,10 @@ function llama_run_scout_renewal_maintenance(
 
 
     /*
-     * We mark the daily maintenance run after processing the
-     * full batch.
-     *
-     * Individual Scout failures were logged and do not stop
-     * other Scouts from being processed.
+     * Mark the daily run after the full batch.
+
+     * An individual Scout failure is logged but does not stop
+     * the rest of the batch.
      */
 
     llama_mark_scout_maintenance_run(
