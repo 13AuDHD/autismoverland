@@ -7,6 +7,9 @@ require_once dirname(__DIR__) . '/app/stripe.php';
 require_once dirname(__DIR__) . '/app/timezone.php';
 require_once dirname(__DIR__) . '/app/scout-maintenance.php';
 require_once dirname(__DIR__) . '/app/role-display.php';
+require_once dirname(__DIR__) . '/app/scout-policy.php';
+require_once dirname(__DIR__) . '/app/scout-ranks.php';
+require_once dirname(__DIR__) . '/app/place-contributions.php';
 
 require_role('admin');
 start_llama_session();
@@ -14,27 +17,15 @@ start_llama_session();
 $adminUser = current_user();
 $db = db();
 $adminUserId = (int) $adminUser['id'];
-$primaryRoleLabel =
-    llama_primary_role_label(
-        $adminUserId
-    );
 
-
-$primaryRoleIcon =
-    llama_primary_role_icon(
-        $adminUserId
-    );
-
+$primaryRoleLabel = llama_primary_role_label($adminUserId);
+$primaryRoleIcon = llama_primary_role_icon($adminUserId);
 
 /* =========================================================
    TRAINING CONFIGURATION
-
-   Keep this value synchronized with TRAINING_VERSION in
-   account/scout-training.php.
    ========================================================= */
 
 const SCOUT_REQUIRED_TRAINING_VERSION = '1';
-
 
 /* =========================================================
    HELPERS
@@ -49,191 +40,76 @@ function e(mixed $value): string
     );
 }
 
-
-function scout_status_label(
-    string $status
-): string {
-
+function scout_status_label(string $status): string
+{
     return match ($status) {
-
-        'invited' =>
-            'Invited',
-
-        'application_started' =>
-            'About You Started',
-
-        'application_submitted' =>
-            'About You Complete',
-
-        'training' =>
-            'Training',
-
-        'pending_approval' =>
-            'Ready for Review',
-
-        'active' =>
-            'Active Scout',
-
-        'inactive' =>
-            'Inactive Scout',
-
-        'declined' =>
-            'Declined',
-
-        'removed' =>
-            'Removed',
-
-        default =>
-            ucwords(
-                str_replace(
-                    [
-                        '_',
-                        '-'
-                    ],
-                    ' ',
-                    $status
-                )
-            ),
+        'invited' => 'Invited',
+        'application_started' => 'About You Started',
+        'application_submitted' => 'About You Complete',
+        'training' => 'Training',
+        'pending_approval' => 'Ready for Review',
+        'active' => 'Active Scout',
+        'inactive' => 'Inactive Scout',
+        'declined' => 'Declined',
+        'removed' => 'Removed',
+        default => ucwords(str_replace(['_', '-'], ' ', $status)),
     };
 }
 
-
-function scout_status_badge_class(
-    string $status
-): string {
-
+function scout_status_badge_class(string $status): string
+{
     return match ($status) {
-
-        'active' =>
-            'admin-badge--success',
-
-        'pending_approval' =>
-            'admin-badge--warning',
-
-        'inactive',
-        'declined',
-        'removed' =>
-            'admin-badge--danger',
-
-        default =>
-            'admin-badge--muted',
+        'active' => 'admin-badge--success',
+        'pending_approval' => 'admin-badge--warning',
+        'inactive', 'declined', 'removed' => 'admin-badge--danger',
+        default => 'admin-badge--muted',
     };
 }
 
-
-function scout_extension_status_label(
-    string $status
-): string {
-
+function scout_extension_status_label(string $status): string
+{
     return match ($status) {
-
-        'active' =>
-            'Active Extension',
-
-        'completed' =>
-            'Completed',
-
-        'failed' =>
-            'Expired',
-
-        'canceled' =>
-            'Canceled',
-
-        default =>
-            ucwords(
-                str_replace(
-                    [
-                        '_',
-                        '-'
-                    ],
-                    ' ',
-                    $status
-                )
-            ),
+        'active' => 'Active Reactivation',
+        'completed' => 'Completed',
+        'failed' => 'Expired',
+        'canceled' => 'Canceled',
+        default => ucwords(str_replace(['_', '-'], ' ', $status)),
     };
 }
 
-
-function format_admin_date(
-    ?string $value,
-    bool $withTime = false
-): string {
-
+function format_admin_date(?string $value, bool $withTime = false): string
+{
     global $adminUser;
 
-
     if (!$value) {
-
         return 'Not yet';
     }
 
-
     return llama_format_datetime(
         $value,
-        llama_user_timezone(
-            $adminUser
-        ),
-        $withTime
-            ? 'M j, Y g:i A'
-            : 'M j, Y'
+        llama_user_timezone($adminUser),
+        $withTime ? 'M j, Y g:i A' : 'M j, Y'
     );
 }
 
+function fetch_one(PDO $db, string $sql, array $params = []): array
+{
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
 
-function fetch_one(
-    PDO $db,
-    string $sql,
-    array $params = []
-): array {
-
-    $stmt =
-        $db->prepare(
-            $sql
-        );
-
-
-    $stmt->execute(
-        $params
-    );
-
-
-    return
-        $stmt->fetch(
-            PDO::FETCH_ASSOC
-        )
-        ?: [];
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 }
 
+function fetch_all(PDO $db, string $sql, array $params = []): array
+{
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
 
-function fetch_all(
-    PDO $db,
-    string $sql,
-    array $params = []
-): array {
-
-    $stmt =
-        $db->prepare(
-            $sql
-        );
-
-
-    $stmt->execute(
-        $params
-    );
-
-
-    return
-        $stmt->fetchAll(
-            PDO::FETCH_ASSOC
-        );
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-
-function load_scout(
-    PDO $db,
-    int $scoutProfileId
-): array {
-
+function load_scout(PDO $db, int $scoutProfileId): array
+{
     return fetch_one(
         $db,
         '
@@ -244,14 +120,10 @@ function load_scout(
             u.username,
             u.display_name,
 
-            u.status
-                AS account_status,
-
+            u.status AS account_status,
             u.email_verified_at,
 
-            u.created_at
-                AS account_created_at,
-
+            u.created_at AS account_created_at,
             u.last_login_at,
 
             u.membership_status,
@@ -263,17 +135,11 @@ function load_scout(
             u.stripe_subscription_id,
             u.stripe_cancel_at_period_end,
 
-            inviter.display_name
-                AS inviter_display_name,
+            inviter.display_name AS inviter_display_name,
+            inviter.username AS inviter_username,
 
-            inviter.username
-                AS inviter_username,
-
-            approver.display_name
-                AS approver_display_name,
-
-            approver.username
-                AS approver_username
+            approver.display_name AS approver_display_name,
+            approver.username AS approver_username
 
         FROM scout_profiles sp
 
@@ -290,54 +156,37 @@ function load_scout(
 
         LIMIT 1
         ',
-        [
-            $scoutProfileId
-        ]
+        [$scoutProfileId]
     );
 }
 
+function load_role_slugs(PDO $db, int $userId): array
+{
+    $roles = fetch_all(
+        $db,
+        '
+        SELECT r.slug
 
-function load_role_slugs(
-    PDO $db,
-    int $userId
-): array {
+        FROM roles r
 
-    $roles =
-        fetch_all(
-            $db,
-            '
-            SELECT
-                r.slug
+        INNER JOIN user_roles ur
+          ON ur.role_id = r.id
 
-            FROM roles r
+        WHERE ur.user_id = ?
 
-            INNER JOIN user_roles ur
-              ON ur.role_id = r.id
-
-            WHERE ur.user_id = ?
-
-            ORDER BY
-                r.slug ASC
-            ',
-            [
-                $userId
-            ]
-        );
-
-
-    return array_column(
-        $roles,
-        'slug'
+        ORDER BY r.slug ASC
+        ',
+        [$userId]
     );
-}
 
+    return array_column($roles, 'slug');
+}
 
 function load_application(
     PDO $db,
     int $scoutProfileId,
     int $userId
 ): array {
-
     return fetch_one(
         $db,
         '
@@ -350,20 +199,15 @@ function load_application(
 
         LIMIT 1
         ',
-        [
-            $scoutProfileId,
-            $userId
-        ]
+        [$scoutProfileId, $userId]
     );
 }
-
 
 function load_training(
     PDO $db,
     int $scoutProfileId,
     int $userId
 ): array {
-
     return fetch_one(
         $db,
         '
@@ -376,31 +220,23 @@ function load_training(
 
         LIMIT 1
         ',
-        [
-            $scoutProfileId,
-            $userId
-        ]
+        [$scoutProfileId, $userId]
     );
 }
-
 
 function load_latest_scout_extension(
     PDO $db,
     int $scoutProfileId,
     int $userId
 ): array {
-
     return fetch_one(
         $db,
         '
         SELECT
             se.*,
 
-            granter.display_name
-                AS granted_by_display_name,
-
-            granter.username
-                AS granted_by_username
+            granter.display_name AS granted_by_display_name,
+            granter.username AS granted_by_username
 
         FROM scout_extensions se
 
@@ -410,138 +246,99 @@ function load_latest_scout_extension(
         WHERE se.scout_profile_id = ?
           AND se.user_id = ?
 
-        ORDER BY
-            se.id DESC
+        ORDER BY se.id DESC
 
         LIMIT 1
         ',
-        [
-            $scoutProfileId,
-            $userId
-        ]
+        [$scoutProfileId, $userId]
     );
 }
 
-
-function scout_application_submitted(
-    array $application
-): bool {
-
-    return !empty(
-        $application[
-            'submitted_at'
-        ]
-    );
+function scout_application_submitted(array $application): bool
+{
+    return !empty($application['submitted_at']);
 }
 
-
-function scout_training_version_current(
-    array $training
-): bool {
-
+function scout_training_version_current(array $training): bool
+{
     return
-        (string) (
-            $training[
-                'training_version'
-            ]
-            ?? ''
-        )
+        (string) ($training['training_version'] ?? '')
         ===
         SCOUT_REQUIRED_TRAINING_VERSION;
 }
 
-
-function scout_training_completed(
-    array $training
-): bool {
-
+function scout_training_completed(array $training): bool
+{
     return
-        scout_training_version_current(
-            $training
-        )
+        scout_training_version_current($training)
         &&
-        !empty(
-            $training[
-                'completed_at'
-            ]
-        )
+        !empty($training['completed_at'])
         &&
-        !empty(
-            $training[
-                'video_completed_at'
-            ]
-        );
+        !empty($training['video_completed_at']);
 }
 
-
-function scout_acknowledgements_complete(
-    array $training
-): bool {
-
+function scout_acknowledgements_complete(array $training): bool
+{
     return
-        !empty(
-            $training[
-                'acknowledged_tools'
-            ]
-        )
+        !empty($training['acknowledged_tools'])
         &&
-        !empty(
-            $training[
-                'acknowledged_accuracy'
-            ]
-        )
+        !empty($training['acknowledged_accuracy'])
         &&
-        !empty(
-            $training[
-                'acknowledged_safety'
-            ]
-        )
+        !empty($training['acknowledged_safety'])
         &&
-        !empty(
-            $training[
-                'acknowledged_privacy'
-            ]
-        );
+        !empty($training['acknowledged_privacy']);
 }
-
 
 function scout_is_ready_for_approval(
     array $scout,
     array $application,
     array $training
 ): bool {
-
     return
-        (
-            (string) (
-                $scout[
-                    'status'
-                ]
-                ?? ''
-            )
-            ===
-            'pending_approval'
-        )
+        (string) ($scout['status'] ?? '') === 'pending_approval'
         &&
-        !empty(
-            $scout[
-                'email_verified_at'
-            ]
-        )
+        !empty($scout['email_verified_at'])
         &&
-        scout_application_submitted(
-            $application
-        )
+        scout_application_submitted($application)
         &&
-        scout_training_completed(
-            $training
-        )
+        scout_training_completed($training)
         &&
-        scout_acknowledgements_complete(
-            $training
-        );
+        scout_acknowledgements_complete($training);
 }
 
+/* =========================================================
+   POLICY
+   ========================================================= */
+
+llama_ensure_scout_policy_table($db);
+
+$annualNewPlacesRequired =
+    llama_scout_policy_int(
+        $db,
+        'annual_new_places_required',
+        1
+    );
+
+$scoutPeriodMonths =
+    llama_scout_policy_int(
+        $db,
+        'scout_period_months',
+        1
+    );
+
+$reactivationNewPlacesRequired =
+    llama_scout_policy_int(
+        $db,
+        'reactivation_new_places_required',
+        1
+    );
+
+$reactivationWindowDays =
+    llama_scout_policy_int(
+        $db,
+        'reactivation_window_days',
+        1
+    );
 
 /* =========================================================
    SCOUT PROFILE ID
@@ -549,72 +346,37 @@ function scout_is_ready_for_approval(
 
 $scoutProfileId =
     (int) (
-        $_GET[
-            'id'
-        ]
+        $_GET['id']
         ??
-        $_POST[
-            'scout_profile_id'
-        ]
+        $_POST['scout_profile_id']
         ??
         0
     );
 
-
-if (
-    $scoutProfileId
-    <
-    1
-) {
-
-    http_response_code(
-        400
-    );
-
-
-    exit(
-        'A valid Scout profile ID is required.'
-    );
+if ($scoutProfileId < 1) {
+    http_response_code(400);
+    exit('A valid Scout profile ID is required.');
 }
 
-
 /* =========================================================
-   ENSURE EXTENSION STORAGE
+   STORAGE
    ========================================================= */
 
-llama_ensure_scout_extensions_table(
-    $db
-);
-
+llama_ensure_scout_extensions_table($db);
+llama_ensure_scout_rank_history_table($db);
+llama_ensure_place_contributions_table($db);
 
 /* =========================================================
    CSRF
    ========================================================= */
 
-if (
-    empty(
-        $_SESSION[
-            'admin_scout_csrf'
-        ]
-    )
-) {
-
-    $_SESSION[
-        'admin_scout_csrf'
-    ] =
-        bin2hex(
-            random_bytes(
-                32
-            )
-        );
+if (empty($_SESSION['admin_scout_csrf'])) {
+    $_SESSION['admin_scout_csrf'] =
+        bin2hex(random_bytes(32));
 }
 
-
 $csrfToken =
-    $_SESSION[
-        'admin_scout_csrf'
-    ];
-
+    (string) $_SESSION['admin_scout_csrf'];
 
 /* =========================================================
    INITIAL LOAD
@@ -626,26 +388,13 @@ $scout =
         $scoutProfileId
     );
 
-
 if (!$scout) {
-
-    http_response_code(
-        404
-    );
-
-
-    exit(
-        'Scout profile not found.'
-    );
+    http_response_code(404);
+    exit('Scout profile not found.');
 }
 
-
 $scoutUserId =
-    (int)
-    $scout[
-        'user_id'
-    ];
-
+    (int) $scout['user_id'];
 
 $application =
     load_application(
@@ -654,7 +403,6 @@ $application =
         $scoutUserId
     );
 
-
 $training =
     load_training(
         $db,
@@ -662,13 +410,11 @@ $training =
         $scoutUserId
     );
 
-
 $currentRoleSlugs =
     load_role_slugs(
         $db,
         $scoutUserId
     );
-
 
 $latestExtension =
     load_latest_scout_extension(
@@ -677,38 +423,20 @@ $latestExtension =
         $scoutUserId
     );
 
-
 $applicationSubmitted =
-    scout_application_submitted(
-        $application
-    );
-
+    scout_application_submitted($application);
 
 $trainingVersionCurrent =
-    scout_training_version_current(
-        $training
-    );
-
+    scout_training_version_current($training);
 
 $trainingCompleted =
-    scout_training_completed(
-        $training
-    );
-
+    scout_training_completed($training);
 
 $allTrainingAcknowledgements =
-    scout_acknowledgements_complete(
-        $training
-    );
-
+    scout_acknowledgements_complete($training);
 
 $emailVerified =
-    !empty(
-        $scout[
-            'email_verified_at'
-        ]
-    );
-
+    !empty($scout['email_verified_at']);
 
 $isReadyForApproval =
     scout_is_ready_for_approval(
@@ -717,160 +445,106 @@ $isReadyForApproval =
         $training
     );
 
-
 /* =========================================================
-   POST ACTIONS
+   MESSAGES
    ========================================================= */
 
 $message = '';
 $error = '';
 
-
 $billingResult =
     trim(
         (string) (
-            $_GET[
-                'billing'
-            ]
+            $_GET['billing']
             ?? ''
         )
     );
 
+if ($billingResult !== '') {
+    $message =
+        match ($billingResult) {
+            'scout-scheduled' =>
+                'Paid membership is now scheduled not to renew at the end of the current billing period.',
 
-if (
-    $billingResult
-    !==
-    ''
-) {
+            'scout-already-scheduled' =>
+                'Paid membership was already scheduled not to renew.',
 
-    switch (
-        $billingResult
-    ) {
+            'scout-already-ended' =>
+                'The previous paid membership has already ended.',
 
-        case 'scout-scheduled':
+            'scout-no-subscription' =>
+                'There is no active Stripe subscription to change.',
 
-            $message =
-                'Paid membership is now scheduled not to renew at the end of the current billing period.';
+            'scout-ok' =>
+                'Scout billing was updated successfully.',
 
-            break;
+            default =>
+                '',
+        };
 
-
-        case 'scout-already-scheduled':
-
-            $message =
-                'Paid membership was already scheduled not to renew.';
-
-            break;
-
-
-        case 'scout-already-ended':
-
-            $message =
-                'The previous paid membership has already ended.';
-
-            break;
-
-
-        case 'scout-no-subscription':
-
-            $message =
-                'There is no active Stripe subscription to change.';
-
-            break;
-
-
-        case 'scout-ok':
-
-            $message =
-                'Scout billing was updated successfully.';
-
-            break;
-
-
-        case 'scout-error':
-
-            $error =
-                'The Scout billing change could not be completed. Check the server error log for details.';
-
-            break;
+    if ($billingResult === 'scout-error') {
+        $message = '';
+        $error =
+            'The Scout billing change could not be completed. Check the server error log for details.';
     }
 }
 
+/* =========================================================
+   POST ACTIONS
+   ========================================================= */
 
-if (
-    $_SERVER[
-        'REQUEST_METHOD'
-    ]
-    ===
-    'POST'
-) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $submittedToken =
-        $_POST[
-            'csrf_token'
-        ]
+        $_POST['csrf_token']
         ?? '';
 
-
     if (
-        !is_string(
-            $submittedToken
-        )
+        !is_string($submittedToken)
         ||
         !hash_equals(
             $csrfToken,
             $submittedToken
         )
     ) {
-
         $error =
             'Your session could not be verified. Reload the page and try again.';
-
 
     } else {
 
         $action =
             trim(
                 (string) (
-                    $_POST[
-                        'action'
-                    ]
+                    $_POST['action']
                     ?? ''
                 )
             );
-
 
         $reviewNotes =
             trim(
                 (string) (
-                    $_POST[
-                        'review_notes'
-                    ]
+                    $_POST['review_notes']
                     ?? ''
                 )
             );
 
-
         /* =================================================
-           APPROVE
+           APPROVE INITIAL LLAMA SCOUT
            ================================================= */
 
-        if (
-            $action
-            ===
-            'approve'
-        ) {
+        if ($action === 'approve') {
 
             try {
 
                 $db->beginTransaction();
-
 
                 $freshProfile =
                     fetch_one(
                         $db,
                         '
                         SELECT
+                            id,
+                            user_id,
                             status
 
                         FROM scout_profiles
@@ -887,7 +561,6 @@ if (
                             $scoutUserId
                         ]
                     );
-
 
                 $freshApplication =
                     fetch_one(
@@ -910,7 +583,6 @@ if (
                         ]
                     );
 
-
                 $freshTraining =
                     fetch_one(
                         $db,
@@ -932,7 +604,6 @@ if (
                         ]
                     );
 
-
                 $freshUser =
                     fetch_one(
                         $db,
@@ -950,27 +621,18 @@ if (
 
                         FOR UPDATE
                         ',
-                        [
-                            $scoutUserId
-                        ]
+                        [$scoutUserId]
                     );
 
-
                 $freshScoutForReadiness = [
-
                     'status' =>
-                        $freshProfile[
-                            'status'
-                        ]
+                        $freshProfile['status']
                         ?? '',
 
                     'email_verified_at' =>
-                        $freshUser[
-                            'email_verified_at'
-                        ]
+                        $freshUser['email_verified_at']
                         ?? null,
                 ];
-
 
                 if (
                     !scout_is_ready_for_approval(
@@ -979,49 +641,36 @@ if (
                         $freshTraining
                     )
                 ) {
-
                     throw new RuntimeException(
                         'This Scout candidate has not completed all current onboarding requirements.'
                     );
                 }
 
-
-                $roleStmt =
-                    $db->prepare(
+                $approvalTime =
+                    fetch_one(
+                        $db,
                         '
-                        SELECT
-                            id
-
-                        FROM roles
-
-                        WHERE slug =
-                            \'scout\'
-
-                        LIMIT 1
+                        SELECT CURRENT_TIMESTAMP AS now_at
                         '
                     );
 
+                $approvedAt =
+                    (string) (
+                        $approvalTime['now_at']
+                        ?? ''
+                    );
 
-                $roleStmt->execute();
-
-
-                $scoutRoleId =
-                    (int)
-                    $roleStmt
-                        ->fetchColumn();
-
-
-                if (
-                    $scoutRoleId
-                    <
-                    1
-                ) {
-
+                if ($approvedAt === '') {
                     throw new RuntimeException(
-                        'The Scout role does not exist.'
+                        'The Scout approval date could not be determined.'
                     );
                 }
 
+                $newActiveThrough =
+                    llama_policy_add_months(
+                        $approvedAt,
+                        $scoutPeriodMonths
+                    );
 
                 $profileUpdate =
                     $db->prepare(
@@ -1035,7 +684,7 @@ if (
                             approved_at =
                                 COALESCE(
                                     approved_at,
-                                    CURRENT_TIMESTAMP
+                                    ?
                                 ),
 
                             approved_by =
@@ -1044,14 +693,11 @@ if (
                             scout_started_at =
                                 COALESCE(
                                     scout_started_at,
-                                    CURRENT_TIMESTAMP
+                                    ?
                                 ),
 
                             active_through =
-                                DATE_ADD(
-                                    CURRENT_TIMESTAMP,
-                                    INTERVAL 1 YEAR
-                                ),
+                                ?,
 
                             inactive_at =
                                 NULL,
@@ -1075,59 +721,32 @@ if (
                         '
                     );
 
-
                 $profileUpdate->execute([
+                    $approvedAt,
                     $adminUserId,
+                    $approvedAt,
+                    $newActiveThrough,
                     $scoutProfileId,
                     $scoutUserId
                 ]);
 
-
-                if (
-                    $profileUpdate->rowCount()
-                    !==
-                    1
-                ) {
-
+                if ($profileUpdate->rowCount() !== 1) {
                     throw new RuntimeException(
                         'Scout onboarding state changed before approval could be completed.'
                     );
                 }
 
-
-                $roleInsert =
-                    $db->prepare(
-                        '
-                        INSERT INTO user_roles
-                        (
-                            user_id,
-                            role_id
-                        )
-
-                        SELECT
-                            ?,
-                            ?
-
-                        WHERE NOT EXISTS
-                        (
-                            SELECT 1
-
-                            FROM user_roles
-
-                            WHERE user_id = ?
-                              AND role_id = ?
-                        )
-                        '
-                    );
-
-
-                $roleInsert->execute([
+                llama_change_scout_rank(
+                    $db,
                     $scoutUserId,
-                    $scoutRoleId,
-                    $scoutUserId,
-                    $scoutRoleId
-                ]);
-
+                    LLAMA_SCOUT_RANK_SCOUT,
+                    LLAMA_RANK_REASON_INITIAL_APPROVAL,
+                    $adminUserId,
+                    null,
+                    $reviewNotes !== ''
+                        ? $reviewNotes
+                        : 'Initial Llama Scout approval.'
+                );
 
                 $applicationUpdate =
                     $db->prepare(
@@ -1149,31 +768,24 @@ if (
                         '
                     );
 
-
                 $applicationUpdate->execute([
                     $adminUserId,
-
                     $reviewNotes !== ''
                         ? $reviewNotes
                         : null,
-
                     $scoutProfileId,
                     $scoutUserId
                 ]);
-
 
                 $existingMembershipStatus =
                     strtolower(
                         trim(
                             (string) (
-                                $freshUser[
-                                    'membership_status'
-                                ]
+                                $freshUser['membership_status']
                                 ?? 'none'
                             )
                         )
                     );
-
 
                 $hasPaidMembership =
                     in_array(
@@ -1187,15 +799,10 @@ if (
                     )
                     &&
                     !empty(
-                        $freshUser[
-                            'stripe_subscription_id'
-                        ]
+                        $freshUser['stripe_subscription_id']
                     );
 
-
-                if (
-                    !$hasPaidMembership
-                ) {
+                if (!$hasPaidMembership) {
 
                     $membershipUpdate =
                         $db->prepare(
@@ -1212,32 +819,26 @@ if (
                                 membership_started_at =
                                     COALESCE(
                                         membership_started_at,
-                                        CURRENT_TIMESTAMP
+                                        ?
                                     ),
 
                                 membership_ends_at =
-                                    DATE_ADD(
-                                        CURRENT_TIMESTAMP,
-                                        INTERVAL 1 YEAR
-                                    )
+                                    ?
 
                             WHERE id = ?
                             '
                         );
 
-
                     $membershipUpdate->execute([
+                        $approvedAt,
+                        $newActiveThrough,
                         $scoutUserId
                     ]);
                 }
 
-
                 $db->commit();
 
-
-                if (
-                    $hasPaidMembership
-                ) {
+                if ($hasPaidMembership) {
 
                     try {
 
@@ -1247,113 +848,80 @@ if (
                                 $scoutUserId
                             );
 
-
                         $billingReason =
                             (string) (
-                                $billingTransition[
-                                    'reason'
-                                ]
+                                $billingTransition['reason']
                                 ?? ''
                             );
 
-
                         $message =
-                            match (
-                                $billingReason
-                            ) {
-
+                            match ($billingReason) {
                                 'scheduled' =>
-                                    'Scout approved and activated. Their paid membership will remain active through the current billing period and will not renew. Scout access is already active.',
+                                    'Llama Scout approved and activated. Their paid membership will remain active through the current billing period and will not renew.',
 
                                 'already_scheduled' =>
-                                    'Scout approved and activated. Their paid membership was already scheduled not to renew.',
+                                    'Llama Scout approved and activated. Their paid membership was already scheduled not to renew.',
 
                                 'already_ended' =>
-                                    'Scout approved and activated. Their previous paid subscription has already ended.',
+                                    'Llama Scout approved and activated. Their previous paid subscription has already ended.',
 
                                 'no_subscription' =>
-                                    'Scout approved and activated. No active Stripe subscription required a billing change.',
+                                    'Llama Scout approved and activated. No active Stripe subscription required a billing change.',
 
                                 default =>
-                                    'Scout approved and activated. Billing transition completed.',
+                                    'Llama Scout approved and activated.',
                             };
 
-
-                    } catch (
-                        Throwable $billingException
-                    ) {
+                    } catch (Throwable $billingException) {
 
                         error_log(
-                            'Llama Scout Scout billing transition error for user #'
+                            'Llama Scout billing transition error for user #'
                             .
                             $scoutUserId
                             .
                             ': '
                             .
-                            $billingException
-                                ->getMessage()
+                            $billingException->getMessage()
                         );
 
-
                         $message =
-                            'Scout approved and activated, but their paid Stripe subscription could not be scheduled to end. Scout access is active. Billing needs attention.';
+                            'Llama Scout approved and activated, but the paid Stripe subscription could not be scheduled to end. Scout access is active. Billing needs attention.';
                     }
-
 
                 } else {
 
                     $message =
-                        'Scout approved. Scout role and complimentary membership are now active.';
+                        'Llama Scout approved. Rank and complimentary Scout access are now active.';
                 }
 
+            } catch (Throwable $exception) {
 
-            } catch (
-                Throwable $exception
-            ) {
-
-                if (
-                    $db->inTransaction()
-                ) {
-
+                if ($db->inTransaction()) {
                     $db->rollBack();
                 }
 
-
                 error_log(
-                    'Llama Scout Scout approval error: '
+                    'Llama Scout approval error: '
                     .
-                    $exception
-                        ->getMessage()
+                    $exception->getMessage()
                 );
 
-
                 $error =
-                    $exception->getMessage()
-                    ===
+                    $exception->getMessage() ===
                     'This Scout candidate has not completed all current onboarding requirements.'
                         ? $exception->getMessage()
                         : 'The Scout could not be approved.';
             }
 
-
         /* =================================================
-           GRANT 30-DAY SCOUT EXTENSION
+           GRANT REACTIVATION WINDOW
            ================================================= */
 
-        } elseif (
-            $action
-            ===
-            'grant_extension'
-        ) {
+        } elseif ($action === 'grant_extension') {
 
             try {
 
                 $db->beginTransaction();
-
-
-                /* =========================================
-                   LOCK SCOUT PROFILE
-                   ========================================= */
 
                 $freshProfile =
                     fetch_one(
@@ -1381,44 +949,33 @@ if (
                         ]
                     );
 
-
                 $extensionEligibleStatuses = [
                     'inactive',
                     'removed'
                 ];
-
 
                 if (
                     !$freshProfile
                     ||
                     !in_array(
                         (string) (
-                            $freshProfile[
-                                'status'
-                            ]
+                            $freshProfile['status']
                             ?? ''
                         ),
                         $extensionEligibleStatuses,
                         true
                     )
                 ) {
-
                     throw new RuntimeException(
-                        'Only an inactive or removed former Scout can receive a 30-day Scout extension.'
+                        'Only an inactive or removed former Scout can receive a Scout reactivation window.'
                     );
                 }
-
-
-                /* =========================================
-                   PREVENT OVERLAPPING EXTENSIONS
-                   ========================================= */
 
                 $activeExtension =
                     fetch_one(
                         $db,
                         '
-                        SELECT
-                            id
+                        SELECT id
 
                         FROM scout_extensions
 
@@ -1439,20 +996,11 @@ if (
                         ]
                     );
 
-
-                if (
-                    $activeExtension
-                ) {
-
+                if ($activeExtension) {
                     throw new RuntimeException(
-                        'This Scout already has an active extension.'
+                        'This Scout already has an active reactivation window.'
                     );
                 }
-
-
-                /* =========================================
-                   LOCK USER
-                   ========================================= */
 
                 $freshUser =
                     fetch_one(
@@ -1471,80 +1019,42 @@ if (
 
                         FOR UPDATE
                         ',
-                        [
-                            $scoutUserId
-                        ]
+                        [$scoutUserId]
                     );
 
-
-                if (
-                    !$freshUser
-                ) {
-
+                if (!$freshUser) {
                     throw new RuntimeException(
                         'The Scout account could not be found.'
                     );
                 }
 
-
-                /* =========================================
-                   EXACT EXTENSION WINDOW
-                   ========================================= */
-
-                $extensionWindow =
+                $extensionStartRow =
                     fetch_one(
                         $db,
                         '
-                        SELECT
-                            CURRENT_TIMESTAMP
-                                AS started_at,
-
-                            DATE_ADD(
-                                CURRENT_TIMESTAMP,
-                                INTERVAL 30 DAY
-                            )
-                                AS ends_at
+                        SELECT CURRENT_TIMESTAMP AS started_at
                         '
                     );
-
 
                 $extensionStartedAt =
                     trim(
                         (string) (
-                            $extensionWindow[
-                                'started_at'
-                            ]
+                            $extensionStartRow['started_at']
                             ?? ''
                         )
                     );
 
-
-                $extensionEndsAt =
-                    trim(
-                        (string) (
-                            $extensionWindow[
-                                'ends_at'
-                            ]
-                            ?? ''
-                        )
-                    );
-
-
-                if (
-                    $extensionStartedAt === ''
-                    ||
-                    $extensionEndsAt === ''
-                ) {
-
+                if ($extensionStartedAt === '') {
                     throw new RuntimeException(
-                        'The Scout extension dates could not be determined.'
+                        'The Scout reactivation start date could not be determined.'
                     );
                 }
 
-
-                /* =========================================
-                   CREATE EXTENSION RECORD
-                   ========================================= */
+                $extensionEndsAt =
+                    llama_policy_add_days(
+                        $extensionStartedAt,
+                        $reactivationWindowDays
+                    );
 
                 $extensionInsert =
                     $db->prepare(
@@ -1573,7 +1083,6 @@ if (
                         '
                     );
 
-
                 $extensionInsert->execute([
                     $scoutProfileId,
                     $scoutUserId,
@@ -1582,22 +1091,11 @@ if (
                     $extensionEndsAt
                 ]);
 
-
-                if (
-                    $extensionInsert->rowCount()
-                    !==
-                    1
-                ) {
-
+                if ($extensionInsert->rowCount() !== 1) {
                     throw new RuntimeException(
-                        'The Scout extension record could not be created.'
+                        'The Scout reactivation record could not be created.'
                     );
                 }
-
-
-                /* =========================================
-                   REACTIVATE PROFILE FOR EXACTLY 30 DAYS
-                   ========================================= */
 
                 $profileUpdate =
                     $db->prepare(
@@ -1636,149 +1134,44 @@ if (
                         '
                     );
 
-
                 $profileUpdate->execute([
                     $extensionEndsAt,
                     $scoutProfileId,
                     $scoutUserId
                 ]);
 
-
-                if (
-                    $profileUpdate->rowCount()
-                    !==
-                    1
-                ) {
-
+                if ($profileUpdate->rowCount() !== 1) {
                     throw new RuntimeException(
-                        'The Scout profile changed before the extension could be granted.'
+                        'The Scout profile changed before reactivation access could be granted.'
                     );
                 }
 
+                /*
+                 * Temporary reactivation access always uses
+                 * the basic Llama Scout role.
+                 *
+                 * Lifetime points are NEVER destroyed here.
+                 */
 
-                /* =========================================
-                   REMOVE OLD SCOUT RANKS
-
-                   A former Master Scout always returns as a
-                   basic Scout.
-                   ========================================= */
-
-                llama_remove_scout_roles(
+                llama_change_scout_rank(
                     $db,
-                    $scoutUserId
-                );
-
-
-                /* =========================================
-                   FIND BASIC SCOUT ROLE
-                   ========================================= */
-
-                $roleStmt =
-                    $db->prepare(
-                        '
-                        SELECT
-                            id
-
-                        FROM roles
-
-                        WHERE slug =
-                            \'scout\'
-
-                        LIMIT 1
-                        '
-                    );
-
-
-                $roleStmt->execute();
-
-
-                $scoutRoleId =
-                    (int)
-                    $roleStmt
-                        ->fetchColumn();
-
-
-                if (
-                    $scoutRoleId < 1
-                ) {
-
-                    throw new RuntimeException(
-                        'The Scout role does not exist.'
-                    );
-                }
-
-
-                /* =========================================
-                   ASSIGN BASIC SCOUT ROLE
-                   ========================================= */
-
-                $roleInsert =
-                    $db->prepare(
-                        '
-                        INSERT INTO user_roles
-                        (
-                            user_id,
-                            role_id
-                        )
-
-                        SELECT
-                            ?,
-                            ?
-
-                        WHERE NOT EXISTS
-                        (
-                            SELECT 1
-
-                            FROM user_roles
-
-                            WHERE user_id = ?
-                              AND role_id = ?
-                        )
-                        '
-                    );
-
-
-                $roleInsert->execute([
                     $scoutUserId,
-                    $scoutRoleId,
-                    $scoutUserId,
-                    $scoutRoleId
-                ]);
-
-
-                /* =========================================
-                   ZERO POINTS AGAIN
-
-                   Normally maintenance already did this when
-                   access expired. Doing it again guarantees
-                   that every extension begins from zero.
-                   ========================================= */
-
-                llama_destroy_scout_points(
-                    $db,
-                    $scoutUserId
+                    LLAMA_SCOUT_RANK_SCOUT,
+                    LLAMA_RANK_REASON_REACTIVATED,
+                    $adminUserId,
+                    null,
+                    'Temporary basic Llama Scout access granted for the configured reactivation window. Former Master Scout rank is not restored.'
                 );
-
-
-                /* =========================================
-                   COMPLIMENTARY ACCESS
-
-                   Do not overwrite a legitimate active paid
-                   Stripe membership if one still exists.
-                   ========================================= */
 
                 $membershipStatus =
                     strtolower(
                         trim(
                             (string) (
-                                $freshUser[
-                                    'membership_status'
-                                ]
+                                $freshUser['membership_status']
                                 ?? ''
                             )
                         )
                     );
-
 
                 $hasPaidMembership =
                     in_array(
@@ -1792,15 +1185,10 @@ if (
                     )
                     &&
                     !empty(
-                        $freshUser[
-                            'stripe_subscription_id'
-                        ]
+                        $freshUser['stripe_subscription_id']
                     );
 
-
-                if (
-                    !$hasPaidMembership
-                ) {
+                if (!$hasPaidMembership) {
 
                     $membershipUpdate =
                         $db->prepare(
@@ -1824,7 +1212,6 @@ if (
                             '
                         );
 
-
                     $membershipUpdate->execute([
                         $extensionStartedAt,
                         $extensionEndsAt,
@@ -1832,49 +1219,46 @@ if (
                     ]);
                 }
 
-
                 $db->commit();
 
-
                 $message =
-                    '30-day basic Scout extension granted. The Scout must complete three accepted Scout Reports during this extension period.';
+                    $reactivationWindowDays
+                    .
+                    '-day basic Llama Scout reactivation window granted. The Scout must complete '
+                    .
+                    $reactivationNewPlacesRequired
+                    .
+                    ' approved new '
+                    .
+                    (
+                        $reactivationNewPlacesRequired === 1
+                            ? 'Place'
+                            : 'Places'
+                    )
+                    .
+                    ' during this window. Lifetime points remain intact.';
 
+            } catch (Throwable $exception) {
 
-            } catch (
-                Throwable $exception
-            ) {
-
-                if (
-                    $db->inTransaction()
-                ) {
-
+                if ($db->inTransaction()) {
                     $db->rollBack();
                 }
 
-
                 error_log(
-                    'Llama Scout Scout extension error: '
+                    'Llama Scout reactivation error: '
                     .
-                    $exception
-                        ->getMessage()
+                    $exception->getMessage()
                 );
 
-
                 $error =
-                    $exception
-                        ->getMessage();
+                    $exception->getMessage();
             }
-
 
         /* =================================================
            RETURN FOR CHANGES
            ================================================= */
 
-        } elseif (
-            $action
-            ===
-            'return'
-        ) {
+        } elseif ($action === 'return') {
 
             $returnableStates = [
                 'application_started',
@@ -1883,16 +1267,10 @@ if (
                 'pending_approval',
             ];
 
-
-            if (
-                $reviewNotes
-                ===
-                ''
-            ) {
+            if ($reviewNotes === '') {
 
                 $error =
                     'Add a note explaining what needs to be changed.';
-
 
             } else {
 
@@ -1900,13 +1278,11 @@ if (
 
                     $db->beginTransaction();
 
-
                     $lockedProfile =
                         fetch_one(
                             $db,
                             '
-                            SELECT
-                                status
+                            SELECT status
 
                             FROM scout_profiles
 
@@ -1923,25 +1299,20 @@ if (
                             ]
                         );
 
-
                     if (
                         !in_array(
                             (string) (
-                                $lockedProfile[
-                                    'status'
-                                ]
+                                $lockedProfile['status']
                                 ?? ''
                             ),
                             $returnableStates,
                             true
                         )
                     ) {
-
                         throw new RuntimeException(
                             'This Scout is no longer in a state that can be returned for changes.'
                         );
                     }
-
 
                     $profileUpdate =
                         $db->prepare(
@@ -1969,12 +1340,10 @@ if (
                             '
                         );
 
-
                     $profileUpdate->execute([
                         $scoutProfileId,
                         $scoutUserId
                     ]);
-
 
                     $applicationUpdate =
                         $db->prepare(
@@ -1999,14 +1368,12 @@ if (
                             '
                         );
 
-
                     $applicationUpdate->execute([
                         $adminUserId,
                         $reviewNotes,
                         $scoutProfileId,
                         $scoutUserId
                     ]);
-
 
                     $trainingUpdate =
                         $db->prepare(
@@ -2043,55 +1410,38 @@ if (
                             '
                         );
 
-
                     $trainingUpdate->execute([
                         $scoutProfileId,
                         $scoutUserId
                     ]);
 
-
                     $db->commit();
-
 
                     $message =
                         'The Scout candidate has been returned to the About You step with your review note.';
 
+                } catch (Throwable $exception) {
 
-                } catch (
-                    Throwable $exception
-                ) {
-
-                    if (
-                        $db->inTransaction()
-                    ) {
-
+                    if ($db->inTransaction()) {
                         $db->rollBack();
                     }
-
 
                     error_log(
                         'Llama Scout Scout return error: '
                         .
-                        $exception
-                            ->getMessage()
+                        $exception->getMessage()
                     );
-
 
                     $error =
                         'The Scout candidate could not be returned for changes.';
                 }
             }
 
-
         /* =================================================
            DECLINE
            ================================================= */
 
-        } elseif (
-            $action
-            ===
-            'decline'
-        ) {
+        } elseif ($action === 'decline') {
 
             $declinableStates = [
                 'invited',
@@ -2101,16 +1451,10 @@ if (
                 'pending_approval',
             ];
 
-
-            if (
-                $reviewNotes
-                ===
-                ''
-            ) {
+            if ($reviewNotes === '') {
 
                 $error =
                     'Add a review note before declining the Scout invitation.';
-
 
             } else {
 
@@ -2118,13 +1462,11 @@ if (
 
                     $db->beginTransaction();
 
-
                     $lockedProfile =
                         fetch_one(
                             $db,
                             '
-                            SELECT
-                                status
+                            SELECT status
 
                             FROM scout_profiles
 
@@ -2141,25 +1483,20 @@ if (
                             ]
                         );
 
-
                     if (
                         !in_array(
                             (string) (
-                                $lockedProfile[
-                                    'status'
-                                ]
+                                $lockedProfile['status']
                                 ?? ''
                             ),
                             $declinableStates,
                             true
                         )
                     ) {
-
                         throw new RuntimeException(
                             'This Scout is no longer in a state that can be declined.'
                         );
                     }
-
 
                     $profileUpdate =
                         $db->prepare(
@@ -2178,16 +1515,12 @@ if (
                             '
                         );
 
-
                     $profileUpdate->execute([
                         $scoutProfileId,
                         $scoutUserId
                     ]);
 
-
-                    if (
-                        $application
-                    ) {
+                    if ($application) {
 
                         $applicationUpdate =
                             $db->prepare(
@@ -2209,7 +1542,6 @@ if (
                                 '
                             );
 
-
                         $applicationUpdate->execute([
                             $adminUserId,
                             $reviewNotes,
@@ -2218,39 +1550,27 @@ if (
                         ]);
                     }
 
-
                     $db->commit();
-
 
                     $message =
                         'Scout onboarding declined. Their regular Llama Scout account is unchanged.';
 
+                } catch (Throwable $exception) {
 
-                } catch (
-                    Throwable $exception
-                ) {
-
-                    if (
-                        $db->inTransaction()
-                    ) {
-
+                    if ($db->inTransaction()) {
                         $db->rollBack();
                     }
-
 
                     error_log(
                         'Llama Scout Scout decline error: '
                         .
-                        $exception
-                            ->getMessage()
+                        $exception->getMessage()
                     );
-
 
                     $error =
                         'The Scout onboarding could not be declined.';
                 }
             }
-
 
         } else {
 
@@ -2258,7 +1578,6 @@ if (
                 'That Scout review action was not valid.';
         }
     }
-
 
     /* =====================================================
        RELOAD AFTER POST
@@ -2270,14 +1589,12 @@ if (
             $scoutProfileId
         );
 
-
     $application =
         load_application(
             $db,
             $scoutProfileId,
             $scoutUserId
         );
-
 
     $training =
         load_training(
@@ -2286,13 +1603,11 @@ if (
             $scoutUserId
         );
 
-
     $currentRoleSlugs =
         load_role_slugs(
             $db,
             $scoutUserId
         );
-
 
     $latestExtension =
         load_latest_scout_extension(
@@ -2301,38 +1616,22 @@ if (
             $scoutUserId
         );
 
-
     $applicationSubmitted =
-        scout_application_submitted(
-            $application
-        );
-
+        scout_application_submitted($application);
 
     $trainingVersionCurrent =
-        scout_training_version_current(
-            $training
-        );
-
+        scout_training_version_current($training);
 
     $trainingCompleted =
-        scout_training_completed(
-            $training
-        );
-
+        scout_training_completed($training);
 
     $allTrainingAcknowledgements =
-        scout_acknowledgements_complete(
-            $training
-        );
-
+        scout_acknowledgements_complete($training);
 
     $emailVerified =
         !empty(
-            $scout[
-                'email_verified_at'
-            ]
+            $scout['email_verified_at']
         );
-
 
     $isReadyForApproval =
         scout_is_ready_for_approval(
@@ -2341,7 +1640,6 @@ if (
             $training
         );
 }
-
 
 /* =========================================================
    CONTRIBUTION STATS
@@ -2352,85 +1650,132 @@ $submissionStats =
         $db,
         '
         SELECT
-            COUNT(*)
-                AS total,
+            COUNT(*) AS total,
 
             SUM(
                 CASE
-                    WHEN status =
-                        \'approved\'
+                    WHEN status = \'approved\'
                     THEN 1
                     ELSE 0
                 END
-            )
-                AS approved,
+            ) AS approved,
 
             SUM(
                 CASE
-                    WHEN status =
-                        \'pending\'
+                    WHEN status = \'pending\'
                     THEN 1
                     ELSE 0
                 END
-            )
-                AS pending,
+            ) AS pending,
 
             SUM(
                 CASE
-                    WHEN status =
-                        \'needs-changes\'
+                    WHEN status = \'needs-changes\'
                     THEN 1
                     ELSE 0
                 END
-            )
-                AS needs_changes,
+            ) AS needs_changes,
 
             SUM(
                 CASE
-                    WHEN status =
-                        \'rejected\'
+                    WHEN status = \'rejected\'
                     THEN 1
                     ELSE 0
                 END
-            )
-                AS rejected
+            ) AS rejected
 
         FROM place_submissions
 
         WHERE user_id = ?
         ',
-        [
-            $scoutUserId
-        ]
+        [$scoutUserId]
     );
-
 
 $totalSubmissions =
     (int) (
-        $submissionStats[
-            'total'
-        ]
+        $submissionStats['total']
         ?? 0
     );
-
 
 $approvedSubmissions =
     (int) (
-        $submissionStats[
-            'approved'
-        ]
+        $submissionStats['approved']
         ?? 0
     );
-
 
 $pendingSubmissions =
     (int) (
-        $submissionStats[
-            'pending'
-        ]
+        $submissionStats['pending']
         ?? 0
     );
 
+$contributionStats =
+    fetch_one(
+        $db,
+        '
+        SELECT
+            COUNT(*) AS approved_contributions,
+
+            COALESCE(
+                SUM(points_awarded),
+                0
+            ) AS lifetime_points,
+
+            SUM(
+                CASE
+                    WHEN contribution_type = \'new_place\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS lifetime_new_places,
+
+            SUM(
+                CASE
+                    WHEN contribution_type = \'update\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS approved_updates,
+
+            SUM(
+                CASE
+                    WHEN contribution_type = \'correction\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS approved_corrections
+
+        FROM place_contributions
+
+        WHERE user_id = ?
+          AND status = \'approved\'
+        ',
+        [$scoutUserId]
+    );
+
+$lifetimePoints =
+    (int) (
+        $contributionStats['lifetime_points']
+        ?? 0
+    );
+
+$lifetimeNewPlaces =
+    (int) (
+        $contributionStats['lifetime_new_places']
+        ?? 0
+    );
+
+$approvedUpdates =
+    (int) (
+        $contributionStats['approved_updates']
+        ?? 0
+    );
+
+$approvedCorrections =
+    (int) (
+        $contributionStats['approved_corrections']
+        ?? 0
+    );
 
 $recentSubmissions =
     fetch_all(
@@ -2452,25 +1797,15 @@ $recentSubmissions =
 
         LIMIT 8
         ',
-        [
-            $scoutUserId
-        ]
+        [$scoutUserId]
     );
-
 
 $activityStats =
     fetch_one(
         $db,
         '
         SELECT
-            COUNT(*)
-                AS activity_count,
-
-            COALESCE(
-                SUM(points),
-                0
-            )
-                AS total_points
+            COUNT(*) AS activity_count
 
         FROM scout_activity
 
@@ -2483,25 +1818,18 @@ $activityStats =
         ]
     );
 
-
 /* =========================================================
-   STATUS / EXTENSION STATE
+   STATUS / CURRENT PERIOD
    ========================================================= */
 
 $scoutStatus =
     (string) (
-        $scout[
-            'status'
-        ]
+        $scout['status']
         ?? ''
     );
 
-
 $scoutIsActive =
-    $scoutStatus
-    ===
-    'active';
-
+    $scoutStatus === 'active';
 
 $scoutIsInOnboarding =
     in_array(
@@ -2516,7 +1844,6 @@ $scoutIsInOnboarding =
         true
     );
 
-
 $canReturnForChanges =
     in_array(
         $scoutStatus,
@@ -2529,25 +1856,13 @@ $canReturnForChanges =
         true
     );
 
-
 $activeExtension =
-    (
-        !empty(
-            $latestExtension
-        )
-        &&
-        (
-            (string) (
-                $latestExtension[
-                    'status'
-                ]
-                ?? ''
-            )
-            ===
-            'active'
-        )
-    );
-
+    !empty($latestExtension)
+    &&
+    (string) (
+        $latestExtension['status']
+        ?? ''
+    ) === 'active';
 
 $canGrantExtension =
     in_array(
@@ -2561,127 +1876,71 @@ $canGrantExtension =
     &&
     !$activeExtension;
 
+$currentPeriodIsExtension =
+    $scoutIsActive
+    &&
+    $activeExtension;
 
-/* =========================================================
-   CURRENT SCOUT PERIOD
-   ========================================================= */
+$reportsRequired =
+    $currentPeriodIsExtension
+        ? $reactivationNewPlacesRequired
+        : $annualNewPlacesRequired;
 
 $scoutYearStart = null;
 $scoutYearEnd = null;
 
-$acceptedCurrentYear = 0;
-$reportsRequired = 3;
-$reportsRemaining = 3;
-$requirementMet = false;
-$requirementProgress = 0;
-
-$currentPeriodIsExtension =
-    false;
-
-
-if (
-    $scoutIsActive
-    &&
-    $activeExtension
-) {
-
-    $currentPeriodIsExtension =
-        true;
-
+if ($currentPeriodIsExtension) {
 
     $scoutYearStart =
         (string) (
-            $latestExtension[
-                'started_at'
-            ]
+            $latestExtension['started_at']
             ?? ''
         );
-
 
     $scoutYearEnd =
         (string) (
-            $latestExtension[
-                'ends_at'
-            ]
+            $latestExtension['ends_at']
             ?? ''
         );
 
-
 } elseif (
-    !empty(
-        $scout[
-            'scout_started_at'
-        ]
-    )
+    !empty($scout['scout_started_at'])
     &&
-    !empty(
-        $scout[
-            'active_through'
-        ]
-    )
+    !empty($scout['active_through'])
 ) {
 
-    $yearEndTimestamp =
-        strtotime(
-            (string)
-            $scout[
-                'active_through'
-            ]
+    $activeThrough =
+        (string)
+        $scout['active_through'];
+
+    $scoutYearStart =
+        llama_policy_subtract_months(
+            $activeThrough,
+            $scoutPeriodMonths
         );
 
-
-    $scoutStartedTimestamp =
-        strtotime(
-            (string)
-            $scout[
-                'scout_started_at'
-            ]
-        );
-
+    $scoutStartedAt =
+        (string)
+        $scout['scout_started_at'];
 
     if (
-        $yearEndTimestamp
-        !==
-        false
+        strtotime($scoutStartedAt) !== false
         &&
-        $scoutStartedTimestamp
-        !==
-        false
+        strtotime($scoutYearStart) !== false
+        &&
+        strtotime($scoutStartedAt)
+        >
+        strtotime($scoutYearStart)
     ) {
-
-        $yearStartTimestamp =
-            strtotime(
-                '-1 year',
-                $yearEndTimestamp
-            );
-
-
-        if (
-            $yearStartTimestamp
-            <
-            $scoutStartedTimestamp
-        ) {
-
-            $yearStartTimestamp =
-                $scoutStartedTimestamp;
-        }
-
-
         $scoutYearStart =
-            date(
-                'Y-m-d H:i:s',
-                $yearStartTimestamp
-            );
-
-
-        $scoutYearEnd =
-            date(
-                'Y-m-d H:i:s',
-                $yearEndTimestamp
-            );
+            $scoutStartedAt;
     }
+
+    $scoutYearEnd =
+        $activeThrough;
 }
 
+$acceptedCurrentYear = 0;
 
 if (
     $scoutYearStart
@@ -2694,17 +1953,13 @@ if (
             $db,
             '
             SELECT
-                COUNT(*)
-                    AS accepted_reports
+                COUNT(*) AS accepted_reports
 
             FROM scout_activity
 
             WHERE scout_profile_id = ?
               AND user_id = ?
-
-              AND activity_type =
-                  \'place_approved\'
-
+              AND activity_type = \'place_approved\'
               AND occurred_at >= ?
               AND occurred_at < ?
             ',
@@ -2716,47 +1971,43 @@ if (
             ]
         );
 
-
     $acceptedCurrentYear =
         (int) (
-            $currentPeriodActivity[
-                'accepted_reports'
-            ]
+            $currentPeriodActivity['accepted_reports']
             ?? 0
-        );
-
-
-    $reportsRemaining =
-        max(
-            0,
-            $reportsRequired
-            -
-            $acceptedCurrentYear
-        );
-
-
-    $requirementMet =
-        $acceptedCurrentYear
-        >=
-        $reportsRequired;
-
-
-    $requirementProgress =
-        min(
-            100,
-            (
-                min(
-                    $acceptedCurrentYear,
-                    $reportsRequired
-                )
-                /
-                $reportsRequired
-            )
-            *
-            100
         );
 }
 
+$reportsRemaining =
+    max(
+        0,
+        $reportsRequired
+        -
+        $acceptedCurrentYear
+    );
+
+$requirementMet =
+    $acceptedCurrentYear
+    >=
+    $reportsRequired;
+
+$requirementProgress =
+    min(
+        100,
+        (
+            min(
+                $acceptedCurrentYear,
+                $reportsRequired
+            )
+            /
+            max(
+                1,
+                $reportsRequired
+            )
+        )
+        *
+        100
+    );
 
 /* =========================================================
    DISPLAY VALUES
@@ -2765,88 +2016,59 @@ if (
 $displayName =
     trim(
         (string) (
-            $scout[
-                'display_name'
-            ]
+            $scout['display_name']
             ?:
-            $scout[
-                'username'
-            ]
+            $scout['username']
             ?:
-            $scout[
-                'email'
-            ]
+            $scout['email']
         )
     );
-
 
 $inviterName =
     trim(
         (string) (
-            $scout[
-                'inviter_display_name'
-            ]
+            $scout['inviter_display_name']
             ?:
-            $scout[
-                'inviter_username'
-            ]
+            $scout['inviter_username']
             ?:
             ''
         )
     );
-
 
 $approverName =
     trim(
         (string) (
-            $scout[
-                'approver_display_name'
-            ]
+            $scout['approver_display_name']
             ?:
-            $scout[
-                'approver_username'
-            ]
+            $scout['approver_username']
             ?:
             ''
         )
     );
-
 
 $extensionGranterName =
     trim(
         (string) (
-            $latestExtension[
-                'granted_by_display_name'
-            ]
+            $latestExtension['granted_by_display_name']
             ??
-            $latestExtension[
-                'granted_by_username'
-            ]
+            $latestExtension['granted_by_username']
             ??
             ''
         )
     );
-
 
 $scoutMembershipStatus =
     strtolower(
         trim(
             (string) (
-                $scout[
-                    'membership_status'
-                ]
+                $scout['membership_status']
                 ?? ''
             )
         )
     );
 
-
 $scoutHasStripeSubscription =
-    !empty(
-        $scout[
-            'stripe_subscription_id'
-        ]
-    )
+    !empty($scout['stripe_subscription_id'])
     &&
     in_array(
         $scoutMembershipStatus,
@@ -2858,20 +2080,40 @@ $scoutHasStripeSubscription =
         true
     );
 
-
 $scoutCancelScheduled =
     !empty(
-        $scout[
-            'stripe_cancel_at_period_end'
-        ]
+        $scout['stripe_cancel_at_period_end']
     );
 
+$currentRank =
+    llama_current_scout_rank(
+        $db,
+        $scoutUserId
+    );
+
+$currentRankLabel =
+    match ($currentRank) {
+        LLAMA_SCOUT_RANK_MASTER =>
+            'Master Scout',
+
+        LLAMA_SCOUT_RANK_SCOUT =>
+            'Llama Scout',
+
+        default =>
+            'No active Scout rank',
+    };
+
+$rankHistory =
+    llama_scout_rank_history(
+        $db,
+        $scoutUserId
+    );
 
 $introEyebrow =
     $scoutIsActive
         ? (
             $currentPeriodIsExtension
-                ? 'Scout Extension'
+                ? 'Scout Reactivation'
                 : 'Scout Management'
         )
         : (
@@ -2880,20 +2122,18 @@ $introEyebrow =
                 : 'Scout Record'
         );
 
-
 $introCopy =
     $scoutIsActive
         ? (
             $currentPeriodIsExtension
-                ? 'Review this Scout\'s temporary 30-day reinstatement period and progress toward three accepted Scout Reports.'
-                : "Review this Scout's current year, contribution progress, account, activity, and access."
+                ? 'Review this Scout\'s temporary reactivation period, new-Place progress, lifetime points, and account access.'
+                : 'Review this Scout\'s current period, new-Place requirement, contribution history, lifetime points, and account access.'
         )
         : (
             $scoutIsInOnboarding
-                ? "Review the candidate's account, contributions, About You responses, training completion, and Scout agreements before activating Scout access."
-                : 'Review this Scout record, account history, contributions, and previous onboarding information.'
+                ? 'Review the candidate\'s account, contributions, About You responses, training completion, and Scout agreements before activating Scout access.'
+                : 'Review this Scout record, lifetime contribution history, rank history, and previous onboarding information.'
         );
-
 
 ?>
 <!doctype html>
@@ -2918,7 +2158,6 @@ $introCopy =
     content="noindex,nofollow"
   >
 
-
   <link
     rel="preconnect"
     href="https://fonts.googleapis.com"
@@ -2935,12 +2174,10 @@ $introCopy =
     rel="stylesheet"
   >
 
-
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
-
 
   <link
     rel="stylesheet"
@@ -2952,7 +2189,6 @@ $introCopy =
     href="https://llamascout.com/css/admin.css"
   >
 
-
   <style>
 
     .scout-review-grid {
@@ -2962,7 +2198,6 @@ $introCopy =
       margin-top: 22px;
     }
 
-
     .scout-review-main,
     .scout-review-side {
       display: grid;
@@ -2970,23 +2205,19 @@ $introCopy =
       align-content: start;
     }
 
-
     .review-answer {
       padding: 16px 0;
       border-top: 1px solid rgba(23, 40, 34, .09);
     }
 
-
     .review-answer:first-of-type {
       border-top: 0;
     }
-
 
     .review-answer strong {
       display: block;
       margin-bottom: 6px;
     }
-
 
     .review-answer p {
       margin: 0;
@@ -2994,12 +2225,10 @@ $introCopy =
       line-height: 1.65;
     }
 
-
     .review-answer-empty {
       opacity: .55;
       font-style: italic;
     }
-
 
     .review-facts {
       display: grid;
@@ -3007,13 +2236,11 @@ $introCopy =
       gap: 12px;
     }
 
-
     .review-fact {
       padding: 14px;
       border-radius: 11px;
       background: rgba(23, 40, 34, .055);
     }
-
 
     .review-fact span {
       display: block;
@@ -3022,17 +2249,14 @@ $introCopy =
       opacity: .65;
     }
 
-
     .review-fact strong {
       display: block;
     }
-
 
     .review-checklist {
       display: grid;
       gap: 10px;
     }
-
 
     .review-check {
       display: flex;
@@ -3043,21 +2267,17 @@ $introCopy =
       background: rgba(23, 40, 34, .05);
     }
 
-
     .review-check.good i {
       color: #267447;
     }
-
 
     .review-check.bad i {
       color: #9b3434;
     }
 
-
     .scout-year-progress {
       margin-top: 17px;
     }
-
 
     .scout-year-progress-top {
       display: flex;
@@ -3067,7 +2287,6 @@ $introCopy =
       font-weight: 750;
     }
 
-
     .scout-year-track {
       overflow: hidden;
       height: 10px;
@@ -3075,13 +2294,11 @@ $introCopy =
       background: rgba(23, 40, 34, .09);
     }
 
-
     .scout-year-fill {
       height: 100%;
       border-radius: inherit;
       background: #172822;
     }
-
 
     .scout-year-result {
       margin-top: 11px;
@@ -3091,13 +2308,12 @@ $introCopy =
       line-height: 1.5;
     }
 
-
     .scout-year-result.met {
       background: rgba(31, 122, 72, .11);
     }
 
-
-    .review-submission {
+    .review-submission,
+    .rank-history-row {
       display: flex;
       justify-content: space-between;
       gap: 14px;
@@ -3105,30 +2321,28 @@ $introCopy =
       border-top: 1px solid rgba(23, 40, 34, .09);
     }
 
-
-    .review-submission:first-of-type {
+    .review-submission:first-of-type,
+    .rank-history-row:first-of-type {
       border-top: 0;
     }
 
-
-    .review-submission-name {
+    .review-submission-name,
+    .rank-history-title {
       font-weight: 700;
     }
 
-
-    .review-submission-meta {
+    .review-submission-meta,
+    .rank-history-meta {
       margin-top: 3px;
       font-size: .82rem;
       opacity: .67;
     }
-
 
     .review-role-list {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
-
 
     .review-role {
       padding: 7px 10px;
@@ -3137,7 +2351,6 @@ $introCopy =
       font-size: .82rem;
       font-weight: 700;
     }
-
 
     .review-actions textarea {
       width: 100%;
@@ -3151,13 +2364,11 @@ $introCopy =
       resize: vertical;
     }
 
-
     .review-action-buttons {
       display: grid;
       gap: 10px;
       margin-top: 12px;
     }
-
 
     .review-action-button {
       width: 100%;
@@ -3170,36 +2381,26 @@ $introCopy =
       cursor: pointer;
     }
 
-
-    .review-action-button.approve {
+    .review-action-button.approve,
+    .review-action-button.extension {
       background: #172822;
       color: #fff;
     }
-
 
     .review-action-button.return {
       background: #e7dcc4;
       color: #392e1c;
     }
 
-
     .review-action-button.decline {
       background: #8c3232;
       color: #fff;
     }
 
-
-    .review-action-button.extension {
-      background: #172822;
-      color: #fff;
-    }
-
-
     .review-action-button:disabled {
       opacity: .45;
       cursor: not-allowed;
     }
-
 
     .review-private {
       display: flex;
@@ -3212,7 +2413,6 @@ $introCopy =
       line-height: 1.45;
     }
 
-
     .extension-warning {
       margin-top: 14px;
       padding: 13px;
@@ -3221,37 +2421,23 @@ $introCopy =
       line-height: 1.55;
     }
 
-
-    @media (
-      max-width:
-        860px
-    ) {
-
+    @media (max-width: 860px) {
       .scout-review-grid {
         grid-template-columns: 1fr;
       }
-
     }
 
-
-    @media (
-      max-width:
-        560px
-    ) {
-
+    @media (max-width: 560px) {
       .review-facts {
         grid-template-columns: 1fr;
       }
-
     }
 
   </style>
 
 </head>
 
-
 <body class="admin-page">
-
 
 <?php
 
@@ -3261,9 +2447,7 @@ require_once
 
 ?>
 
-
 <main class="admin-main">
-
 
   <a
     class="admin-button"
@@ -3279,41 +2463,35 @@ require_once
 
   </a>
 
-
   <section class="admin-intro">
 
     <div class="admin-intro-row">
 
       <div class="admin-intro-copy">
 
-<p class="admin-eyebrow">
+        <p class="admin-eyebrow">
 
-  <i
-    class="<?= e(
-        $primaryRoleIcon
-    ) ?>"
-    aria-hidden="true"
-  ></i>
+          <i
+            class="<?= e($primaryRoleIcon) ?>"
+            aria-hidden="true"
+          ></i>
 
-  Llama Scout
-  <?= e(
-      $primaryRoleLabel
-  ) ?>
+          Llama Scout
+          <?= e($primaryRoleLabel) ?>
 
-</p>
+        </p>
 
-<h1>
-  <?= e($displayName) ?>
-</h1>
+        <h1>
+          <?= e($displayName) ?>
+        </h1>
 
-<p>
-  <?= e($introEyebrow) ?>
-  &middot;
-  <?= e($introCopy) ?>
-</p>
+        <p>
+          <?= e($introEyebrow) ?>
+          &middot;
+          <?= e($introCopy) ?>
+        </p>
 
       </div>
-
 
       <div>
 
@@ -3347,7 +2525,6 @@ require_once
 
   </section>
 
-
 <?php
 
 require
@@ -3355,7 +2532,6 @@ require
     . '/app/admin-nav.php';
 
 ?>
-
 
   <?php if ($message): ?>
 
@@ -3370,7 +2546,6 @@ require
 
   <?php endif; ?>
 
-
   <?php if ($error): ?>
 
     <div
@@ -3384,59 +2559,77 @@ require
 
   <?php endif; ?>
 
-
   <div class="scout-review-grid">
-
 
     <div class="scout-review-main">
 
-
       <?php if ($scoutIsActive): ?>
-
 
         <section class="admin-card">
 
           <h2>
 
             <?= $currentPeriodIsExtension
-                ? '30-Day Scout Extension'
-                : 'Current Scout Year'
+                ? e(
+                    $reactivationWindowDays
+                    .
+                    '-Day Scout Reactivation'
+                )
+                : 'Current Scout Period'
             ?>
 
           </h2>
-
 
           <p>
 
             <?php if ($currentPeriodIsExtension): ?>
 
-              This Scout has temporary basic Scout access for
-              30 days. Three newly accepted Scout Reports are
-              required during this exact extension period.
+              This Scout has temporary basic Llama Scout
+              access for the configured reactivation window.
+
+              <?= $reactivationNewPlacesRequired ?>
+
+              approved new
+
+              <?= $reactivationNewPlacesRequired === 1
+                  ? 'Place is'
+                  : 'Places are'
+              ?>
+
+              required during this exact period.
 
             <?php else: ?>
 
-              Scout access renews for one additional year when
-              at least three Scout Reports are accepted during
-              this fixed Scout year.
+              Active Scout status continues when at least
+
+              <?= $annualNewPlacesRequired ?>
+
+              new
+
+              <?= $annualNewPlacesRequired === 1
+                  ? 'Place is'
+                  : 'Places are'
+              ?>
+
+              approved during each
+
+              <?= $scoutPeriodMonths ?>
+
+              month Scout period.
 
             <?php endif; ?>
 
           </p>
 
-
           <div class="review-facts">
-
 
             <div class="review-fact">
 
               <span>
-
                 <?= $currentPeriodIsExtension
-                    ? 'Extension Begins'
-                    : 'Scout Year Begins'
+                    ? 'Reactivation Begins'
+                    : 'Scout Period Begins'
                 ?>
-
               </span>
 
               <strong>
@@ -3449,16 +2642,13 @@ require
 
             </div>
 
-
             <div class="review-fact">
 
               <span>
-
                 <?= $currentPeriodIsExtension
-                    ? 'Extension Ends'
-                    : 'Scout Year Ends'
+                    ? 'Reactivation Ends'
+                    : 'Scout Period Ends'
                 ?>
-
               </span>
 
               <strong>
@@ -3471,11 +2661,10 @@ require
 
             </div>
 
-
             <div class="review-fact">
 
               <span>
-                Accepted This Period
+                Approved New Places
               </span>
 
               <strong>
@@ -3484,11 +2673,10 @@ require
 
             </div>
 
-
             <div class="review-fact">
 
               <span>
-                Reports Still Needed
+                New Places Still Needed
               </span>
 
               <strong>
@@ -3497,29 +2685,26 @@ require
 
             </div>
 
-
           </div>
-
 
           <div class="scout-year-progress">
 
             <div class="scout-year-progress-top">
 
               <span>
-
                 <?= $currentPeriodIsExtension
-                    ? 'Extension Requirement'
-                    : 'Annual Requirement'
+                    ? 'Reactivation Requirement'
+                    : 'Scout Requirement'
                 ?>
-
               </span>
 
               <span>
-                <?= $acceptedCurrentYear ?>/3
+                <?= $acceptedCurrentYear ?>
+                /
+                <?= $reportsRequired ?>
               </span>
 
             </div>
-
 
             <div class="scout-year-track">
 
@@ -3537,7 +2722,6 @@ require
               ></div>
 
             </div>
-
 
             <div
               class="
@@ -3557,28 +2741,16 @@ require
 
                 <?php if ($currentPeriodIsExtension): ?>
 
-                  This Scout has completed the three accepted
-                  reports required during the extension. When
-                  the extension closes, they return as a basic
-                  Scout for a new annual Scout period.
+                  The required new Places have been approved
+                  during this reactivation window. When the
+                  window is resolved, the account continues
+                  as a basic Llama Scout. A former Master
+                  Scout rank is not automatically restored.
 
                 <?php else: ?>
 
-                  This Scout has completed the minimum required
-                  reports for this Scout year.
-
-                  <?php if (
-                      $acceptedCurrentYear
-                      >
-                      3
-                  ): ?>
-
-                    They have completed
-                    <?= $acceptedCurrentYear ?>
-                    accepted reports, but additional reports do
-                    not stack additional membership years.
-
-                  <?php endif; ?>
+                  This Scout has completed the required new
+                  Places for the current Scout period.
 
                 <?php endif; ?>
 
@@ -3587,29 +2759,17 @@ require
                 <strong>
 
                   <?= $reportsRemaining ?>
-                  more accepted
+
+                  more approved new
 
                   <?= $reportsRemaining === 1
-                      ? 'report is'
-                      : 'reports are'
+                      ? 'Place is'
+                      : 'Places are'
                   ?>
 
                   required.
 
                 </strong>
-
-                <?php if ($currentPeriodIsExtension): ?>
-
-                  If the requirement is not completed before
-                  this extension ends, Scout access expires
-                  again and the account returns to free status.
-
-                <?php else: ?>
-
-                  The requirement must be completed before the
-                  Scout year ends.
-
-                <?php endif; ?>
 
               <?php endif; ?>
 
@@ -3619,9 +2779,100 @@ require
 
         </section>
 
-
       <?php endif; ?>
 
+      <section class="admin-card">
+
+        <h2>
+          Contribution Record
+        </h2>
+
+        <p>
+          Lifetime points and contribution history remain on
+          the account even if Scout status later becomes
+          inactive.
+        </p>
+
+        <div class="review-facts">
+
+          <div class="review-fact">
+
+            <span>
+              Current Rank
+            </span>
+
+            <strong>
+              <?= e($currentRankLabel) ?>
+            </strong>
+
+          </div>
+
+          <div class="review-fact">
+
+            <span>
+              Lifetime Points
+            </span>
+
+            <strong>
+              <?= number_format($lifetimePoints) ?>
+            </strong>
+
+          </div>
+
+          <div class="review-fact">
+
+            <span>
+              Lifetime New Places
+            </span>
+
+            <strong>
+              <?= $lifetimeNewPlaces ?>
+            </strong>
+
+          </div>
+
+          <div class="review-fact">
+
+            <span>
+              Approved Updates
+            </span>
+
+            <strong>
+              <?= $approvedUpdates ?>
+            </strong>
+
+          </div>
+
+          <div class="review-fact">
+
+            <span>
+              Approved Corrections
+            </span>
+
+            <strong>
+              <?= $approvedCorrections ?>
+            </strong>
+
+          </div>
+
+          <div class="review-fact">
+
+            <span>
+              Recorded Scout Activity
+            </span>
+
+            <strong>
+              <?= (int) (
+                  $activityStats['activity_count']
+                  ?? 0
+              ) ?>
+            </strong>
+
+          </div>
+
+        </div>
+
+      </section>
 
       <section class="admin-card">
 
@@ -3630,68 +2881,46 @@ require
         </h2>
 
         <p>
-
           <?= $scoutIsInOnboarding
               ? 'What the candidate shared during Scout onboarding.'
               : 'Information shared during Scout onboarding.'
           ?>
-
         </p>
 
-
         <?php if ($application): ?>
-
 
           <?php
 
           $answers = [
-
               'Why are they interested in becoming a Scout?'
                   =>
-                  $application[
-                      'why_scout'
-                  ]
+                  $application['why_scout']
                   ?? '',
 
               'What does travel usually look like for them?'
                   =>
-                  $application[
-                      'travel_experience'
-                  ]
+                  $application['travel_experience']
                   ?? '',
 
               'What kinds of things do they naturally notice?'
                   =>
-                  $application[
-                      'field_experience'
-                  ]
+                  $application['field_experience']
                   ?? '',
 
               'Accessibility perspective'
                   =>
-                  $application[
-                      'accessibility_experience'
-                  ]
+                  $application['accessibility_experience']
                   ?? '',
 
               'Sensory perspective'
                   =>
-                  $application[
-                      'sensory_experience'
-                  ]
+                  $application['sensory_experience']
                   ?? '',
           ];
 
           ?>
 
-
-          <?php foreach (
-              $answers
-              as
-              $question
-              =>
-              $answer
-          ): ?>
+          <?php foreach ($answers as $question => $answer): ?>
 
             <div class="review-answer">
 
@@ -3699,14 +2928,7 @@ require
                 <?= e($question) ?>
               </strong>
 
-              <?php if (
-                  trim(
-                      (string)
-                      $answer
-                  )
-                  !==
-                  ''
-              ): ?>
+              <?php if (trim((string) $answer) !== ''): ?>
 
                 <p>
                   <?= e($answer) ?>
@@ -3724,7 +2946,6 @@ require
 
           <?php endforeach; ?>
 
-
         <?php else: ?>
 
           <p class="review-answer-empty">
@@ -3735,28 +2956,23 @@ require
 
       </section>
 
-
       <section class="admin-card">
 
         <h2>
-          Community Contributions
+          Place Submissions
         </h2>
 
         <p>
-
-          Submission history and Scout activity associated
-          with this account.
-
+          New-Place submission history associated with this
+          account.
         </p>
 
-
         <div class="review-facts">
-
 
           <div class="review-fact">
 
             <span>
-              Total submissions
+              Total Submissions
             </span>
 
             <strong>
@@ -3765,11 +2981,10 @@ require
 
           </div>
 
-
           <div class="review-fact">
 
             <span>
-              Lifetime approved
+              Approved
             </span>
 
             <strong>
@@ -3777,7 +2992,6 @@ require
             </strong>
 
           </div>
-
 
           <div class="review-fact">
 
@@ -3791,58 +3005,12 @@ require
 
           </div>
 
-
-          <div class="review-fact">
-
-            <span>
-              Scout activity
-            </span>
-
-            <strong>
-
-              <?= (int) (
-                  $activityStats[
-                      'activity_count'
-                  ]
-                  ?? 0
-              ) ?>
-
-            </strong>
-
-          </div>
-
-
-          <div class="review-fact">
-
-            <span>
-              Scout points
-            </span>
-
-            <strong>
-
-              <?= (int) (
-                  $activityStats[
-                      'total_points'
-                  ]
-                  ?? 0
-              ) ?>
-
-            </strong>
-
-          </div>
-
-
           <?php if ($scoutIsActive): ?>
 
             <div class="review-fact">
 
               <span>
-
-                <?= $currentPeriodIsExtension
-                    ? 'Accepted this extension'
-                    : 'Accepted this Scout year'
-                ?>
-
+                Approved This Period
               </span>
 
               <strong>
@@ -3853,24 +3021,13 @@ require
 
           <?php endif; ?>
 
-
         </div>
-
 
         <?php if ($recentSubmissions): ?>
 
-          <div
-            style="
-              margin-top:
-                18px;
-            "
-          >
+          <div style="margin-top: 18px;">
 
-            <?php foreach (
-                $recentSubmissions
-                as
-                $submission
-            ): ?>
+            <?php foreach ($recentSubmissions as $submission): ?>
 
               <div class="review-submission">
 
@@ -3879,9 +3036,7 @@ require
                   <div class="review-submission-name">
 
                     <?= e(
-                        $submission[
-                            'place_name'
-                        ]
+                        $submission['place_name']
                     ) ?>
 
                   </div>
@@ -3892,16 +3047,13 @@ require
 
                     <?= e(
                         format_admin_date(
-                            $submission[
-                                'submitted_at'
-                            ]
+                            $submission['submitted_at']
                         )
                     ) ?>
 
                   </div>
 
                 </div>
-
 
                 <div>
 
@@ -3911,9 +3063,7 @@ require
                               '-',
                               ' ',
                               (string)
-                              $submission[
-                                  'status'
-                              ]
+                              $submission['status']
                           )
                       )
                   ) ?>
@@ -3930,13 +3080,125 @@ require
 
       </section>
 
+      <section class="admin-card">
+
+        <h2>
+          Rank History
+        </h2>
+
+        <p>
+          Permanent Scout rank changes recorded for this
+          account.
+        </p>
+
+        <?php if ($rankHistory): ?>
+
+          <?php foreach ($rankHistory as $rankEvent): ?>
+
+            <?php
+
+            $fromLabel =
+                match (
+                    llama_normalize_scout_rank(
+                        (string)
+                        $rankEvent['from_rank']
+                    )
+                ) {
+                    LLAMA_SCOUT_RANK_MASTER =>
+                        'Master Scout',
+
+                    LLAMA_SCOUT_RANK_SCOUT =>
+                        'Llama Scout',
+
+                    default =>
+                        'No Scout Rank',
+                };
+
+            $toLabel =
+                match (
+                    llama_normalize_scout_rank(
+                        (string)
+                        $rankEvent['to_rank']
+                    )
+                ) {
+                    LLAMA_SCOUT_RANK_MASTER =>
+                        'Master Scout',
+
+                    LLAMA_SCOUT_RANK_SCOUT =>
+                        'Llama Scout',
+
+                    default =>
+                        'No Scout Rank',
+                };
+
+            ?>
+
+            <div class="rank-history-row">
+
+              <div>
+
+                <div class="rank-history-title">
+
+                  <?= e($fromLabel) ?>
+                  â
+                  <?= e($toLabel) ?>
+
+                </div>
+
+                <div class="rank-history-meta">
+
+                  <?= e(
+                      ucwords(
+                          str_replace(
+                              '-',
+                              ' ',
+                              (string)
+                              $rankEvent['reason']
+                          )
+                      )
+                  ) ?>
+
+                  Â·
+
+                  <?= e(
+                      format_admin_date(
+                          $rankEvent['occurred_at'],
+                          true
+                      )
+                  ) ?>
+
+                </div>
+
+                <?php if (!empty($rankEvent['notes'])): ?>
+
+                  <div class="rank-history-meta">
+                    <?= e($rankEvent['notes']) ?>
+                  </div>
+
+                <?php endif; ?>
+
+              </div>
+
+            </div>
+
+          <?php endforeach; ?>
+
+        <?php else: ?>
+
+          <p class="review-answer-empty">
+            No Scout rank-history entries have been recorded
+            yet.
+          </p>
+
+        <?php endif; ?>
+
+      </section>
 
       <section class="admin-card">
 
         <h2>
           Private Scout Information
         </h2>
-
 
         <div class="review-private">
 
@@ -3946,20 +3208,15 @@ require
           ></i>
 
           <span>
-
             This information is private and should only be
             used for legitimate Scout administration.
-
           </span>
 
         </div>
 
-
         <?php if ($application): ?>
 
-
           <div class="review-facts">
-
 
             <div class="review-fact">
 
@@ -3968,18 +3225,13 @@ require
               </span>
 
               <strong>
-
                 <?= e(
-                    $application[
-                        'legal_name'
-                    ]
+                    $application['legal_name']
                     ?? ''
                 ) ?>
-
               </strong>
 
             </div>
-
 
             <div class="review-fact">
 
@@ -3988,19 +3240,14 @@ require
               </span>
 
               <strong>
-
                 <?= e(
-                    $application[
-                        'phone'
-                    ]
+                    $application['phone']
                     ?:
                     'Not provided'
                 ) ?>
-
               </strong>
 
             </div>
-
 
             <div class="review-fact">
 
@@ -4011,26 +3258,16 @@ require
               <strong>
 
                 <?= e(
-                    $application[
-                        'address_line_1'
-                    ]
+                    $application['address_line_1']
                     ?? ''
                 ) ?>
 
-                <?php if (
-                    !empty(
-                        $application[
-                            'address_line_2'
-                        ]
-                    )
-                ): ?>
+                <?php if (!empty($application['address_line_2'])): ?>
 
                   <br>
 
                   <?= e(
-                      $application[
-                          'address_line_2'
-                      ]
+                      $application['address_line_2']
                   ) ?>
 
                 <?php endif; ?>
@@ -4038,7 +3275,6 @@ require
               </strong>
 
             </div>
-
 
             <div class="review-fact">
 
@@ -4049,53 +3285,30 @@ require
               <strong>
 
                 <?= e(
-                    $application[
-                        'city'
-                    ]
+                    $application['city']
                     ?? ''
                 ) ?>
 
-                <?php if (
-                    !empty(
-                        $application[
-                            'state_region'
-                        ]
-                    )
-                ): ?>
+                <?php if (!empty($application['state_region'])): ?>
 
                   ,
-
                   <?= e(
-                      $application[
-                          'state_region'
-                      ]
+                      $application['state_region']
                   ) ?>
 
                 <?php endif; ?>
 
-
                 <?= e(
-                    $application[
-                        'postal_code'
-                    ]
+                    $application['postal_code']
                     ?? ''
                 ) ?>
 
-
-                <?php if (
-                    !empty(
-                        $application[
-                            'country'
-                        ]
-                    )
-                ): ?>
+                <?php if (!empty($application['country'])): ?>
 
                   <br>
 
                   <?= e(
-                      $application[
-                          'country'
-                      ]
+                      $application['country']
                   ) ?>
 
                 <?php endif; ?>
@@ -4104,9 +3317,7 @@ require
 
             </div>
 
-
           </div>
-
 
         <?php else: ?>
 
@@ -4118,15 +3329,11 @@ require
 
       </section>
 
-
     </div>
-
 
     <aside class="scout-review-side">
 
-
       <?php if ($scoutIsInOnboarding): ?>
-
 
         <section class="admin-card">
 
@@ -4138,9 +3345,7 @@ require
             Everything required before Scout activation.
           </p>
 
-
           <div class="review-checklist">
-
 
             <div
               class="
@@ -4168,7 +3373,6 @@ require
 
             </div>
 
-
             <div
               class="
                 review-check
@@ -4190,11 +3394,10 @@ require
               ></i>
 
               <span>
-                Current training version completed
+                Current training version
               </span>
 
             </div>
-
 
             <div
               class="
@@ -4217,11 +3420,10 @@ require
               ></i>
 
               <span>
-                Training video completed
+                Training completed
               </span>
 
             </div>
-
 
             <div
               class="
@@ -4249,7 +3451,6 @@ require
 
             </div>
 
-
             <div
               class="
                 review-check
@@ -4276,21 +3477,17 @@ require
 
             </div>
 
-
           </div>
 
         </section>
 
-
       <?php endif; ?>
-
 
       <section class="admin-card">
 
         <h2>
           Account
         </h2>
-
 
         <div class="review-answer">
 
@@ -4299,19 +3496,14 @@ require
           </strong>
 
           <p>
-
             <?= e(
-                $scout[
-                    'username'
-                ]
+                $scout['username']
                 ?:
                 'None'
             ) ?>
-
           </p>
 
         </div>
-
 
         <div class="review-answer">
 
@@ -4320,15 +3512,10 @@ require
           </strong>
 
           <p>
-            <?= e(
-                $scout[
-                    'email'
-                ]
-            ) ?>
+            <?= e($scout['email']) ?>
           </p>
 
         </div>
-
 
         <div class="review-answer">
 
@@ -4344,9 +3531,7 @@ require
                         '_',
                         ' ',
                         (string) (
-                            $scout[
-                                'membership_status'
-                            ]
+                            $scout['membership_status']
                             ?:
                             'none'
                         )
@@ -4358,6 +3543,17 @@ require
 
         </div>
 
+        <div class="review-answer">
+
+          <strong>
+            Current Scout Rank
+          </strong>
+
+          <p>
+            <?= e($currentRankLabel) ?>
+          </p>
+
+        </div>
 
         <div class="review-answer">
 
@@ -4365,28 +3561,18 @@ require
             Roles
           </strong>
 
-
           <div class="review-role-list">
-
 
             <?php if ($currentRoleSlugs): ?>
 
-
-              <?php foreach (
-                  $currentRoleSlugs
-                  as
-                  $role
-              ): ?>
+              <?php foreach ($currentRoleSlugs as $role): ?>
 
                 <span class="review-role">
 
                   <?= e(
                       ucwords(
                           str_replace(
-                              [
-                                  '_',
-                                  '-'
-                              ],
+                              ['_', '-'],
                               ' ',
                               $role
                           )
@@ -4397,7 +3583,6 @@ require
 
               <?php endforeach; ?>
 
-
             <?php else: ?>
 
               <span class="review-role">
@@ -4406,21 +3591,17 @@ require
 
             <?php endif; ?>
 
-
           </div>
 
         </div>
 
-
       </section>
-
 
       <section class="admin-card">
 
         <h2>
           Scout Timeline
         </h2>
-
 
         <div class="review-answer">
 
@@ -4432,17 +3613,11 @@ require
 
             <?= e(
                 format_admin_date(
-                    $scout[
-                        'invited_at'
-                    ]
+                    $scout['invited_at']
                 )
             ) ?>
 
-            <?php if (
-                $inviterName
-                !==
-                ''
-            ): ?>
+            <?php if ($inviterName !== ''): ?>
 
               by
               <?= e($inviterName) ?>
@@ -4453,7 +3628,6 @@ require
 
         </div>
 
-
         <div class="review-answer">
 
           <strong>
@@ -4461,19 +3635,14 @@ require
           </strong>
 
           <p>
-
             <?= e(
                 format_admin_date(
-                    $scout[
-                        'application_submitted_at'
-                    ]
+                    $scout['application_submitted_at']
                 )
             ) ?>
-
           </p>
 
         </div>
-
 
         <div class="review-answer">
 
@@ -4482,27 +3651,16 @@ require
           </strong>
 
           <p>
-
             <?= e(
                 format_admin_date(
-                    $scout[
-                        'training_completed_at'
-                    ]
+                    $scout['training_completed_at']
                 )
             ) ?>
-
           </p>
 
         </div>
 
-
-        <?php if (
-            !empty(
-                $scout[
-                    'approved_at'
-                ]
-            )
-        ): ?>
+        <?php if (!empty($scout['approved_at'])): ?>
 
           <div class="review-answer">
 
@@ -4514,17 +3672,11 @@ require
 
               <?= e(
                   format_admin_date(
-                      $scout[
-                          'approved_at'
-                      ]
+                      $scout['approved_at']
                   )
               ) ?>
 
-              <?php if (
-                  $approverName
-                  !==
-                  ''
-              ): ?>
+              <?php if ($approverName !== ''): ?>
 
                 by
                 <?= e($approverName) ?>
@@ -4537,14 +3689,7 @@ require
 
         <?php endif; ?>
 
-
-        <?php if (
-            !empty(
-                $scout[
-                    'scout_started_at'
-                ]
-            )
-        ): ?>
+        <?php if (!empty($scout['scout_started_at'])): ?>
 
           <div class="review-answer">
 
@@ -4553,29 +3698,18 @@ require
             </strong>
 
             <p>
-
               <?= e(
                   format_admin_date(
-                      $scout[
-                          'scout_started_at'
-                      ]
+                      $scout['scout_started_at']
                   )
               ) ?>
-
             </p>
 
           </div>
 
         <?php endif; ?>
 
-
-        <?php if (
-            !empty(
-                $scout[
-                    'active_through'
-                ]
-            )
-        ): ?>
+        <?php if (!empty($scout['active_through'])): ?>
 
           <div class="review-answer">
 
@@ -4584,28 +3718,23 @@ require
             </strong>
 
             <p>
-
               <?= e(
                   format_admin_date(
-                      $scout[
-                          'active_through'
-                      ]
+                      $scout['active_through']
                   )
               ) ?>
-
             </p>
 
           </div>
 
         <?php endif; ?>
 
-
         <?php if ($latestExtension): ?>
 
           <div class="review-answer">
 
             <strong>
-              Latest Scout extension
+              Latest Scout reactivation
             </strong>
 
             <p>
@@ -4613,9 +3742,7 @@ require
               <?= e(
                   scout_extension_status_label(
                       (string) (
-                          $latestExtension[
-                              'status'
-                          ]
+                          $latestExtension['status']
                           ?? ''
                       )
                   )
@@ -4625,9 +3752,7 @@ require
 
               <?= e(
                   format_admin_date(
-                      $latestExtension[
-                          'started_at'
-                      ]
+                      $latestExtension['started_at']
                       ?? null
                   )
               ) ?>
@@ -4636,18 +3761,12 @@ require
 
               <?= e(
                   format_admin_date(
-                      $latestExtension[
-                          'ends_at'
-                      ]
+                      $latestExtension['ends_at']
                       ?? null
                   )
               ) ?>
 
-              <?php if (
-                  $extensionGranterName
-                  !==
-                  ''
-              ): ?>
+              <?php if ($extensionGranterName !== ''): ?>
 
                 <br>
                 Granted by
@@ -4661,12 +3780,9 @@ require
 
         <?php endif; ?>
 
-
       </section>
 
-
       <?php if ($scoutIsInOnboarding): ?>
-
 
         <section
           class="
@@ -4680,12 +3796,9 @@ require
           </h2>
 
           <p>
-
             Add an internal or candidate-facing review note
             if needed, then choose an action.
-
           </p>
-
 
           <form
             method="post"
@@ -4704,20 +3817,15 @@ require
               value="<?= $scoutProfileId ?>"
             >
 
-
             <textarea
               name="review_notes"
               placeholder="Review notes..."
             ><?= e(
-                $application[
-                    'review_notes'
-                ]
+                $application['review_notes']
                 ?? ''
             ) ?></textarea>
 
-
             <div class="review-action-buttons">
-
 
               <button
                 class="
@@ -4733,7 +3841,7 @@ require
                 ?>
                 onclick="
                   return confirm(
-                    'Approve this candidate as a Llama Scout? Their Scout role and qualifying complimentary access will activate immediately.'
+                    'Approve this candidate as a Llama Scout? Their Scout rank and qualifying complimentary access will activate immediately.'
                   );
                 "
               >
@@ -4743,10 +3851,9 @@ require
                   aria-hidden="true"
                 ></i>
 
-                Approve Scout
+                Approve Llama Scout
 
               </button>
-
 
               <?php if ($canReturnForChanges): ?>
 
@@ -4770,7 +3877,6 @@ require
                 </button>
 
               <?php endif; ?>
-
 
               <button
                 class="
@@ -4796,25 +3902,20 @@ require
 
               </button>
 
-
             </div>
-
 
           </form>
 
-
         </section>
 
-
       <?php elseif ($scoutIsActive): ?>
-
 
         <section class="admin-card">
 
           <h2>
 
             <?= $currentPeriodIsExtension
-                ? 'Scout Extension Active'
+                ? 'Scout Reactivation Active'
                 : 'Scout Active'
             ?>
 
@@ -4825,17 +3926,17 @@ require
             <?php if ($currentPeriodIsExtension): ?>
 
               This account currently has temporary basic
-              Scout access through a 30-day extension.
+              Llama Scout access through its configured
+              reactivation window.
 
             <?php else: ?>
 
-              This account has completed onboarding and
-              currently has active Scout status.
+              This account currently has active
+              <?= e($currentRankLabel) ?> status.
 
             <?php endif; ?>
 
           </p>
-
 
           <div class="review-check good">
 
@@ -4850,29 +3951,41 @@ require
 
           </div>
 
-
-          <?php if (
-              $currentPeriodIsExtension
-          ): ?>
+          <?php if ($currentPeriodIsExtension): ?>
 
             <div class="extension-warning">
 
-              This extension does not restore a previous
-              Master Scout rank. The Scout must complete
-              three accepted Scout Reports during the
-              extension period.
+              This reactivation does not restore a previous
+              Master Scout rank.
+
+              The Scout must complete
+
+              <?= $reactivationNewPlacesRequired ?>
+
+              approved new
+
+              <?= $reactivationNewPlacesRequired === 1
+                  ? 'Place'
+                  : 'Places'
+              ?>
+
+              during the
+
+              <?= $reactivationWindowDays ?>
+
+              day window.
+
+              Lifetime points remain intact.
 
             </div>
 
           <?php endif; ?>
-
 
           <?php if (
               $scoutHasStripeSubscription
               &&
               !$scoutCancelScheduled
           ): ?>
-
 
             <div
               style="
@@ -4887,7 +4000,6 @@ require
                 Paid membership still renewing
               </strong>
 
-
               <p
                 style="
                   margin: 7px 0 14px;
@@ -4895,14 +4007,11 @@ require
                 "
               >
 
-                This Scout still has a paid Stripe
-                subscription that is currently set to renew.
-                Scout access is already active, so the paid
-                subscription can be scheduled to end after
-                the current paid billing period.
+                Scout access is already active. The paid
+                subscription can be scheduled to stop
+                renewing after the current billing period.
 
               </p>
-
 
               <form
                 method="post"
@@ -4920,7 +4029,6 @@ require
                   name="scout_profile_id"
                   value="<?= $scoutProfileId ?>"
                 >
-
 
                 <button
                   class="
@@ -4944,11 +4052,9 @@ require
 
                 </button>
 
-
               </form>
 
             </div>
-
 
           <?php elseif (
               $scoutHasStripeSubscription
@@ -4956,16 +4062,12 @@ require
               $scoutCancelScheduled
           ): ?>
 
-
             <div
               class="
                 review-check
                 good
               "
-              style="
-                margin-top:
-                  12px;
-              "
+              style="margin-top: 12px;"
             >
 
               <i
@@ -4979,15 +4081,11 @@ require
 
             </div>
 
-
           <?php endif; ?>
-
 
         </section>
 
-
       <?php else: ?>
-
 
         <section class="admin-card">
 
@@ -4999,14 +4097,10 @@ require
             ) ?>
           </h2>
 
-
           <p>
-
             This Scout record is not currently active and is
             not in the onboarding workflow.
-
           </p>
-
 
           <div class="review-check bad">
 
@@ -5021,27 +4115,38 @@ require
 
           </div>
 
-
           <?php if ($canGrantExtension): ?>
 
             <div class="extension-warning">
 
               An Admin or Owner may grant this former Scout
-              exactly 30 days of temporary basic Scout
-              access. They will begin at zero points and
-              must complete three newly accepted Scout
-              Reports during that extension.
+
+              <?= $reactivationWindowDays ?>
+
+              days of temporary basic Llama Scout access.
+
+              They must complete
+
+              <?= $reactivationNewPlacesRequired ?>
+
+              approved new
+
+              <?= $reactivationNewPlacesRequired === 1
+                  ? 'Place'
+                  : 'Places'
+              ?>
+
+              during that reactivation window.
+
+              Lifetime points are preserved. A former Master
+              Scout rank is not automatically restored.
 
             </div>
-
 
             <form
               method="post"
               action="scout.php"
-              style="
-                margin-top:
-                  14px;
-              "
+              style="margin-top: 14px;"
             >
 
               <input
@@ -5056,7 +4161,6 @@ require
                 value="<?= $scoutProfileId ?>"
               >
 
-
               <button
                 class="
                   review-action-button
@@ -5067,7 +4171,7 @@ require
                 value="grant_extension"
                 onclick="
                   return confirm(
-                    'Grant this former Scout a 30-day basic Scout extension? Any former Master Scout rank will not be restored, points remain at zero, and they must complete three accepted Scout Reports during the extension.'
+                    'Grant this former Scout a <?= $reactivationWindowDays ?>-day basic Llama Scout reactivation window? Lifetime points will remain intact and any former Master Scout rank will not be restored.'
                   );
                 "
               >
@@ -5077,36 +4181,29 @@ require
                   aria-hidden="true"
                 ></i>
 
-                Grant 30-Day Scout Extension
+                Grant
+                <?= $reactivationWindowDays ?>-Day
+                Reactivation
 
               </button>
 
-
             </form>
-
 
           <?php endif; ?>
 
-
         </section>
-
 
       <?php endif; ?>
 
-
     </aside>
-
 
   </div>
 
-
 </main>
-
 
 <script
   src="https://llamascout.com/js/header.js"
 ></script>
-
 
 </body>
 
