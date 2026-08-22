@@ -182,7 +182,7 @@ require_once
     >
 
       <h2 id="map-title">
-        Explore Scouted Places
+        Explore Places
       </h2>
 
     </div>
@@ -216,7 +216,7 @@ require_once
           <input
             id="homepage-map-search"
             type="search"
-            placeholder="Search scouted places"
+            placeholder="Search places"
             autocomplete="off"
           >
 
@@ -350,7 +350,7 @@ require_once
 
 
   <!-- =====================================================
-       RECENTLY SCOUTED
+       RECENT PLACES
        ===================================================== -->
 
   <section
@@ -363,11 +363,11 @@ require_once
 
 
       <h2 id="featured-title">
-        Recently Scouted
+        Recently Added
       </h2>
 
 
-      <a href="/places.html">
+      <a href="/places.php">
 
         Browse All Places
 
