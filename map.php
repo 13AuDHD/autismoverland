@@ -12,6 +12,7 @@
 
   <title>Map | Llama Scout</title>
   <script src="js/privacy.js"></script>
+
   <link
     rel="stylesheet"
     href="css/style.css"
@@ -26,11 +27,13 @@
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   >
+
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
   <link rel="icon" href="/icons/favicon.ico" sizes="any">
   <link rel="manifest" href="/icons/site.webmanifest">
+
 </head>
 
 
@@ -60,7 +63,7 @@ require_once
         </h1>
 
         <p>
-          Filter field-verified campsites, pullouts, scenic stops,
+          Filter campsites, pullouts, scenic stops,
           and other places by sensory conditions, access,
           connectivity, accessibility, land ownership, and more.
         </p>
@@ -1139,6 +1142,7 @@ require_once
 <script
   src="/js/map.js"
 ></script>
+
 </body>
 
-</html> 
+</html>
