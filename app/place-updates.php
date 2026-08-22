@@ -59,16 +59,83 @@ const LLAMA_UPDATE_WITHDRAWN =
 
 
 /* =========================================================
+   PLACE UPDATE TABLE EXISTS
+   ========================================================= */
+
+function llama_place_updates_table_exists(
+    PDO $db
+): bool {
+
+    $stmt =
+        $db->query(
+            '
+            SELECT 1
+
+            FROM information_schema.tables
+
+            WHERE table_schema =
+                DATABASE()
+
+              AND table_name =
+                \'place_update_submissions\'
+
+            LIMIT 1
+            '
+        );
+
+
+    return
+        (bool)
+        $stmt->fetchColumn();
+
+}
+
+
+/* =========================================================
    ENSURE TABLE
+
+   IMPORTANT:
+
+   MySQL DDL such as CREATE TABLE may implicitly commit an
+   active transaction.
+
+   Therefore this function checks whether the table already
+   exists before attempting any DDL.
+
+   If the table is missing while a transaction is active, the
+   caller must initialize storage before beginning that
+   transaction rather than silently committing it.
    ========================================================= */
 
 function llama_ensure_place_updates_table(
     PDO $db
 ): void {
 
+    if (
+        llama_place_updates_table_exists(
+            $db
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        $db->inTransaction()
+    ) {
+
+        throw new RuntimeException(
+            'Place update storage must be initialized before starting a transaction.'
+        );
+
+    }
+
+
     $db->exec(
         '
-        CREATE TABLE IF NOT EXISTS place_update_submissions
+        CREATE TABLE place_update_submissions
         (
             id
                 BIGINT UNSIGNED
@@ -190,7 +257,6 @@ function llama_ensure_place_updates_table(
     );
 
 }
-
 
 /* =========================================================
    VALID UPDATE TYPE
