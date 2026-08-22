@@ -1409,14 +1409,54 @@ function llama_approve_place_update(
             ]
         );
 
-
     /*
-     * Only active Scouts earn Scout points.
-
-     * Community contributions still become part of the Place
-     * history and can improve the canonical data, but they do
-     * not create Scout points.
+     * Scout-point eligibility is based on the contributor's
+     * role when the update was submitted, not their status on
+     * the day moderation happens.
+     *
+     * This prevents moderation delays or later rank changes
+     * from erasing points earned by a qualifying Scout
+     * contribution.
+     *
+     * Current active Scout status is still used only for
+     * recording scout_activity. Lifetime points themselves
+     * remain attached to the permanent contribution record.
      */
+
+    $roleAtSubmission =
+        strtolower(
+            trim(
+                (string) (
+                    $update[
+                        'role_at_submission'
+                    ]
+                    ?? 'user'
+                )
+            )
+        );
+
+
+    if (
+        $roleAtSubmission ===
+        'master_scout'
+    ) {
+
+        $roleAtSubmission =
+            'master-scout';
+
+    }
+
+
+    $earnedAsScout =
+        in_array(
+            $roleAtSubmission,
+            [
+                'scout',
+                'master-scout',
+            ],
+            true
+        );
+
 
     $scoutProfile =
         llama_update_active_scout_profile(
@@ -1440,18 +1480,36 @@ function llama_approve_place_update(
 
 
     if (
-        $scoutProfile
+        $earnedAsScout
     ) {
 
         $pointsAwarded =
             max(
                 0,
-                (int)
-                $score[
-                    'points_awarded'
-                ]
+                (int) (
+                    $score[
+                        'points_awarded'
+                    ]
+                    ?? 0
+                )
             );
 
+    }
+
+
+    /*
+     * scout_activity represents activity during a currently
+     * active Scout period. An inactive former Scout can still
+     * receive the lifetime points earned by a contribution
+     * submitted while qualified, but those points do not
+     * reactivate Scout status or satisfy annual requirements.
+     */
+
+    if (
+        $earnedAsScout
+        &&
+        $scoutProfile
+    ) {
 
         $scoutActivityId =
             llama_record_place_update_activity(
