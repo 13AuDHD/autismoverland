@@ -6,6 +6,10 @@ require_once
     dirname(__DIR__)
     . '/app/auth.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/role-display.php';
+
 
 require_role(
     'admin'
@@ -14,6 +18,20 @@ require_role(
 
 $user =
     current_user();
+
+
+$primaryRoleLabel =
+    llama_primary_role_label(
+        (int)
+        $user['id']
+    );
+
+
+$primaryRoleIcon =
+    llama_primary_role_icon(
+        (int)
+        $user['id']
+    );
 
 
 start_llama_session();
@@ -3363,7 +3381,19 @@ require_once
       <div class="admin-intro-copy">
 
         <p class="admin-eyebrow">
-          Place Management
+
+          <i
+            class="<?= e(
+                $primaryRoleIcon
+            ) ?>"
+            aria-hidden="true"
+          ></i>
+
+          Llama Scout
+          <?= e(
+              $primaryRoleLabel
+          ) ?>
+
         </p>
 
         <h1>
@@ -5898,23 +5928,23 @@ require
 
           </a>
 
-            <a
-              class="
-                admin-button
-                admin-button--secondary
-              "
-              href="/public-preview.php?id=<?= $placeId ?>"
-            >
-            
-              <i
-                class="fa-solid fa-eye"
-                aria-hidden="true"
-              ></i>
-            
-              Public Preview
-            
-            </a>
-            
+          <a
+            class="
+              admin-button
+              admin-button--secondary
+            "
+            href="/public-preview.php?id=<?= $placeId ?>"
+          >
+
+            <i
+              class="fa-solid fa-eye"
+              aria-hidden="true"
+            ></i>
+
+            Public Preview
+
+          </a>
+
           <a
             class="
               admin-button
