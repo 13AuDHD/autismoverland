@@ -3,24 +3,32 @@
 declare(strict_types=1);
 
 
+require_once
+    __DIR__
+    . '/scout-policy.php';
+
+
 /* =========================================================
    LLAMA SCOUT
    DAILY SCOUT MAINTENANCE
    =========================================================
 
    Runs Scout renewal / expiration maintenance at most once
-   per day.
+   per configured maintenance interval.
 
    No cron is required. The first qualifying application
-   request after the maintenance interval runs the check.
+   request after the interval runs the check.
 
-   Scout policy:
+   Scout policy is loaded from scout_policy.
 
-   - Standard Scout year:
-       3 accepted Scout Reports required.
+   Current default policy:
+
+   - Standard Scout period:
+       3 accepted new place Scout Reports required
+       during a 12-month Scout period.
 
    - Requirement met:
-       extend exactly one year.
+       extend for another configured Scout period.
 
    - Requirement not met:
        Scout access ends.
@@ -28,38 +36,22 @@ declare(strict_types=1);
        Complimentary membership ends.
        Lifetime Scout points remain permanently recorded.
 
-   - Admin / Owner may later grant a separate 30-day basic
-     Scout extension.
+   - Admin / Owner may grant a separate reactivation period.
 
-   - A 30-day extension requires 3 newly accepted Scout
-     Reports during that exact extension window.
+   - Default reactivation:
+       3 newly accepted new place Scout Reports
+       during a 30-day window.
 
-   - Successful extension:
-       member returns as BASIC Scout for one full year.
+   - Successful reactivation:
+       member returns as BASIC Scout.
        Master Scout is never automatically restored.
-       Existing lifetime points remain intact.
+       Lifetime points remain intact.
 
-   - Failed extension:
+   - Failed reactivation:
        member returns to free status.
-       Existing lifetime points remain intact.
-
-   Lifetime points represent historical contribution to
-   Llama Scout. They do not grant or preserve active Scout
-   status by themselves.
+       Lifetime points remain intact.
 
    ========================================================= */
-
-
-/* =========================================================
-   SETTINGS
-   ========================================================= */
-
-const LLAMA_SCOUT_REPORTS_REQUIRED =
-    3;
-
-
-const LLAMA_SCOUT_MAINTENANCE_INTERVAL =
-    86400;
 
 
 /* =========================================================
@@ -102,12 +94,6 @@ function llama_ensure_maintenance_table(
 
 /* =========================================================
    SCOUT EXTENSIONS TABLE
-
-   A reinstatement extension is intentionally separate from
-   scout_profiles.
-
-   This preserves the original Scout start date and gives us
-   an exact 30-day qualification window.
    ========================================================= */
 
 function llama_ensure_scout_extensions_table(
@@ -221,6 +207,19 @@ function llama_scout_maintenance_is_due(
     );
 
 
+    llama_ensure_scout_policy_table(
+        $db
+    );
+
+
+    $interval =
+        llama_scout_policy_int(
+            $db,
+            'maintenance_interval_seconds',
+            60
+        );
+
+
     $stmt =
         $db->prepare(
             '
@@ -244,18 +243,16 @@ function llama_scout_maintenance_is_due(
         $stmt->fetchColumn();
 
 
-    if (
-        !$lastRun
-    ) {
+    if (!$lastRun) {
 
         return true;
+
     }
 
 
     $lastRunTimestamp =
         strtotime(
-            (string)
-            $lastRun
+            (string) $lastRun
         );
 
 
@@ -264,6 +261,7 @@ function llama_scout_maintenance_is_due(
     ) {
 
         return true;
+
     }
 
 
@@ -274,7 +272,7 @@ function llama_scout_maintenance_is_due(
             $lastRunTimestamp
         )
         >=
-        LLAMA_SCOUT_MAINTENANCE_INTERVAL;
+        $interval;
 
 }
 
@@ -316,7 +314,7 @@ function llama_mark_scout_maintenance_run(
 
 
 /* =========================================================
-   COUNT ACCEPTED SCOUT REPORTS IN A FIXED PERIOD
+   COUNT ACCEPTED NEW PLACE SCOUT REPORTS
    ========================================================= */
 
 function llama_count_scout_reports(
@@ -403,10 +401,6 @@ function llama_remove_scout_roles(
 
 /* =========================================================
    ENSURE BASIC SCOUT ROLE
-
-   Used after a successful 30-day reinstatement.
-
-   Master Scout is deliberately NOT restored.
    ========================================================= */
 
 function llama_grant_basic_scout_role(
@@ -488,11 +482,6 @@ function llama_grant_basic_scout_role(
 
 /* =========================================================
    END COMPLIMENTARY MEMBERSHIP
-
-   Only Scout-created complimentary membership is affected.
-
-   A legitimate separate paid Stripe membership is never
-   silently canceled by Scout maintenance.
    ========================================================= */
 
 function llama_end_scout_complimentary_membership(
@@ -569,20 +558,6 @@ function llama_sync_scout_membership_end(
 
 /* =========================================================
    EXPIRE SCOUT ACCESS
-
-   Used for:
-   - failed normal Scout year
-   - failed 30-day extension
-
-   This removes active Scout status and rank.
-
-   It does NOT delete:
-   - the user's reports
-   - Scout activity/history
-   - lifetime points
-
-   Lifetime points remain part of the user's permanent
-   contribution history but do not preserve Scout status.
    ========================================================= */
 
 function llama_expire_scout_access(
@@ -650,7 +625,7 @@ function llama_expire_scout_access(
 
 
 /* =========================================================
-   ACTIVE REINSTATEMENT EXTENSION
+   ACTIVE REACTIVATION EXTENSION
    ========================================================= */
 
 function llama_active_scout_extension(
@@ -711,18 +686,7 @@ function llama_active_scout_extension(
 
 
 /* =========================================================
-   COMPLETE 30-DAY EXTENSION
-
-   Successful reinstatement always returns the person as
-   BASIC Scout.
-
-   Their former Master Scout rank is not restored.
-
-   A fresh one-year Scout period begins at the END of the
-   extension period.
-
-   Lifetime points earned before and during inactivity remain
-   intact.
+   COMPLETE REACTIVATION EXTENSION
    ========================================================= */
 
 function llama_complete_scout_extension(
@@ -733,31 +697,23 @@ function llama_complete_scout_extension(
 
     $extensionId =
         (int)
-        $extension[
-            'id'
-        ];
+        $extension['id'];
 
 
     $scoutProfileId =
         (int)
-        $extension[
-            'scout_profile_id'
-        ];
+        $extension['scout_profile_id'];
 
 
     $userId =
         (int)
-        $extension[
-            'user_id'
-        ];
+        $extension['user_id'];
 
 
     $extensionEnd =
         trim(
             (string)
-            $extension[
-                'ends_at'
-            ]
+            $extension['ends_at']
         );
 
 
@@ -776,10 +732,20 @@ function llama_complete_scout_extension(
     }
 
 
-    /*
-     * Convert the temporary extension into a fresh,
-     * full one-year basic Scout period.
-     */
+    $scoutPeriodMonths =
+        llama_scout_policy_int(
+            $db,
+            'scout_period_months',
+            1
+        );
+
+
+    $newActiveThrough =
+        llama_policy_add_months(
+            $extensionEnd,
+            $scoutPeriodMonths
+        );
+
 
     $profileStmt =
         $db->prepare(
@@ -790,11 +756,7 @@ function llama_complete_scout_extension(
                 status =
                     \'active\',
 
-                active_through =
-                    DATE_ADD(
-                        ?,
-                        INTERVAL 1 YEAR
-                    ),
+                active_through = ?,
 
                 inactive_at =
                     NULL,
@@ -813,7 +775,7 @@ function llama_complete_scout_extension(
 
 
     $profileStmt->execute([
-        $extensionEnd,
+        $newActiveThrough,
         $scoutProfileId,
         $userId
     ]);
@@ -826,7 +788,7 @@ function llama_complete_scout_extension(
     ) {
 
         throw new RuntimeException(
-            'The Scout extension could not be converted into annual Scout access.'
+            'The Scout extension could not be converted into normal Scout access.'
         );
 
     }
@@ -892,7 +854,7 @@ function llama_complete_scout_extension(
 
 
 /* =========================================================
-   FAIL 30-DAY EXTENSION
+   FAIL REACTIVATION EXTENSION
    ========================================================= */
 
 function llama_fail_scout_extension(
@@ -903,23 +865,17 @@ function llama_fail_scout_extension(
 
     $extensionId =
         (int)
-        $extension[
-            'id'
-        ];
+        $extension['id'];
 
 
     $scoutProfileId =
         (int)
-        $extension[
-            'scout_profile_id'
-        ];
+        $extension['scout_profile_id'];
 
 
     $userId =
         (int)
-        $extension[
-            'user_id'
-        ];
+        $extension['user_id'];
 
 
     $extensionStmt =
@@ -1006,23 +962,34 @@ function llama_run_scout_renewal_maintenance(
         )
     ) {
 
-        return
-            $summary;
+        return $summary;
 
     }
 
 
-    /*
-     * Load every active Scout whose current access period
-     * has expired.
+    $annualReportsRequired =
+        llama_scout_policy_int(
+            $db,
+            'annual_new_places_required',
+            1
+        );
 
-     * active_through is used for both:
-     *
-     * - normal one-year Scout periods
-     * - temporary 30-day reinstatement periods
-     *
-     * scout_extensions tells us which kind of period it is.
-     */
+
+    $reactivationReportsRequired =
+        llama_scout_policy_int(
+            $db,
+            'reactivation_new_places_required',
+            1
+        );
+
+
+    $scoutPeriodMonths =
+        llama_scout_policy_int(
+            $db,
+            'scout_period_months',
+            1
+        );
+
 
     $stmt =
         $db->query(
@@ -1063,33 +1030,23 @@ function llama_run_scout_renewal_maintenance(
         $scout
     ) {
 
-        $summary[
-            'processed'
-        ]++;
+        $summary['processed']++;
 
 
         $scoutProfileId =
             (int)
-            $scout[
-                'id'
-            ];
+            $scout['id'];
 
 
         $userId =
             (int)
-            $scout[
-                'user_id'
-            ];
+            $scout['user_id'];
 
 
         try {
 
             $db->beginTransaction();
 
-
-            /* =============================================
-               LOCK SCOUT PROFILE
-               ============================================= */
 
             $lockStmt =
                 $db->prepare(
@@ -1126,9 +1083,7 @@ function llama_run_scout_renewal_maintenance(
                 );
 
 
-            if (
-                !$currentScout
-            ) {
+            if (!$currentScout) {
 
                 throw new RuntimeException(
                     'Scout profile was not found.'
@@ -1139,9 +1094,7 @@ function llama_run_scout_renewal_maintenance(
 
             if (
                 (
-                    $currentScout[
-                        'status'
-                    ]
+                    $currentScout['status']
                     ?? ''
                 )
                 !==
@@ -1158,9 +1111,7 @@ function llama_run_scout_renewal_maintenance(
             $activeThrough =
                 trim(
                     (string) (
-                        $currentScout[
-                            'active_through'
-                        ]
+                        $currentScout['active_through']
                         ?? ''
                     )
                 );
@@ -1194,11 +1145,6 @@ function llama_run_scout_renewal_maintenance(
             }
 
 
-            /*
-             * Another request may have renewed the Scout
-             * after the original expired list was selected.
-             */
-
             if (
                 $periodEndTimestamp
                 >
@@ -1213,7 +1159,7 @@ function llama_run_scout_renewal_maintenance(
 
 
             /* =============================================
-               IS THIS A 30-DAY REINSTATEMENT?
+               REACTIVATION PERIOD
                ============================================= */
 
             $extension =
@@ -1224,16 +1170,12 @@ function llama_run_scout_renewal_maintenance(
                 );
 
 
-            if (
-                $extension
-            ) {
+            if ($extension) {
 
                 $extensionStart =
                     trim(
                         (string) (
-                            $extension[
-                                'started_at'
-                            ]
+                            $extension['started_at']
                             ?? ''
                         )
                     );
@@ -1242,9 +1184,7 @@ function llama_run_scout_renewal_maintenance(
                 $extensionEnd =
                     trim(
                         (string) (
-                            $extension[
-                                'ends_at'
-                            ]
+                            $extension['ends_at']
                             ?? ''
                         )
                     );
@@ -1270,12 +1210,6 @@ function llama_run_scout_renewal_maintenance(
 
                 }
 
-
-                /*
-                 * If the extension record somehow ends later
-                 * than the profile access date, repair the
-                 * profile instead of prematurely expiring it.
-                 */
 
                 if (
                     strtotime(
@@ -1333,7 +1267,7 @@ function llama_run_scout_renewal_maintenance(
                 if (
                     $acceptedReports
                     >=
-                    LLAMA_SCOUT_REPORTS_REQUIRED
+                    $reactivationReportsRequired
                 ) {
 
                     llama_complete_scout_extension(
@@ -1382,13 +1316,19 @@ function llama_run_scout_renewal_maintenance(
 
 
             /* =============================================
-               NORMAL ONE-YEAR SCOUT PERIOD
+               NORMAL SCOUT PERIOD
                ============================================= */
+
+            $yearStart =
+                llama_policy_subtract_months(
+                    $activeThrough,
+                    $scoutPeriodMonths
+                );
+
 
             $yearStartTimestamp =
                 strtotime(
-                    '-1 year',
-                    $periodEndTimestamp
+                    $yearStart
                 );
 
 
@@ -1397,7 +1337,7 @@ function llama_run_scout_renewal_maintenance(
             ) {
 
                 throw new RuntimeException(
-                    'Scout year start date could not be determined.'
+                    'Scout period start date could not be determined.'
                 );
 
             }
@@ -1413,11 +1353,6 @@ function llama_run_scout_renewal_maintenance(
                     )
                 );
 
-
-            /*
-             * First Scout year can never begin before the
-             * person actually became a Scout.
-             */
 
             if (
                 $scoutStartedAt !== ''
@@ -1437,26 +1372,15 @@ function llama_run_scout_renewal_maintenance(
                     $yearStartTimestamp
                 ) {
 
-                    $yearStartTimestamp =
-                        $scoutStartedTimestamp;
+                    $yearStart =
+                        date(
+                            'Y-m-d H:i:s',
+                            $scoutStartedTimestamp
+                        );
 
                 }
 
             }
-
-
-            $yearStart =
-                date(
-                    'Y-m-d H:i:s',
-                    $yearStartTimestamp
-                );
-
-
-            $yearEnd =
-                date(
-                    'Y-m-d H:i:s',
-                    $periodEndTimestamp
-                );
 
 
             $acceptedReports =
@@ -1465,24 +1389,26 @@ function llama_run_scout_renewal_maintenance(
                     $scoutProfileId,
                     $userId,
                     $yearStart,
-                    $yearEnd
+                    $activeThrough
                 );
 
 
             /* =============================================
-               NORMAL YEAR REQUIREMENT MET
+               REQUIREMENT MET
                ============================================= */
 
             if (
                 $acceptedReports
                 >=
-                LLAMA_SCOUT_REPORTS_REQUIRED
+                $annualReportsRequired
             ) {
 
-                /*
-                 * Extend exactly one year from the existing
-                 * Scout anniversary.
-                 */
+                $newActiveThrough =
+                    llama_policy_add_months(
+                        $activeThrough,
+                        $scoutPeriodMonths
+                    );
+
 
                 $renewStmt =
                     $db->prepare(
@@ -1490,11 +1416,7 @@ function llama_run_scout_renewal_maintenance(
                         UPDATE scout_profiles
 
                         SET
-                            active_through =
-                                DATE_ADD(
-                                    active_through,
-                                    INTERVAL 1 YEAR
-                                ),
+                            active_through = ?,
 
                             inactive_at =
                                 NULL,
@@ -1513,6 +1435,7 @@ function llama_run_scout_renewal_maintenance(
 
 
                 $renewStmt->execute([
+                    $newActiveThrough,
                     $scoutProfileId,
                     $userId
                 ]);
@@ -1552,12 +1475,10 @@ function llama_run_scout_renewal_maintenance(
 
 
             /* =============================================
-               NORMAL YEAR REQUIREMENT NOT MET
+               REQUIREMENT NOT MET
 
-               Scout and Master Scout both fall completely
-               back to free-member status.
-
-               Lifetime points remain permanently recorded.
+               Active Scout status ends.
+               Lifetime points remain intact.
                ============================================= */
 
             llama_expire_scout_access(
@@ -1609,19 +1530,11 @@ function llama_run_scout_renewal_maintenance(
     }
 
 
-    /*
-     * Mark the daily run after the full batch.
-
-     * An individual Scout failure is logged but does not stop
-     * the rest of the batch.
-     */
-
     llama_mark_scout_maintenance_run(
         $db
     );
 
 
-    return
-        $summary;
+    return $summary;
 
 }
