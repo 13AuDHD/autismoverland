@@ -539,39 +539,170 @@ function llama_place_update_db_value(
     }
 
 
-    return match ($type) {
+    if (
+        $type ===
+        'bool'
+    ) {
 
-        'bool' =>
-            $value
-                ? 1
-                : 0,
+        if (
+            is_bool(
+                $value
+            )
+        ) {
 
-        'int' =>
-            (
-                $value === ''
-                ? null
-                : (int) $value
-            ),
+            return
+                $value
+                    ? 1
+                    : 0;
 
-        'float' =>
-            (
-                $value === ''
-                ? null
-                : (float) $value
-            ),
+        }
 
-        default =>
-            (
-                trim(
-                    (string) $value
-                ) === ''
-                    ? null
-                    : trim(
-                        (string) $value
+
+        if (
+            is_int(
+                $value
+            )
+            ||
+            is_float(
+                $value
+            )
+        ) {
+
+            return
+                (int)
+                $value
+                !==
+                0
+                    ? 1
+                    : 0;
+
+        }
+
+
+        if (
+            is_string(
+                $value
+            )
+        ) {
+
+            $normalized =
+                strtolower(
+                    trim(
+                        $value
                     )
-            ),
+                );
 
-    };
+
+            if (
+                $normalized ===
+                ''
+            ) {
+
+                return null;
+
+            }
+
+
+            if (
+                in_array(
+                    $normalized,
+                    [
+                        '1',
+                        'true',
+                        'yes',
+                        'on',
+                    ],
+                    true
+                )
+            ) {
+
+                return 1;
+
+            }
+
+
+            if (
+                in_array(
+                    $normalized,
+                    [
+                        '0',
+                        'false',
+                        'no',
+                        'off',
+                    ],
+                    true
+                )
+            ) {
+
+                return 0;
+
+            }
+
+        }
+
+
+        throw new InvalidArgumentException(
+            'Invalid boolean value in Place update.'
+        );
+
+    }
+
+
+    if (
+        $type ===
+        'int'
+    ) {
+
+        if (
+            $value ===
+            ''
+        ) {
+
+            return null;
+
+        }
+
+
+        return
+            (int)
+            $value;
+
+    }
+
+
+    if (
+        $type ===
+        'float'
+    ) {
+
+        if (
+            $value ===
+            ''
+        ) {
+
+            return null;
+
+        }
+
+
+        return
+            (float)
+            $value;
+
+    }
+
+
+    $value =
+        trim(
+            (string)
+            $value
+        );
+
+
+    return
+        $value === ''
+            ? null
+            : $value;
 
 }
 
