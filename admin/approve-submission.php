@@ -30,6 +30,9 @@ require_once
     dirname(__DIR__)
     . '/app/place-provenance.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/place-submissions.php'; 
 
 llama_require_capability(
     LLAMA_CAP_MODERATE_PLACES
@@ -55,6 +58,11 @@ $moderatorIsFullAdmin =
 
 $db =
     db();
+
+
+llama_ensure_place_submission_role_column(
+    $db
+);
 
 
 /* =========================================================
@@ -816,6 +824,7 @@ try {
             SELECT
                 id,
                 user_id,
+                role_at_submission,
                 place_id,
                 place_name,
                 source_type,
@@ -1071,10 +1080,43 @@ try {
        ===================================================== */
 
     $roleAtTime =
-        llama_contribution_role(
-            $db,
-            $submissionUserId
+        strtolower(
+            trim(
+                (string) (
+                    $submission[
+                        'role_at_submission'
+                    ]
+                    ?? ''
+                )
+            )
         );
+
+
+    /*
+     * Historical submissions created before role snapshots
+     * existed remain conservative rather than being assigned
+     * whatever role the contributor happens to have today.
+     */
+
+    if (
+        $roleAtTime === ''
+    ) {
+
+        $roleAtTime =
+            'user';
+
+    }
+
+
+    if (
+        $roleAtTime ===
+        'master_scout'
+    ) {
+
+        $roleAtTime =
+            'master-scout';
+
+    }
 
 
     $originType =
