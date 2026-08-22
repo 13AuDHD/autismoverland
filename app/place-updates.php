@@ -92,19 +92,254 @@ function llama_place_updates_table_exists(
 
 
 /* =========================================================
+   OPEN UPDATE UNIQUENESS
+   ========================================================= */
+
+function llama_place_update_open_guard_exists(
+    PDO $db
+): bool {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM information_schema.columns
+
+            WHERE table_schema = DATABASE()
+
+              AND table_name =
+                  \'place_update_submissions\'
+
+              AND column_name =
+                  \'open_update_guard\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute();
+
+
+    return
+        $stmt->fetchColumn()
+        !==
+        false;
+
+}
+
+
+function llama_place_update_open_unique_index_exists(
+    PDO $db
+): bool {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM information_schema.statistics
+
+            WHERE table_schema = DATABASE()
+
+              AND table_name =
+                  \'place_update_submissions\'
+
+              AND index_name =
+                  \'uq_place_update_open\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute();
+
+
+    return
+        $stmt->fetchColumn()
+        !==
+        false;
+
+}
+
+
+function llama_ensure_place_update_open_uniqueness(
+    PDO $db
+): void {
+
+    $hasGuard =
+        llama_place_update_open_guard_exists(
+            $db
+        );
+
+
+    $hasUniqueIndex =
+        llama_place_update_open_unique_index_exists(
+            $db
+        );
+
+
+    if (
+        $hasGuard
+        &&
+        $hasUniqueIndex
+    ) {
+
+        return;
+
+    }
+
+
+    /*
+     * ALTER TABLE causes an implicit COMMIT in MySQL.
+     * Any missing migration pieces must be installed before
+     * an application transaction begins.
+     */
+
+    if (
+        $db->inTransaction()
+    ) {
+
+        throw new RuntimeException(
+            'Place update uniqueness storage must be initialized before starting a transaction.'
+        );
+
+    }
+
+
+    /*
+     * Do not silently choose which existing duplicate should
+     * survive. If historical data already contains more than
+     * one open update for the same user and Place, require
+     * explicit cleanup before adding the unique constraint.
+     */
+
+    $duplicateStmt =
+        $db->query(
+            '
+            SELECT
+                place_id,
+                user_id,
+                COUNT(*) AS total
+
+            FROM place_update_submissions
+
+            WHERE status IN
+            (
+                \'pending\',
+                \'needs-changes\'
+            )
+
+            GROUP BY
+                place_id,
+                user_id
+
+            HAVING COUNT(*) > 1
+
+            LIMIT 1
+            '
+        );
+
+
+    $duplicate =
+        $duplicateStmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    if (
+        $duplicate
+    ) {
+
+        throw new RuntimeException(
+            'Duplicate open Place updates already exist for Place #'
+            .
+            (int)
+            $duplicate[
+                'place_id'
+            ]
+            .
+            ' and user #'
+            .
+            (int)
+            $duplicate[
+                'user_id'
+            ]
+            .
+            '. Resolve those records before enabling the open-update uniqueness constraint.'
+        );
+
+    }
+
+
+    if (
+        !$hasGuard
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE place_update_submissions
+
+            ADD COLUMN open_update_guard
+                TINYINT
+                GENERATED ALWAYS AS
+                (
+                    CASE
+
+                        WHEN status IN
+                        (
+                            \'pending\',
+                            \'needs-changes\'
+                        )
+                            THEN 1
+
+                        ELSE NULL
+
+                    END
+                )
+                STORED
+
+            AFTER status
+            '
+        );
+
+    }
+
+
+    if (
+        !$hasUniqueIndex
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE place_update_submissions
+
+            ADD UNIQUE KEY uq_place_update_open
+            (
+                place_id,
+                user_id,
+                open_update_guard
+            )
+            '
+        );
+
+    }
+
+}
+
+
+/* =========================================================
    ENSURE TABLE
 
    IMPORTANT:
 
-   MySQL DDL such as CREATE TABLE may implicitly commit an
-   active transaction.
+   MySQL DDL such as CREATE TABLE and ALTER TABLE may
+   implicitly commit an active transaction.
 
-   Therefore this function checks whether the table already
-   exists before attempting any DDL.
-
-   If the table is missing while a transaction is active, the
-   caller must initialize storage before beginning that
-   transaction rather than silently committing it.
+   Storage and schema migrations must therefore be completed
+   before any application transaction begins.
    ========================================================= */
 
 function llama_ensure_place_updates_table(
@@ -116,6 +351,11 @@ function llama_ensure_place_updates_table(
             $db
         )
     ) {
+
+        llama_ensure_place_update_open_uniqueness(
+            $db
+        );
+
 
         return;
 
@@ -159,6 +399,25 @@ function llama_ensure_place_updates_table(
                 VARCHAR(30)
                 NOT NULL
                 DEFAULT \'pending\',
+
+            open_update_guard
+                TINYINT
+                GENERATED ALWAYS AS
+                (
+                    CASE
+
+                        WHEN status IN
+                        (
+                            \'pending\',
+                            \'needs-changes\'
+                        )
+                            THEN 1
+
+                        ELSE NULL
+
+                    END
+                )
+                STORED,
 
             role_at_submission
                 VARCHAR(50)
@@ -248,6 +507,13 @@ function llama_ensure_place_updates_table(
             KEY idx_place_update_activity
                 (
                     scout_activity_id
+                ),
+
+            UNIQUE KEY uq_place_update_open
+                (
+                    place_id,
+                    user_id,
+                    open_update_guard
                 )
         )
         ENGINE=InnoDB
@@ -257,6 +523,7 @@ function llama_ensure_place_updates_table(
     );
 
 }
+
 
 /* =========================================================
    VALID UPDATE TYPE
