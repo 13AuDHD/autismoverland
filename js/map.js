@@ -29,6 +29,21 @@ let mapMaximumZoom =
 
 
 /* =========================================================
+   PUBLIC PLACE STATUS
+   ========================================================= */
+
+function isPublicPlaceStatus(
+  status
+) {
+
+  return (
+    status === "active" ||
+    status === "featured"
+  );
+}
+
+
+/* =========================================================
    INITIALIZE
    ========================================================= */
 
@@ -50,6 +65,7 @@ async function initMap() {
     !mapElement ||
     typeof L === "undefined"
   ) {
+
     return;
   }
 
@@ -96,8 +112,12 @@ async function initMap() {
     allPlaces =
       places.filter(
         (place) =>
-          place &&
-          place.status === "active"
+          Boolean(
+            place &&
+            isPublicPlaceStatus(
+              place.status
+            )
+          )
       );
 
 
@@ -109,7 +129,8 @@ async function initMap() {
 
 
     mapMaximumZoom =
-      mapAccessLevel === "member"
+      mapAccessLevel ===
+      "member"
         ? 19
         : 11;
 
@@ -144,9 +165,9 @@ async function initMap() {
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       }
     )
-    .addTo(
-      llamaScoutMap
-    );
+      .addTo(
+        llamaScoutMap
+      );
 
 
     createMarkers(
@@ -292,6 +313,55 @@ function mapStringValue(
 
 
 /* =========================================================
+   COORDINATES
+   ========================================================= */
+
+function mapCoordinates(
+  place
+) {
+
+  const latitude =
+    mapNumericValue(
+      place.location
+        ?.latitude
+    );
+
+
+  const longitude =
+    mapNumericValue(
+      place.location
+        ?.longitude
+    );
+
+
+  if (
+    latitude === null ||
+    longitude === null
+  ) {
+
+    return null;
+  }
+
+
+  if (
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+
+    return null;
+  }
+
+
+  return [
+    latitude,
+    longitude
+  ];
+}
+
+
+/* =========================================================
    LOCKED DISPLAY
    ========================================================= */
 
@@ -310,18 +380,11 @@ function mapLockedText(
 
 
   if (
-    value.cta === "sign_up"
+    value.cta ===
+    "sign_up"
   ) {
 
     return "Sign up";
-  }
-
-
-  if (
-    value.cta === "upgrade"
-  ) {
-
-    return "Member only";
   }
 
 
@@ -343,9 +406,10 @@ function mapLockedHref(
   }
 
 
-  return value.cta === "sign_up"
-    ? "https://account.llamascout.com/register.php"
-    : "https://account.llamascout.com/membership.php";
+  return value.cta ===
+    "sign_up"
+      ? "https://account.llamascout.com/register.php"
+      : "https://account.llamascout.com/membership.php";
 }
 
 
@@ -392,6 +456,26 @@ function mapLockedLink(
 
 
 /* =========================================================
+   PLACE IDENTIFIER
+   ========================================================= */
+
+function mapPlaceKey(
+  place
+) {
+
+  return (
+    mapStringValue(
+      place.slug
+    )
+    ||
+    mapStringValue(
+      place.id
+    )
+  );
+}
+
+
+/* =========================================================
    MARKERS
    ========================================================= */
 
@@ -405,24 +489,13 @@ function createMarkers(
   places.forEach(
     (place) => {
 
-      const latitude =
-        mapNumericValue(
-          place.location
-            ?.latitude
+      const coordinates =
+        mapCoordinates(
+          place
         );
 
 
-      const longitude =
-        mapNumericValue(
-          place.location
-            ?.longitude
-        );
-
-
-      if (
-        latitude === null ||
-        longitude === null
-      ) {
+      if (!coordinates) {
 
         return;
       }
@@ -430,10 +503,7 @@ function createMarkers(
 
       const marker =
         L.marker(
-          [
-            latitude,
-            longitude
-          ]
+          coordinates
         );
 
 
@@ -445,24 +515,21 @@ function createMarkers(
 
 
       const markerKey =
-        mapStringValue(
-          place.slug
-        )
-        ||
-        mapStringValue(
-          place.id
+        mapPlaceKey(
+          place
         );
 
 
-      if (
-        markerKey
-      ) {
+      if (!markerKey) {
 
-        placeMarkers.set(
-          markerKey,
-          marker
-        );
+        return;
       }
+
+
+      placeMarkers.set(
+        markerKey,
+        marker
+      );
     }
   );
 }
@@ -480,10 +547,8 @@ function populateDynamicFilters(
     "filter-state",
     places.map(
       (place) =>
-        mapStringValue(
-          place.location
-            ?.state
-        )
+        place.location
+          ?.state
     )
   );
 
@@ -492,10 +557,8 @@ function populateDynamicFilters(
     "filter-county",
     places.map(
       (place) =>
-        mapStringValue(
-          place.location
-            ?.county
-        )
+        place.location
+          ?.county
     )
   );
 
@@ -504,10 +567,8 @@ function populateDynamicFilters(
     "filter-city",
     places.map(
       (place) =>
-        mapStringValue(
-          place.location
-            ?.city
-        )
+        place.location
+          ?.city
     )
   );
 
@@ -516,10 +577,8 @@ function populateDynamicFilters(
     "filter-region",
     places.map(
       (place) =>
-        mapStringValue(
-          place.location
-            ?.region
-        )
+        place.location
+          ?.region
     )
   );
 
@@ -528,9 +587,7 @@ function populateDynamicFilters(
     "filter-type",
     places.map(
       (place) =>
-        mapStringValue(
-          place.type
-        )
+        place.type
     ),
     true
   );
@@ -540,10 +597,8 @@ function populateDynamicFilters(
     "filter-land-manager",
     places.map(
       (place) =>
-        mapStringValue(
-          place.location
-            ?.landManager
-        )
+        place.location
+          ?.landManager
     )
   );
 
@@ -552,10 +607,8 @@ function populateDynamicFilters(
     "filter-land-type",
     places.map(
       (place) =>
-        mapStringValue(
-          place.location
-            ?.landType
-        )
+        place.location
+          ?.landType
     )
   );
 }
@@ -582,10 +635,7 @@ function populateSelect(
   const cleanValues =
     values
       .map(
-        (value) =>
-          mapStringValue(
-            value
-          )
+        mapStringValue
       )
       .filter(Boolean);
 
@@ -745,50 +795,19 @@ function placeMatchesFilters(
 
     const haystack =
       [
-
-        mapStringValue(
-          place.name
-        ),
-
-        mapStringValue(
-          place.type
-        ),
-
-        mapStringValue(
-          place.location
-            ?.city
-        ),
-
-        mapStringValue(
-          place.location
-            ?.county
-        ),
-
-        mapStringValue(
-          place.location
-            ?.state
-        ),
-
-        mapStringValue(
-          place.location
-            ?.region
-        ),
-
-        mapStringValue(
-          place.location
-            ?.landManager
-        ),
-
-        mapStringValue(
-          place.location
-            ?.landType
-        ),
-
-        mapStringValue(
-          place.description
-        )
-
+        place.name,
+        place.type,
+        place.location?.city,
+        place.location?.county,
+        place.location?.state,
+        place.location?.region,
+        place.location?.landManager,
+        place.location?.landType,
+        place.description
       ]
+        .map(
+          mapStringValue
+        )
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -805,131 +824,220 @@ function placeMatchesFilters(
   }
 
 
-  if (
-    !matchesExact(
-      place.location
-        ?.state,
-      value(
-        "filter-state"
-      )
-    )
+  const exactFilters = [
+    [
+      "filter-state",
+      place.location?.state
+    ],
+    [
+      "filter-county",
+      place.location?.county
+    ],
+    [
+      "filter-city",
+      place.location?.city
+    ],
+    [
+      "filter-region",
+      place.location?.region
+    ],
+    [
+      "filter-type",
+      place.type
+    ],
+    [
+      "filter-land-manager",
+      place.location?.landManager
+    ],
+    [
+      "filter-land-type",
+      place.location?.landType
+    ]
+  ];
+
+
+  for (
+    const [
+      controlId,
+      actual
+    ]
+    of exactFilters
   ) {
 
-    return false;
+    if (
+      !matchesExact(
+        actual,
+        value(
+          controlId
+        )
+      )
+    ) {
+
+      return false;
+    }
   }
 
 
-  if (
-    !matchesExact(
-      place.location
-        ?.county,
-      value(
-        "filter-county"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !matchesExact(
-      place.location
-        ?.city,
-      value(
-        "filter-city"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !matchesExact(
-      place.location
-        ?.region,
-      value(
-        "filter-region"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !matchesExact(
-      place.type,
-      value(
-        "filter-type"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !matchesExact(
-      place.location
-        ?.landManager,
-      value(
-        "filter-land-manager"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !matchesExact(
-      place.location
-        ?.landType,
-      value(
-        "filter-land-type"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !maxRatingMatch(
+  const maximumRatings = [
+    [
+      "filter-road-difficulty",
       place.access
         ?.roadOverallDifficulty
       ??
       place.access
-        ?.roadDifficulty,
-      value(
-        "filter-road-difficulty"
-      )
-    )
+        ?.roadDifficulty
+    ],
+    [
+      "filter-road-stress",
+      place.access?.roadStress
+    ],
+    [
+      "filter-day-noise",
+      place.sensory
+        ?.daytime
+        ?.noise
+    ],
+    [
+      "filter-night-noise",
+      place.sensory
+        ?.nighttime
+        ?.noise
+    ],
+    [
+      "filter-human-activity",
+      place.sensory
+        ?.humanActivity
+    ]
+  ];
+
+
+  for (
+    const [
+      controlId,
+      actual
+    ]
+    of maximumRatings
   ) {
 
-    return false;
+    if (
+      !maxRatingMatch(
+        actual,
+        value(
+          controlId
+        )
+      )
+    ) {
+
+      return false;
+    }
   }
 
 
-  if (
-    !maxRatingMatch(
-      place.access
-        ?.roadStress,
-      value(
-        "filter-road-stress"
-      )
-    )
+  const minimumRatings = [
+    [
+      "filter-day-privacy",
+      place.sensory
+        ?.daytime
+        ?.privacy
+    ],
+    [
+      "filter-night-privacy",
+      place.sensory
+        ?.nighttime
+        ?.privacy
+    ],
+    [
+      "filter-day-comfort",
+      place.sensory
+        ?.daytime
+        ?.sensoryComfort
+    ],
+    [
+      "filter-night-comfort",
+      place.sensory
+        ?.nighttime
+        ?.sensoryComfort
+    ],
+    [
+      "filter-predictability",
+      place.sensory
+        ?.predictability
+    ],
+    [
+      "filter-cell",
+      place.connectivity
+        ?.overall
+    ],
+    [
+      "filter-tmobile",
+      place.connectivity
+        ?.tMobile
+    ],
+    [
+      "filter-verizon",
+      place.connectivity
+        ?.verizon
+    ],
+    [
+      "filter-att",
+      place.connectivity
+        ?.att
+    ],
+    [
+      "filter-starlink",
+      place.connectivity
+        ?.starlink
+    ],
+    [
+      "filter-open-sky",
+      place.environment
+        ?.openSky
+      ??
+      place.site
+        ?.openSky
+    ],
+    [
+      "filter-stargazing",
+      place.experience
+        ?.stargazing
+    ],
+    [
+      "filter-overnight",
+      place.experience
+        ?.overnightComfort
+    ],
+    [
+      "filter-sensory-retreat",
+      place.experience
+        ?.sensoryRetreat
+    ],
+    [
+      "filter-remote-work",
+      place.experience
+        ?.remoteWork
+    ]
+  ];
+
+
+  for (
+    const [
+      controlId,
+      actual
+    ]
+    of minimumRatings
   ) {
 
-    return false;
+    if (
+      !minRatingMatch(
+        actual,
+        value(
+          controlId
+        )
+      )
+    ) {
+
+      return false;
+    }
   }
 
 
@@ -971,602 +1079,185 @@ function placeMatchesFilters(
   }
 
 
-  if (
-    !booleanFilterMatch(
+  const booleanFilters = [
+    [
       "filter-sedan",
       place.access
         ?.sedanAccessible,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-no-high-clearance",
       place.access
         ?.highClearanceRecommended,
       false
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-no-4wd",
       place.access
         ?.fourWheelDriveRecommended,
       false
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-tent",
       place.site
         ?.tentCampingSuitable,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-trailer",
       place.site
         ?.trailerSuitable,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-turnaround",
       place.site
         ?.turnaroundSpace,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !maxRatingMatch(
-      place.sensory
-        ?.daytime
-        ?.noise,
-      value(
-        "filter-day-noise"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !maxRatingMatch(
-      place.sensory
-        ?.nighttime
-        ?.noise,
-      value(
-        "filter-night-noise"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.sensory
-        ?.daytime
-        ?.privacy,
-      value(
-        "filter-day-privacy"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.sensory
-        ?.nighttime
-        ?.privacy,
-      value(
-        "filter-night-privacy"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.sensory
-        ?.daytime
-        ?.sensoryComfort,
-      value(
-        "filter-day-comfort"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.sensory
-        ?.nighttime
-        ?.sensoryComfort,
-      value(
-        "filter-night-comfort"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !maxRatingMatch(
-      place.sensory
-        ?.humanActivity,
-      value(
-        "filter-human-activity"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.sensory
-        ?.predictability,
-      value(
-        "filter-predictability"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.connectivity
-        ?.overall,
-      value(
-        "filter-cell"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.connectivity
-        ?.tMobile,
-      value(
-        "filter-tmobile"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.connectivity
-        ?.verizon,
-      value(
-        "filter-verizon"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.connectivity
-        ?.att,
-      value(
-        "filter-att"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.connectivity
-        ?.starlink,
-      value(
-        "filter-starlink"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-starlink-tested",
       place.connectivity
         ?.starlinkTested,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-toilets",
       place.amenities
         ?.toilets,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-water",
       place.amenities
         ?.potableWater,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-trash",
       place.amenities
         ?.trash,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-fire-ring",
       place.amenities
         ?.fireRing,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-picnic-table",
       place.amenities
         ?.picnicTable,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-electricity",
       place.amenities
         ?.electricity,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-forest",
       place.environment
         ?.forest,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-mountains",
       place.environment
         ?.mountains,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-water-nearby",
       place.environment
         ?.waterNearby,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-water-view",
       place.environment
         ?.waterView,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.environment
-        ?.openSky
-      ??
-      place.site
-        ?.openSky,
-      value(
-        "filter-open-sky"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-wheelchair",
       place.accessibility
         ?.wheelchairFriendly,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-mobility",
       place.accessibility
         ?.mobilityDeviceFriendly,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-flat-walking",
       place.accessibility
         ?.flatWalkingSurface,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-step-free",
       place.accessibility
         ?.stepFreeAccess,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-accessible-toilet",
       place.accessibility
         ?.accessibleToilet,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-safe-night",
       place.safety
         ?.feltSafeNighttime,
       true
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-no-cliff",
       place.safety
         ?.cliffExposure,
       false
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-no-traffic-hazard",
       place.safety
         ?.trafficHazard,
       false
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !booleanFilterMatch(
+    ],
+    [
       "filter-emergency-access",
       place.safety
         ?.emergencyAccess,
       true
-    )
+    ]
+  ];
+
+
+  for (
+    const [
+      controlId,
+      actual,
+      expected
+    ]
+    of booleanFilters
   ) {
 
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.experience
-        ?.stargazing,
-      value(
-        "filter-stargazing"
+    if (
+      !booleanFilterMatch(
+        controlId,
+        actual,
+        expected
       )
-    )
-  ) {
+    ) {
 
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.experience
-        ?.overnightComfort,
-      value(
-        "filter-overnight"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.experience
-        ?.sensoryRetreat,
-      value(
-        "filter-sensory-retreat"
-      )
-    )
-  ) {
-
-    return false;
-  }
-
-
-  if (
-    !minRatingMatch(
-      place.experience
-        ?.remoteWork,
-      value(
-        "filter-remote-work"
-      )
-    )
-  ) {
-
-    return false;
+      return false;
+    }
   }
 
 
@@ -1782,14 +1473,7 @@ function updateMarkers(
     new Set(
       places
         .map(
-          (place) =>
-            mapStringValue(
-              place.slug
-            )
-            ||
-            mapStringValue(
-              place.id
-            )
+          mapPlaceKey
         )
         .filter(Boolean)
     );
@@ -1820,20 +1504,17 @@ function updateMarkers(
         }
 
 
-      } else {
+      } else if (
+        llamaScoutMap
+          .hasLayer(
+            marker
+          )
+      ) {
 
-        if (
-          llamaScoutMap
-            .hasLayer(
-              marker
-            )
-        ) {
-
-          llamaScoutMap
-            .removeLayer(
-              marker
-            );
-        }
+        llamaScoutMap
+          .removeLayer(
+            marker
+          );
       }
     }
   );
@@ -1875,36 +1556,7 @@ function fitMapToPlaces(
   const bounds =
     places
       .map(
-        (place) => {
-
-          const latitude =
-            mapNumericValue(
-              place.location
-                ?.latitude
-            );
-
-
-          const longitude =
-            mapNumericValue(
-              place.location
-                ?.longitude
-            );
-
-
-          if (
-            latitude === null ||
-            longitude === null
-          ) {
-
-            return null;
-          }
-
-
-          return [
-            latitude,
-            longitude
-          ];
-        }
+        mapCoordinates
       )
       .filter(Boolean);
 
@@ -1990,15 +1642,19 @@ function handleRequestedPlace() {
   const place =
     allPlaces.find(
       (item) =>
-        mapStringValue(
-          item.slug
-        ) ===
+        (
+          mapStringValue(
+            item.slug
+          ) ===
           requestedPlace
+        )
         ||
-        mapStringValue(
-          item.id
-        ) ===
+        (
+          mapStringValue(
+            item.id
+          ) ===
           requestedPlace
+        )
     );
 
 
@@ -2008,19 +1664,11 @@ function handleRequestedPlace() {
   }
 
 
-  const markerKey =
-    mapStringValue(
-      place.slug
-    )
-    ||
-    mapStringValue(
-      place.id
-    );
-
-
   const marker =
     placeMarkers.get(
-      markerKey
+      mapPlaceKey(
+        place
+      )
     );
 
 
@@ -2030,24 +1678,13 @@ function handleRequestedPlace() {
   }
 
 
-  const latitude =
-    mapNumericValue(
-      place.location
-        ?.latitude
+  const coordinates =
+    mapCoordinates(
+      place
     );
 
 
-  const longitude =
-    mapNumericValue(
-      place.location
-        ?.longitude
-    );
-
-
-  if (
-    latitude === null ||
-    longitude === null
-  ) {
+  if (!coordinates) {
 
     return;
   }
@@ -2068,10 +1705,7 @@ function handleRequestedPlace() {
 
   llamaScoutMap
     .setView(
-      [
-        latitude,
-        longitude
-      ],
+      coordinates,
       mapAccessLevel ===
         "member"
           ? 15
@@ -2375,18 +2009,22 @@ function buildPopup(
   const featuredImage =
     images.find(
       (image) =>
-        image &&
-        image.featured === true &&
-        mapStringValue(
-          image.src
+        Boolean(
+          image &&
+          image.featured === true &&
+          mapStringValue(
+            image.src
+          )
         )
     )
     ||
     images.find(
       (image) =>
-        image &&
-        mapStringValue(
-          image.src
+        Boolean(
+          image &&
+          mapStringValue(
+            image.src
+          )
         )
     )
     ||
@@ -2410,7 +2048,10 @@ function buildPopup(
             mapStringValue(
               place.name
             )
+            ||
+            "Place"
           )}"
+          loading="lazy"
         >
 
       `
@@ -2493,12 +2134,8 @@ function buildPopup(
 
 
   const slug =
-    mapStringValue(
-      place.slug
-    )
-    ||
-    mapStringValue(
-      place.id
+    mapPlaceKey(
+      place
     );
 
 
