@@ -20,6 +20,11 @@ require_once
     . '/app/place-update-conflicts.php';
 
 
+require_once
+    dirname(__DIR__)
+    . '/app/place-update-revision.php';
+
+
 require_verified_email();
 
 
@@ -320,6 +325,85 @@ function update_form_parse_value(
 
 
 /* =========================================================
+   EDIT EXISTING RETURNED UPDATE
+   ========================================================= */
+
+$editUpdateId =
+    (int) (
+        $_GET[
+            'edit'
+        ]
+        ??
+        $_POST[
+            'edit_update_id'
+        ]
+        ??
+        0
+    );
+
+
+$editUpdate =
+    null;
+
+
+if (
+    $editUpdateId > 0
+) {
+
+    $editUpdate =
+        llama_place_update(
+            $db,
+            $editUpdateId
+        );
+
+
+    if (
+        !$editUpdate
+        ||
+        (int)
+        $editUpdate[
+            'user_id'
+        ]
+        !==
+        $userId
+    ) {
+
+        http_response_code(
+            404
+        );
+
+
+        exit(
+            'That Place update could not be found.'
+        );
+
+    }
+
+
+    if (
+        (string)
+        $editUpdate[
+            'status'
+        ]
+        !==
+        LLAMA_UPDATE_NEEDS_CHANGES
+    ) {
+
+        http_response_code(
+            409
+        );
+
+
+        exit(
+            'Only a Place update returned for changes can be revised.'
+        );
+
+    }
+
+}
+
+
+/* =========================================================
    PLACE
    ========================================================= */
 
@@ -340,50 +424,92 @@ $slug =
 
 
 if (
-    $slug === ''
+    $editUpdate
 ) {
 
-    http_response_code(
-        400
-    );
+    $placeStmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                slug,
+                name,
+                status,
+                city,
+                state
+
+            FROM places
+
+            WHERE id = ?
+
+              AND status IN
+              (
+                  \'active\',
+                  \'featured\'
+              )
+
+            LIMIT 1
+            '
+        );
 
 
-    exit(
-        'A place is required.'
-    );
+    $placeStmt->execute([
+        (int)
+        $editUpdate[
+            'place_id'
+        ]
+    ]);
+
+
+} else {
+
+    if (
+        $slug === ''
+    ) {
+
+        http_response_code(
+            400
+        );
+
+
+        exit(
+            'A place is required.'
+        );
+
+    }
+
+
+    $placeStmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                slug,
+                name,
+                status,
+                city,
+                state
+
+            FROM places
+
+            WHERE slug = ?
+
+              AND status IN
+              (
+                  \'active\',
+                  \'featured\'
+              )
+
+            LIMIT 1
+            '
+        );
+
+
+    $placeStmt->execute([
+        $slug
+    ]);
 
 }
-
-
-$placeStmt =
-    $db->prepare(
-        '
-        SELECT
-            id,
-            slug,
-            name,
-            status,
-            city,
-            state
-
-        FROM places
-
-        WHERE slug = ?
-
-          AND status IN
-          (
-              \'active\',
-              \'featured\'
-          )
-
-        LIMIT 1
-        '
-    );
-
-
-$placeStmt->execute([
-    $slug
-]);
 
 
 $place =
@@ -412,6 +538,13 @@ $placeId =
     (int)
     $place[
         'id'
+    ];
+
+
+$slug =
+    (string)
+    $place[
+        'slug'
     ];
 
 
@@ -542,6 +675,21 @@ $hasOpenUpdate =
     );
 
 
+/*
+ * The returned update being edited is itself the user's open
+ * update, so it must not block its own revision form.
+ */
+
+if (
+    $editUpdate
+) {
+
+    $hasOpenUpdate =
+        false;
+
+}
+
+
 /* =========================================================
    CSRF
    ========================================================= */
@@ -607,6 +755,159 @@ $selectedTokens =
 
 $postedValues =
     [];
+
+
+/* =========================================================
+   PRELOAD RETURNED UPDATE
+   ========================================================= */
+
+if (
+    $editUpdate
+    &&
+    $_SERVER[
+        'REQUEST_METHOD'
+    ]
+    !==
+    'POST'
+) {
+
+    $updateType =
+        (string)
+        $editUpdate[
+            'update_type'
+        ];
+
+
+    $visitedDate =
+        !empty(
+            $editUpdate[
+                'visited_at'
+            ]
+        )
+            ? substr(
+                (string)
+                $editUpdate[
+                    'visited_at'
+                ],
+                0,
+                10
+            )
+            : '';
+
+
+    $contributorNotes =
+        trim(
+            (string) (
+                $editUpdate[
+                    'contributor_notes'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $existingChanges =
+        is_array(
+            $editUpdate[
+                'proposed_changes'
+            ]
+            ?? null
+        )
+            ? $editUpdate[
+                'proposed_changes'
+            ]
+            : [];
+
+
+    foreach (
+        llama_update_field_paths(
+            $existingChanges
+        )
+        as
+        $existingPath
+    ) {
+
+        if (
+            !isset(
+                $fieldTokens[
+                    $existingPath
+                ]
+            )
+        ) {
+
+            continue;
+
+        }
+
+
+        $token =
+            $fieldTokens[
+                $existingPath
+            ];
+
+
+        $definition =
+            $fieldMap[
+                $existingPath
+            ];
+
+
+        $type =
+            (string)
+            (
+                $definition[2]
+                ?? 'string'
+            );
+
+
+        $value =
+            llama_update_get(
+                $existingChanges,
+                $existingPath
+            );
+
+
+        $selectedTokens[] =
+            $token;
+
+
+        if (
+            $value === null
+        ) {
+
+            $postedValues[
+                $token
+            ] =
+                $type ===
+                'bool'
+                    ? '__NULL__'
+                    : '';
+
+        } elseif (
+            $type ===
+            'bool'
+        ) {
+
+            $postedValues[
+                $token
+            ] =
+                $value
+                    ? '1'
+                    : '0';
+
+        } else {
+
+            $postedValues[
+                $token
+            ] =
+                (string)
+                $value;
+
+        }
+
+    }
+
+}
 
 
 /* =========================================================
@@ -892,21 +1193,49 @@ if (
             }
 
 
-            $submittedUpdateId =
-                llama_create_place_update(
+            if (
+                $editUpdate
+            ) {
+
+                llama_resubmit_place_update(
                     $db,
-                    $placeId,
+                    $editUpdateId,
                     $userId,
                     $proposedChanges,
+                    $originalValues,
                     $updateType,
                     $visitedDate !== ''
                         ? $visitedDate
                         : null,
                     $contributorNotes !== ''
                         ? $contributorNotes
-                        : null,
-                    $originalValues
+                        : null
                 );
+
+
+                $submittedUpdateId =
+                    $editUpdateId;
+
+
+            } else {
+
+                $submittedUpdateId =
+                    llama_create_place_update(
+                        $db,
+                        $placeId,
+                        $userId,
+                        $proposedChanges,
+                        $updateType,
+                        $visitedDate !== ''
+                            ? $visitedDate
+                            : null,
+                        $contributorNotes !== ''
+                            ? $contributorNotes
+                            : null,
+                        $originalValues
+                    );
+
+            }
 
 
             $success =
@@ -989,7 +1318,10 @@ $placeLocation =
   >
 
   <title>
-    Update <?= e(
+    <?= $editUpdate
+        ? 'Revise '
+        : 'Update '
+    ?><?= e(
         $place[
             'name'
         ]
@@ -1451,7 +1783,10 @@ require_once
   <header class="update-place-intro">
 
     <h1>
-      Update this Place
+      <?= $editUpdate
+          ? 'Revise Place Update'
+          : 'Update this Place'
+      ?>
     </h1>
 
     <p>
@@ -1473,6 +1808,38 @@ require_once
             $placeLocation
         ) ?>
       </p>
+
+    <?php endif; ?>
+
+
+    <?php if (
+        $editUpdate
+        &&
+        !empty(
+            $editUpdate[
+                'review_notes'
+            ]
+        )
+    ): ?>
+
+      <div
+        class="
+          update-place-message
+          error
+        "
+      >
+
+        <strong>
+          Changes requested by moderation
+        </strong>
+
+        <?= e(
+            $editUpdate[
+                'review_notes'
+            ]
+        ) ?>
+
+      </div>
 
     <?php endif; ?>
 
@@ -1522,10 +1889,16 @@ require_once
     >
 
       <strong>
-        Update submitted.
+        <?= $editUpdate
+            ? 'Changes resubmitted.'
+            : 'Update submitted.'
+        ?>
       </strong>
 
-      Your proposed changes are now waiting for moderation.
+      <?= $editUpdate
+          ? 'Your revised Place update is back in the moderation queue.'
+          : 'Your proposed changes are now waiting for moderation.'
+      ?>
 
       <?php if (
           $submittedUpdateId
@@ -1538,6 +1911,23 @@ require_once
       <?php endif; ?>
 
     </div>
+
+
+    <a
+      class="update-secondary-link"
+      href="my-place-updates.php"
+    >
+
+      <i
+        class="fa-solid fa-list"
+        aria-hidden="true"
+      ></i>
+
+      My Place Updates
+
+    </a>
+
+    <br>
 
 
     <a
@@ -1617,6 +2007,19 @@ require_once
             $slug
         ) ?>"
       >
+
+
+      <?php if (
+          $editUpdate
+      ): ?>
+
+        <input
+          type="hidden"
+          name="edit_update_id"
+          value="<?= $editUpdateId ?>"
+        >
+
+      <?php endif; ?>
 
 
       <section class="update-place-card">
@@ -2047,7 +2450,10 @@ require_once
             aria-hidden="true"
           ></i>
 
-          Submit Place Update
+          <?= $editUpdate
+              ? 'Resubmit Place Update'
+              : 'Submit Place Update'
+          ?>
 
         </button>
 
