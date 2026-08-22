@@ -7,6 +7,9 @@ require_once
     __DIR__
     . '/scout-policy.php';
 
+const LLAMA_NEW_PLACE_SCORING_VERSION =
+    '1.0';
+
 
 /* =========================================================
    LLAMA SCOUT
@@ -714,6 +717,9 @@ function llama_score_new_place_report(
 
 
     return [
+
+        'scoring_version' =>
+            LLAMA_NEW_PLACE_SCORING_VERSION,
 
         'points_awarded' =>
             $points,
