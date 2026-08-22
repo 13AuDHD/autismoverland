@@ -30,6 +30,8 @@ function place_access_level(
 
     /*
      * Owner inherits Admin through the auth role system.
+     *
+     * Admin/Owner always receive exact Place data.
      */
 
     if (
@@ -50,8 +52,7 @@ function place_access_level(
      * Scout role by itself is not enough.
      *
      * The Scout profile must still be active so an expired
-     * or otherwise stale Scout role cannot expose protected
-     * Place data.
+     * or stale Scout role cannot expose protected Place data.
      */
 
     if (
@@ -98,6 +99,11 @@ function place_access_level(
     }
 
 
+    /*
+     * Paid or complimentary membership receives exact
+     * protected Place data.
+     */
+
     if (
         user_has_membership(
             $user
@@ -107,6 +113,11 @@ function place_access_level(
         return 'member';
     }
 
+
+    /*
+     * Signed-in accounts without full membership receive
+     * the Free Member view.
+     */
 
     return 'free';
 }
@@ -259,7 +270,21 @@ function lock_nested_place_section(
 
 
 /* =========================================================
-   PUBLIC MAP + ABOUT HELPERS
+   APPROXIMATE COORDINATES
+
+   Visitor and Free Member always receive coordinates
+   calculated directly from the real Place coordinates.
+
+   Example:
+
+       34.673805  ->  34.7
+      -108.567362 -> -108.6
+
+   No separate public coordinates exist.
+
+   Paid Members, complimentary Members, active Scouts,
+   Admins, and Owners bypass this function and receive the
+   original exact coordinates.
    ========================================================= */
 
 function place_limit_coordinates(
@@ -287,23 +312,55 @@ function place_limit_coordinates(
     }
 
 
+    $latitude =
+        (float)
+        $latitude;
+
+
+    $longitude =
+        (float)
+        $longitude;
+
+
+    if (
+        $latitude < -90
+        ||
+        $latitude > 90
+        ||
+        $longitude < -180
+        ||
+        $longitude > 180
+    ) {
+
+        return [
+            'latitude' =>
+                null,
+
+            'longitude' =>
+                null,
+        ];
+    }
+
+
     return [
         'latitude' =>
             round(
-                (float)
                 $latitude,
                 1
             ),
 
         'longitude' =>
             round(
-                (float)
                 $longitude,
                 1
             ),
     ];
 }
 
+
+/* =========================================================
+   ABOUT PREVIEW
+   ========================================================= */
 
 function place_truncate_about(
     ?string $text,
@@ -425,20 +482,16 @@ function place_truncate_about(
 
 
 /* =========================================================
-   PUBLIC PREVIEW HELPERS
-   ========================================================= */
+   PUBLIC PREVIEW TEXT HELPERS
 
-/*
- * `publicPreview` is populated by api/places.php from:
- *
- *   places.public_summary
- *   places.public_location_label
- *   places.public_latitude
- *   places.public_longitude
- *
- * These values are meant exclusively for the logged-out
- * visitor representation.
- */
+   Public Preview may still provide manually authored public
+   summary/location text.
+
+   It does NOT control coordinates.
+
+   All approximate coordinates come from the actual Place
+   coordinates through place_limit_coordinates().
+   ========================================================= */
 
 function place_public_preview_data(
     array $place
@@ -459,46 +512,18 @@ function place_public_preview_data(
 }
 
 
-function place_public_coordinate(
-    mixed $value,
-    float $minimum,
-    float $maximum
-): ?float {
-
-    if (
-        !is_numeric(
-            $value
-        )
-    ) {
-
-        return null;
-    }
-
-
-    $number =
-        (float)
-        $value;
-
-
-    if (
-        $number <
-        $minimum
-        ||
-        $number >
-        $maximum
-    ) {
-
-        return null;
-    }
-
-
-    return
-        $number;
-}
-
-
 /* =========================================================
    MEMBER VIEW
+
+   This is the full-access representation.
+
+   Paid Members
+   Complimentary Members
+   Active Scouts
+   Admins
+   Owners
+
+   receive exact coordinates and complete Place data.
    ========================================================= */
 
 function member_place_view(
@@ -542,8 +567,7 @@ function member_place_view(
 
 
     /*
-     * Public-preview metadata is an internal API helper.
-     * Paid/Admin/Scout views do not need it.
+     * Public-preview metadata is internal transport data.
      */
 
     unset(
@@ -560,6 +584,11 @@ function member_place_view(
 
 /* =========================================================
    FREE ACCOUNT VIEW
+
+   Free registered accounts receive rounded coordinates.
+
+   Visitor and Free account coordinates are intentionally
+   identical.
    ========================================================= */
 
 function free_place_view(
@@ -585,12 +614,8 @@ function free_place_view(
 
 
     /*
-     * A registered Free Member receives the existing
-     * approximate-location behavior based on the real Place
+     * Replace exact coordinates with one-decimal rounded
      * coordinates.
-     *
-     * The manually managed public-preview coordinates are
-     * reserved for logged-out visitors only.
      */
 
     if (
@@ -1026,12 +1051,6 @@ function free_place_view(
     ];
 
 
-    /*
-     * Free Members use the normal approximate real-location
-     * model and therefore do not need the visitor-only
-     * preview metadata.
-     */
-
     unset(
         $place[
             'publicPreview'
@@ -1046,6 +1065,11 @@ function free_place_view(
 
 /* =========================================================
    VISITOR VIEW
+
+   Logged-out Visitors receive the exact same rounded map
+   coordinates as Free registered accounts.
+
+   There is no alternate public latitude or longitude.
    ========================================================= */
 
 function visitor_place_view(
@@ -1053,8 +1077,9 @@ function visitor_place_view(
 ): array {
 
     /*
-     * Save the deliberately public-safe values before
-     * free_place_view() strips the internal metadata.
+     * Public Preview may still contain authored public text.
+     * Save it before free_place_view() removes the internal
+     * transport object.
      */
 
     $publicPreview =
@@ -1064,8 +1089,11 @@ function visitor_place_view(
 
 
     /*
-     * Start with the Free Member view so every detailed
-     * member-only section receives the existing lock rules.
+     * Start from the Free view.
+     *
+     * This is important because it means Visitor coordinates
+     * are produced by the exact same rounding function as
+     * Free Member coordinates.
      */
 
     $place =
@@ -1092,39 +1120,23 @@ function visitor_place_view(
         false;
 
 
-    /* =====================================================
-       VISITOR LOCATION
-
-       A logged-out visitor must never receive coordinates
-       derived from the real campsite when a separate public
-       preview system exists.
-
-       The only visitor map point is the deliberately selected
-       public point. If it has not been configured, the visitor
-       receives no coordinates.
-       ===================================================== */
-
-    $publicLatitude =
-        place_public_coordinate(
-            $publicPreview[
-                'latitude'
-            ]
-            ?? null,
-            -90,
-            90
-        );
+    /*
+     * DO NOT MODIFY latitude or longitude here.
+     *
+     * free_place_view() has already converted them:
+     *
+     *   34.673805  -> 34.7
+     *  -108.567362 -> -108.6
+     *
+     * Visitor and Free account map markers must always be
+     * identical.
+     */
 
 
-    $publicLongitude =
-        place_public_coordinate(
-            $publicPreview[
-                'longitude'
-            ]
-            ?? null,
-            -180,
-            180
-        );
-
+    /*
+     * Optional public location wording remains independent
+     * from coordinate disclosure.
+     */
 
     $publicLocationLabel =
         trim(
@@ -1158,48 +1170,6 @@ function visitor_place_view(
     }
 
 
-    /*
-     * Remove the Free Member approximation and replace it
-     * with the intentionally public map point.
-     */
-
-    $place[
-        'location'
-    ][
-        'latitude'
-    ] =
-        (
-            $publicLatitude !== null
-            &&
-            $publicLongitude !== null
-        )
-            ? $publicLatitude
-            : null;
-
-
-    $place[
-        'location'
-    ][
-        'longitude'
-    ] =
-        (
-            $publicLatitude !== null
-            &&
-            $publicLongitude !== null
-        )
-            ? $publicLongitude
-            : null;
-
-
-    /*
-     * Existing front-end pages already render city + state.
-     *
-     * Put the public area label in the city slot and clear
-     * state so the existing UI displays exactly the safe
-     * label chosen in Basecamp without requiring a separate
-     * front-end field.
-     */
-
     if (
         $publicLocationLabel !== ''
     ) {
@@ -1223,8 +1193,9 @@ function visitor_place_view(
     } else {
 
         /*
-         * If no deliberate public label exists, keep only the
-         * broad state value. Do not expose city as a fallback.
+         * Logged-out visitors retain the broad state but not
+         * the nearest city unless an explicit public location
+         * label was supplied.
          */
 
         $place[
@@ -1288,13 +1259,6 @@ function visitor_place_view(
         $publicSummary !== ''
     ) {
 
-        /*
-         * Basecamp already limits this field to 1,200
-         * characters. Use the deliberately authored public
-         * copy rather than deriving visitor copy from the
-         * complete member description.
-         */
-
         $place[
             'description'
         ] =
@@ -1302,11 +1266,6 @@ function visitor_place_view(
 
 
     } else {
-
-        /*
-         * Backward-compatible fallback for Places that have
-         * not had a public preview written yet.
-         */
 
         $place[
             'description'
@@ -1336,7 +1295,7 @@ function visitor_place_view(
     /* =====================================================
        REGISTERED-MEMBER PREVIEW DATA
 
-       These sections require at least a free account.
+       These sections require at least a Free account.
        ===================================================== */
 
     $place[
@@ -1446,8 +1405,8 @@ function visitor_place_view(
     /* =====================================================
        PHOTOS
 
-       Logged-out visitors receive only the featured/header
-       image. Free registered Members receive the gallery.
+       Visitor receives only the featured/header image.
+       Free registered Member receives the public gallery.
        ===================================================== */
 
     $place[
@@ -1546,10 +1505,6 @@ function visitor_place_view(
     ];
 
 
-    /*
-     * Never expose the internal transport object itself.
-     */
-
     unset(
         $place[
             'publicPreview'
@@ -1565,10 +1520,6 @@ function visitor_place_view(
 /* =========================================================
    LEGACY API COMPATIBILITY
    ========================================================= */
-
-/*
- * api/places.php still calls these function names.
- */
 
 function user_can_view_protected_place_data(
     ?array $user = null
