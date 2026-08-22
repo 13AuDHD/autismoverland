@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+
 require_once
     dirname(__DIR__)
     . '/app/auth.php';
@@ -9,6 +10,18 @@ require_once
 require_once
     dirname(__DIR__)
     . '/app/timezone.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/scout-stats.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/permissions.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/place-contributions.php';
 
 
 require_role(
@@ -29,7 +42,9 @@ $user =
 
 $userId =
     (int)
-    $user['id'];
+    $user[
+        'id'
+    ];
 
 
 /* =========================================================
@@ -78,16 +93,14 @@ function format_scout_date(
 }
 
 
-function submission_status_label(
+function scout_submission_status_label(
     string $status
 ): string {
 
-    return match (
-        $status
-    ) {
+    return match ($status) {
 
         'approved' =>
-            'Accepted',
+            'Approved',
 
         'pending' =>
             'Pending Review',
@@ -96,7 +109,7 @@ function submission_status_label(
             'Needs Changes',
 
         'rejected' =>
-            'Not Accepted',
+            'Not Approved',
 
         default =>
             ucwords(
@@ -115,53 +128,45 @@ function submission_status_label(
 }
 
 
+function scout_contribution_type_label(
+    string $type
+): string {
+
+    return match ($type) {
+
+        LLAMA_CONTRIBUTION_NEW_PLACE =>
+            'New Place',
+
+        LLAMA_CONTRIBUTION_UPDATE =>
+            'Place Update',
+
+        LLAMA_CONTRIBUTION_CORRECTION =>
+            'Correction',
+
+        LLAMA_CONTRIBUTION_FIELD_REPORT =>
+            'Field Report',
+
+        default =>
+            'Contribution',
+
+    };
+
+}
+
+
 /* =========================================================
-   SCOUT PROFILE
+   CENTRAL SCOUT SUMMARY
    ========================================================= */
 
-$stmt =
-    $db->prepare(
-        '
-        SELECT
-            id,
-            user_id,
-            status,
-
-            approved_at,
-            approved_by,
-
-            scout_started_at,
-            active_through,
-
-            inactive_at,
-            removed_at,
-            removal_reason,
-
-            created_at,
-            updated_at
-
-        FROM scout_profiles
-
-        WHERE user_id = ?
-
-        LIMIT 1
-        '
-    );
-
-
-$stmt->execute([
-    $userId
-]);
-
-
-$scout =
-    $stmt->fetch(
-        PDO::FETCH_ASSOC
+$summary =
+    llama_scout_summary(
+        $db,
+        $userId
     );
 
 
 if (
-    !$scout
+    !$summary
 ) {
 
     http_response_code(
@@ -176,47 +181,24 @@ if (
 }
 
 
-$scoutProfileId =
-    (int)
-    $scout['id'];
+/* =========================================================
+   ACTIVE ACCESS GUARD
 
+   This page is specifically the active Scout Basecamp.
 
-$scoutStatus =
-    strtolower(
-        trim(
-            (string)
-            $scout['status']
-        )
-    );
-
+   Inactive former Scouts keep their lifetime points and
+   contribution history, but do not retain active Scout tools.
+   ========================================================= */
 
 if (
-    $scoutStatus !==
-    'active'
+    !$summary[
+        'active'
+    ]
 ) {
 
-    if (
-        in_array(
-            $scoutStatus,
-            [
-                'application_submitted',
-                'training',
-                'pending_approval'
-            ],
-            true
-        )
-    ) {
-
-        header(
-            'Location: scout-training.php'
-        );
-
-    } else {
-
-        header(
-            'Location: /'
-        );
-    }
+    header(
+        'Location: /'
+    );
 
 
     exit;
@@ -225,662 +207,93 @@ if (
 
 
 /* =========================================================
-   ACTIVE 30-DAY EXTENSION
-
-   A reinstatement extension is a separate fixed period.
-
-   Reports accepted before started_at do not count toward the
-   extension requirement.
+   DISPLAY VALUES
    ========================================================= */
 
-$activeExtension =
-    null;
-
-
-try {
-
-    $extensionStmt =
-        $db->prepare(
-            '
-            SELECT
-                id,
-                scout_profile_id,
-                user_id,
-                granted_by,
-                started_at,
-                ends_at,
-                status,
-                accepted_reports,
-                resolved_at,
-                created_at,
-                updated_at
-
-            FROM scout_extensions
-
-            WHERE scout_profile_id = ?
-              AND user_id = ?
-              AND status = \'active\'
-
-            ORDER BY
-                id DESC
-
-            LIMIT 1
-            '
-        );
-
-
-    $extensionStmt->execute([
-        $scoutProfileId,
-        $userId
-    ]);
-
-
-    $extensionRow =
-        $extensionStmt->fetch(
-            PDO::FETCH_ASSOC
-        );
-
-
-    if (
-        $extensionRow
-    ) {
-
-        $activeExtension =
-            $extensionRow;
-    }
-
-
-} catch (
-    Throwable $exception
-) {
-
-    /*
-     * scout_extensions is created by Scout maintenance and
-     * Basecamp. If it cannot be queried for an active Scout,
-     * do not silently display an incorrect annual period.
-     */
-
-    error_log(
-        'Llama Scout Scout dashboard extension lookup error for user #'
-        .
-        $userId
-        .
-        ': '
-        .
-        $exception
-            ->getMessage()
-    );
-
-
-    http_response_code(
-        500
-    );
-
-
-    exit(
-        'Your Scout access period could not be loaded.'
-    );
-
-}
-
-
-$isExtensionPeriod =
-    is_array(
-        $activeExtension
-    );
-
-
-/* =========================================================
-   ACCOUNT ROLES
-   ========================================================= */
-
-$roles =
-    user_roles(
-        $userId
-    );
+$scoutRank =
+    (string)
+    $summary[
+        'rank'
+    ];
 
 
 $isMasterScout =
-    in_array(
-        'master-scout',
-        $roles,
-        true
+    $scoutRank ===
+    'Master Scout';
+
+
+$canModeratePlaces =
+    llama_user_can(
+        LLAMA_CAP_MODERATE_PLACES,
+        $userId
+    );
+
+
+$period =
+    $summary[
+        'period'
+    ];
+
+
+$isExtensionPeriod =
+    (
+        $period[
+            'type'
+        ]
+        ?? ''
     )
-    ||
-    in_array(
-        'master_scout',
-        $roles,
-        true
-    );
+    ===
+    'reactivation';
 
 
-$scoutRank =
-    $isMasterScout
-        ? 'Master Scout'
-        : 'Scout';
+$requiredPlaces =
+    (int)
+    $period[
+        'required_new_places'
+    ];
 
-
-/* =========================================================
-   CURRENT SCOUT PERIOD
-
-   Normal Scout access uses fixed one-year periods.
-
-   A manually granted reinstatement instead uses the exact
-   30-day extension window stored in scout_extensions.
-   ========================================================= */
-
-$requiredReports =
-    3;
-
-
-$activeThroughRaw =
-    trim(
-        (string) (
-            $scout[
-                'active_through'
-            ]
-            ?? ''
-        )
-    );
-
-
-$scoutStartedAtRaw =
-    trim(
-        (string) (
-            $scout[
-                'scout_started_at'
-            ]
-            ?? ''
-        )
-    );
-
-
-if (
-    $scoutStartedAtRaw === ''
-) {
-
-    http_response_code(
-        500
-    );
-
-
-    exit(
-        'Your Scout start date could not be found.'
-    );
-
-}
-
-
-$currentPeriodStart =
-    null;
-
-
-$currentPeriodEnd =
-    null;
-
-
-if (
-    $isExtensionPeriod
-) {
-
-    $extensionStartRaw =
-        trim(
-            (string) (
-                $activeExtension[
-                    'started_at'
-                ]
-                ?? ''
-            )
-        );
-
-
-    $extensionEndRaw =
-        trim(
-            (string) (
-                $activeExtension[
-                    'ends_at'
-                ]
-                ?? ''
-            )
-        );
-
-
-    $extensionStartTimestamp =
-        strtotime(
-            $extensionStartRaw
-        );
-
-
-    $extensionEndTimestamp =
-        strtotime(
-            $extensionEndRaw
-        );
-
-
-    if (
-        $extensionStartRaw === ''
-        ||
-        $extensionEndRaw === ''
-        ||
-        $extensionStartTimestamp === false
-        ||
-        $extensionEndTimestamp === false
-    ) {
-
-        http_response_code(
-            500
-        );
-
-
-        exit(
-            'Your Scout extension dates could not be loaded.'
-        );
-
-    }
-
-
-    $currentPeriodStart =
-        date(
-            'Y-m-d H:i:s',
-            $extensionStartTimestamp
-        );
-
-
-    $currentPeriodEnd =
-        date(
-            'Y-m-d H:i:s',
-            $extensionEndTimestamp
-        );
-
-
-} elseif (
-    $activeThroughRaw !== ''
-) {
-
-    $activeThroughTimestamp =
-        strtotime(
-            $activeThroughRaw
-        );
-
-
-    if (
-        $activeThroughTimestamp !== false
-    ) {
-
-        $periodStartTimestamp =
-            strtotime(
-                '-1 year',
-                $activeThroughTimestamp
-            );
-
-
-        $scoutStartedTimestamp =
-            strtotime(
-                $scoutStartedAtRaw
-            );
-
-
-        if (
-            $scoutStartedTimestamp !== false
-            &&
-            $scoutStartedTimestamp
-            >
-            $periodStartTimestamp
-        ) {
-
-            $periodStartTimestamp =
-                $scoutStartedTimestamp;
-
-        }
-
-
-        $currentPeriodStart =
-            date(
-                'Y-m-d H:i:s',
-                $periodStartTimestamp
-            );
-
-
-        $currentPeriodEnd =
-            date(
-                'Y-m-d H:i:s',
-                $activeThroughTimestamp
-            );
-
-    }
-
-}
-
-
-/* =========================================================
-   LIFETIME SCOUT REPORT COUNTS
-
-   Scout Report history remains historical even if points
-   were previously lost.
-
-   Community Scouted submissions from before the person's
-   original Scout start date do not become Scout Reports.
-   ========================================================= */
-
-$stmt =
-    $db->prepare(
-        '
-        SELECT
-            COUNT(*) AS total,
-
-            SUM(
-                CASE
-                    WHEN status = \'approved\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS approved,
-
-            SUM(
-                CASE
-                    WHEN status = \'pending\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS pending,
-
-            SUM(
-                CASE
-                    WHEN status = \'needs-changes\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS needs_changes,
-
-            SUM(
-                CASE
-                    WHEN status = \'rejected\'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS rejected
-
-        FROM place_submissions
-
-        WHERE user_id = ?
-          AND submitted_at >= ?
-        '
-    );
-
-
-$stmt->execute([
-    $userId,
-    $scoutStartedAtRaw
-]);
-
-
-$scoutReportStats =
-    $stmt->fetch(
-        PDO::FETCH_ASSOC
-    )
-    ?: [];
-
-
-$totalReports =
-    (int) (
-        $scoutReportStats[
-            'total'
-        ]
-        ?? 0
-    );
-
-
-$totalAccepted =
-    (int) (
-        $scoutReportStats[
-            'approved'
-        ]
-        ?? 0
-    );
-
-
-$totalPending =
-    (int) (
-        $scoutReportStats[
-            'pending'
-        ]
-        ?? 0
-    );
-
-
-$totalNeedsChanges =
-    (int) (
-        $scoutReportStats[
-            'needs_changes'
-        ]
-        ?? 0
-    );
-
-
-/* =========================================================
-   ACCEPTED REPORTS THIS CURRENT PERIOD
-
-   scout_activity is the authoritative renewal-credit source.
-
-   For a normal Scout:
-       count only the current fixed Scout year.
-
-   For an extension:
-       count only the exact 30-day reinstatement window.
-   ========================================================= */
 
 $acceptedThisPeriod =
-    0;
+    (int)
+    $period[
+        'accepted_new_places'
+    ];
 
 
-if (
-    $currentPeriodStart !== null
-    &&
-    $currentPeriodEnd !== null
-) {
-
-    $stmt =
-        $db->prepare(
-            '
-            SELECT COUNT(*)
-
-            FROM scout_activity
-
-            WHERE scout_profile_id = ?
-
-              AND user_id = ?
-
-              AND activity_type =
-                  \'place_approved\'
-
-              AND occurred_at >= ?
-
-              AND occurred_at < ?
-            '
-        );
-
-
-    $stmt->execute([
-        $scoutProfileId,
-        $userId,
-        $currentPeriodStart,
-        $currentPeriodEnd
-    ]);
-
-
-    $acceptedThisPeriod =
-        (int)
-        $stmt->fetchColumn();
-
-}
-
-
-/* =========================================================
-   REQUIREMENT PROGRESS
-   ========================================================= */
-
-$reportsRemaining =
-    max(
-        0,
-        $requiredReports
-        -
-        $acceptedThisPeriod
-    );
+$placesRemaining =
+    (int)
+    $period[
+        'remaining_new_places'
+    ];
 
 
 $requirementMet =
-    $acceptedThisPeriod
-    >=
-    $requiredReports;
-
-
-$progressCount =
-    min(
-        $requiredReports,
-        $acceptedThisPeriod
-    );
+    (bool)
+    $period[
+        'requirement_met'
+    ];
 
 
 $progressPercent =
-    (
-        $progressCount
-        /
-        $requiredReports
-    )
-    *
-    100;
+    (float)
+    $period[
+        'progress_percent'
+    ];
 
 
-/* =========================================================
-   CURRENT PERIOD DISPLAY
-   ========================================================= */
-
-$currentPeriodStartLabel =
-    $currentPeriodStart !== null
-        ? format_scout_date(
-            $currentPeriodStart,
-            $user
-        )
-        : 'Not set';
+$lifetimePoints =
+    (int)
+    $summary[
+        'lifetime_points'
+    ];
 
 
-$currentPeriodEndLabel =
-    $currentPeriodEnd !== null
-        ? format_scout_date(
-            $currentPeriodEnd,
-            $user
-        )
-        : 'Not set';
+$lifetimeNewPlaces =
+    (int)
+    $summary[
+        'lifetime_new_places'
+    ];
 
-
-/* =========================================================
-   SCOUT ACTIVITY / POINTS
-
-   Point values reflect only points that still exist.
-
-   If the user previously lost membership or Scout status,
-   those old point values have already been permanently
-   cleared and are not reconstructed here.
-   ========================================================= */
-
-$stmt =
-    $db->prepare(
-        '
-        SELECT
-            COUNT(*) AS activity_count,
-
-            COALESCE(
-                SUM(points),
-                0
-            ) AS total_points
-
-        FROM scout_activity
-
-        WHERE scout_profile_id = ?
-          AND user_id = ?
-        '
-    );
-
-
-$stmt->execute([
-    $scoutProfileId,
-    $userId
-]);
-
-
-$activityStats =
-    $stmt->fetch(
-        PDO::FETCH_ASSOC
-    )
-    ?: [];
-
-
-$activityCount =
-    (int) (
-        $activityStats[
-            'activity_count'
-        ]
-        ?? 0
-    );
-
-
-$totalPoints =
-    (int) (
-        $activityStats[
-            'total_points'
-        ]
-        ?? 0
-    );
-
-
-/* =========================================================
-   RECENT SCOUT REPORTS
-
-   Historical Scout Reports remain visible.
-
-   Community Scouted submissions from before the original
-   Scout start date remain outside the Scout dashboard.
-   ========================================================= */
-
-$stmt =
-    $db->prepare(
-        '
-        SELECT
-            id,
-            place_name,
-            status,
-            submitted_at,
-            reviewed_at
-
-        FROM place_submissions
-
-        WHERE user_id = ?
-          AND submitted_at >= ?
-
-        ORDER BY
-            submitted_at DESC,
-            id DESC
-
-        LIMIT 6
-        '
-    );
-
-
-$stmt->execute([
-    $userId,
-    $scoutStartedAtRaw
-]);
-
-
-$recentReports =
-    $stmt->fetchAll(
-        PDO::FETCH_ASSOC
-    );
-
-
-/* =========================================================
-   DISPLAY VALUES
-   ========================================================= */
 
 $displayName =
     trim(
@@ -902,34 +315,331 @@ $displayName =
 
 $scoutSince =
     format_scout_date(
-        $scout[
+        $summary[
             'scout_started_at'
-        ]
-        ?? null,
+        ],
         $user
     );
 
 
 $activeThrough =
     format_scout_date(
-        $scout[
+        $summary[
             'active_through'
-        ]
-        ?? null,
+        ],
+        $user
+    );
+
+
+$currentPeriodStartLabel =
+    format_scout_date(
+        $period[
+            'start'
+        ],
+        $user
+    );
+
+
+$currentPeriodEndLabel =
+    format_scout_date(
+        $period[
+            'end'
+        ],
         $user
     );
 
 
 $currentPeriodName =
-    $isExtensionPeriod
-        ? '30-Day Scout Extension'
-        : 'Current Scout Year';
+    (string)
+    $period[
+        'label'
+    ];
 
 
-$currentPeriodAcceptedLabel =
-    $isExtensionPeriod
-        ? 'Accepted This Extension'
-        : 'Accepted This Scout Year';
+/* =========================================================
+   SUBMISSION STATS
+
+   These describe new-place submission workflow only.
+
+   They are separate from contribution points.
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+
+            COUNT(*) AS total,
+
+            SUM(
+                CASE
+                    WHEN status =
+                        \'approved\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS approved,
+
+            SUM(
+                CASE
+                    WHEN status =
+                        \'pending\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS pending,
+
+            SUM(
+                CASE
+                    WHEN status =
+                        \'needs-changes\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS needs_changes,
+
+            SUM(
+                CASE
+                    WHEN status =
+                        \'rejected\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS rejected
+
+        FROM place_submissions
+
+        WHERE user_id = ?
+
+          AND submitted_at >= ?
+        '
+    );
+
+
+$stmt->execute([
+    $userId,
+    $summary[
+        'scout_started_at'
+    ]
+]);
+
+
+$submissionStats =
+    $stmt->fetch(
+        PDO::FETCH_ASSOC
+    )
+    ?: [];
+
+
+$totalReports =
+    (int) (
+        $submissionStats[
+            'total'
+        ]
+        ?? 0
+    );
+
+
+$totalPending =
+    (int) (
+        $submissionStats[
+            'pending'
+        ]
+        ?? 0
+    );
+
+
+$totalNeedsChanges =
+    (int) (
+        $submissionStats[
+            'needs_changes'
+        ]
+        ?? 0
+    );
+
+
+/* =========================================================
+   CONTRIBUTION STATS
+   ========================================================= */
+
+llama_ensure_place_contributions_table(
+    $db
+);
+
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+
+            COUNT(*) AS total_contributions,
+
+            SUM(
+                CASE
+                    WHEN contribution_type =
+                        \'update\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS updates,
+
+            SUM(
+                CASE
+                    WHEN contribution_type =
+                        \'correction\'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS corrections
+
+        FROM place_contributions
+
+        WHERE user_id = ?
+
+          AND status =
+              \'approved\'
+        '
+    );
+
+
+$stmt->execute([
+    $userId
+]);
+
+
+$contributionStats =
+    $stmt->fetch(
+        PDO::FETCH_ASSOC
+    )
+    ?: [];
+
+
+$totalContributions =
+    (int) (
+        $contributionStats[
+            'total_contributions'
+        ]
+        ?? 0
+    );
+
+
+$totalUpdates =
+    (int) (
+        $contributionStats[
+            'updates'
+        ]
+        ?? 0
+    );
+
+
+$totalCorrections =
+    (int) (
+        $contributionStats[
+            'corrections'
+        ]
+        ?? 0
+    );
+
+
+/* =========================================================
+   RECENT NEW-PLACE SUBMISSIONS
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            id,
+            place_name,
+            status,
+            submitted_at,
+            reviewed_at
+
+        FROM place_submissions
+
+        WHERE user_id = ?
+
+          AND submitted_at >= ?
+
+        ORDER BY
+            submitted_at DESC,
+            id DESC
+
+        LIMIT 6
+        '
+    );
+
+
+$stmt->execute([
+    $userId,
+    $summary[
+        'scout_started_at'
+    ]
+]);
+
+
+$recentReports =
+    $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
+
+
+/* =========================================================
+   RECENT APPROVED CONTRIBUTIONS
+
+   Includes new Places, updates and corrections.
+   ========================================================= */
+
+$stmt =
+    $db->prepare(
+        '
+        SELECT
+            pc.id,
+            pc.place_id,
+            pc.contribution_type,
+            pc.points_awarded,
+            pc.visited_at,
+            pc.submitted_at,
+            pc.approved_at,
+
+            p.name AS place_name,
+            p.slug AS place_slug
+
+        FROM place_contributions pc
+
+        LEFT JOIN places p
+          ON p.id =
+             pc.place_id
+
+        WHERE pc.user_id = ?
+
+          AND pc.status =
+              \'approved\'
+
+        ORDER BY
+
+            COALESCE(
+                pc.approved_at,
+                pc.submitted_at,
+                pc.created_at
+            ) DESC,
+
+            pc.id DESC
+
+        LIMIT 8
+        '
+    );
+
+
+$stmt->execute([
+    $userId
+]);
+
+
+$recentContributions =
+    $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
 
 
 ?>
@@ -993,14 +703,10 @@ $currentPeriodAcceptedLabel =
 
 
     .scout-hero {
-      position:
-        relative;
+      position: relative;
+      overflow: hidden;
 
-      overflow:
-        hidden;
-
-      margin-top:
-        18px;
+      margin-top: 18px;
 
       padding:
         clamp(
@@ -1009,8 +715,7 @@ $currentPeriodAcceptedLabel =
           54px
         );
 
-      border-radius:
-        24px;
+      border-radius: 24px;
 
       background:
         linear-gradient(
@@ -1019,90 +724,36 @@ $currentPeriodAcceptedLabel =
           #1c342a
         );
 
-      color:
-        #fff;
-    }
-
-
-    .scout-hero::after {
-      content:
-        "";
-
-      position:
-        absolute;
-
-      width:
-        280px;
-
-      height:
-        280px;
-
-      right:
-        -110px;
-
-      bottom:
-        -160px;
-
-      border:
-        1px solid
-        rgba(
-          255,
-          255,
-          255,
-          .09
-        );
-
-      border-radius:
-        50%;
+      color: #fff;
     }
 
 
     .scout-eyebrow {
-      display:
-        flex;
-
-      align-items:
-        center;
-
-      gap:
-        8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
 
       margin:
         0
         0
         12px;
 
-      color:
-        #d9c49a;
+      color: #d9c49a;
 
-      font-size:
-        .78rem;
-
-      font-weight:
-        800;
-
-      letter-spacing:
-        .12em;
-
-      text-transform:
-        uppercase;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
     }
 
 
     .scout-hero h1 {
-      position:
-        relative;
-
-      z-index:
-        1;
-
       margin:
         0
         0
         12px;
 
-      color:
-        #fff;
+      color: #fff;
 
       font-size:
         clamp(
@@ -1111,26 +762,15 @@ $currentPeriodAcceptedLabel =
           4rem
         );
 
-      line-height:
-        1;
-
-      letter-spacing:
-        -.04em;
+      line-height: 1;
+      letter-spacing: -.04em;
     }
 
 
     .scout-hero > p {
-      position:
-        relative;
+      max-width: 720px;
 
-      z-index:
-        1;
-
-      max-width:
-        720px;
-
-      margin:
-        0;
+      margin: 0;
 
       color:
         rgba(
@@ -1140,48 +780,29 @@ $currentPeriodAcceptedLabel =
           .78
         );
 
-      line-height:
-        1.65;
+      line-height: 1.65;
     }
 
 
     .scout-hero-meta {
-      position:
-        relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
 
-      z-index:
-        1;
-
-      display:
-        flex;
-
-      flex-wrap:
-        wrap;
-
-      gap:
-        10px;
-
-      margin-top:
-        22px;
+      margin-top: 22px;
     }
 
 
     .scout-hero-pill {
-      display:
-        inline-flex;
-
-      align-items:
-        center;
-
-      gap:
-        7px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
 
       padding:
         8px
         11px;
 
-      border-radius:
-        999px;
+      border-radius: 999px;
 
       background:
         rgba(
@@ -1191,30 +812,19 @@ $currentPeriodAcceptedLabel =
           .11
         );
 
-      font-size:
-        .8rem;
-
-      font-weight:
-        700;
+      font-size: .8rem;
+      font-weight: 700;
     }
 
 
     .scout-extension-note {
-      position:
-        relative;
-
-      z-index:
-        1;
-
-      margin-top:
-        18px;
+      margin-top: 18px;
 
       padding:
         13px
         15px;
 
-      border-radius:
-        11px;
+      border-radius: 11px;
 
       background:
         rgba(
@@ -1232,14 +842,12 @@ $currentPeriodAcceptedLabel =
           .88
         );
 
-      line-height:
-        1.55;
+      line-height: 1.55;
     }
 
 
     .scout-stats {
-      display:
-        grid;
+      display: grid;
 
       grid-template-columns:
         repeat(
@@ -1250,17 +858,14 @@ $currentPeriodAcceptedLabel =
           )
         );
 
-      gap:
-        12px;
+      gap: 12px;
 
-      margin-top:
-        20px;
+      margin-top: 20px;
     }
 
 
     .scout-stat {
-      padding:
-        19px;
+      padding: 19px;
 
       border:
         1px solid
@@ -1271,8 +876,7 @@ $currentPeriodAcceptedLabel =
           .11
         );
 
-      border-radius:
-        15px;
+      border-radius: 15px;
 
       background:
         rgba(
@@ -1285,38 +889,28 @@ $currentPeriodAcceptedLabel =
 
 
     .scout-stat span {
-      display:
-        block;
+      display: block;
 
-      margin-bottom:
-        6px;
+      margin-bottom: 6px;
 
-      font-size:
-        .78rem;
+      font-size: .78rem;
 
-      opacity:
-        .64;
+      opacity: .64;
     }
 
 
     .scout-stat strong {
-      display:
-        block;
+      display: block;
 
-      font-size:
-        1.65rem;
+      font-size: 1.65rem;
 
-      line-height:
-        1;
+      line-height: 1;
     }
 
 
     .scout-section {
-      margin-top:
-        24px;
-
-      padding:
-        24px;
+      margin-top: 24px;
+      padding: 24px;
 
       border:
         1px solid
@@ -1327,8 +921,7 @@ $currentPeriodAcceptedLabel =
           .11
         );
 
-      border-radius:
-        18px;
+      border-radius: 18px;
 
       background:
         rgba(
@@ -1341,20 +934,13 @@ $currentPeriodAcceptedLabel =
 
 
     .scout-section-header {
-      display:
-        flex;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
 
-      justify-content:
-        space-between;
+      gap: 18px;
 
-      align-items:
-        flex-start;
-
-      gap:
-        18px;
-
-      margin-bottom:
-        20px;
+      margin-bottom: 20px;
     }
 
 
@@ -1367,35 +953,26 @@ $currentPeriodAcceptedLabel =
 
 
     .scout-section-header p {
-      margin:
-        0;
+      margin: 0;
 
-      line-height:
-        1.55;
+      line-height: 1.55;
 
-      opacity:
-        .68;
+      opacity: .68;
     }
 
 
     .scout-year-label {
-      margin-top:
-        8px !important;
+      margin-top: 8px !important;
 
-      font-size:
-        .84rem;
+      font-size: .84rem;
+      font-weight: 750;
 
-      font-weight:
-        750;
-
-      opacity:
-        1 !important;
+      opacity: 1 !important;
     }
 
 
     .scout-requirement {
-      display:
-        grid;
+      display: grid;
 
       grid-template-columns:
         minmax(
@@ -1404,44 +981,31 @@ $currentPeriodAcceptedLabel =
         )
         auto;
 
-      gap:
-        24px;
+      gap: 24px;
 
-      align-items:
-        center;
+      align-items: center;
     }
 
 
     .scout-progress-label {
-      display:
-        flex;
+      display: flex;
+      justify-content: space-between;
 
-      justify-content:
-        space-between;
+      gap: 12px;
 
-      gap:
-        12px;
+      margin-bottom: 9px;
 
-      margin-bottom:
-        9px;
-
-      font-size:
-        .84rem;
-
-      font-weight:
-        700;
+      font-size: .84rem;
+      font-weight: 700;
     }
 
 
     .scout-progress-track {
-      overflow:
-        hidden;
+      overflow: hidden;
 
-      height:
-        12px;
+      height: 12px;
 
-      border-radius:
-        999px;
+      border-radius: 999px;
 
       background:
         rgba(
@@ -1454,49 +1018,38 @@ $currentPeriodAcceptedLabel =
 
 
     .scout-progress-fill {
-      height:
-        100%;
+      height: 100%;
 
       width:
         <?= number_format(
             $progressPercent,
-            2,
+            1,
             '.',
             ''
         ) ?>%;
 
-      border-radius:
-        inherit;
+      border-radius: inherit;
 
-      background:
-        #172822;
+      background: #172822;
     }
 
 
     .scout-requirement-copy {
-      margin-top:
-        12px;
+      margin-top: 12px;
 
-      line-height:
-        1.6;
+      line-height: 1.6;
     }
 
 
     .scout-requirement-badge {
-      display:
-        grid;
+      display: grid;
 
-      place-items:
-        center;
+      place-items: center;
 
-      width:
-        112px;
+      width: 112px;
+      height: 112px;
 
-      height:
-        112px;
-
-      border-radius:
-        50%;
+      border-radius: 50%;
 
       background:
         <?= $requirementMet
@@ -1510,41 +1063,31 @@ $currentPeriodAcceptedLabel =
             : '#172822'
         ?>;
 
-      text-align:
-        center;
+      text-align: center;
     }
 
 
     .scout-requirement-badge strong {
-      display:
-        block;
+      display: block;
 
-      font-size:
-        2rem;
+      font-size: 2rem;
 
-      line-height:
-        1;
+      line-height: 1;
     }
 
 
     .scout-requirement-badge span {
-      display:
-        block;
+      display: block;
 
-      margin-top:
-        4px;
+      margin-top: 4px;
 
-      font-size:
-        .72rem;
-
-      font-weight:
-        700;
+      font-size: .72rem;
+      font-weight: 700;
     }
 
 
     .scout-tools-grid {
-      display:
-        grid;
+      display: grid;
 
       grid-template-columns:
         repeat(
@@ -1555,20 +1098,14 @@ $currentPeriodAcceptedLabel =
           )
         );
 
-      gap:
-        14px;
+      gap: 14px;
     }
 
 
     .scout-tool {
-      display:
-        block;
+      display: block;
 
-      position:
-        relative;
-
-      padding:
-        20px;
+      padding: 20px;
 
       border:
         1px solid
@@ -1579,14 +1116,10 @@ $currentPeriodAcceptedLabel =
           .11
         );
 
-      border-radius:
-        14px;
+      border-radius: 14px;
 
-      color:
-        inherit;
-
-      text-decoration:
-        none;
+      color: inherit;
+      text-decoration: none;
 
       background:
         rgba(
@@ -1610,29 +1143,20 @@ $currentPeriodAcceptedLabel =
 
 
     .scout-tool-icon {
-      display:
-        grid;
+      display: grid;
 
-      place-items:
-        center;
+      place-items: center;
 
-      width:
-        40px;
+      width: 40px;
+      height: 40px;
 
-      height:
-        40px;
+      margin-bottom: 14px;
 
-      margin-bottom:
-        14px;
+      border-radius: 10px;
 
-      border-radius:
-        10px;
+      background: #172822;
 
-      background:
-        #172822;
-
-      color:
-        #fff;
+      color: #fff;
     }
 
 
@@ -1645,38 +1169,22 @@ $currentPeriodAcceptedLabel =
 
 
     .scout-tool p {
-      margin:
-        0;
+      margin: 0;
 
-      line-height:
-        1.55;
+      line-height: 1.55;
 
-      opacity:
-        .7;
+      opacity: .7;
     }
 
 
-    .scout-tool--future {
-      opacity:
-        .58;
-
-      cursor:
-        default;
+    .scout-list {
+      display: grid;
+      gap: 0;
     }
 
 
-    .scout-report-list {
-      display:
-        grid;
-
-      gap:
-        0;
-    }
-
-
-    .scout-report-row {
-      display:
-        grid;
+    .scout-row {
+      display: grid;
 
       grid-template-columns:
         minmax(
@@ -1685,11 +1193,9 @@ $currentPeriodAcceptedLabel =
         )
         auto;
 
-      gap:
-        16px;
+      gap: 16px;
 
-      align-items:
-        center;
+      align-items: center;
 
       padding:
         15px
@@ -1706,37 +1212,31 @@ $currentPeriodAcceptedLabel =
     }
 
 
-    .scout-report-row:first-child {
-      border-top:
-        0;
+    .scout-row:first-child {
+      border-top: 0;
     }
 
 
-    .scout-report-name {
-      font-weight:
-        750;
+    .scout-row-name {
+      font-weight: 750;
     }
 
 
-    .scout-report-meta {
-      margin-top:
-        4px;
+    .scout-row-meta {
+      margin-top: 4px;
 
-      font-size:
-        .81rem;
+      font-size: .81rem;
 
-      opacity:
-        .62;
+      opacity: .62;
     }
 
 
-    .scout-report-status {
+    .scout-row-status {
       padding:
         7px
         10px;
 
-      border-radius:
-        999px;
+      border-radius: 999px;
 
       background:
         rgba(
@@ -1746,82 +1246,63 @@ $currentPeriodAcceptedLabel =
           .07
         );
 
-      font-size:
-        .76rem;
+      font-size: .76rem;
+      font-weight: 700;
 
-      font-weight:
-        700;
-
-      white-space:
-        nowrap;
+      white-space: nowrap;
     }
 
 
-    .scout-empty {
-      padding:
-        28px;
+    .scout-points-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
 
-      border-radius:
-        13px;
+      margin-left: 7px;
+
+      padding:
+        4px
+        7px;
+
+      border-radius: 999px;
 
       background:
         rgba(
-          23,
-          40,
-          34,
-          .04
+          217,
+          196,
+          154,
+          .25
         );
 
-      text-align:
-        center;
-    }
-
-
-    .scout-empty p {
-      margin:
-        0
-        0
-        14px;
+      font-size: .72rem;
+      font-weight: 800;
     }
 
 
     .scout-button {
-      display:
-        inline-flex;
-
-      align-items:
-        center;
-
-      justify-content:
-        center;
-
-      gap:
-        8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
 
       padding:
         11px
         16px;
 
-      border-radius:
-        9px;
+      border-radius: 9px;
 
-      background:
-        #172822;
+      background: #172822;
 
-      color:
-        #fff;
+      color: #fff;
 
-      text-decoration:
-        none;
+      text-decoration: none;
 
-      font-weight:
-        750;
+      font-weight: 750;
     }
 
 
     .scout-record-grid {
-      display:
-        grid;
+      display: grid;
 
       grid-template-columns:
         repeat(
@@ -1832,17 +1313,14 @@ $currentPeriodAcceptedLabel =
           )
         );
 
-      gap:
-        12px;
+      gap: 12px;
     }
 
 
     .scout-record-item {
-      padding:
-        15px;
+      padding: 15px;
 
-      border-radius:
-        12px;
+      border-radius: 12px;
 
       background:
         rgba(
@@ -1855,29 +1333,40 @@ $currentPeriodAcceptedLabel =
 
 
     .scout-record-item span {
-      display:
-        block;
+      display: block;
 
-      margin-bottom:
-        5px;
+      margin-bottom: 5px;
 
-      font-size:
-        .79rem;
+      font-size: .79rem;
 
-      opacity:
-        .64;
+      opacity: .64;
     }
 
 
     .scout-record-item strong {
-      display:
-        block;
+      display: block;
+    }
+
+
+    .scout-empty {
+      padding: 28px;
+
+      border-radius: 13px;
+
+      background:
+        rgba(
+          23,
+          40,
+          34,
+          .04
+        );
+
+      text-align: center;
     }
 
 
     @media (
-      max-width:
-        820px
+      max-width: 820px
     ) {
 
       .scout-stats {
@@ -1898,15 +1387,6 @@ $currentPeriodAcceptedLabel =
       }
 
 
-      .scout-requirement-badge {
-        width:
-          96px;
-
-        height:
-          96px;
-      }
-
-
       .scout-record-grid {
         grid-template-columns:
           repeat(
@@ -1922,8 +1402,7 @@ $currentPeriodAcceptedLabel =
 
 
     @media (
-      max-width:
-        620px
+      max-width: 620px
     ) {
 
       .scout-tools-grid,
@@ -1933,15 +1412,14 @@ $currentPeriodAcceptedLabel =
       }
 
 
-      .scout-report-row {
+      .scout-row {
         grid-template-columns:
           1fr;
       }
 
 
-      .scout-report-status {
-        width:
-          fit-content;
+      .scout-row-status {
+        width: fit-content;
       }
 
     }
@@ -1983,7 +1461,6 @@ require_once
 
   <section class="scout-hero">
 
-
     <p class="scout-eyebrow">
 
       <i
@@ -1998,29 +1475,19 @@ require_once
 
     <h1>
       Welcome back,
-      <?= e($displayName) ?>.
+      <?= e(
+          $displayName
+      ) ?>.
     </h1>
 
 
     <p>
 
-      <?php if ($isExtensionPeriod): ?>
+      Track your current Scout requirement, lifetime points,
+      approved contributions, and field tools.
 
-        Your temporary Scout access is active.
-
-        Track your 30-day extension, Scout Reports, activity,
-        and the three accepted reports required to return to
-        regular Scout status.
-
-      <?php else: ?>
-
-        This is your Scout home base.
-
-        Track your Scout year, contribution requirement,
-        reports, activity, and the tools available to you
-        in the field.
-
-      <?php endif; ?>
+      New-place activity determines whether Scout status stays
+      active. Points measure your broader contribution history.
 
     </p>
 
@@ -2035,7 +1502,9 @@ require_once
           aria-hidden="true"
         ></i>
 
-        <?= e($scoutRank) ?>
+        <?= e(
+            $scoutRank
+        ) ?>
 
       </span>
 
@@ -2048,7 +1517,10 @@ require_once
         ></i>
 
         Scout since
-        <?= e($scoutSince) ?>
+
+        <?= e(
+            $scoutSince
+        ) ?>
 
       </span>
 
@@ -2061,11 +1533,29 @@ require_once
         ></i>
 
         <?= $isExtensionPeriod
-            ? 'Extension through'
+            ? 'Reactivation through'
             : 'Active through'
         ?>
 
-        <?= e($activeThrough) ?>
+        <?= e(
+            $activeThrough
+        ) ?>
+
+      </span>
+
+
+      <span class="scout-hero-pill">
+
+        <i
+          class="fa-solid fa-star"
+          aria-hidden="true"
+        ></i>
+
+        <?= number_format(
+            $lifetimePoints
+        ) ?>
+
+        lifetime points
 
       </span>
 
@@ -2073,15 +1563,29 @@ require_once
     </div>
 
 
-    <?php if ($isExtensionPeriod): ?>
+    <?php if (
+        $isExtensionPeriod
+    ): ?>
 
       <div class="scout-extension-note">
 
-        This is temporary basic Scout access.
+        This is your temporary Scout reactivation period.
 
-        You need three newly accepted Scout Reports during
-        this extension period. Previous reports do not count
-        toward the extension requirement.
+        Complete
+
+        <?= $requiredPlaces ?>
+
+        newly approved
+
+        <?= $requiredPlaces === 1
+            ? 'place'
+            : 'places'
+        ?>
+
+        during this window to return to regular Llama Scout
+        status.
+
+        Your lifetime points remain intact either way.
 
       </div>
 
@@ -2100,7 +1604,7 @@ require_once
     <article class="scout-stat">
 
       <span>
-        <?= e($currentPeriodAcceptedLabel) ?>
+        New Places This Period
       </span>
 
       <strong>
@@ -2113,11 +1617,11 @@ require_once
     <article class="scout-stat">
 
       <span>
-        Pending Review
+        Still Required
       </span>
 
       <strong>
-        <?= $totalPending ?>
+        <?= $placesRemaining ?>
       </strong>
 
     </article>
@@ -2126,11 +1630,11 @@ require_once
     <article class="scout-stat">
 
       <span>
-        Lifetime Accepted
+        Lifetime New Places
       </span>
 
       <strong>
-        <?= $totalAccepted ?>
+        <?= $lifetimeNewPlaces ?>
       </strong>
 
     </article>
@@ -2139,11 +1643,13 @@ require_once
     <article class="scout-stat">
 
       <span>
-        Scout Points
+        Lifetime Points
       </span>
 
       <strong>
-        <?= $totalPoints ?>
+        <?= number_format(
+            $lifetimePoints
+        ) ?>
       </strong>
 
     </article>
@@ -2162,34 +1668,36 @@ require_once
         <h2>
           <?= e(
               $isExtensionPeriod
-                  ? 'Complete Your Scout Extension'
-                  : 'Keep Your Scout Access'
+                  ? 'Complete Your Reactivation'
+                  : 'Maintain Llama Scout Status'
           ) ?>
         </h2>
 
 
         <p>
 
-          <?php if ($isExtensionPeriod): ?>
+          <?= $requiredPlaces ?>
 
-            Complete three accepted Scout Reports during this
-            exact 30-day extension to return as a basic Scout
-            for a new annual Scout period.
+          approved new
 
-          <?php else: ?>
+          <?= $requiredPlaces === 1
+              ? 'place is'
+              : 'places are'
+          ?>
 
-            Complete at least three accepted Scout Reports
-            during each Scout year to continue complimentary
-            Scout access for the following year.
+          required during this period.
 
-          <?php endif; ?>
+          Updates, corrections, and extra contributions may
+          earn points, but they do not replace this requirement.
 
         </p>
 
 
         <p class="scout-year-label">
 
-          <?= e($currentPeriodName) ?>:
+          <?= e(
+              $currentPeriodName
+          ) ?>:
 
           <?= e(
               $currentPeriodStartLabel
@@ -2217,9 +1725,8 @@ require_once
         <div class="scout-progress-label">
 
           <span>
-            Current progress
+            New-place progress
           </span>
-
 
           <span>
 
@@ -2227,7 +1734,7 @@ require_once
 
             of
 
-            <?= $requiredReports ?>
+            <?= $requiredPlaces ?>
 
           </span>
 
@@ -2253,95 +1760,42 @@ require_once
               $requirementMet
           ): ?>
 
-
             <strong>
               Requirement met.
             </strong>
 
+            You've completed the new-place requirement for
+            this Scout period.
 
-            <?php if ($isExtensionPeriod): ?>
-
-              You've completed the three accepted Scout
-              Reports required during this extension.
-
-              Your temporary access remains active through
-              the extension end date. When the extension is
-              resolved, you return as a basic Scout for a new
-              annual Scout period.
-
-            <?php else: ?>
-
-              You've completed the three-report requirement
-              for this Scout year.
-
-            <?php endif; ?>
-
-
-            <?php if (
-                !$isExtensionPeriod
-                &&
-                $acceptedThisPeriod > 3
-            ): ?>
-
-              You've actually completed
-
-              <?= $acceptedThisPeriod ?>
-
-              accepted Scout Reports this year.
-
-            <?php endif; ?>
+            You can continue earning lifetime points through
+            additional new Places, approved updates,
+            corrections, and other qualifying contributions.
 
 
           <?php elseif (
-              $reportsRemaining === 1
+              $placesRemaining === 1
           ): ?>
 
-
             <strong>
-              One more accepted report.
+              One more new Place.
             </strong>
 
-
-            <?php if ($isExtensionPeriod): ?>
-
-              One additional accepted Scout Report completes
-              your 30-day extension requirement.
-
-            <?php else: ?>
-
-              One additional accepted Scout Report completes
-              your requirement for this Scout year.
-
-            <?php endif; ?>
+            One additional approved new Place completes your
+            current Scout requirement.
 
 
           <?php else: ?>
 
-
             <strong>
 
-              <?= $reportsRemaining ?>
+              <?= $placesRemaining ?>
 
-              accepted reports to go.
+              new Places to go.
 
             </strong>
 
-            Reports count toward the requirement after
-            they are reviewed and accepted by Llama Scout.
-
-
-          <?php endif; ?>
-
-
-          <?php if (
-              $isExtensionPeriod
-              &&
-              !$requirementMet
-          ): ?>
-
-            If the extension expires before all three reports
-            are accepted, Scout access ends again and your
-            account returns to free-member status.
+            A new Place counts after the submission is
+            approved.
 
           <?php endif; ?>
 
@@ -2354,13 +1808,13 @@ require_once
 
       <div class="scout-requirement-badge">
 
+
         <div>
 
 
           <?php if (
               $requirementMet
           ): ?>
-
 
             <i
               class="fa-solid fa-check"
@@ -2374,26 +1828,25 @@ require_once
 
           <?php else: ?>
 
-
             <strong>
 
               <?= $acceptedThisPeriod ?>
 
               /
 
-              <?= $requiredReports ?>
+              <?= $requiredPlaces ?>
 
             </strong>
 
             <span>
-              Reports
+              New Places
             </span>
-
 
           <?php endif; ?>
 
 
         </div>
+
 
       </div>
 
@@ -2416,7 +1869,7 @@ require_once
         </h2>
 
         <p>
-          Everything you need to scout and track places.
+          Contribute new Places and review your Scout activity.
         </p>
 
       </div>
@@ -2441,17 +1894,13 @@ require_once
 
         </div>
 
-
         <h3>
-          Scout a Place
+          Add a New Place
         </h3>
 
-
         <p>
-
-          Submit a detailed Scout Report for a place
-          you've personally visited.
-
+          Submit a new dispersed campsite or other qualifying
+          place you've personally visited.
         </p>
 
       </a>
@@ -2465,128 +1914,61 @@ require_once
         <div class="scout-tool-icon">
 
           <i
-            class="fa-solid fa-clipboard-list"
+            class="fa-solid fa-list"
             aria-hidden="true"
           ></i>
 
         </div>
 
-
         <h3>
-          My Scout Reports
+          My Submissions
         </h3>
 
-
         <p>
-
-          See your Scout Reports, review status, and reports
-          that need changes.
-
+          Review your submitted Places and their moderation
+          status.
         </p>
 
       </a>
 
 
-      <a
-        href="saved-places.php"
-        class="scout-tool"
-      >
+      <?php if (
+          $canModeratePlaces
+      ): ?>
 
-        <div class="scout-tool-icon">
-
-          <i
-            class="fa-solid fa-bookmark"
-            aria-hidden="true"
-          ></i>
-
-        </div>
-
-
-        <h3>
-          Saved Places
-        </h3>
-
-
-        <p>
-
-          Keep possible Scout stops and places you want
-          to revisit together.
-
-        </p>
-
-      </a>
-
-
-      <a
-        href="https://llamascout.com/map.html"
-        class="scout-tool"
-      >
-
-        <div class="scout-tool-icon">
-
-          <i
-            class="fa-solid fa-map"
-            aria-hidden="true"
-          ></i>
-
-        </div>
-
-
-        <h3>
-          Explore Map
-        </h3>
-
-
-        <p>
-
-          Browse Llama Scout places and look for gaps
-          where more field information would help.
-
-        </p>
-
-      </a>
-
-
-      <div
-        class="
-          scout-tool
-          scout-tool--future
-        "
-      >
-
-        <div class="scout-tool-icon">
-
-          <i
-            class="fa-solid fa-rotate"
-            aria-hidden="true"
-          ></i>
-
-        </div>
-
-
-        <h3>
-          Places Needing Verification
-        </h3>
-
-
-        <p>
-
-          Coming later... find existing places that need
-          a Scout visit or updated information.
-
-        </p>
-
-      </div>
-
-
-      <?php if (!$isMasterScout): ?>
-
-        <div
-          class="
-            scout-tool
-            scout-tool--future
-          "
+        <a
+          href="https://admin.llamascout.com/submissions.php"
+          class="scout-tool"
         >
+
+          <div class="scout-tool-icon">
+
+            <i
+              class="fa-solid fa-clipboard-check"
+              aria-hidden="true"
+            ></i>
+
+          </div>
+
+          <h3>
+            Moderate Places
+          </h3>
+
+          <p>
+            Review new Place submissions and structured
+            community updates as a Master Scout.
+          </p>
+
+        </a>
+
+      <?php endif; ?>
+
+
+      <?php if (
+          $isMasterScout
+      ): ?>
+
+        <div class="scout-tool">
 
           <div class="scout-tool-icon">
 
@@ -2596,51 +1978,14 @@ require_once
             ></i>
 
           </div>
-
 
           <h3>
             Master Scout
           </h3>
 
-
           <p>
-
-            Coming later... track progress toward advanced
-            Scout tools, badges, and Master Scout status.
-
-          </p>
-
-        </div>
-
-      <?php else: ?>
-
-        <div
-          class="
-            scout-tool
-            scout-tool--future
-          "
-        >
-
-          <div class="scout-tool-icon">
-
-            <i
-              class="fa-solid fa-award"
-              aria-hidden="true"
-            ></i>
-
-          </div>
-
-
-          <h3>
-            Master Scout Tools
-          </h3>
-
-
-          <p>
-
-            Advanced Master Scout tools and features
-            are coming later.
-
+            Your account currently holds Master Scout status
+            and Place moderation privileges while active.
           </p>
 
         </div>
@@ -2662,11 +2007,186 @@ require_once
       <div>
 
         <h2>
-          Recent Scout Reports
+          Recent Contributions
         </h2>
 
         <p>
-          Your latest Scout Reports and review status.
+          Approved new Places, updates, and corrections.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <?php if (
+        $recentContributions
+    ): ?>
+
+
+      <div class="scout-list">
+
+
+        <?php foreach (
+            $recentContributions
+            as
+            $contribution
+        ): ?>
+
+
+          <div class="scout-row">
+
+
+            <div>
+
+
+              <div class="scout-row-name">
+
+                <?= e(
+                    $contribution[
+                        'place_name'
+                    ]
+                    ?:
+                    'Place #'
+                    .
+                    $contribution[
+                        'place_id'
+                    ]
+                ) ?>
+
+              </div>
+
+
+              <div class="scout-row-meta">
+
+                <?= e(
+                    scout_contribution_type_label(
+                        (string)
+                        $contribution[
+                            'contribution_type'
+                        ]
+                    )
+                ) ?>
+
+
+                <?php if (
+                    !empty(
+                        $contribution[
+                            'visited_at'
+                        ]
+                    )
+                ): ?>
+
+                  · Visited
+
+                  <?= e(
+                      format_scout_date(
+                          $contribution[
+                              'visited_at'
+                          ],
+                          $user
+                      )
+                  ) ?>
+
+                <?php elseif (
+                    !empty(
+                        $contribution[
+                            'approved_at'
+                        ]
+                    )
+                ): ?>
+
+                  · Approved
+
+                  <?= e(
+                      format_scout_date(
+                          $contribution[
+                              'approved_at'
+                          ],
+                          $user
+                      )
+                  ) ?>
+
+                <?php endif; ?>
+
+
+                <?php if (
+                    (int)
+                    $contribution[
+                        'points_awarded'
+                    ]
+                    >
+                    0
+                ): ?>
+
+                  <span class="scout-points-badge">
+
+                    +
+
+                    <?= (int)
+                        $contribution[
+                            'points_awarded'
+                        ]
+                    ?>
+
+                    points
+
+                  </span>
+
+                <?php endif; ?>
+
+
+              </div>
+
+
+            </div>
+
+
+            <span class="scout-row-status">
+              Approved
+            </span>
+
+
+          </div>
+
+
+        <?php endforeach; ?>
+
+
+      </div>
+
+
+    <?php else: ?>
+
+
+      <div class="scout-empty">
+
+        <p>
+          No approved contributions are recorded yet.
+        </p>
+
+      </div>
+
+
+    <?php endif; ?>
+
+
+  </section>
+
+
+  <section class="scout-section">
+
+
+    <div class="scout-section-header">
+
+      <div>
+
+        <h2>
+          Recent New-Place Reports
+        </h2>
+
+        <p>
+          Your newest Place submissions and moderation status.
         </p>
 
       </div>
@@ -2685,7 +2205,6 @@ require_once
 
       <?php endif; ?>
 
-
     </div>
 
 
@@ -2694,7 +2213,7 @@ require_once
     ): ?>
 
 
-      <div class="scout-report-list">
+      <div class="scout-list">
 
 
         <?php foreach (
@@ -2704,13 +2223,13 @@ require_once
         ): ?>
 
 
-          <div class="scout-report-row">
+          <div class="scout-row">
 
 
             <div>
 
 
-              <div class="scout-report-name">
+              <div class="scout-row-name">
 
                 <?= e(
                     $report[
@@ -2721,7 +2240,7 @@ require_once
               </div>
 
 
-              <div class="scout-report-meta">
+              <div class="scout-row-meta">
 
                 Submitted
 
@@ -2743,9 +2262,7 @@ require_once
                     )
                 ): ?>
 
-                  &middot;
-
-                  Reviewed
+                  · Reviewed
 
                   <?= e(
                       format_scout_date(
@@ -2765,10 +2282,10 @@ require_once
             </div>
 
 
-            <span class="scout-report-status">
+            <span class="scout-row-status">
 
               <?= e(
-                  submission_status_label(
+                  scout_submission_status_label(
                       (string)
                       $report[
                           'status'
@@ -2794,7 +2311,7 @@ require_once
       <div class="scout-empty">
 
         <p>
-          You haven't submitted a Scout Report yet.
+          You haven't submitted a new Place yet.
         </p>
 
 
@@ -2808,7 +2325,7 @@ require_once
             aria-hidden="true"
           ></i>
 
-          Scout Your First Place
+          Add Your First Place
 
         </a>
 
@@ -2833,11 +2350,8 @@ require_once
         </h2>
 
         <p>
-
-          Scout Report history remains part of your record.
-          Scout points reflect only your current active point
-          balance.
-
+          Lifetime contribution history stays with your
+          account. Points are earned, not routinely removed.
         </p>
 
       </div>
@@ -2855,7 +2369,9 @@ require_once
         </span>
 
         <strong>
-          <?= e($scoutRank) ?>
+          <?= e(
+              $scoutRank
+          ) ?>
         </strong>
 
       </div>
@@ -2864,7 +2380,74 @@ require_once
       <div class="scout-record-item">
 
         <span>
-          Total Reports
+          Lifetime Points
+        </span>
+
+        <strong>
+          <?= number_format(
+              $lifetimePoints
+          ) ?>
+        </strong>
+
+      </div>
+
+
+      <div class="scout-record-item">
+
+        <span>
+          Lifetime New Places
+        </span>
+
+        <strong>
+          <?= $lifetimeNewPlaces ?>
+        </strong>
+
+      </div>
+
+
+      <div class="scout-record-item">
+
+        <span>
+          Approved Contributions
+        </span>
+
+        <strong>
+          <?= $totalContributions ?>
+        </strong>
+
+      </div>
+
+
+      <div class="scout-record-item">
+
+        <span>
+          Approved Updates
+        </span>
+
+        <strong>
+          <?= $totalUpdates ?>
+        </strong>
+
+      </div>
+
+
+      <div class="scout-record-item">
+
+        <span>
+          Approved Corrections
+        </span>
+
+        <strong>
+          <?= $totalCorrections ?>
+        </strong>
+
+      </div>
+
+
+      <div class="scout-record-item">
+
+        <span>
+          Submitted New Places
         </span>
 
         <strong>
@@ -2877,11 +2460,11 @@ require_once
       <div class="scout-record-item">
 
         <span>
-          Lifetime Accepted
+          Pending Review
         </span>
 
         <strong>
-          <?= $totalAccepted ?>
+          <?= $totalPending ?>
         </strong>
 
       </div>
@@ -2895,32 +2478,6 @@ require_once
 
         <strong>
           <?= $totalNeedsChanges ?>
-        </strong>
-
-      </div>
-
-
-      <div class="scout-record-item">
-
-        <span>
-          Recorded Scout Activities
-        </span>
-
-        <strong>
-          <?= $activityCount ?>
-        </strong>
-
-      </div>
-
-
-      <div class="scout-record-item">
-
-        <span>
-          Scout Points
-        </span>
-
-        <strong>
-          <?= $totalPoints ?>
         </strong>
 
       </div>
