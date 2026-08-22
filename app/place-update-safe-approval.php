@@ -35,7 +35,8 @@ function llama_approve_place_update_safely(
     PDO $db,
     int $updateId,
     int $reviewedBy,
-    ?string $reviewNotes = null
+    ?string $reviewNotes = null,
+    ?string $moderationType = null
 ): array {
 
     if (
@@ -114,6 +115,34 @@ function llama_approve_place_update_safely(
 
     }
 
+        $moderationType =
+        $moderationType !== null
+
+            ? trim(
+                $moderationType
+            )
+
+            : trim(
+                (string) (
+                    $update[
+                        'update_type'
+                    ]
+                    ?? LLAMA_PLACE_UPDATE
+                )
+            );
+
+
+    if (
+        !llama_valid_place_update_type(
+            $moderationType
+        )
+    ) {
+
+        throw new DomainException(
+            'Choose a valid moderation classification for this contribution.'
+        );
+
+    }
 
     $placeId =
         (int)
@@ -264,6 +293,48 @@ function llama_approve_place_update_safely(
     );
 
 
+        /*
+     * Persist the moderator's classification before the
+     * approval engine reloads and scores this contribution.
+     *
+     * Contributors do not control this value for new
+     * submissions. Moderation determines whether the approved
+     * contribution is an update or factual correction.
+     */
+
+    if (
+        (string) (
+            $update[
+                'update_type'
+            ]
+            ?? ''
+        )
+        !==
+        $moderationType
+    ) {
+
+        $typeStmt =
+            $db->prepare(
+                '
+                UPDATE place_update_submissions
+
+                SET
+                    update_type = ?,
+                    updated_at = CURRENT_TIMESTAMP
+
+                WHERE id = ?
+                '
+            );
+
+
+        $typeStmt->execute([
+            $moderationType,
+            $updateId,
+        ]);
+
+    }
+
+    
     /* =====================================================
        EXISTING APPROVAL ENGINE
 
