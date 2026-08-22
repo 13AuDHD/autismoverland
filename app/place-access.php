@@ -1027,36 +1027,11 @@ function free_place_view(
     ] =
         false;
 
-
-    $place[
-        'verification'
-    ] = [
-        'createdAt' =>
-            $place[
-                'createdAt'
-            ]
-            ?? null,
-
-        'lastVerified' =>
-            place_locked_value(
-                'free',
-                'member'
-            ),
-
-        'verifiedBy' =>
-            place_locked_value(
-                'free',
-                'member'
-            ),
-    ];
-
-
     unset(
         $place[
             'publicPreview'
         ]
     );
-
 
     return
         $place;
@@ -1487,22 +1462,6 @@ function visitor_place_view(
         ] =
             $featured;
     }
-
-
-    /*
-     * Logged-out visitors do not receive verification
-     * history or verifier information.
-     */
-
-    $place[
-        'verification'
-    ] = [
-        'createdAt' =>
-            $place[
-                'createdAt'
-            ]
-            ?? null
-    ];
 
 
     unset(
