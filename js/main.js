@@ -11,6 +11,21 @@
 
 
 /* =========================================================
+   PUBLIC PLACE STATUS
+   ========================================================= */
+
+function isHomepagePublicPlaceStatus(
+  status
+) {
+
+  return (
+    status === "active" ||
+    status === "featured"
+  );
+}
+
+
+/* =========================================================
    VALUE HELPERS
    ========================================================= */
 
@@ -188,6 +203,55 @@ function ratingIsAvailable(
 
 
 /* =========================================================
+   COORDINATES
+   ========================================================= */
+
+function homepageCoordinates(
+  place
+) {
+
+  const latitude =
+    numericPlaceValue(
+      place?.location
+        ?.latitude
+    );
+
+
+  const longitude =
+    numericPlaceValue(
+      place?.location
+        ?.longitude
+    );
+
+
+  if (
+    latitude === null ||
+    longitude === null
+  ) {
+
+    return null;
+  }
+
+
+  if (
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+
+    return null;
+  }
+
+
+  return [
+    latitude,
+    longitude
+  ];
+}
+
+
+/* =========================================================
    SAFE HTML
    ========================================================= */
 
@@ -317,7 +381,7 @@ function homepageLocationDisclosure(
 
 
 /* =========================================================
-   FEATURED / RECENTLY SCOUTED
+   FEATURED / RECENT PLACES
    ========================================================= */
 
 async function initFeaturedLocations() {
@@ -373,12 +437,37 @@ async function initFeaturedLocations() {
     }
 
 
-    let featuredPlaces =
+    const publicPlaces =
       places.filter(
         (place) =>
-          place &&
-          place.featured === true &&
-          place.status === "active"
+          Boolean(
+            place &&
+            isHomepagePublicPlaceStatus(
+              place.status
+            )
+          )
+      );
+
+
+    /*
+     * A Place may be featured through either:
+     *
+     * - status === "featured"
+     * - featured === true
+     *
+     * Both are accepted because the API recognizes
+     * "featured" as a public publication status while
+     * existing data may also carry a featured flag.
+     */
+
+    let featuredPlaces =
+      publicPlaces.filter(
+        (place) =>
+          place.status ===
+            "featured"
+          ||
+          place.featured ===
+            true
       );
 
 
@@ -388,11 +477,7 @@ async function initFeaturedLocations() {
     ) {
 
       featuredPlaces =
-        places.filter(
-          (place) =>
-            place &&
-            place.status === "active"
-        );
+        publicPlaces;
     }
 
 
@@ -446,18 +531,22 @@ function renderFeaturedLocations(
       const image =
         images.find(
           (item) =>
-            item &&
-            item.featured === true &&
-            searchablePlaceValue(
-              item.src
+            Boolean(
+              item &&
+              item.featured === true &&
+              searchablePlaceValue(
+                item.src
+              )
             )
         )
         ||
         images.find(
           (item) =>
-            item &&
-            searchablePlaceValue(
-              item.src
+            Boolean(
+              item &&
+              searchablePlaceValue(
+                item.src
+              )
             )
         )
         ||
@@ -497,17 +586,16 @@ function renderFeaturedLocations(
 
 
       const lockedRatings = [
-
         difficulty,
         privacy,
         cell
-
-      ].filter(
-        (value) =>
-          isLockedValue(
-            value
-          )
-      );
+      ]
+        .filter(
+          (value) =>
+            isLockedValue(
+              value
+            )
+        );
 
 
       const detailRows =
@@ -729,16 +817,6 @@ function renderFeaturedLocations(
           : "";
 
 
-      const card =
-        document.createElement(
-          "article"
-        );
-
-
-      card.className =
-        "location-card";
-
-
       const slug =
         searchablePlaceValue(
           place.slug
@@ -767,6 +845,16 @@ function renderFeaturedLocations(
         )
         ||
         "Place";
+
+
+      const card =
+        document.createElement(
+          "article"
+        );
+
+
+      card.className =
+        "location-card";
 
 
       card.innerHTML = `
@@ -950,30 +1038,17 @@ async function initHomepageMap() {
 
     const validPlaces =
       places.filter(
-        (place) => {
-
-          const lat =
-            numericPlaceValue(
-              place.location
-                ?.latitude
-            );
-
-
-          const lng =
-            numericPlaceValue(
-              place.location
-                ?.longitude
-            );
-
-
-          return (
+        (place) =>
+          Boolean(
             place &&
-            place.status ===
-              "active" &&
-            lat !== null &&
-            lng !== null
-          );
-        }
+            isHomepagePublicPlaceStatus(
+              place.status
+            )
+            &&
+            homepageCoordinates(
+              place
+            )
+          )
       );
 
 
@@ -999,30 +1074,13 @@ async function initHomepageMap() {
         : 11;
 
 
-    const firstPlace =
-      validPlaces[0];
-
-
-    const firstLat =
-      numericPlaceValue(
-        firstPlace
-          .location
-          .latitude
+    const firstCoordinates =
+      homepageCoordinates(
+        validPlaces[0]
       );
 
 
-    const firstLng =
-      numericPlaceValue(
-        firstPlace
-          .location
-          .longitude
-      );
-
-
-    if (
-      firstLat === null ||
-      firstLng === null
-    ) {
+    if (!firstCoordinates) {
 
       return;
     }
@@ -1043,10 +1101,7 @@ async function initHomepageMap() {
         }
       )
       .setView(
-        [
-          firstLat,
-          firstLng
-        ],
+        firstCoordinates,
         Math.min(
           10,
           mapMaximumZoom
@@ -1064,9 +1119,9 @@ async function initHomepageMap() {
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       }
     )
-    .addTo(
-      map
-    );
+      .addTo(
+        map
+      );
 
 
     const markerLayer =
@@ -1200,24 +1255,13 @@ async function initHomepageMap() {
       filteredPlaces.forEach(
         (place) => {
 
-          const lat =
-            numericPlaceValue(
-              place.location
-                ?.latitude
+          const coordinates =
+            homepageCoordinates(
+              place
             );
 
 
-          const lng =
-            numericPlaceValue(
-              place.location
-                ?.longitude
-            );
-
-
-          if (
-            lat === null ||
-            lng === null
-          ) {
+          if (!coordinates) {
 
             return;
           }
@@ -1225,19 +1269,15 @@ async function initHomepageMap() {
 
           const marker =
             L.marker(
-              [
-                lat,
-                lng
-              ]
+              coordinates
             )
-            .addTo(
-              markerLayer
-            );
+              .addTo(
+                markerLayer
+              );
 
 
           const location =
             [
-
               searchablePlaceValue(
                 place.location
                   ?.city
@@ -1247,7 +1287,6 @@ async function initHomepageMap() {
                 place.location
                   ?.state
               )
-
             ]
               .filter(Boolean)
               .join(", ");
@@ -1264,18 +1303,22 @@ async function initHomepageMap() {
           const featuredImage =
             images.find(
               (image) =>
-                image &&
-                image.featured === true &&
-                searchablePlaceValue(
-                  image.src
+                Boolean(
+                  image &&
+                  image.featured === true &&
+                  searchablePlaceValue(
+                    image.src
+                  )
                 )
             )
             ||
             images.find(
               (image) =>
-                image &&
-                searchablePlaceValue(
-                  image.src
+                Boolean(
+                  image &&
+                  searchablePlaceValue(
+                    image.src
+                  )
                 )
             )
             ||
@@ -1382,6 +1425,7 @@ async function initHomepageMap() {
                           ||
                           placeName
                         )}"
+                        loading="lazy"
                       >
 
                     `
@@ -1552,10 +1596,7 @@ async function initHomepageMap() {
 
 
           bounds.push(
-            [
-              lat,
-              lng
-            ]
+            coordinates
           );
         }
       );
@@ -1652,7 +1693,6 @@ async function initHomepageMap() {
 
             const searchableText =
               [
-
                 searchablePlaceValue(
                   place.name
                 ),
@@ -1684,7 +1724,6 @@ async function initHomepageMap() {
                 searchablePlaceValue(
                   place.description
                 )
-
               ]
                 .filter(Boolean)
                 .join(" ")
@@ -1721,10 +1760,13 @@ async function initHomepageMap() {
 
 
             if (
-              type !== "all" &&
+              type !==
+              "all"
+              &&
               searchablePlaceValue(
                 place.type
-              ) !== type
+              ) !==
+              type
             ) {
 
               return false;
@@ -1732,9 +1774,13 @@ async function initHomepageMap() {
 
 
             if (
-              road !== "all" &&
+              road !==
+              "all"
+              &&
               (
-                difficulty === null ||
+                difficulty ===
+                  null
+                ||
                 difficulty >
                   Number(
                     road
@@ -1747,9 +1793,13 @@ async function initHomepageMap() {
 
 
             if (
-              noise !== "all" &&
+              noise !==
+              "all"
+              &&
               (
-                nightNoise === null ||
+                nightNoise ===
+                  null
+                ||
                 nightNoise >
                   Number(
                     noise
@@ -1777,12 +1827,10 @@ async function initHomepageMap() {
        ===================================================== */
 
     const controls = [
-
       "homepage-map-search",
       "homepage-type-filter",
       "homepage-road-filter",
       "homepage-noise-filter"
-
     ];
 
 
