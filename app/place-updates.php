@@ -1182,6 +1182,153 @@ function llama_create_place_update(
 
 
 /* =========================================================
+   RESUBMIT RETURNED UPDATE
+   ========================================================= */
+
+function llama_resubmit_place_update(
+    PDO $db,
+    int $updateId,
+    int $userId,
+    array $proposedChanges,
+    array $originalValues,
+    string $updateType,
+    ?string $visitedAt = null,
+    ?string $contributorNotes = null
+): void {
+
+    if (
+        $updateId < 1
+        ||
+        $userId < 1
+    ) {
+
+        throw new InvalidArgumentException(
+            'A valid Place update and contributor are required.'
+        );
+
+    }
+
+
+    if (
+        !llama_valid_place_update_type(
+            $updateType
+        )
+    ) {
+
+        throw new InvalidArgumentException(
+            'Invalid Place update type.'
+        );
+
+    }
+
+
+    if (
+        !$proposedChanges
+        ||
+        llama_update_field_count(
+            $proposedChanges
+        )
+        < 1
+    ) {
+
+        throw new InvalidArgumentException(
+            'At least one Place field must be changed.'
+        );
+
+    }
+
+
+    llama_ensure_place_updates_table(
+        $db
+    );
+
+
+    $visitedAt =
+        llama_update_datetime(
+            $visitedAt
+        );
+
+
+    $contributorNotes =
+        $contributorNotes !== null
+            ? trim(
+                $contributorNotes
+            )
+            : null;
+
+
+    if (
+        $contributorNotes === ''
+    ) {
+
+        $contributorNotes =
+            null;
+
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE place_update_submissions
+
+            SET
+                update_type = ?,
+                status = \'pending\',
+                visited_at = ?,
+                proposed_changes = ?,
+                original_values = ?,
+                contributor_notes = ?,
+
+                reviewed_by = NULL,
+                review_notes = NULL,
+                reviewed_at = NULL,
+
+                contribution_id = NULL,
+                scout_activity_id = NULL,
+                points_awarded = 0,
+
+                submitted_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+
+            WHERE id = ?
+              AND user_id = ?
+              AND status = \'needs-changes\'
+            '
+        );
+
+
+    $stmt->execute([
+        $updateType,
+        $visitedAt,
+        llama_update_json(
+            $proposedChanges
+        ),
+        llama_update_json(
+            $originalValues
+        ),
+        $contributorNotes,
+        $updateId,
+        $userId,
+    ]);
+
+
+    if (
+        $stmt->rowCount()
+        !==
+        1
+    ) {
+
+        throw new RuntimeException(
+            'This Place update could not be revised. It may no longer be awaiting your changes.'
+        );
+
+    }
+
+}
+
+
+/* =========================================================
    GET UPDATE
    ========================================================= */
 
