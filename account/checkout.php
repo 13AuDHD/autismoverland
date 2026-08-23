@@ -626,7 +626,7 @@ if (
                 'subscription',
 
             'ui_mode' =>
-                'embedded',
+                'embedded_page',
 
             'line_items' => [
 
