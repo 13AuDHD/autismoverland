@@ -292,6 +292,55 @@ function cleanup_user_roles(
 }
 
 
+function cleanup_user_has_scout_profile(
+    PDO $db,
+    int $userId
+): bool {
+
+    if (
+        $userId < 1
+        ||
+        !cleanup_table_exists(
+            $db,
+            'scout_profiles'
+        )
+        ||
+        !cleanup_column_exists(
+            $db,
+            'scout_profiles',
+            'user_id'
+        )
+    ) {
+
+        return false;
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM scout_profiles
+
+            WHERE user_id = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    return
+        (bool)
+        $stmt->fetchColumn();
+}
+
+
 function cleanup_user_is_protected(
     array $roles
 ): bool {
@@ -843,6 +892,11 @@ $managedRoles =
 $protectedUser =
     cleanup_user_is_protected(
         $managedRoles
+    )
+    ||
+    cleanup_user_has_scout_profile(
+        $db,
+        $userId
     );
 
 
@@ -949,6 +1003,11 @@ if (
         $protectedUser =
             cleanup_user_is_protected(
                 $managedRoles
+            )
+            ||
+            cleanup_user_has_scout_profile(
+                $db,
+                $userId
             );
 
 
@@ -957,7 +1016,7 @@ if (
         ) {
 
             $error =
-                'Owner, Admin, Scout, and Master Scout accounts cannot be reset or deleted with this test-account tool.';
+                'Owner, Admin, Scout, Master Scout, and Scout-onboarding accounts cannot be reset or deleted with this test-account tool.';
 
         } else {
 
@@ -1140,13 +1199,52 @@ if (
 
                     if (
                         $clearPlaceUpdates
-                    ) {
-
-                        cleanup_delete_by_user_id(
+                        &&
+                        cleanup_table_exists(
+                            $db,
+                            'place_update_submissions'
+                        )
+                        &&
+                        cleanup_column_exists(
                             $db,
                             'place_update_submissions',
-                            $userId
-                        );
+                            'user_id'
+                        )
+                    ) {
+
+                        /*
+                         * Approved updates are published history.
+                         * Reset may clear pending/rejected/draft
+                         * test workflow rows, but never approved
+                         * contributions.
+                         */
+
+                        if (
+                            cleanup_column_exists(
+                                $db,
+                                'place_update_submissions',
+                                'status'
+                            )
+                        ) {
+
+                            $stmt =
+                                $db->prepare(
+                                    '
+                                    DELETE FROM place_update_submissions
+
+                                    WHERE user_id = ?
+                                      AND (
+                                          status IS NULL
+                                          OR status <> \'approved\'
+                                      )
+                                    '
+                                );
+
+
+                            $stmt->execute([
+                                $userId
+                            ]);
+                        }
                     }
 
 
@@ -2168,9 +2266,9 @@ require_once
               >
 
               <span>
-                Delete this user's Place Update submissions.
-                Leave unchecked if you want to preserve update
-                workflow testing.
+                Delete this user's non-approved Place Update
+                submissions. Approved contribution history is
+                always preserved.
               </span>
 
             </label>
