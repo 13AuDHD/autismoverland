@@ -19,11 +19,6 @@ require_once
     . '/app/place-update-conflicts.php';
 
 
-require_once
-    dirname(__DIR__)
-    . '/app/place-update-revision.php';
-
-
 require_verified_email();
 
 
