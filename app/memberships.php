@@ -4,26 +4,27 @@ declare(strict_types=1);
 
 
 /* =========================================================
-   LLAMA SCOUT MEMBERSHIP CATALOG
+   LLAMA SCOUT MEMBERSHIP SERVICE
+   VERSIONED PRICING
 
-   Permanent shared data layer for:
+   Shared data layer for:
 
    - Monthly / Annual membership plans
-   - Base pricing
-   - Stripe Product / Price references
+   - Immutable historical membership price versions
+   - Current Stripe Price references
    - Scheduled site-wide promotions
-   - Stripe Coupon references
+   - Promotion pinning to a specific price version
    - Complimentary access grants
    - Membership administration audit history
 
-   IMPORTANT:
+   COMPATIBILITY
 
-   Monetary values are stored as integer cents.
+   membership_plans.base_price_cents and stripe_price_id remain
+   compatibility shadows of the current price version so older
+   callers continue to work during migration.
 
-   Promotion schedules are stored in UTC database timestamps.
-
-   Paid Stripe subscription state remains separate from
-   complimentary grants and Scout access.
+   Monetary values are integer cents.
+   Database schedule timestamps are UTC.
    ========================================================= */
 
 
@@ -45,12 +46,25 @@ const LLAMA_PROMOTION_DISCOUNT_AMOUNT =
     'amount';
 
 
+const LLAMA_PROMOTION_DURATION_STRIPE_MANAGED =
+    'stripe_managed';
+
+const LLAMA_PROMOTION_DURATION_ONCE =
+    'once';
+
+const LLAMA_PROMOTION_DURATION_REPEATING =
+    'repeating';
+
+const LLAMA_PROMOTION_DURATION_FOREVER =
+    'forever';
+
+
 const LLAMA_MEMBERSHIP_GRANT_COMPLIMENTARY =
     'complimentary';
 
 
 /* =========================================================
-   TABLE / COLUMN HELPERS
+   SCHEMA HELPERS
    ========================================================= */
 
 function llama_membership_table_exists(
@@ -84,6 +98,91 @@ function llama_membership_table_exists(
 }
 
 
+function llama_membership_column_exists(
+    PDO $db,
+    string $table,
+    string $column
+): bool {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM information_schema.columns
+
+            WHERE table_schema = DATABASE()
+              AND table_name = ?
+              AND column_name = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $table,
+        $column,
+    ]);
+
+
+    return
+        (bool)
+        $stmt->fetchColumn();
+}
+
+
+function llama_membership_add_column_if_missing(
+    PDO $db,
+    string $table,
+    string $column,
+    string $definition
+): void {
+
+    if (
+        llama_membership_column_exists(
+            $db,
+            $table,
+            $column
+        )
+    ) {
+
+        return;
+    }
+
+
+    $safeTable =
+        str_replace(
+            '`',
+            '``',
+            $table
+        );
+
+
+    $safeColumn =
+        str_replace(
+            '`',
+            '``',
+            $column
+        );
+
+
+    $db->exec(
+        'ALTER TABLE `'
+        .
+        $safeTable
+        .
+        '` ADD COLUMN `'
+        .
+        $safeColumn
+        .
+        '` '
+        .
+        $definition
+    );
+}
+
+
 /* =========================================================
    ENSURE MEMBERSHIP STORAGE
    ========================================================= */
@@ -103,7 +202,7 @@ function llama_ensure_membership_storage(
 
 
     /* =====================================================
-       MEMBERSHIP PLANS
+       STABLE MEMBERSHIP PLANS
        ===================================================== */
 
     $db->exec(
@@ -163,12 +262,76 @@ function llama_ensure_membership_storage(
 
 
     /* =====================================================
+       IMMUTABLE PRICE VERSIONS
+       ===================================================== */
+
+    $db->exec(
+        '
+        CREATE TABLE IF NOT EXISTS membership_plan_prices
+        (
+            id BIGINT UNSIGNED
+                NOT NULL AUTO_INCREMENT,
+
+            plan_id BIGINT UNSIGNED
+                NOT NULL,
+
+            amount_cents INT UNSIGNED
+                NOT NULL,
+
+            currency CHAR(3)
+                NOT NULL DEFAULT \'usd\',
+
+            stripe_price_id VARCHAR(255)
+                NULL,
+
+            is_current TINYINT(1)
+                NOT NULL DEFAULT 0,
+
+            effective_from DATETIME
+                NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+            effective_to DATETIME
+                NULL,
+
+            created_by BIGINT UNSIGNED
+                NULL,
+
+            change_reason VARCHAR(255)
+                NULL,
+
+            created_at DATETIME
+                NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+            PRIMARY KEY (id),
+
+            KEY idx_membership_plan_price_plan
+                (plan_id, is_current, id),
+
+            KEY idx_membership_plan_price_current
+                (is_current, plan_id),
+
+            UNIQUE KEY uq_membership_plan_price_stripe
+                (stripe_price_id),
+
+            CONSTRAINT fk_membership_plan_price_plan
+                FOREIGN KEY (plan_id)
+                REFERENCES membership_plans(id)
+                ON DELETE CASCADE,
+
+            CONSTRAINT fk_membership_plan_price_creator
+                FOREIGN KEY (created_by)
+                REFERENCES users(id)
+                ON DELETE SET NULL
+        )
+        ENGINE=InnoDB
+        DEFAULT CHARSET=utf8mb4
+        COLLATE=utf8mb4_unicode_ci
+        '
+    );
+
+
+    /* =====================================================
        PROMOTIONS
-
-       Promotion itself owns the schedule and public copy.
-
-       Each plan can have its own discount through
-       membership_promotion_plans.
        ===================================================== */
 
     $db->exec(
@@ -231,18 +394,7 @@ function llama_ensure_membership_storage(
 
 
     /* =====================================================
-       PROMOTION → PLAN RULES
-
-       This allows:
-
-       Holiday Sale
-       Monthly = 20% off
-       Annual  = 25% off
-
-       without creating separate promotion records.
-
-       stripe_coupon_id is the Stripe coupon that actually
-       applies the financial discount at checkout.
+       PROMOTION -> PLAN RULES
        ===================================================== */
 
     $db->exec(
@@ -258,6 +410,9 @@ function llama_ensure_membership_storage(
             plan_id BIGINT UNSIGNED
                 NOT NULL,
 
+            plan_price_id BIGINT UNSIGNED
+                NULL,
+
             discount_type VARCHAR(20)
                 NOT NULL,
 
@@ -266,6 +421,15 @@ function llama_ensure_membership_storage(
 
             stripe_coupon_id VARCHAR(255)
                 NULL,
+
+            discount_duration VARCHAR(30)
+                NOT NULL DEFAULT \'stripe_managed\',
+
+            duration_count INT UNSIGNED
+                NULL,
+
+            allow_manual_promotion_codes TINYINT(1)
+                NOT NULL DEFAULT 0,
 
             created_at DATETIME
                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -285,6 +449,9 @@ function llama_ensure_membership_storage(
             KEY idx_membership_promotion_plan_plan
                 (plan_id),
 
+            KEY idx_membership_promotion_plan_price
+                (plan_price_id),
+
             CONSTRAINT fk_membership_promotion_plan_promotion
                 FOREIGN KEY (promotion_id)
                 REFERENCES membership_promotions(id)
@@ -293,7 +460,12 @@ function llama_ensure_membership_storage(
             CONSTRAINT fk_membership_promotion_plan_plan
                 FOREIGN KEY (plan_id)
                 REFERENCES membership_plans(id)
-                ON DELETE CASCADE
+                ON DELETE CASCADE,
+
+            CONSTRAINT fk_membership_promotion_plan_price
+                FOREIGN KEY (plan_price_id)
+                REFERENCES membership_plan_prices(id)
+                ON DELETE SET NULL
         )
         ENGINE=InnoDB
         DEFAULT CHARSET=utf8mb4
@@ -302,19 +474,43 @@ function llama_ensure_membership_storage(
     );
 
 
+    /*
+     * Existing installations created before versioned pricing
+     * already have membership_promotion_plans. Add the newer
+     * columns in place without destroying existing rows.
+     */
+
+    llama_membership_add_column_if_missing(
+        $db,
+        'membership_promotion_plans',
+        'plan_price_id',
+        'BIGINT UNSIGNED NULL'
+    );
+
+    llama_membership_add_column_if_missing(
+        $db,
+        'membership_promotion_plans',
+        'discount_duration',
+        'VARCHAR(30) NOT NULL DEFAULT \'stripe_managed\''
+    );
+
+    llama_membership_add_column_if_missing(
+        $db,
+        'membership_promotion_plans',
+        'duration_count',
+        'INT UNSIGNED NULL'
+    );
+
+    llama_membership_add_column_if_missing(
+        $db,
+        'membership_promotion_plans',
+        'allow_manual_promotion_codes',
+        'TINYINT(1) NOT NULL DEFAULT 0'
+    );
+
+
     /* =====================================================
        COMPLIMENTARY MEMBERSHIP GRANTS
-
-       Complimentary access is intentionally separate from
-       users.membership_status.
-
-       A user may simultaneously have:
-
-       - a Stripe subscription
-       - a complimentary grant
-       - Scout access
-
-       without one source overwriting another.
        ===================================================== */
 
     $db->exec(
@@ -401,9 +597,7 @@ function llama_ensure_membership_storage(
 
 
     /* =====================================================
-       OWNER AUDIT HISTORY
-
-       Pricing and access changes should remain attributable.
+       AUDIT HISTORY
        ===================================================== */
 
     $db->exec(
@@ -460,17 +654,21 @@ function llama_ensure_membership_storage(
     llama_seed_membership_plans(
         $db
     );
+
+
+    llama_membership_migrate_legacy_prices(
+        $db
+    );
+
+
+    llama_membership_backfill_promotion_price_versions(
+        $db
+    );
 }
 
 
 /* =========================================================
    DEFAULT PLAN SEED
-
-   These preserve the pricing currently displayed by the
-   website.
-
-   Once the Owner Membership panel is active, future pricing
-   changes happen through the database rather than code.
    ========================================================= */
 
 function llama_seed_membership_plans(
@@ -570,8 +768,573 @@ function llama_seed_membership_plans(
                 'sort_order'
             ],
         ]);
-
     }
+}
+
+
+/* =========================================================
+   LEGACY PRICE MIGRATION
+   ========================================================= */
+
+function llama_membership_migrate_legacy_prices(
+    PDO $db
+): void {
+
+    $plans =
+        $db
+            ->query(
+                '
+                SELECT
+                    id,
+                    currency,
+                    base_price_cents,
+                    stripe_price_id
+
+                FROM membership_plans
+
+                ORDER BY id ASC
+                '
+            )
+            ->fetchAll(
+                PDO::FETCH_ASSOC
+            );
+
+
+    $hasCurrentStmt =
+        $db->prepare(
+            '
+            SELECT id
+
+            FROM membership_plan_prices
+
+            WHERE plan_id = ?
+              AND is_current = 1
+
+            ORDER BY id DESC
+
+            LIMIT 1
+            '
+        );
+
+
+    $insertStmt =
+        $db->prepare(
+            '
+            INSERT INTO membership_plan_prices
+            (
+                plan_id,
+                amount_cents,
+                currency,
+                stripe_price_id,
+                is_current,
+                effective_from,
+                change_reason
+            )
+
+            VALUES
+            (
+                ?,
+                ?,
+                ?,
+                ?,
+                1,
+                CURRENT_TIMESTAMP,
+                ?
+            )
+            '
+        );
+
+
+    foreach (
+        $plans as
+        $plan
+    ) {
+
+        $hasCurrentStmt->execute([
+            (int)
+            $plan[
+                'id'
+            ]
+        ]);
+
+
+        if (
+            $hasCurrentStmt->fetchColumn()
+        ) {
+
+            continue;
+        }
+
+
+        $stripePriceId =
+            trim(
+                (string) (
+                    $plan[
+                        'stripe_price_id'
+                    ]
+                    ?? ''
+                )
+            );
+
+
+        $insertStmt->execute([
+            (int)
+            $plan[
+                'id'
+            ],
+            (int)
+            $plan[
+                'base_price_cents'
+            ],
+            strtolower(
+                trim(
+                    (string)
+                    $plan[
+                        'currency'
+                    ]
+                )
+            )
+            ?: 'usd',
+            $stripePriceId !== ''
+                ? $stripePriceId
+                : null,
+            'Migrated from membership_plans',
+        ]);
+    }
+
+
+    llama_membership_sync_legacy_price_shadows(
+        $db
+    );
+}
+
+
+function llama_membership_sync_legacy_price_shadows(
+    PDO $db
+): void {
+
+    $db->exec(
+        '
+        UPDATE membership_plans p
+
+        INNER JOIN membership_plan_prices pp
+            ON pp.plan_id = p.id
+           AND pp.is_current = 1
+
+        SET
+            p.base_price_cents =
+                pp.amount_cents,
+
+            p.currency =
+                pp.currency,
+
+            p.stripe_price_id =
+                pp.stripe_price_id
+        '
+    );
+}
+
+
+/* =========================================================
+   PRICE VERSION READ APIs
+   ========================================================= */
+
+function llama_membership_current_price_row(
+    PDO $db,
+    int $planId
+): ?array {
+
+    if (
+        $planId < 1
+    ) {
+
+        return null;
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                plan_id,
+                amount_cents,
+                currency,
+                stripe_price_id,
+                is_current,
+                effective_from,
+                effective_to,
+                created_by,
+                change_reason,
+                created_at
+
+            FROM membership_plan_prices
+
+            WHERE plan_id = ?
+              AND is_current = 1
+
+            ORDER BY id DESC
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $planId
+    ]);
+
+
+    $row =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    return
+        $row
+        ?: null;
+}
+
+
+function llama_membership_price_history(
+    PDO $db,
+    int $planId
+): array {
+
+    if (
+        $planId < 1
+    ) {
+
+        return [];
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                pp.id,
+                pp.plan_id,
+                pp.amount_cents,
+                pp.currency,
+                pp.stripe_price_id,
+                pp.is_current,
+                pp.effective_from,
+                pp.effective_to,
+                pp.created_by,
+                pp.change_reason,
+                pp.created_at,
+
+                u.username
+                    AS created_by_username,
+
+                u.display_name
+                    AS created_by_display_name
+
+            FROM membership_plan_prices pp
+
+            LEFT JOIN users u
+                ON u.id =
+                    pp.created_by
+
+            WHERE pp.plan_id = ?
+
+            ORDER BY
+                pp.is_current DESC,
+                pp.effective_from DESC,
+                pp.id DESC
+            '
+        );
+
+
+    $stmt->execute([
+        $planId
+    ]);
+
+
+    return
+        $stmt->fetchAll(
+            PDO::FETCH_ASSOC
+        );
+}
+
+
+function llama_membership_price_by_stripe_price_id(
+    PDO $db,
+    string $stripePriceId
+): ?array {
+
+    $stripePriceId =
+        trim(
+            $stripePriceId
+        );
+
+
+    if (
+        $stripePriceId === ''
+    ) {
+
+        return null;
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                pp.id,
+                pp.plan_id,
+                pp.amount_cents,
+                pp.currency,
+                pp.stripe_price_id,
+                pp.is_current,
+                pp.effective_from,
+                pp.effective_to,
+                pp.created_by,
+                pp.change_reason,
+                pp.created_at,
+
+                p.interval_slug,
+                p.name AS plan_name,
+                p.stripe_product_id,
+                p.is_active AS plan_is_active
+
+            FROM membership_plan_prices pp
+
+            INNER JOIN membership_plans p
+                ON p.id =
+                    pp.plan_id
+
+            WHERE pp.stripe_price_id = ?
+
+            ORDER BY
+                pp.is_current DESC,
+                pp.id DESC
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $stripePriceId
+    ]);
+
+
+    $row =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    return
+        $row
+        ?: null;
+}
+
+
+/* =========================================================
+   CREATE NEW PRICE VERSION
+   ========================================================= */
+
+function llama_insert_membership_price_version(
+    PDO $db,
+    int $planId,
+    int $amountCents,
+    string $currency,
+    ?string $stripePriceId,
+    ?int $createdBy = null,
+    ?string $changeReason = null
+): int {
+
+    if (
+        $planId < 1
+        ||
+        $amountCents < 1
+    ) {
+
+        throw new InvalidArgumentException(
+            'A valid membership plan and positive price are required.'
+        );
+    }
+
+
+    $currency =
+        strtolower(
+            trim(
+                $currency
+            )
+        );
+
+
+    if (
+        !preg_match(
+            '/^[a-z]{3}$/',
+            $currency
+        )
+    ) {
+
+        throw new InvalidArgumentException(
+            'Membership currency must be a three-letter code.'
+        );
+    }
+
+
+    $stripePriceId =
+        trim(
+            (string)
+            $stripePriceId
+        );
+
+
+    if (
+        $stripePriceId === ''
+    ) {
+
+        $stripePriceId =
+            null;
+    }
+
+
+    if (
+        $stripePriceId !== null
+    ) {
+
+        $existing =
+            llama_membership_price_by_stripe_price_id(
+                $db,
+                $stripePriceId
+            );
+
+
+        if (
+            $existing
+            &&
+            (
+                (int)
+                $existing[
+                    'plan_id'
+                ]
+                !==
+                $planId
+                ||
+                (int)
+                $existing[
+                    'amount_cents'
+                ]
+                !==
+                $amountCents
+            )
+        ) {
+
+            throw new RuntimeException(
+                'That Stripe Price ID is already assigned to a different membership price.'
+            );
+        }
+    }
+
+
+    $now =
+        gmdate(
+            'Y-m-d H:i:s'
+        );
+
+
+    $close =
+        $db->prepare(
+            '
+            UPDATE membership_plan_prices
+
+            SET
+                is_current = 0,
+                effective_to = ?
+
+            WHERE plan_id = ?
+              AND is_current = 1
+            '
+        );
+
+
+    $close->execute([
+        $now,
+        $planId,
+    ]);
+
+
+    $insert =
+        $db->prepare(
+            '
+            INSERT INTO membership_plan_prices
+            (
+                plan_id,
+                amount_cents,
+                currency,
+                stripe_price_id,
+                is_current,
+                effective_from,
+                effective_to,
+                created_by,
+                change_reason
+            )
+
+            VALUES
+            (
+                ?,
+                ?,
+                ?,
+                ?,
+                1,
+                ?,
+                NULL,
+                ?,
+                ?
+            )
+            '
+        );
+
+
+    $insert->execute([
+        $planId,
+        $amountCents,
+        $currency,
+        $stripePriceId,
+        $now,
+        $createdBy,
+        $changeReason,
+    ]);
+
+
+    $priceId =
+        (int)
+        $db->lastInsertId();
+
+
+    $shadow =
+        $db->prepare(
+            '
+            UPDATE membership_plans
+
+            SET
+                base_price_cents = ?,
+                currency = ?,
+                stripe_price_id = ?
+
+            WHERE id = ?
+            '
+        );
+
+
+    $shadow->execute([
+        $amountCents,
+        $currency,
+        $stripePriceId,
+        $planId,
+    ]);
+
+
+    return
+        $priceId;
 }
 
 
@@ -587,20 +1350,47 @@ function llama_membership_plans(
     $sql =
         '
         SELECT
-            id,
-            interval_slug,
-            name,
-            description,
-            currency,
-            base_price_cents,
-            stripe_product_id,
-            stripe_price_id,
-            is_active,
-            sort_order,
-            created_at,
-            updated_at
+            p.id,
+            p.interval_slug,
+            p.name,
+            p.description,
 
-        FROM membership_plans
+            COALESCE(
+                cp.currency,
+                p.currency
+            ) AS currency,
+
+            COALESCE(
+                cp.amount_cents,
+                p.base_price_cents
+            ) AS base_price_cents,
+
+            p.stripe_product_id,
+
+            COALESCE(
+                cp.stripe_price_id,
+                p.stripe_price_id
+            ) AS stripe_price_id,
+
+            cp.id
+                AS current_price_id,
+
+            cp.effective_from
+                AS current_price_effective_from,
+
+            cp.change_reason
+                AS current_price_change_reason,
+
+            p.is_active,
+            p.sort_order,
+            p.created_at,
+            p.updated_at
+
+        FROM membership_plans p
+
+        LEFT JOIN membership_plan_prices cp
+            ON cp.plan_id = p.id
+           AND cp.is_current = 1
         ';
 
 
@@ -610,17 +1400,16 @@ function llama_membership_plans(
 
         $sql .=
             '
-            WHERE is_active = 1
+            WHERE p.is_active = 1
             ';
-
     }
 
 
     $sql .=
         '
         ORDER BY
-            sort_order ASC,
-            id ASC
+            p.sort_order ASC,
+            p.id ASC
         ';
 
 
@@ -665,29 +1454,55 @@ function llama_membership_plan_by_interval(
     ) {
 
         return null;
-
     }
 
 
     $sql =
         '
         SELECT
-            id,
-            interval_slug,
-            name,
-            description,
-            currency,
-            base_price_cents,
-            stripe_product_id,
-            stripe_price_id,
-            is_active,
-            sort_order,
-            created_at,
-            updated_at
+            p.id,
+            p.interval_slug,
+            p.name,
+            p.description,
 
-        FROM membership_plans
+            COALESCE(
+                cp.currency,
+                p.currency
+            ) AS currency,
 
-        WHERE interval_slug = ?
+            COALESCE(
+                cp.amount_cents,
+                p.base_price_cents
+            ) AS base_price_cents,
+
+            p.stripe_product_id,
+
+            COALESCE(
+                cp.stripe_price_id,
+                p.stripe_price_id
+            ) AS stripe_price_id,
+
+            cp.id
+                AS current_price_id,
+
+            cp.effective_from
+                AS current_price_effective_from,
+
+            cp.change_reason
+                AS current_price_change_reason,
+
+            p.is_active,
+            p.sort_order,
+            p.created_at,
+            p.updated_at
+
+        FROM membership_plans p
+
+        LEFT JOIN membership_plan_prices cp
+            ON cp.plan_id = p.id
+           AND cp.is_current = 1
+
+        WHERE p.interval_slug = ?
         ';
 
 
@@ -697,9 +1512,8 @@ function llama_membership_plan_by_interval(
 
         $sql .=
             '
-            AND is_active = 1
+            AND p.is_active = 1
             ';
-
     }
 
 
@@ -733,12 +1547,140 @@ function llama_membership_plan_by_interval(
 
 
 /* =========================================================
+   PROMOTION LEGACY BACKFILL
+   ========================================================= */
+
+function llama_membership_backfill_promotion_price_versions(
+    PDO $db
+): void {
+
+    if (
+        !llama_membership_column_exists(
+            $db,
+            'membership_promotion_plans',
+            'plan_price_id'
+        )
+    ) {
+
+        return;
+    }
+
+
+    $db->exec(
+        '
+        UPDATE membership_promotion_plans mpp
+
+        INNER JOIN membership_plan_prices pp
+            ON pp.plan_id =
+                mpp.plan_id
+           AND pp.is_current = 1
+
+        SET
+            mpp.plan_price_id =
+                pp.id
+
+        WHERE mpp.plan_price_id IS NULL
+        '
+    );
+}
+
+
+/* =========================================================
+   PROMOTION OVERLAP CHECK
+   ========================================================= */
+
+function llama_membership_promotion_conflicts(
+    PDO $db,
+    int $planId,
+    string $startsAt,
+    string $endsAt,
+    ?int $excludePromotionId = null
+): array {
+
+    if (
+        $planId < 1
+    ) {
+
+        return [];
+    }
+
+
+    $sql =
+        '
+        SELECT
+            mp.id,
+            mp.name,
+            mp.starts_at,
+            mp.ends_at
+
+        FROM membership_promotions mp
+
+        INNER JOIN membership_promotion_plans mpp
+            ON mpp.promotion_id =
+                mp.id
+
+        WHERE mpp.plan_id = ?
+
+          AND mp.is_enabled = 1
+
+          AND mp.starts_at < ?
+
+          AND mp.ends_at > ?
+        ';
+
+
+    $params = [
+        $planId,
+        $endsAt,
+        $startsAt,
+    ];
+
+
+    if (
+        $excludePromotionId !== null
+        &&
+        $excludePromotionId > 0
+    ) {
+
+        $sql .=
+            '
+            AND mp.id <> ?
+            ';
+
+
+        $params[] =
+            $excludePromotionId;
+    }
+
+
+    $sql .=
+        '
+        ORDER BY
+            mp.starts_at ASC,
+            mp.id ASC
+        ';
+
+
+    $stmt =
+        $db->prepare(
+            $sql
+        );
+
+
+    $stmt->execute(
+        $params
+    );
+
+
+    return
+        $stmt->fetchAll(
+            PDO::FETCH_ASSOC
+        );
+}
+
+
+/* =========================================================
    ACTIVE PROMOTION FOR PLAN
-
-   At most one promotion should be used for a plan at a time.
-
-   If multiple promotion windows accidentally overlap, the
-   newest-starting promotion wins deterministically.
    ========================================================= */
 
 function llama_membership_active_promotion_for_plan(
@@ -752,7 +1694,6 @@ function llama_membership_active_promotion_for_plan(
     ) {
 
         return null;
-
     }
 
 
@@ -784,18 +1725,35 @@ function llama_membership_active_promotion_for_plan(
 
                 mp.is_enabled,
 
+                mpp.plan_price_id,
+
                 mpp.discount_type,
 
                 mpp.discount_value,
 
-                mpp.stripe_coupon_id
+                mpp.stripe_coupon_id,
+
+                mpp.discount_duration,
+
+                mpp.duration_count,
+
+                mpp.allow_manual_promotion_codes
 
             FROM membership_promotions mp
 
             INNER JOIN membership_promotion_plans mpp
-                ON mpp.promotion_id = mp.id
+                ON mpp.promotion_id =
+                    mp.id
+
+            INNER JOIN membership_plan_prices cp
+                ON cp.plan_id =
+                    mpp.plan_id
+               AND cp.is_current = 1
 
             WHERE mpp.plan_id = ?
+
+              AND mpp.plan_price_id =
+                    cp.id
 
               AND mp.is_enabled = 1
 
@@ -887,7 +1845,6 @@ function llama_membership_discounted_price_cents(
                 -
                 $discount
             );
-
     }
 
 
@@ -903,7 +1860,6 @@ function llama_membership_discounted_price_cents(
                 -
                 $discountValue
             );
-
     }
 
 
@@ -914,11 +1870,6 @@ function llama_membership_discounted_price_cents(
 
 /* =========================================================
    COMPLETE PLAN OFFER
-
-   This is the main read API public/account/checkout pages
-   should use.
-
-   It returns both regular and currently-effective pricing.
    ========================================================= */
 
 function llama_membership_plan_offer(
@@ -940,7 +1891,6 @@ function llama_membership_plan_offer(
     ) {
 
         return null;
-
     }
 
 
@@ -982,7 +1932,6 @@ function llama_membership_plan_offer(
                     'discount_value'
                 ]
             );
-
     }
 
 
@@ -1011,6 +1960,31 @@ function llama_membership_plan_offer(
                 'stripe_coupon_id'
             ]
             ?? null,
+
+        'discount_duration' =>
+            $promotion[
+                'discount_duration'
+            ]
+            ?? null,
+
+        'duration_count' =>
+            isset(
+                $promotion[
+                    'duration_count'
+                ]
+            )
+                ? (int)
+                  $promotion[
+                      'duration_count'
+                  ]
+                : null,
+
+        'allow_manual_promotion_codes' =>
+            !empty(
+                $promotion[
+                    'allow_manual_promotion_codes'
+                ]
+            ),
     ];
 }
 
@@ -1052,9 +2026,7 @@ function llama_membership_offers(
                 $interval
             ] =
                 $offer;
-
         }
-
     }
 
 
@@ -1131,7 +2103,6 @@ function llama_membership_promotion_status(
     ) {
 
         return 'disabled';
-
     }
 
 
@@ -1176,7 +2147,6 @@ function llama_membership_promotion_status(
     ) {
 
         return 'invalid';
-
     }
 
 
@@ -1185,7 +2155,6 @@ function llama_membership_promotion_status(
     ) {
 
         return 'scheduled';
-
     }
 
 
@@ -1194,7 +2163,6 @@ function llama_membership_promotion_status(
     ) {
 
         return 'ended';
-
     }
 
 
@@ -1294,7 +2262,6 @@ function llama_membership_grant_end(
         throw new InvalidArgumentException(
             'Invalid complimentary membership duration.'
         );
-
     }
 
 
@@ -1337,7 +2304,6 @@ function llama_active_complimentary_grant(
     ) {
 
         return null;
-
     }
 
 
@@ -1448,7 +2414,6 @@ function llama_create_complimentary_grant(
         throw new InvalidArgumentException(
             'A valid member and granting Owner are required.'
         );
-
     }
 
 
@@ -1574,7 +2539,6 @@ function llama_revoke_complimentary_grant(
         throw new InvalidArgumentException(
             'A valid grant and revoking Owner are required.'
         );
-
     }
 
 
@@ -1617,7 +2581,6 @@ function llama_revoke_complimentary_grant(
         throw new RuntimeException(
             'The complimentary membership grant could not be revoked.'
         );
-
     }
 
 
@@ -1669,7 +2632,6 @@ function llama_membership_audit(
         throw new InvalidArgumentException(
             'Membership audit action and subject type are required.'
         );
-
     }
 
 
@@ -1693,7 +2655,6 @@ function llama_membership_audit(
         throw new RuntimeException(
             'Membership audit details could not be encoded.'
         );
-
     }
 
 
