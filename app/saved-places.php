@@ -15,6 +15,7 @@ declare(strict_types=1);
    - no slug stored as the relational identifier
    - snapshots preserve bookmark identity
    - legacy saved_places rows migrate automatically
+   - legacy migration is collation-independent
    - request-time setup does not depend on foreign-key
      compatibility or storage-engine details
    ========================================================= */
@@ -588,17 +589,17 @@ function llama_migrate_legacy_saved_places(
         INNER JOIN places p
             ON
             (
-                p.slug =
-                    CAST(
+                BINARY p.slug =
+                    BINARY CAST(
                         sp.place_id AS CHAR
                     )
 
                 OR
 
-                CAST(
+                BINARY CAST(
                     p.id AS CHAR
                 ) =
-                    CAST(
+                    BINARY CAST(
                         sp.place_id AS CHAR
                     )
             )
@@ -639,17 +640,17 @@ function llama_migrate_legacy_saved_places(
         LEFT JOIN places p
             ON
             (
-                p.slug =
-                    CAST(
+                BINARY p.slug =
+                    BINARY CAST(
                         sp.place_id AS CHAR
                     )
 
                 OR
 
-                CAST(
+                BINARY CAST(
                     p.id AS CHAR
                 ) =
-                    CAST(
+                    BINARY CAST(
                         sp.place_id AS CHAR
                     )
             )
@@ -666,8 +667,8 @@ function llama_migrate_legacy_saved_places(
 
                 AND usp.place_id IS NULL
 
-                AND usp.place_slug_snapshot =
-                    CAST(
+                AND BINARY usp.place_slug_snapshot =
+                    BINARY CAST(
                         sp.place_id AS CHAR
                     )
           )
