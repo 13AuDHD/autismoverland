@@ -1008,27 +1008,21 @@ function user_has_membership(
     ?array $user = null
 ): bool {
 
-    $status =
-        membership_status(
+    if (
+        user_has_paid_membership(
+            $user
+        )
+    ) {
+
+        return true;
+
+    }
+
+
+    return
+        user_has_complimentary_membership(
             $user
         );
-
-
-    /*
-     * past_due keeps access temporarily while Stripe
-     * retries payment.
-     */
-
-    return in_array(
-        $status,
-        [
-            'active',
-            'trialing',
-            'past_due',
-            'complimentary',
-        ],
-        true
-    );
 }
 
 
@@ -1046,6 +1040,11 @@ function user_has_paid_membership(
         );
 
 
+    /*
+     * past_due keeps access temporarily while Stripe
+     * retries payment.
+     */
+
     return in_array(
         $status,
         [
@@ -1060,19 +1059,101 @@ function user_has_paid_membership(
 
 /* =========================================================
    COMPLIMENTARY MEMBERSHIP
+
+   New complimentary access comes from membership_grants.
+
+   Legacy users.membership_status=complimentary remains
+   recognized temporarily during migration.
    ========================================================= */
 
 function user_has_complimentary_membership(
     ?array $user = null
 ): bool {
 
-    return
+    if (
+        $user === null
+    ) {
+
+        $user =
+            current_user();
+
+    }
+
+
+    if (
+        !$user
+        ||
+        empty(
+            $user[
+                'id'
+            ]
+        )
+    ) {
+
+        return false;
+
+    }
+
+
+    /*
+     * Backward compatibility for any existing account that
+     * still carries the former single-status complimentary
+     * value.
+     */
+
+    if (
         membership_status(
             $user
         )
-        === 'complimentary';
-}
+        ===
+        'complimentary'
+    ) {
 
+        return true;
+
+    }
+
+
+    try {
+
+        return
+            llama_user_has_complimentary_grant(
+                db(),
+                (int)
+                $user[
+                    'id'
+                ]
+            );
+
+    } catch (
+        Throwable $exception
+    ) {
+
+        /*
+         * Access checks fail closed if grant storage cannot
+         * be read. Log the problem rather than accidentally
+         * exposing protected member data.
+         */
+
+        error_log(
+            'Llama Scout complimentary membership lookup error for user #'
+            .
+            (int)
+            $user[
+                'id'
+            ]
+            .
+            ': '
+            .
+            $exception
+                ->getMessage()
+        );
+
+
+        return false;
+
+    }
+}
 
 /* =========================================================
    REQUIRE MEMBERSHIP
