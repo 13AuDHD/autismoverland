@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
         /* -------------------------------------------------
-           UPDATE PLAN / CREATE PRICE VERSION
+           UPDATE PLAN
            ------------------------------------------------- */
         if ($action === 'update_plan') {
             $planId =
@@ -240,28 +240,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
             }
 
-            $before =
-                null;
+            $stmt =
+                $db->prepare(
+                    '
+                    SELECT
+                        id,
+                        interval_slug,
+                        name,
+                        base_price_cents,
+                        stripe_product_id,
+                        stripe_price_id,
+                        is_active
+                    FROM membership_plans
+                    WHERE id = ?
+                    LIMIT 1
+                    '
+                );
 
-            foreach (
-                llama_membership_plans(
-                    $db,
-                    false
-                )
-                as
-                $candidate
-            ) {
-                if (
-                    (int)
-                    $candidate['id']
-                    ===
-                    $planId
-                ) {
-                    $before =
-                        $candidate;
-                    break;
-                }
-            }
+            $stmt->execute([$planId]);
+            $before =
+                $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$before) {
                 throw new RuntimeException(
@@ -295,114 +293,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ?? null
                 );
 
-            $changeReason =
-                membership_owner_optional(
-                    $_POST['price_change_reason']
-                    ?? null,
-                    255
-                );
-
             $isActive =
                 isset($_POST['is_active'])
                     ? 1
                     : 0;
 
-            $oldAmount =
-                (int)
-                $before['base_price_cents'];
-
-            $oldStripePrice =
-                trim(
-                    (string) (
-                        $before['stripe_price_id']
-                        ?? ''
-                    )
-                );
-
-            $newStripePrice =
-                trim(
-                    (string) (
-                        $stripePriceId
-                        ?? ''
-                    )
-                );
-
-            $priceChanged =
-                $priceCents !==
-                    $oldAmount
-                ||
-                $newStripePrice !==
-                    $oldStripePrice;
-
-            /*
-             * Permanent price changes must have a matching
-             * Stripe Price ID. Stripe Price amounts are
-             * immutable, so a new amount must never reuse the
-             * old Stripe Price.
-             */
-            if (
-                $priceCents !==
-                    $oldAmount
-                &&
-                (
-                    $stripePriceId === null
-                    ||
-                    $newStripePrice ===
-                        $oldStripePrice
-                )
-            ) {
-                throw new InvalidArgumentException(
-                    'A permanent price change requires a new Stripe Price ID created for that exact amount and billing interval.'
-                );
-            }
-
             $db->beginTransaction();
 
-            /*
-             * Stable plan settings.
-             */
-            $planUpdate =
+            $update =
                 $db->prepare(
                     '
                     UPDATE membership_plans
-
                     SET
+                        base_price_cents = ?,
                         stripe_product_id = ?,
+                        stripe_price_id = ?,
                         is_active = ?
-
                     WHERE id = ?
                     '
                 );
 
-            $planUpdate->execute([
+            $update->execute([
+                $priceCents,
                 $stripeProductId,
+                $stripePriceId,
                 $isActive,
                 $planId,
             ]);
-
-            $priceVersionId =
-                isset(
-                    $before['current_price_id']
-                )
-                    ? (int)
-                      $before['current_price_id']
-                    : 0;
-
-            if ($priceChanged) {
-                $priceVersionId =
-                    llama_insert_membership_price_version(
-                        $db,
-                        $planId,
-                        $priceCents,
-                        (string)
-                        $before['currency'],
-                        $stripePriceId,
-                        $ownerId,
-                        $changeReason
-                        ?:
-                        'Owner membership price update'
-                    );
-            }
 
             llama_membership_audit(
                 $db,
@@ -411,64 +328,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'membership_plan',
                 $planId,
                 [
-                    'before' => [
-                        'price_version_id' =>
-                            isset(
-                                $before['current_price_id']
-                            )
-                                ? (int)
-                                  $before['current_price_id']
-                                : null,
-
-                        'base_price_cents' =>
-                            $oldAmount,
-
-                        'stripe_product_id' =>
-                            $before['stripe_product_id']
-                            ?? null,
-
-                        'stripe_price_id' =>
-                            $before['stripe_price_id']
-                            ?? null,
-
-                        'is_active' =>
-                            (int)
-                            $before['is_active'],
-                    ],
-
+                    'before' => $before,
                     'after' => [
-                        'price_version_id' =>
-                            $priceVersionId,
-
                         'base_price_cents' =>
                             $priceCents,
-
                         'stripe_product_id' =>
                             $stripeProductId,
-
                         'stripe_price_id' =>
                             $stripePriceId,
-
                         'is_active' =>
                             $isActive,
                     ],
-
-                    'price_changed' =>
-                        $priceChanged,
-
-                    'change_reason' =>
-                        $changeReason,
                 ]
             );
 
             $db->commit();
 
             $success =
-                $priceChanged
-                    ? $before['name']
-                      . ' membership saved with a new price version.'
-                    : $before['name']
-                      . ' membership settings updated.';
+                $before['name']
+                . ' membership updated.';
         }
 
         /* -------------------------------------------------
@@ -554,35 +432,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue;
                 }
 
-                $currentPriceId =
-                    (int) (
-                        $plan['current_price_id']
-                        ?? 0
-                    );
-
-                if ($currentPriceId < 1) {
-                    throw new RuntimeException(
-                        $plan['name']
-                        . ' does not have a current price version.'
-                    );
-                }
-
-                $conflicts =
-                    llama_membership_promotion_conflicts(
-                        $db,
-                        (int)
-                        $plan['id'],
-                        $startsAt,
-                        $endsAt
-                    );
-
-                if ($conflicts) {
-                    throw new RuntimeException(
-                        $plan['name']
-                        . ' already has an enabled promotion that overlaps this time window.'
-                    );
-                }
-
                 $discountType =
                     trim(
                         (string) (
@@ -636,8 +485,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     $discountValue =
-                        (int)
-                        $rawValue;
+                        (int) $rawValue;
 
                     if (
                         $discountValue < 1
@@ -677,49 +525,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ?? null
                     );
 
-                if (!$stripeCouponId) {
-                    throw new InvalidArgumentException(
-                        'A Stripe Coupon ID is required for every plan included in an automatic sale.'
-                    );
-                }
-
                 $rules[] = [
                     'plan_id' =>
                         (int)
                         $plan['id'],
-
-                    'plan_price_id' =>
-                        $currentPriceId,
-
                     'interval' =>
                         $interval,
-
-                    'base_price_cents' =>
-                        (int)
-                        $plan['base_price_cents'],
-
                     'discount_type' =>
                         $discountType,
-
                     'discount_value' =>
                         $discountValue,
-
                     'stripe_coupon_id' =>
                         $stripeCouponId,
-
-                    /*
-                     * The coupon configuration in Stripe is
-                     * authoritative for how long the discount
-                     * applies. We record that explicitly.
-                     */
-                    'discount_duration' =>
-                        LLAMA_PROMOTION_DURATION_STRIPE_MANAGED,
-
-                    'duration_count' =>
-                        null,
-
-                    'allow_manual_promotion_codes' =>
-                        0,
                 ];
             }
 
@@ -744,17 +561,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         is_enabled,
                         created_by
                     )
-
-                    VALUES
-                    (
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        1,
-                        ?
-                    )
+                    VALUES (?, ?, ?, ?, ?, 1, ?)
                     '
                 );
 
@@ -778,27 +585,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (
                         promotion_id,
                         plan_id,
-                        plan_price_id,
                         discount_type,
                         discount_value,
-                        stripe_coupon_id,
-                        discount_duration,
-                        duration_count,
-                        allow_manual_promotion_codes
+                        stripe_coupon_id
                     )
-
-                    VALUES
-                    (
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?
-                    )
+                    VALUES (?, ?, ?, ?, ?)
                     '
                 );
 
@@ -806,13 +597,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ruleStmt->execute([
                     $promotionId,
                     $rule['plan_id'],
-                    $rule['plan_price_id'],
                     $rule['discount_type'],
                     $rule['discount_value'],
                     $rule['stripe_coupon_id'],
-                    $rule['discount_duration'],
-                    $rule['duration_count'],
-                    $rule['allow_manual_promotion_codes'],
                 ]);
             }
 
@@ -825,13 +612,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 [
                     'name' =>
                         $name,
-
                     'starts_at' =>
                         $startsAt,
-
                     'ends_at' =>
                         $endsAt,
-
                     'rules' =>
                         $rules,
                 ]
@@ -840,7 +624,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->commit();
 
             $success =
-                'Promotion created and pinned to the current membership price version.';
+                'Promotion created.';
         }
 
         /* -------------------------------------------------
@@ -865,26 +649,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     SELECT
                         id,
                         name,
-                        starts_at,
-                        ends_at,
                         is_enabled
-
                     FROM membership_promotions
-
                     WHERE id = ?
-
                     LIMIT 1
                     '
                 );
 
-            $stmt->execute([
-                $promotionId
-            ]);
-
+            $stmt->execute([$promotionId]);
             $promotion =
-                $stmt->fetch(
-                    PDO::FETCH_ASSOC
-                );
+                $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$promotion) {
                 throw new RuntimeException(
@@ -893,86 +667,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $newState =
-                !empty(
-                    $promotion['is_enabled']
-                )
+                !empty($promotion['is_enabled'])
                     ? 0
                     : 1;
-
-            /*
-             * Re-enabling must still obey current price
-             * pinning and overlap rules.
-             */
-            if ($newState === 1) {
-                $ruleStmt =
-                    $db->prepare(
-                        '
-                        SELECT
-                            mpr.plan_id,
-                            mpr.plan_price_id,
-                            mp.name AS plan_name
-
-                        FROM membership_promotion_plans mpr
-
-                        INNER JOIN membership_plans mp
-                            ON mp.id = mpr.plan_id
-
-                        WHERE mpr.promotion_id = ?
-                        '
-                    );
-
-                $ruleStmt->execute([
-                    $promotionId
-                ]);
-
-                $toggleRules =
-                    $ruleStmt->fetchAll(
-                        PDO::FETCH_ASSOC
-                    );
-
-                foreach ($toggleRules as $rule) {
-                    $currentPrice =
-                        llama_membership_current_price_row(
-                            $db,
-                            (int)
-                            $rule['plan_id']
-                        );
-
-                    if (
-                        !$currentPrice
-                        ||
-                        (int)
-                        $rule['plan_price_id']
-                        !==
-                        (int)
-                        $currentPrice['id']
-                    ) {
-                        throw new RuntimeException(
-                            $rule['plan_name']
-                            . ' now has a different regular price. Create a new promotion for the current price instead of re-enabling this one.'
-                        );
-                    }
-
-                    $conflicts =
-                        llama_membership_promotion_conflicts(
-                            $db,
-                            (int)
-                            $rule['plan_id'],
-                            (string)
-                            $promotion['starts_at'],
-                            (string)
-                            $promotion['ends_at'],
-                            $promotionId
-                        );
-
-                    if ($conflicts) {
-                        throw new RuntimeException(
-                            $rule['plan_name']
-                            . ' has another enabled promotion overlapping this time window.'
-                        );
-                    }
-                }
-            }
 
             $db->beginTransaction();
 
@@ -1040,12 +737,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         username,
                         email,
                         display_name
-
                     FROM users
-
                     WHERE LOWER(username) = ?
                        OR LOWER(email) = ?
-
                     LIMIT 1
                     '
                 );
@@ -1056,9 +750,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             $target =
-                $stmt->fetch(
-                    PDO::FETCH_ASSOC
-                );
+                $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$target) {
                 throw new RuntimeException(
@@ -1089,8 +781,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             llama_create_complimentary_grant(
                 $db,
-                (int)
-                $target['id'],
+                (int) $target['id'],
                 $ownerId,
                 $duration,
                 $reason,
@@ -1143,7 +834,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'Unknown membership action.'
             );
         }
-
     } catch (Throwable $exception) {
         if ($db->inTransaction()) {
             $db->rollBack();
@@ -1170,22 +860,6 @@ $offers =
         $db
     );
 
-
-$priceHistoryByPlan = [];
-
-foreach ($plans as $plan) {
-    $priceHistoryByPlan[
-        (int)
-        $plan['id']
-    ] =
-        llama_membership_price_history(
-            $db,
-            (int)
-            $plan['id']
-        );
-}
-
-
 $promotions =
     $db
         ->query(
@@ -1199,27 +873,19 @@ $promotions =
                 mp.ends_at,
                 mp.is_enabled,
                 mp.created_at,
-
                 u.username
                     AS created_by_username,
-
                 u.display_name
                     AS created_by_display_name
-
             FROM membership_promotions mp
-
             LEFT JOIN users u
                 ON u.id = mp.created_by
-
             ORDER BY
                 mp.starts_at DESC,
                 mp.id DESC
             '
         )
-        ->fetchAll(
-            PDO::FETCH_ASSOC
-        );
-
+        ->fetchAll(PDO::FETCH_ASSOC);
 
 $promotionRulesById = [];
 
@@ -1228,58 +894,31 @@ $ruleRows =
         ->query(
             '
             SELECT
-                mpr.promotion_id,
-                mpr.plan_id,
-                mpr.plan_price_id,
-                mpr.discount_type,
-                mpr.discount_value,
-                mpr.stripe_coupon_id,
-                mpr.discount_duration,
-                mpr.duration_count,
-                mpr.allow_manual_promotion_codes,
-
+                mpp.promotion_id,
+                mpp.plan_id,
+                mpp.discount_type,
+                mpp.discount_value,
+                mpp.stripe_coupon_id,
                 p.interval_slug,
                 p.name AS plan_name,
-
-                price.amount_cents
-                    AS base_price_cents,
-
-                price.currency,
-
-                price.stripe_price_id
-                    AS pinned_stripe_price_id,
-
-                price.is_current
-                    AS price_is_current
-
-            FROM membership_promotion_plans mpr
-
+                p.base_price_cents,
+                p.currency
+            FROM membership_promotion_plans mpp
             INNER JOIN membership_plans p
-                ON p.id = mpr.plan_id
-
-            LEFT JOIN membership_plan_prices price
-                ON price.id =
-                    mpr.plan_price_id
-
+                ON p.id = mpp.plan_id
             ORDER BY
-                mpr.promotion_id DESC,
+                mpp.promotion_id DESC,
                 p.sort_order ASC,
                 p.id ASC
             '
         )
-        ->fetchAll(
-            PDO::FETCH_ASSOC
-        );
-
+        ->fetchAll(PDO::FETCH_ASSOC);
 
 foreach ($ruleRows as $rule) {
     $promotionRulesById[
-        (int)
-        $rule['promotion_id']
-    ][] =
-        $rule;
+        (int) $rule['promotion_id']
+    ][] = $rule;
 }
-
 
 $grants =
     $db
@@ -1295,20 +934,13 @@ $grants =
                 mg.revoked_at,
                 mg.revoke_reason,
                 mg.created_at,
-
                 member.username,
                 member.display_name,
                 member.email
-
             FROM membership_grants mg
-
             INNER JOIN users member
-                ON member.id =
-                    mg.user_id
-
-            WHERE mg.grant_type =
-                \'complimentary\'
-
+                ON member.id = mg.user_id
+            WHERE mg.grant_type = \'complimentary\'
             ORDER BY
                 CASE
                     WHEN mg.revoked_at IS NULL
@@ -1316,16 +948,12 @@ $grants =
                     THEN 0
                     ELSE 1
                 END,
-
                 mg.ends_at DESC,
                 mg.id DESC
-
             LIMIT 250
             '
         )
-        ->fetchAll(
-            PDO::FETCH_ASSOC
-        );
+        ->fetchAll(PDO::FETCH_ASSOC);
 
 
 /* =========================================================
@@ -1703,56 +1331,6 @@ $durationOptions =
       font-size: .79rem;
       line-height: 1.5;
       opacity: .68;
-    }
-
-    .price-history {
-      margin-top: 18px;
-      padding-top: 16px;
-      border-top: 1px solid rgba(23,40,34,.10);
-    }
-
-    .price-history h4 {
-      margin: 0 0 9px;
-      font-size: .88rem;
-    }
-
-    .price-history-list {
-      display: grid;
-      gap: 7px;
-    }
-
-    .price-history-row {
-      display: grid;
-      grid-template-columns: minmax(100px,.55fr) minmax(0,1.45fr) auto;
-      gap: 10px;
-      align-items: center;
-      padding: 9px 10px;
-      border-radius: 8px;
-      background: rgba(23,40,34,.045);
-      font-size: .77rem;
-    }
-
-    .price-history-row code {
-      overflow-wrap: anywhere;
-      font-size: .72rem;
-    }
-
-    .price-history-current {
-      display: inline-flex;
-      width: fit-content;
-      padding: 3px 6px;
-      border-radius: 999px;
-      background: #172822;
-      color: #fff;
-      font-size: .62rem;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-
-    @media (max-width: 760px) {
-      .price-history-row {
-        grid-template-columns: 1fr;
-      }
     }
 
     /* PLAN TABS */
@@ -2365,33 +1943,6 @@ require
 
             </div>
 
-
-            <div
-              class="
-                owner-field
-                owner-field--full
-              "
-            >
-
-              <label>
-                Price Change Note
-              </label>
-
-              <input
-                type="text"
-                name="price_change_reason"
-                placeholder="Optional, e.g. 2027 regular price adjustment"
-              >
-
-              <div class="owner-help">
-                If the amount or Stripe Price ID changes,
-                Llama Scout creates a new permanent price
-                version and keeps the previous version for
-                existing subscriptions and webhook history.
-              </div>
-
-            </div>
-
           </div>
 
 
@@ -2431,107 +1982,6 @@ require
 
         </form>
 
-
-        <?php
-        $history =
-            $priceHistoryByPlan[
-                (int)
-                $plan['id']
-            ]
-            ?? [];
-        ?>
-
-
-        <?php if ($history): ?>
-
-          <div class="price-history">
-
-            <h4>
-              Price History
-            </h4>
-
-            <div class="price-history-list">
-
-              <?php foreach ($history as $priceVersion): ?>
-
-                <div class="price-history-row">
-
-                  <div>
-
-                    <strong>
-                      <?= e(
-                          llama_membership_format_money(
-                              (int)
-                              $priceVersion['amount_cents'],
-                              (string)
-                              $priceVersion['currency']
-                          )
-                      ) ?>
-                    </strong>
-
-                    <?php if (
-                        !empty(
-                            $priceVersion['is_current']
-                        )
-                    ): ?>
-
-                      <span class="price-history-current">
-                        Current
-                      </span>
-
-                    <?php endif; ?>
-
-                  </div>
-
-
-                  <div>
-
-                    <?php if (
-                        !empty(
-                            $priceVersion['stripe_price_id']
-                        )
-                    ): ?>
-
-                      <code>
-                        <?= e(
-                            $priceVersion['stripe_price_id']
-                        ) ?>
-                      </code>
-
-                    <?php else: ?>
-
-                      <span class="owner-small">
-                        No Stripe Price ID
-                      </span>
-
-                    <?php endif; ?>
-
-                  </div>
-
-
-                  <div class="owner-small">
-
-                    <?= e(
-                        membership_owner_format_datetime(
-                            $priceVersion['effective_from']
-                            ?? null,
-                            $ownerTimezone
-                        )
-                    ) ?>
-
-                  </div>
-
-                </div>
-
-              <?php endforeach; ?>
-
-            </div>
-
-          </div>
-
-        <?php endif; ?>
-
-
       </article>
 
     <?php endforeach; ?>
@@ -2552,9 +2002,8 @@ require
       </h2>
 
       <p>
-        Sales turn on and off automatically. Each sale is
-        pinned to the exact regular-price version in effect
-        when you schedule it.
+        Sales turn on and off automatically. Regular prices
+        remain unchanged underneath the promotion.
       </p>
 
     </div>
@@ -2780,11 +2229,10 @@ require
                   >
 
                   <div class="owner-help">
-                    Required. This Stripe Coupon is
+                    This is the Stripe Coupon that will be
                     automatically attached to checkout while
-                    the sale is active. Its duration settings
-                    in Stripe control whether the discount
-                    applies once, repeats, or continues.
+                    this sale is active. Members do not need
+                    to type a code.
                   </div>
 
                 </div>
@@ -2966,21 +2414,10 @@ require
           <?php foreach ($rules as $rule): ?>
 
             <?php
-            $ruleBasePrice =
-                isset(
-                    $rule['base_price_cents']
-                )
-                &&
-                $rule['base_price_cents']
-                !==
-                null
-                    ? (int)
-                      $rule['base_price_cents']
-                    : 0;
-
             $discounted =
                 llama_membership_discounted_price_cents(
-                    $ruleBasePrice,
+                    (int)
+                    $rule['base_price_cents'],
                     (string)
                     $rule['discount_type'],
                     (int)
@@ -3031,36 +2468,6 @@ require
                 ) ?>
 
               </strong>
-
-              <div
-                class="owner-small"
-                style="margin-top:4px;"
-              >
-                Pinned price version #<?= (int)
-                    ($rule['plan_price_id'] ?? 0)
-                ?>
-
-                <?php if (
-                    !empty(
-                        $rule['pinned_stripe_price_id']
-                    )
-                ): ?>
-                  Â·
-                  <code>
-                    <?= e(
-                        $rule['pinned_stripe_price_id']
-                    ) ?>
-                  </code>
-                <?php endif; ?>
-
-                <?php if (
-                    empty(
-                        $rule['price_is_current']
-                    )
-                ): ?>
-                  Â· historical regular price
-                <?php endif; ?>
-              </div>
 
             </div>
 
