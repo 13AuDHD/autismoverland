@@ -2361,19 +2361,18 @@ require_once
         <div class="membership-actions">
 
           <a
-            href="billing-portal.php"
+            href="manage-membership.php"
             class="membership-button"
           >
 
             <i
-              class="fa-solid fa-credit-card"
+              class="fa-solid fa-sliders"
               aria-hidden="true"
             ></i>
 
-            Manage Billing
+            Manage Membership
 
           </a>
-
         </div>
 
       <?php endif; ?>
