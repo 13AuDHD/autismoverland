@@ -995,7 +995,7 @@ require_once
 
       const response =
         await fetch(
-          `https://llamascout.com/save-place.php?place=${encodeURIComponent(
+          `/save-place.php?place=${encodeURIComponent(
             placeKey
           )}`,
           {
@@ -1104,7 +1104,7 @@ require_once
 
       const response =
         await fetch(
-          "https://llamascout.com/save-place.php",
+          "/save-place.php",
           {
             method:
               "POST",
