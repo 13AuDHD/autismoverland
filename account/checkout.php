@@ -2,15 +2,60 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
-require_once dirname(__DIR__) . '/app/stripe.php';
+
+/* =========================================================
+   LLAMA SCOUT MEMBERSHIP CHECKOUT
+
+   Checkout source of truth:
+
+   membership_plans
+       -> Stripe Price ID
+
+   active membership promotion
+       -> Stripe Coupon ID
+
+   The customer never supplies either Stripe identifier.
+   ========================================================= */
+
+
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/stripe.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/memberships.php';
+
 
 require_login();
-
 start_llama_session();
+
+
+$db =
+    db();
+
 
 $user =
     current_user();
+
+
+if (
+    !$user
+) {
+
+    http_response_code(
+        401
+    );
+
+    exit(
+        'Authentication required.'
+    );
+
+}
 
 
 /* =========================================================
@@ -18,16 +63,34 @@ $user =
    ========================================================= */
 
 if (
-    $_SERVER['REQUEST_METHOD']
-    !== 'POST'
+    $_SERVER[
+        'REQUEST_METHOD'
+    ]
+    !==
+    'POST'
 ) {
 
-    http_response_code(405);
+    http_response_code(
+        405
+    );
 
     exit(
         'Method not allowed.'
     );
+
 }
+
+
+/* =========================================================
+   STORAGE PREFLIGHT
+
+   Never attempt membership DDL after checkout processing
+   begins.
+   ========================================================= */
+
+llama_ensure_membership_storage(
+    $db
+);
 
 
 /* =========================================================
@@ -65,25 +128,30 @@ if (
     )
 ) {
 
-    http_response_code(403);
+    http_response_code(
+        403
+    );
 
     exit(
         'Your session could not be verified. Reload the membership page and try again.'
     );
+
 }
 
 
 /* =========================================================
-   PLAN
+   PLAN REQUEST
    ========================================================= */
 
 $interval =
-    trim(
-        (string) (
-            $_POST[
-                'interval'
-            ]
-            ?? ''
+    strtolower(
+        trim(
+            (string) (
+                $_POST[
+                    'interval'
+                ]
+                ?? ''
+            )
         )
     );
 
@@ -92,18 +160,21 @@ if (
     !in_array(
         $interval,
         [
-            'monthly',
-            'annual',
+            LLAMA_MEMBERSHIP_INTERVAL_MONTHLY,
+            LLAMA_MEMBERSHIP_INTERVAL_ANNUAL,
         ],
         true
     )
 ) {
 
-    http_response_code(400);
+    http_response_code(
+        400
+    );
 
     exit(
         'That membership option is not valid.'
     );
+
 }
 
 
@@ -112,15 +183,17 @@ if (
    ========================================================= */
 
 $stmt =
-    db()->prepare(
+    $db->prepare(
         '
         SELECT
             id,
             email,
             username,
             display_name,
+
             stripe_customer_id,
             stripe_subscription_id,
+
             membership_status
 
         FROM users
@@ -133,7 +206,10 @@ $stmt =
 
 
 $stmt->execute([
-    $user['id']
+    (int)
+    $user[
+        'id'
+    ]
 ]);
 
 
@@ -143,33 +219,77 @@ $account =
     );
 
 
-if (!$account) {
+if (
+    !$account
+) {
 
-    http_response_code(404);
+    http_response_code(
+        404
+    );
 
     exit(
         'Account not found.'
     );
+
 }
 
 
 /* =========================================================
-   ALREADY HAS MEMBERSHIP
+   CURRENT ACCESS
+
+   Complimentary grants do not become Stripe subscription
+   state. A user with complimentary access does not need to
+   purchase while that grant is active.
+
+   Legacy membership_status=complimentary remains recognized
+   during migration.
    ========================================================= */
 
-if (
+$membershipStatus =
+    strtolower(
+        trim(
+            (string) (
+                $account[
+                    'membership_status'
+                ]
+                ?? 'none'
+            )
+        )
+    );
+
+
+$hasStripeMembership =
     in_array(
-        (string)
-        $account[
-            'membership_status'
-        ],
+        $membershipStatus,
         [
             'active',
             'trialing',
-            'complimentary',
         ],
         true
-    )
+    );
+
+
+$hasLegacyComplimentary =
+    $membershipStatus ===
+        'complimentary';
+
+
+$hasComplimentaryGrant =
+    llama_user_has_complimentary_grant(
+        $db,
+        (int)
+        $account[
+            'id'
+        ]
+    );
+
+
+if (
+    $hasStripeMembership
+    ||
+    $hasLegacyComplimentary
+    ||
+    $hasComplimentaryGrant
 ) {
 
     header(
@@ -177,6 +297,134 @@ if (
     );
 
     exit;
+
+}
+
+
+/* =========================================================
+   DATABASE PLAN OFFER
+   ========================================================= */
+
+$offer =
+    llama_membership_plan_offer(
+        $db,
+        $interval
+    );
+
+
+if (
+    !$offer
+) {
+
+    http_response_code(
+        409
+    );
+
+    $checkoutError =
+        'That membership plan is not currently available.';
+
+} else {
+
+    $plan =
+        $offer[
+            'plan'
+        ];
+
+
+    $priceId =
+        trim(
+            (string) (
+                $plan[
+                    'stripe_price_id'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $couponId =
+        trim(
+            (string) (
+                $offer[
+                    'stripe_coupon_id'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $promotion =
+        $offer[
+            'promotion'
+        ]
+        ?? null;
+
+
+    $promotionId =
+        $promotion
+            ? (int) (
+                $promotion[
+                    'promotion_id'
+                ]
+                ?? 0
+            )
+            : 0;
+
+
+    $onSale =
+        !empty(
+            $offer[
+                'on_sale'
+            ]
+        );
+
+
+    /* -----------------------------------------------------
+       PRICE CONFIGURATION SAFETY
+       ----------------------------------------------------- */
+
+    if (
+        $priceId === ''
+    ) {
+
+        http_response_code(
+            503
+        );
+
+        $checkoutError =
+            'Checkout is not configured for this membership plan yet. Please contact billing@llamascout.com.';
+
+    }
+
+
+    /* -----------------------------------------------------
+       SALE CONFIGURATION SAFETY
+
+       Never advertise a discounted price and then create a
+       regular-price Stripe checkout because its coupon ID was
+       forgotten in Basecamp.
+       ----------------------------------------------------- */
+
+    elseif (
+        $onSale
+        &&
+        $couponId === ''
+    ) {
+
+        http_response_code(
+            503
+        );
+
+        $checkoutError =
+            'This membership promotion is temporarily unavailable at checkout. Please contact billing@llamascout.com.';
+
+    } else {
+
+        $checkoutError =
+            '';
+
+    }
+
 }
 
 
@@ -184,166 +432,259 @@ if (
    CREATE STRIPE CHECKOUT SESSION
    ========================================================= */
 
-try {
+if (
+    isset(
+        $checkoutError
+    )
+    &&
+    $checkoutError === ''
+) {
 
-    $stripe =
-        llama_stripe_client();
+    try {
 
-
-    $priceId =
-        llama_stripe_price_id(
-            $interval
-        );
-
-
-    $sessionData = [
-
-        'mode' =>
-            'subscription',
+        $stripe =
+            llama_stripe_client();
 
 
-        'line_items' => [
+        $sessionData = [
 
-            [
-                'price' =>
-                    $priceId,
+            'mode' =>
+                'subscription',
 
-                'quantity' =>
-                    1,
+
+            'line_items' => [
+
+                [
+                    'price' =>
+                        $priceId,
+
+                    'quantity' =>
+                        1,
+                ],
+
             ],
 
-        ],
 
-
-        'allow_promotion_codes' =>
-            true,
-
-
-        'client_reference_id' =>
-            (string)
-            $account['id'],
-
-
-        'metadata' => [
-
-            'llama_user_id' =>
+            'client_reference_id' =>
                 (string)
-                $account['id'],
+                $account[
+                    'id'
+                ],
 
-            'membership_interval' =>
-                $interval,
-
-        ],
-
-
-        'subscription_data' => [
 
             'metadata' => [
 
                 'llama_user_id' =>
                     (string)
-                    $account['id'],
+                    $account[
+                        'id'
+                    ],
 
                 'membership_interval' =>
                     $interval,
 
+                'membership_plan_id' =>
+                    (string)
+                    $plan[
+                        'id'
+                    ],
+
+                'membership_promotion_id' =>
+                    $promotionId > 0
+                        ? (string)
+                          $promotionId
+                        : '',
+
             ],
 
-        ],
+
+            'subscription_data' => [
+
+                'metadata' => [
+
+                    'llama_user_id' =>
+                        (string)
+                        $account[
+                            'id'
+                        ],
+
+                    'membership_interval' =>
+                        $interval,
+
+                    'membership_plan_id' =>
+                        (string)
+                        $plan[
+                            'id'
+                        ],
+
+                    'membership_promotion_id' =>
+                        $promotionId > 0
+                            ? (string)
+                              $promotionId
+                            : '',
+
+                ],
+
+            ],
 
 
-        'success_url' =>
-            'https://account.llamascout.com/membership.php?checkout=success&session_id={CHECKOUT_SESSION_ID}',
+            'success_url' =>
+                'https://account.llamascout.com/membership.php?checkout=success&session_id={CHECKOUT_SESSION_ID}',
 
 
-        'cancel_url' =>
-            'https://account.llamascout.com/membership.php?checkout=canceled',
+            'cancel_url' =>
+                'https://account.llamascout.com/membership.php?checkout=canceled&plan='
+                .
+                rawurlencode(
+                    $interval
+                ),
 
-    ];
+        ];
 
 
-/* =========================================================
-   EXISTING OR NEW STRIPE CUSTOMER
-   ========================================================= */
+        /* =================================================
+           PROMOTIONS
 
-    if (
-        !empty(
-            $account[
-                'stripe_customer_id'
-            ]
-        )
-    ) {
+           Site-wide scheduled sales are applied
+           automatically. Members do not enter a code.
 
-        $sessionData[
-            'customer'
-        ] =
-            $account[
-                'stripe_customer_id'
+           When no automatic sale is active, Stripe may allow
+           a member to enter a separate Promotion Code.
+           ================================================= */
+
+        if (
+            $onSale
+        ) {
+
+            $sessionData[
+                'discounts'
+            ] = [
+
+                [
+                    'coupon' =>
+                        $couponId,
+                ],
+
             ];
 
-    } else {
 
-        $sessionData[
-            'customer_email'
-        ] =
-            $account['email'];
-    }
+            $sessionData[
+                'allow_promotion_codes'
+            ] =
+                false;
+
+        } else {
+
+            $sessionData[
+                'allow_promotion_codes'
+            ] =
+                true;
+
+        }
 
 
-/* =========================================================
-   OPEN CHECKOUT
-   ========================================================= */
+        /* =================================================
+           EXISTING OR NEW STRIPE CUSTOMER
+           ================================================= */
 
-    $session =
-        $stripe
-            ->checkout
-            ->sessions
-            ->create(
-                $sessionData
+        if (
+            !empty(
+                $account[
+                    'stripe_customer_id'
+                ]
+            )
+        ) {
+
+            $sessionData[
+                'customer'
+            ] =
+                $account[
+                    'stripe_customer_id'
+                ];
+
+        } else {
+
+            $sessionData[
+                'customer_email'
+            ] =
+                $account[
+                    'email'
+                ];
+
+        }
+
+
+        /* =================================================
+           CREATE CHECKOUT
+           ================================================= */
+
+        $session =
+            $stripe
+                ->checkout
+                ->sessions
+                ->create(
+                    $sessionData
+                );
+
+
+        if (
+            empty(
+                $session->url
+            )
+        ) {
+
+            throw new RuntimeException(
+                'Stripe did not return a Checkout URL.'
             );
 
+        }
 
-    if (
-        empty(
+
+        header(
+            'Location: '
+            .
             $session->url
-        )
+        );
+
+        exit;
+
+
+    } catch (
+        Throwable $exception
     ) {
 
-        throw new RuntimeException(
-            'Stripe did not return a Checkout URL.'
+        error_log(
+            'Llama Scout Stripe Checkout error for user #'
+            .
+            $account[
+                'id'
+            ]
+            .
+            ': '
+            .
+            $exception
+                ->getMessage()
         );
+
+
+        http_response_code(
+            500
+        );
+
+
+        $checkoutError =
+            'Something went wrong while connecting to Stripe checkout. No payment was created.';
+
     }
 
-
-    header(
-        'Location: '
-        . $session->url
-    );
-
-    exit;
+}
 
 
 /* =========================================================
-   CHECKOUT ERROR
+   CHECKOUT ERROR PAGE
    ========================================================= */
 
-} catch (
-    Throwable $exception
-) {
-
-    error_log(
-        'Llama Scout Stripe Checkout error for user #'
-        . $account['id']
-        . ': '
-        . $exception->getMessage()
-    );
-
-
-    http_response_code(500);
-}
-
 ?>
-
 <!doctype html>
 
 <html lang="en">
@@ -400,7 +741,11 @@ require_once
 
 
   <a
-    href="membership.php"
+    href="membership.php?plan=<?= htmlspecialchars(
+        $interval,
+        ENT_QUOTES,
+        'UTF-8'
+    ) ?>"
     class="back-link"
   >
 
@@ -429,26 +774,55 @@ require_once
       "
     >
 
-      No payment was created and no changes
-      were made to your membership.
+      <?= htmlspecialchars(
+          $checkoutError
+          ?:
+          'Checkout could not be started.',
+          ENT_QUOTES,
+          'UTF-8'
+      ) ?>
 
     </div>
 
 
     <p class="account-intro">
-      Something went wrong while connecting
-      to checkout. Try again in a moment.
+
+      No payment was created and no changes were made to your
+      membership.
+
     </p>
 
 
     <a
-      href="membership.php"
+      href="membership.php?plan=<?= htmlspecialchars(
+          $interval,
+          ENT_QUOTES,
+          'UTF-8'
+      ) ?>"
       class="primary-button"
     >
 
       Return to Membership
 
     </a>
+
+
+    <p
+      style="
+        margin-top:18px;
+        font-size:.82rem;
+        line-height:1.6;
+        opacity:.72;
+      "
+    >
+
+      Payments are securely processed by Stripe. For
+      membership or billing assistance, contact
+      <a href="mailto:billing@llamascout.com">
+        billing@llamascout.com
+      </a>.
+
+    </p>
 
 
   </section>
