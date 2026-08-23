@@ -1242,41 +1242,43 @@ require
 
       <!-- MEMBERSHIPS -->
 
-      <div
-        class="
-          admin-card
-          admin-card--disabled
-        "
-      >
+      <?php if (
+          user_is_owner()
+      ): ?>
+
+        <a
+          class="admin-card"
+          href="/memberships.php"
+        >
 
 
-        <div class="admin-card-icon">
+          <div class="admin-card-icon">
 
-          <i
-            class="fa-solid fa-id-card"
-            aria-hidden="true"
-          ></i>
+            <i
+              class="fa-solid fa-id-card"
+              aria-hidden="true"
+            ></i>
 
-        </div>
-
-
-        <h2>
-          Memberships
-        </h2>
+          </div>
 
 
-        <p>
-
-          Plans, subscriptions,
-          access, and billing status.
-
-          Coming later.
-
-        </p>
+          <h2>
+            Memberships
+          </h2>
 
 
-      </div>
+          <p>
 
+            Manage plans, pricing,
+            promotions, complimentary access,
+            subscriptions, and billing status.
+
+          </p>
+
+
+        </a>
+
+      <?php endif; ?>
 
     </div>
 
