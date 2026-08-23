@@ -2,9 +2,29 @@
 
 declare(strict_types=1);
 
+
+/* =========================================================
+   LLAMA SCOUT SAVE PLACE ENDPOINT
+
+   GET:
+       Returns current saved state + CSRF token.
+
+   POST:
+       Toggles saved state.
+
+   Storage:
+       app/saved-places.php
+       user_saved_places
+   ========================================================= */
+
+
 require_once
     __DIR__
     . '/app/auth.php';
+
+require_once
+    __DIR__
+    . '/app/saved-places.php';
 
 
 header(
@@ -51,7 +71,59 @@ $db =
 
 $userId =
     (int)
-    $user['id'];
+    $user[
+        'id'
+    ];
+
+
+/* =========================================================
+   STORAGE PREFLIGHT
+
+   This runs before any write transaction and migrates legacy
+   Saved Places idempotently.
+   ========================================================= */
+
+try {
+
+    llama_ensure_saved_places_storage(
+        $db
+    );
+
+} catch (
+    Throwable $exception
+) {
+
+    error_log(
+        'Llama Scout Saved Places storage error for user #'
+        .
+        $userId
+        .
+        ': '
+        .
+        $exception
+            ->getMessage()
+    );
+
+
+    http_response_code(
+        500
+    );
+
+
+    echo json_encode([
+        'logged_in' =>
+            true,
+
+        'saved' =>
+            false,
+
+        'message' =>
+            'Saved Places is temporarily unavailable.'
+    ]);
+
+
+    exit;
+}
 
 
 /* =========================================================
@@ -78,6 +150,7 @@ if (
 
 
 $csrfToken =
+    (string)
     $_SESSION[
         'saved_place_csrf'
     ];
@@ -85,6 +158,9 @@ $csrfToken =
 
 /* =========================================================
    PLACE KEY
+
+   Browser-facing code may send a public slug or numeric Place
+   ID. The shared service resolves that to canonical places.id.
    ========================================================= */
 
 $placeKey =
@@ -135,47 +211,57 @@ if (
 
 
 /* =========================================================
-   CURRENT SAVE LOOKUP
-
-   This intentionally checks the saved row before checking
-   the current Place publication state.
-
-   A user must always be able to remove an old bookmark even
-   after that Place becomes private or disappears.
+   CURRENT STATE
    ========================================================= */
 
-$savedStmt =
-    $db->prepare(
-        '
-        SELECT
-            id,
-            place_id
+try {
 
-        FROM saved_places
+    $existing =
+        llama_saved_place_record(
+            $db,
+            $userId,
+            $placeKey
+        );
 
-        WHERE user_id = ?
-          AND place_id = ?
+} catch (
+    Throwable $exception
+) {
 
-        LIMIT 1
-        '
+    error_log(
+        'Llama Scout Saved Places lookup error for user #'
+        .
+        $userId
+        .
+        ': '
+        .
+        $exception
+            ->getMessage()
     );
 
 
-$savedStmt->execute([
-    $userId,
-    $placeKey
-]);
+    http_response_code(
+        500
+    );
 
 
-$existing =
-    $savedStmt->fetch(
-        PDO::FETCH_ASSOC
-    )
-    ?: null;
+    echo json_encode([
+        'logged_in' =>
+            true,
+
+        'saved' =>
+            false,
+
+        'message' =>
+            'Saved Places is temporarily unavailable.'
+    ]);
+
+
+    exit;
+}
 
 
 /* =========================================================
-   GET CURRENT SAVE STATUS
+   GET STATUS
    ========================================================= */
 
 if (
@@ -226,6 +312,13 @@ if (
 
 
     echo json_encode([
+        'logged_in' =>
+            true,
+
+        'saved' =>
+            $existing !==
+            null,
+
         'message' =>
             'Method not allowed.'
     ]);
@@ -236,7 +329,7 @@ if (
 
 
 /* =========================================================
-   CHECK CSRF
+   CSRF
    ========================================================= */
 
 $submittedToken =
@@ -250,6 +343,8 @@ if (
     !is_string(
         $submittedToken
     )
+    ||
+    $submittedToken === ''
     ||
     !hash_equals(
         $csrfToken,
@@ -280,60 +375,141 @@ if (
 
 
 /* =========================================================
-   REMOVE EXISTING SAVE
-
-   Removal remains permitted regardless of the current
-   publication state of the Place.
+   TOGGLE
    ========================================================= */
 
-if (
-    $existing
-) {
+try {
 
-    $deleteStmt =
-        $db->prepare(
-            '
-            DELETE FROM saved_places
+    /*
+     * Existing save:
+     * remove it, even if the Place is now unavailable.
+     */
 
-            WHERE id = ?
-              AND user_id = ?
-            '
+    if (
+        $existing
+    ) {
+
+        $removed =
+            llama_unsave_place(
+                $db,
+                $userId,
+                $placeKey
+            );
+
+
+        if (
+            !$removed
+        ) {
+
+            http_response_code(
+                409
+            );
+
+
+            echo json_encode([
+                'logged_in' =>
+                    true,
+
+                'saved' =>
+                    true,
+
+                'message' =>
+                    'The saved place changed before it could be removed. Reload and try again.'
+            ]);
+
+
+            exit;
+        }
+
+
+        echo json_encode([
+            'logged_in' =>
+                true,
+
+            'saved' =>
+                false,
+
+            'message' =>
+                'Removed from Saved Places.'
+        ]);
+
+
+        exit;
+    }
+
+
+    /*
+     * New save:
+     * service requires the Place to be currently public.
+     */
+
+    $saved =
+        llama_save_place(
+            $db,
+            $userId,
+            $placeKey
         );
 
 
-    $deleteStmt->execute([
-        (int)
-        $existing[
-            'id'
-        ],
-        $userId
+    echo json_encode([
+        'logged_in' =>
+            true,
+
+        'saved' =>
+            true,
+
+        'place_id' =>
+            isset(
+                $saved[
+                    'place_id'
+                ]
+            )
+                ? (int)
+                  $saved[
+                      'place_id'
+                  ]
+                : null,
+
+        'place' =>
+            $saved[
+                'place_slug_snapshot'
+            ]
+            ?? $placeKey,
+
+        'message' =>
+            'Saved to your places.'
     ]);
 
 
+    exit;
+
+
+} catch (
+    RuntimeException $exception
+) {
+
+    /*
+     * Expected business-rule error, such as trying to save a
+     * Place that is no longer public.
+     */
+
     if (
-        $deleteStmt->rowCount()
-        !==
-        1
+        $exception
+            ->getMessage()
+        ===
+        'That place is not available to save.'
     ) {
+
+        http_response_code(
+            404
+        );
+
+    } else {
 
         http_response_code(
             409
         );
 
-
-        echo json_encode([
-            'logged_in' =>
-                true,
-
-            'saved' =>
-                true,
-
-            'message' =>
-                'The saved place changed before it could be removed. Reload and try again.'
-        ]);
-
-
-        exit;
     }
 
 
@@ -345,265 +521,50 @@ if (
             false,
 
         'message' =>
-            'Removed from Saved Places.'
+            $exception
+                ->getMessage()
     ]);
 
 
     exit;
-}
-
-
-/* =========================================================
-   RESOLVE PUBLIC PLACE
-
-   New bookmarks may only be created for currently public
-   Places.
-
-   Both slug and numeric database ID are accepted for
-   compatibility, but the canonical slug is stored.
-   ========================================================= */
-
-$placeStmt =
-    $db->prepare(
-        '
-        SELECT
-            id,
-            slug
-
-        FROM places
-
-        WHERE
-        (
-            slug = ?
-
-            OR
-
-            CAST(
-                id AS CHAR
-            ) = ?
-        )
-
-        AND status IN
-        (
-            \'active\',
-            \'featured\'
-        )
-
-        LIMIT 1
-        '
-    );
-
-
-$placeStmt->execute([
-    $placeKey,
-    $placeKey
-]);
-
-
-$place =
-    $placeStmt->fetch(
-        PDO::FETCH_ASSOC
-    );
-
-
-if (
-    !$place
-) {
-
-    http_response_code(
-        404
-    );
-
-
-    echo json_encode([
-        'logged_in' =>
-            true,
-
-        'saved' =>
-            false,
-
-        'message' =>
-            'That place is not available to save.'
-    ]);
-
-
-    exit;
-}
-
-
-$canonicalPlaceKey =
-    trim(
-        (string)
-        $place[
-            'slug'
-        ]
-    );
-
-
-if (
-    $canonicalPlaceKey === ''
-) {
-
-    http_response_code(
-        409
-    );
-
-
-    echo json_encode([
-        'logged_in' =>
-            true,
-
-        'saved' =>
-            false,
-
-        'message' =>
-            'That place does not have a valid public identifier.'
-    ]);
-
-
-    exit;
-}
-
-
-/* =========================================================
-   CHECK CANONICAL DUPLICATE
-
-   This handles an older bookmark that may have been stored
-   using the numeric database ID rather than the slug.
-   ========================================================= */
-
-$duplicateStmt =
-    $db->prepare(
-        '
-        SELECT id
-
-        FROM saved_places
-
-        WHERE user_id = ?
-          AND place_id = ?
-
-        LIMIT 1
-        '
-    );
-
-
-$duplicateStmt->execute([
-    $userId,
-    $canonicalPlaceKey
-]);
-
-
-if (
-    $duplicateStmt->fetchColumn()
-) {
-
-    echo json_encode([
-        'logged_in' =>
-            true,
-
-        'saved' =>
-            true,
-
-        'message' =>
-            'This place is already saved.'
-    ]);
-
-
-    exit;
-}
-
-
-/* =========================================================
-   SAVE PUBLIC PLACE
-   ========================================================= */
-
-try {
-
-    $insertStmt =
-        $db->prepare(
-            '
-            INSERT INTO saved_places
-            (
-                user_id,
-                place_id
-            )
-            VALUES
-            (
-                ?,
-                ?
-            )
-            '
-        );
-
-
-    $insertStmt->execute([
-        $userId,
-        $canonicalPlaceKey
-    ]);
 
 
 } catch (
-    PDOException $exception
+    Throwable $exception
 ) {
 
-    /*
-     * If a unique key protects this table and two requests
-     * race, report the final state rather than surfacing a
-     * database error.
-     */
-
-    $raceStmt =
-        $db->prepare(
-            '
-            SELECT id
-
-            FROM saved_places
-
-            WHERE user_id = ?
-              AND place_id = ?
-
-            LIMIT 1
-            '
-        );
+    error_log(
+        'Llama Scout Saved Places toggle error for user #'
+        .
+        $userId
+        .
+        ' place '
+        .
+        $placeKey
+        .
+        ': '
+        .
+        $exception
+            ->getMessage()
+    );
 
 
-    $raceStmt->execute([
-        $userId,
-        $canonicalPlaceKey
+    http_response_code(
+        500
+    );
+
+
+    echo json_encode([
+        'logged_in' =>
+            true,
+
+        'saved' =>
+            false,
+
+        'message' =>
+            'Saved Places could not be updated. Try again.'
     ]);
 
 
-    if (
-        $raceStmt->fetchColumn()
-    ) {
-
-        echo json_encode([
-            'logged_in' =>
-                true,
-
-            'saved' =>
-                true,
-
-            'message' =>
-                'Saved to your places.'
-        ]);
-
-
-        exit;
-    }
-
-
-    throw $exception;
+    exit;
 }
-
-
-echo json_encode([
-    'logged_in' =>
-        true,
-
-    'saved' =>
-        true,
-
-    'message' =>
-        'Saved to your places.'
-]);
