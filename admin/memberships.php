@@ -2,229 +2,110 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/app/auth.php';
+require_once dirname(__DIR__) . '/app/memberships.php';
+require_once dirname(__DIR__) . '/app/timezone.php';
 
-/* =========================================================
-   LLAMA SCOUT
-   OWNER MEMBERSHIP CONTROL PANEL
-   ========================================================= */
-
-
-require_once
-    dirname(__DIR__)
-    . '/app/auth.php';
-
-require_once
-    dirname(__DIR__)
-    . '/app/memberships.php';
-
-require_once
-    dirname(__DIR__)
-    . '/app/timezone.php';
-
-
-require_role(
-    'owner'
-);
-
-
+require_role('owner');
 start_llama_session();
 
+$db = db();
+$user = current_user();
 
-$db =
-    db();
-
-
-$user =
-    current_user();
-
-
-if (
-    !$user
-) {
-
-    http_response_code(
-        401
-    );
-
-    exit(
-        'Authentication required.'
-    );
+if (!$user) {
+    http_response_code(401);
+    exit('Authentication required.');
 }
 
+$ownerId = (int) $user['id'];
 
-$ownerId =
-    (int)
-    $user[
-        'id'
-    ];
+llama_ensure_membership_storage($db);
 
-
-/* =========================================================
-   STORAGE
-
-   This intentionally happens before any transaction.
-   ========================================================= */
-
-llama_ensure_membership_storage(
-    $db
-);
-
-
-/* =========================================================
-   OWNER TIME ZONE
-   ========================================================= */
-
-$ownerTimezoneName =
-    llama_user_timezone(
-        $user
-    );
-
+$ownerTimezoneName = llama_user_timezone($user);
 
 try {
-
-    $ownerTimezone =
-        new DateTimeZone(
-            $ownerTimezoneName
-        );
-
-} catch (
-    Throwable
-) {
-
-    $ownerTimezone =
-        new DateTimeZone(
-            'UTC'
-        );
-
+    $ownerTimezone = new DateTimeZone($ownerTimezoneName);
+} catch (Throwable) {
+    $ownerTimezone = new DateTimeZone('UTC');
+    $ownerTimezoneName = 'UTC';
 }
 
-
-$utcTimezone =
-    new DateTimeZone(
-        'UTC'
-    );
-
-
-/* =========================================================
-   CSRF
-   ========================================================= */
-
-if (
-    empty(
-        $_SESSION[
-            'owner_memberships_csrf'
-        ]
-    )
-) {
-
-    $_SESSION[
-        'owner_memberships_csrf'
-    ] =
-        bin2hex(
-            random_bytes(
-                32
-            )
-        );
-
+if (empty($_SESSION['owner_memberships_csrf'])) {
+    $_SESSION['owner_memberships_csrf'] = bin2hex(random_bytes(32));
 }
 
-
-$csrfToken =
-    (string)
-    $_SESSION[
-        'owner_memberships_csrf'
-    ];
+$csrfToken = (string) $_SESSION['owner_memberships_csrf'];
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function e(
-    mixed $value
-): string {
-
+function e(mixed $value): string
+{
     return htmlspecialchars(
-        (string)
-        $value,
+        (string) $value,
         ENT_QUOTES,
         'UTF-8'
     );
-
 }
 
 
-function membership_owner_money_to_cents(
-    string $value
-): int {
+function membership_owner_csrf(string $expected): void
+{
+    $submitted =
+        $_POST['csrf_token']
+        ?? '';
 
-    $value =
-        trim(
-            $value
+    if (
+        !is_string($submitted)
+        ||
+        $submitted === ''
+        ||
+        !hash_equals($expected, $submitted)
+    ) {
+        throw new RuntimeException(
+            'Your session could not be verified. Reload the page and try again.'
         );
+    }
+}
 
 
+function membership_owner_money_to_cents(string $value): int
+{
     $value =
         str_replace(
-            [
-                '$',
-                ',',
-                ' ',
-            ],
+            ['$', ',', ' '],
             '',
-            $value
+            trim($value)
         );
-
 
     if (
         $value === ''
         ||
-        !is_numeric(
-            $value
-        )
+        !is_numeric($value)
     ) {
-
         throw new InvalidArgumentException(
-            'Enter a valid price.'
+            'Enter a valid dollar amount.'
         );
-
     }
 
+    $amount = (float) $value;
 
-    $amount =
-        (float)
-        $value;
-
-
-    if (
-        $amount < 0
-    ) {
-
+    if ($amount < 0) {
         throw new InvalidArgumentException(
-            'Price cannot be negative.'
+            'Amount cannot be negative.'
         );
-
     }
 
-
-    return
-        (int)
-        round(
-            $amount
-            *
-            100
-        );
+    return (int) round($amount * 100);
 }
 
 
-function membership_owner_cents_input(
-    int $cents
-): string {
-
+function membership_owner_cents_input(int $cents): string
+{
     return number_format(
-        $cents
-        /
-        100,
+        $cents / 100,
         2,
         '.',
         ''
@@ -232,321 +113,121 @@ function membership_owner_cents_input(
 }
 
 
-function membership_owner_local_to_utc(
-    string $value,
-    DateTimeZone $localTimezone
-): string {
+function membership_owner_optional(
+    mixed $value,
+    int $maxLength = 255
+): ?string {
+    $value = trim((string) $value);
 
-    $value =
-        trim(
-            $value
-        );
-
-
-    if (
-        $value === ''
-    ) {
-
-        throw new InvalidArgumentException(
-            'A date and time are required.'
-        );
-
+    if ($value === '') {
+        return null;
     }
 
+    if (mb_strlen($value) > $maxLength) {
+        throw new InvalidArgumentException(
+            'One of the submitted values is too long.'
+        );
+    }
+
+    return $value;
+}
+
+
+function membership_owner_local_to_utc(
+    string $value,
+    DateTimeZone $timezone
+): string {
+    $value = trim($value);
 
     $date =
         DateTimeImmutable::createFromFormat(
             'Y-m-d\TH:i',
             $value,
-            $localTimezone
+            $timezone
         );
 
-
-    if (
-        !$date
-    ) {
-
+    if (!$date) {
         throw new InvalidArgumentException(
-            'The date or time is invalid.'
+            'Enter a valid date and time.'
         );
-
     }
-
 
     return
         $date
-            ->setTimezone(
-                new DateTimeZone(
-                    'UTC'
-                )
-            )
-            ->format(
-                'Y-m-d H:i:s'
-            );
-}
-
-
-function membership_owner_utc_to_local_input(
-    ?string $value,
-    DateTimeZone $localTimezone
-): string {
-
-    if (
-        !$value
-    ) {
-
-        return '';
-
-    }
-
-
-    try {
-
-        $date =
-            new DateTimeImmutable(
-                $value,
-                new DateTimeZone(
-                    'UTC'
-                )
-            );
-
-
-        return
-            $date
-                ->setTimezone(
-                    $localTimezone
-                )
-                ->format(
-                    'Y-m-d\TH:i'
-                );
-
-    } catch (
-        Throwable
-    ) {
-
-        return '';
-
-    }
-
+            ->setTimezone(new DateTimeZone('UTC'))
+            ->format('Y-m-d H:i:s');
 }
 
 
 function membership_owner_format_datetime(
     ?string $value,
-    DateTimeZone $localTimezone
+    DateTimeZone $timezone
 ): string {
-
-    if (
-        !$value
-    ) {
-
+    if (!$value) {
         return 'Not set';
-
     }
-
 
     try {
-
-        $date =
-            new DateTimeImmutable(
+        return
+            (new DateTimeImmutable(
                 $value,
-                new DateTimeZone(
-                    'UTC'
-                )
-            );
-
-
-        return
-            $date
-                ->setTimezone(
-                    $localTimezone
-                )
-                ->format(
-                    'M j, Y g:i A T'
-                );
-
-    } catch (
-        Throwable
-    ) {
-
-        return
-            (string)
-            $value;
-
+                new DateTimeZone('UTC')
+            ))
+                ->setTimezone($timezone)
+                ->format('M j, Y g:i A T');
+    } catch (Throwable) {
+        return (string) $value;
     }
-
-}
-
-
-function membership_owner_csrf(
-    string $expected
-): void {
-
-    $submitted =
-        $_POST[
-            'csrf_token'
-        ]
-        ?? '';
-
-
-    if (
-        !is_string(
-            $submitted
-        )
-        ||
-        $submitted === ''
-        ||
-        !hash_equals(
-            $expected,
-            $submitted
-        )
-    ) {
-
-        throw new RuntimeException(
-            'Your session could not be verified. Reload the page and try again.'
-        );
-
-    }
-}
-
-
-function membership_owner_clean_optional(
-    mixed $value,
-    int $maxLength = 255
-): ?string {
-
-    $value =
-        trim(
-            (string)
-            $value
-        );
-
-
-    if (
-        $value === ''
-    ) {
-
-        return null;
-
-    }
-
-
-    if (
-        mb_strlen(
-            $value
-        )
-        >
-        $maxLength
-    ) {
-
-        throw new InvalidArgumentException(
-            'One of the submitted values is too long.'
-        );
-
-    }
-
-
-    return
-        $value;
 }
 
 
 function membership_owner_promotion_status_label(
     string $status
 ): string {
-
-    return match (
-        $status
-    ) {
-
-        'live' =>
-            'Live Now',
-
-        'scheduled' =>
-            'Scheduled',
-
-        'ended' =>
-            'Ended',
-
-        'disabled' =>
-            'Disabled',
-
-        default =>
-            'Unknown',
-
+    return match ($status) {
+        'live' => 'Live Now',
+        'scheduled' => 'Scheduled',
+        'ended' => 'Ended',
+        'disabled' => 'Disabled',
+        default => 'Unknown',
     };
 }
-
-
-/* =========================================================
-   FLASH / FORM STATE
-   ========================================================= */
-
-$success =
-    '';
-
-$error =
-    '';
 
 
 /* =========================================================
    POST ACTIONS
    ========================================================= */
 
-if (
-    $_SERVER[
-        'REQUEST_METHOD'
-    ]
-    ===
-    'POST'
-) {
+$success = '';
+$error = '';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-
-        membership_owner_csrf(
-            $csrfToken
-        );
-
+        membership_owner_csrf($csrfToken);
 
         $action =
             trim(
                 (string) (
-                    $_POST[
-                        'action'
-                    ]
+                    $_POST['action']
                     ?? ''
                 )
             );
 
-
-        /* =================================================
+        /* -------------------------------------------------
            UPDATE PLAN
-           ================================================= */
-
-        if (
-            $action ===
-            'update_plan'
-        ) {
-
+           ------------------------------------------------- */
+        if ($action === 'update_plan') {
             $planId =
                 (int) (
-                    $_POST[
-                        'plan_id'
-                    ]
+                    $_POST['plan_id']
                     ?? 0
                 );
 
-
-            if (
-                $planId < 1
-            ) {
-
+            if ($planId < 1) {
                 throw new InvalidArgumentException(
                     'Invalid membership plan.'
                 );
-
             }
-
 
             $stmt =
                 $db->prepare(
@@ -559,106 +240,67 @@ if (
                         stripe_product_id,
                         stripe_price_id,
                         is_active
-
                     FROM membership_plans
-
                     WHERE id = ?
-
                     LIMIT 1
                     '
                 );
 
-
-            $stmt->execute([
-                $planId
-            ]);
-
-
+            $stmt->execute([$planId]);
             $before =
-                $stmt->fetch(
-                    PDO::FETCH_ASSOC
-                );
+                $stmt->fetch(PDO::FETCH_ASSOC);
 
-
-            if (
-                !$before
-            ) {
-
+            if (!$before) {
                 throw new RuntimeException(
                     'Membership plan not found.'
                 );
-
             }
-
 
             $priceCents =
                 membership_owner_money_to_cents(
                     (string) (
-                        $_POST[
-                            'base_price'
-                        ]
+                        $_POST['base_price']
                         ?? ''
                     )
                 );
 
-
-            if (
-                $priceCents < 1
-            ) {
-
+            if ($priceCents < 1) {
                 throw new InvalidArgumentException(
                     'Membership price must be greater than zero.'
                 );
-
             }
 
-
             $stripeProductId =
-                membership_owner_clean_optional(
-                    $_POST[
-                        'stripe_product_id'
-                    ]
+                membership_owner_optional(
+                    $_POST['stripe_product_id']
                     ?? null
                 );
-
 
             $stripePriceId =
-                membership_owner_clean_optional(
-                    $_POST[
-                        'stripe_price_id'
-                    ]
+                membership_owner_optional(
+                    $_POST['stripe_price_id']
                     ?? null
                 );
 
-
             $isActive =
-                isset(
-                    $_POST[
-                        'is_active'
-                    ]
-                )
+                isset($_POST['is_active'])
                     ? 1
                     : 0;
 
-
             $db->beginTransaction();
-
 
             $update =
                 $db->prepare(
                     '
                     UPDATE membership_plans
-
                     SET
                         base_price_cents = ?,
                         stripe_product_id = ?,
                         stripe_price_id = ?,
                         is_active = ?
-
                     WHERE id = ?
                     '
                 );
-
 
             $update->execute([
                 $priceCents,
@@ -668,7 +310,6 @@ if (
                 $planId,
             ]);
 
-
             llama_membership_audit(
                 $db,
                 $ownerId,
@@ -676,199 +317,124 @@ if (
                 'membership_plan',
                 $planId,
                 [
-                    'before' =>
-                        $before,
-
+                    'before' => $before,
                     'after' => [
                         'base_price_cents' =>
                             $priceCents,
-
                         'stripe_product_id' =>
                             $stripeProductId,
-
                         'stripe_price_id' =>
                             $stripePriceId,
-
                         'is_active' =>
                             $isActive,
                     ],
                 ]
             );
 
-
             $db->commit();
 
-
             $success =
-                $before[
-                    'name'
-                ]
-                .
-                ' membership updated.';
-
+                $before['name']
+                . ' membership updated.';
         }
 
-
-        /* =================================================
+        /* -------------------------------------------------
            CREATE PROMOTION
-           ================================================= */
-
-        elseif (
-            $action ===
-            'create_promotion'
-        ) {
-
+           ------------------------------------------------- */
+        elseif ($action === 'create_promotion') {
             $name =
-                membership_owner_clean_optional(
-                    $_POST[
-                        'promotion_name'
-                    ]
+                membership_owner_optional(
+                    $_POST['promotion_name']
                     ?? null,
                     150
                 );
 
-
-            if (
-                !$name
-            ) {
-
+            if (!$name) {
                 throw new InvalidArgumentException(
                     'Promotion name is required.'
                 );
-
             }
 
-
             $publicLabel =
-                membership_owner_clean_optional(
-                    $_POST[
-                        'public_label'
-                    ]
+                membership_owner_optional(
+                    $_POST['public_label']
                     ?? null,
                     150
                 );
 
-
             $publicDescription =
-                membership_owner_clean_optional(
-                    $_POST[
-                        'public_description'
-                    ]
+                membership_owner_optional(
+                    $_POST['public_description']
                     ?? null,
                     5000
                 );
 
-
             $startsAt =
                 membership_owner_local_to_utc(
                     (string) (
-                        $_POST[
-                            'starts_at'
-                        ]
+                        $_POST['starts_at']
                         ?? ''
                     ),
                     $ownerTimezone
                 );
-
 
             $endsAt =
                 membership_owner_local_to_utc(
                     (string) (
-                        $_POST[
-                            'ends_at'
-                        ]
+                        $_POST['ends_at']
                         ?? ''
                     ),
                     $ownerTimezone
                 );
 
-
             if (
-                strtotime(
-                    $endsAt
-                )
+                strtotime($endsAt)
                 <=
-                strtotime(
-                    $startsAt
-                )
+                strtotime($startsAt)
             ) {
-
                 throw new InvalidArgumentException(
                     'Promotion end must be after its start.'
                 );
-
             }
 
-
-            $plans =
+            $plansForPromotion =
                 llama_membership_plans(
                     $db,
                     false
                 );
 
+            $rules = [];
 
-            if (
-                !$plans
-            ) {
-
-                throw new RuntimeException(
-                    'No membership plans are available.'
-                );
-
-            }
-
-
-            $rules =
-                [];
-
-
-            foreach (
-                $plans as
-                $plan
-            ) {
-
+            foreach ($plansForPromotion as $plan) {
                 $interval =
                     (string)
-                    $plan[
-                        'interval_slug'
-                    ];
-
-
-                $enabledField =
-                    $interval
-                    .
-                    '_promotion_enabled';
-
+                    $plan['interval_slug'];
 
                 if (
                     !isset(
                         $_POST[
-                            $enabledField
+                            $interval
+                            . '_promotion_enabled'
                         ]
                     )
                 ) {
-
                     continue;
-
                 }
 
-
-                $type =
+                $discountType =
                     trim(
                         (string) (
                             $_POST[
                                 $interval
-                                .
-                                '_discount_type'
+                                . '_discount_type'
                             ]
                             ?? ''
                         )
                     );
 
-
                 if (
                     !in_array(
-                        $type,
+                        $discountType,
                         [
                             LLAMA_PROMOTION_DISCOUNT_PERCENT,
                             LLAMA_PROMOTION_DISCOUNT_AMOUNT,
@@ -876,148 +442,100 @@ if (
                         true
                     )
                 ) {
-
                     throw new InvalidArgumentException(
                         'Invalid promotion discount type.'
                     );
-
                 }
-
 
                 $rawValue =
                     trim(
                         (string) (
                             $_POST[
                                 $interval
-                                .
-                                '_discount_value'
+                                . '_discount_value'
                             ]
                             ?? ''
                         )
                     );
 
-
                 if (
-                    $type ===
+                    $discountType
+                    ===
                     LLAMA_PROMOTION_DISCOUNT_PERCENT
                 ) {
-
                     if (
                         $rawValue === ''
                         ||
-                        !ctype_digit(
-                            $rawValue
-                        )
+                        !ctype_digit($rawValue)
                     ) {
-
                         throw new InvalidArgumentException(
                             'Percentage discounts must be whole numbers.'
                         );
-
                     }
 
-
                     $discountValue =
-                        (int)
-                        $rawValue;
-
+                        (int) $rawValue;
 
                     if (
                         $discountValue < 1
                         ||
                         $discountValue > 100
                     ) {
-
                         throw new InvalidArgumentException(
                             'Percentage discounts must be between 1 and 100.'
                         );
-
                     }
-
                 } else {
-
                     $discountValue =
                         membership_owner_money_to_cents(
                             $rawValue
                         );
 
-
                     if (
                         $discountValue < 1
-                    ) {
-
-                        throw new InvalidArgumentException(
-                            'Dollar discount must be greater than zero.'
-                        );
-
-                    }
-
-
-                    if (
+                        ||
                         $discountValue
                         >=
                         (int)
-                        $plan[
-                            'base_price_cents'
-                        ]
+                        $plan['base_price_cents']
                     ) {
-
                         throw new InvalidArgumentException(
-                            'A fixed discount must be less than the regular plan price.'
+                            'Fixed discounts must be greater than zero and less than the regular price.'
                         );
-
                     }
-
                 }
 
-
                 $stripeCouponId =
-                    membership_owner_clean_optional(
+                    membership_owner_optional(
                         $_POST[
                             $interval
-                            .
-                            '_stripe_coupon_id'
+                            . '_stripe_coupon_id'
                         ]
                         ?? null
                     );
 
-
                 $rules[] = [
                     'plan_id' =>
                         (int)
-                        $plan[
-                            'id'
-                        ],
-
+                        $plan['id'],
                     'interval' =>
                         $interval,
-
                     'discount_type' =>
-                        $type,
-
+                        $discountType,
                     'discount_value' =>
                         $discountValue,
-
                     'stripe_coupon_id' =>
                         $stripeCouponId,
                 ];
-
             }
 
-
-            if (
-                !$rules
-            ) {
-
+            if (!$rules) {
                 throw new InvalidArgumentException(
                     'Select at least one membership plan for this promotion.'
                 );
-
             }
 
-
             $db->beginTransaction();
-
 
             $promotionStmt =
                 $db->prepare(
@@ -1032,20 +550,9 @@ if (
                         is_enabled,
                         created_by
                     )
-
-                    VALUES
-                    (
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        1,
-                        ?
-                    )
+                    VALUES (?, ?, ?, ?, ?, 1, ?)
                     '
                 );
-
 
             $promotionStmt->execute([
                 $name,
@@ -1056,11 +563,9 @@ if (
                 $ownerId,
             ]);
 
-
             $promotionId =
                 (int)
                 $db->lastInsertId();
-
 
             $ruleStmt =
                 $db->prepare(
@@ -1073,42 +578,19 @@ if (
                         discount_value,
                         stripe_coupon_id
                     )
-
-                    VALUES
-                    (
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?
-                    )
+                    VALUES (?, ?, ?, ?, ?)
                     '
                 );
 
-
-            foreach (
-                $rules as
-                $rule
-            ) {
-
+            foreach ($rules as $rule) {
                 $ruleStmt->execute([
                     $promotionId,
-                    $rule[
-                        'plan_id'
-                    ],
-                    $rule[
-                        'discount_type'
-                    ],
-                    $rule[
-                        'discount_value'
-                    ],
-                    $rule[
-                        'stripe_coupon_id'
-                    ],
+                    $rule['plan_id'],
+                    $rule['discount_type'],
+                    $rule['discount_value'],
+                    $rule['stripe_coupon_id'],
                 ]);
-
             }
-
 
             llama_membership_audit(
                 $db,
@@ -1119,56 +601,36 @@ if (
                 [
                     'name' =>
                         $name,
-
                     'starts_at' =>
                         $startsAt,
-
                     'ends_at' =>
                         $endsAt,
-
                     'rules' =>
                         $rules,
                 ]
             );
 
-
             $db->commit();
-
 
             $success =
                 'Promotion created.';
-
         }
 
-
-        /* =================================================
-           TOGGLE PROMOTION
-           ================================================= */
-
-        elseif (
-            $action ===
-            'toggle_promotion'
-        ) {
-
+        /* -------------------------------------------------
+           ENABLE / DISABLE PROMOTION
+           ------------------------------------------------- */
+        elseif ($action === 'toggle_promotion') {
             $promotionId =
                 (int) (
-                    $_POST[
-                        'promotion_id'
-                    ]
+                    $_POST['promotion_id']
                     ?? 0
                 );
 
-
-            if (
-                $promotionId < 1
-            ) {
-
+            if ($promotionId < 1) {
                 throw new InvalidArgumentException(
                     'Invalid promotion.'
                 );
-
             }
-
 
             $stmt =
                 $db->prepare(
@@ -1177,68 +639,42 @@ if (
                         id,
                         name,
                         is_enabled
-
                     FROM membership_promotions
-
                     WHERE id = ?
-
                     LIMIT 1
                     '
                 );
 
-
-            $stmt->execute([
-                $promotionId
-            ]);
-
-
+            $stmt->execute([$promotionId]);
             $promotion =
-                $stmt->fetch(
-                    PDO::FETCH_ASSOC
-                );
+                $stmt->fetch(PDO::FETCH_ASSOC);
 
-
-            if (
-                !$promotion
-            ) {
-
+            if (!$promotion) {
                 throw new RuntimeException(
                     'Promotion not found.'
                 );
-
             }
 
-
             $newState =
-                !empty(
-                    $promotion[
-                        'is_enabled'
-                    ]
-                )
+                !empty($promotion['is_enabled'])
                     ? 0
                     : 1;
 
-
             $db->beginTransaction();
 
-
-            $update =
+            $stmt =
                 $db->prepare(
                     '
                     UPDATE membership_promotions
-
                     SET is_enabled = ?
-
                     WHERE id = ?
                     '
                 );
 
-
-            $update->execute([
+            $stmt->execute([
                 $newState,
                 $promotionId,
             ]);
-
 
             llama_membership_audit(
                 $db,
@@ -1250,58 +686,39 @@ if (
                 $promotionId,
                 [
                     'name' =>
-                        $promotion[
-                            'name'
-                        ],
+                        $promotion['name'],
                 ]
             );
 
-
             $db->commit();
-
 
             $success =
                 $newState
                     ? 'Promotion enabled.'
                     : 'Promotion disabled.';
-
         }
 
-
-        /* =================================================
-           CREATE COMPLIMENTARY GRANT
-           ================================================= */
-
-        elseif (
-            $action ===
-            'create_complimentary'
-        ) {
-
+        /* -------------------------------------------------
+           COMPLIMENTARY GRANT
+           ------------------------------------------------- */
+        elseif ($action === 'create_complimentary') {
             $lookup =
                 strtolower(
                     trim(
                         (string) (
-                            $_POST[
-                                'member_lookup'
-                            ]
+                            $_POST['member_lookup']
                             ?? ''
                         )
                     )
                 );
 
-
-            if (
-                $lookup === ''
-            ) {
-
+            if ($lookup === '') {
                 throw new InvalidArgumentException(
                     'Enter a username or email address.'
                 );
-
             }
 
-
-            $lookupStmt =
+            $stmt =
                 $db->prepare(
                     '
                     SELECT
@@ -1309,132 +726,86 @@ if (
                         username,
                         email,
                         display_name
-
                     FROM users
-
                     WHERE LOWER(username) = ?
                        OR LOWER(email) = ?
-
                     LIMIT 1
                     '
                 );
 
-
-            $lookupStmt->execute([
+            $stmt->execute([
                 $lookup,
                 $lookup,
             ]);
 
-
             $target =
-                $lookupStmt->fetch(
-                    PDO::FETCH_ASSOC
-                );
+                $stmt->fetch(PDO::FETCH_ASSOC);
 
-
-            if (
-                !$target
-            ) {
-
+            if (!$target) {
                 throw new RuntimeException(
                     'No account matches that username or email address.'
                 );
-
             }
-
 
             $duration =
                 trim(
                     (string) (
-                        $_POST[
-                            'grant_duration'
-                        ]
+                        $_POST['grant_duration']
                         ?? ''
                     )
                 );
 
-
             $reason =
-                membership_owner_clean_optional(
-                    $_POST[
-                        'grant_reason'
-                    ]
+                membership_owner_optional(
+                    $_POST['grant_reason']
                     ?? null
                 );
 
-
             $notes =
-                membership_owner_clean_optional(
-                    $_POST[
-                        'grant_notes'
-                    ]
+                membership_owner_optional(
+                    $_POST['grant_notes']
                     ?? null,
                     5000
                 );
 
-
-            $grantId =
-                llama_create_complimentary_grant(
-                    $db,
-                    (int)
-                    $target[
-                        'id'
-                    ],
-                    $ownerId,
-                    $duration,
-                    $reason,
-                    $notes
-                );
-
+            llama_create_complimentary_grant(
+                $db,
+                (int) $target['id'],
+                $ownerId,
+                $duration,
+                $reason,
+                $notes
+            );
 
             $success =
                 'Complimentary access granted to '
                 .
                 (
-                    $target[
-                        'display_name'
-                    ]
+                    $target['display_name']
                     ?:
-                    $target[
-                        'username'
-                    ]
+                    $target['username']
                     ?:
-                    $target[
-                        'email'
-                    ]
+                    $target['email']
                 )
                 .
                 '.';
-
         }
 
-
-        /* =================================================
+        /* -------------------------------------------------
            REVOKE COMPLIMENTARY GRANT
-           ================================================= */
-
-        elseif (
-            $action ===
-            'revoke_complimentary'
-        ) {
-
+           ------------------------------------------------- */
+        elseif ($action === 'revoke_complimentary') {
             $grantId =
                 (int) (
-                    $_POST[
-                        'grant_id'
-                    ]
+                    $_POST['grant_id']
                     ?? 0
                 );
 
-
             $reason =
-                membership_owner_clean_optional(
-                    $_POST[
-                        'revoke_reason'
-                    ]
+                membership_owner_optional(
+                    $_POST['revoke_reason']
                     ?? null
                 );
-
 
             llama_revoke_complimentary_grant(
                 $db,
@@ -1443,45 +814,28 @@ if (
                 $reason
             );
 
-
             $success =
                 'Complimentary access revoked.';
-
         }
 
-
         else {
-
             throw new InvalidArgumentException(
                 'Unknown membership action.'
             );
-
         }
-
-    } catch (
-        Throwable $exception
-    ) {
-
-        if (
-            $db->inTransaction()
-        ) {
-
+    } catch (Throwable $exception) {
+        if ($db->inTransaction()) {
             $db->rollBack();
-
         }
-
 
         $error =
-            $exception
-                ->getMessage();
-
+            $exception->getMessage();
     }
-
 }
 
 
 /* =========================================================
-   LOAD PLANS
+   LOAD DATA
    ========================================================= */
 
 $plans =
@@ -1490,66 +844,43 @@ $plans =
         false
     );
 
-
 $offers =
     llama_membership_offers(
         $db
     );
 
-
-/* =========================================================
-   LOAD PROMOTIONS
-   ========================================================= */
-
-$promotionStmt =
-    $db->query(
-        '
-        SELECT
-            mp.id,
-            mp.name,
-            mp.public_label,
-            mp.public_description,
-            mp.starts_at,
-            mp.ends_at,
-            mp.is_enabled,
-            mp.created_at,
-
-            u.username
-                AS created_by_username,
-
-            u.display_name
-                AS created_by_display_name
-
-        FROM membership_promotions mp
-
-        LEFT JOIN users u
-            ON u.id =
-                mp.created_by
-
-        ORDER BY
-            mp.starts_at DESC,
-            mp.id DESC
-        '
-    );
-
-
 $promotions =
-    $promotionStmt
-        ->fetchAll(
-            PDO::FETCH_ASSOC
-        );
+    $db
+        ->query(
+            '
+            SELECT
+                mp.id,
+                mp.name,
+                mp.public_label,
+                mp.public_description,
+                mp.starts_at,
+                mp.ends_at,
+                mp.is_enabled,
+                mp.created_at,
+                u.username
+                    AS created_by_username,
+                u.display_name
+                    AS created_by_display_name
+            FROM membership_promotions mp
+            LEFT JOIN users u
+                ON u.id = mp.created_by
+            ORDER BY
+                mp.starts_at DESC,
+                mp.id DESC
+            '
+        )
+        ->fetchAll(PDO::FETCH_ASSOC);
 
+$promotionRulesById = [];
 
-$promotionRulesById =
-    [];
-
-
-if (
-    $promotions
-) {
-
-    $ruleStmt =
-        $db->query(
+$ruleRows =
+    $db
+        ->query(
             '
             SELECT
                 mpp.promotion_id,
@@ -1557,277 +888,165 @@ if (
                 mpp.discount_type,
                 mpp.discount_value,
                 mpp.stripe_coupon_id,
-
                 p.interval_slug,
-                p.name
-                    AS plan_name,
-
-                p.base_price_cents
-
+                p.name AS plan_name,
+                p.base_price_cents,
+                p.currency
             FROM membership_promotion_plans mpp
-
             INNER JOIN membership_plans p
-                ON p.id =
-                    mpp.plan_id
-
+                ON p.id = mpp.plan_id
             ORDER BY
                 mpp.promotion_id DESC,
                 p.sort_order ASC,
                 p.id ASC
             '
-        );
-
-
-    foreach (
-        $ruleStmt->fetchAll(
-            PDO::FETCH_ASSOC
         )
-        as
-        $rule
-    ) {
+        ->fetchAll(PDO::FETCH_ASSOC);
 
-        $promotionRulesById[
-            (int)
-            $rule[
-                'promotion_id'
-            ]
-        ][] =
-            $rule;
-
-    }
-
+foreach ($ruleRows as $rule) {
+    $promotionRulesById[
+        (int) $rule['promotion_id']
+    ][] = $rule;
 }
 
-
-/* =========================================================
-   LOAD COMPLIMENTARY GRANTS
-   ========================================================= */
-
-$grantStmt =
-    $db->query(
-        '
-        SELECT
-            mg.id,
-            mg.user_id,
-            mg.starts_at,
-            mg.ends_at,
-            mg.reason,
-            mg.notes,
-            mg.revoked_at,
-            mg.revoke_reason,
-            mg.created_at,
-
-            member.username,
-            member.display_name,
-            member.email,
-
-            grantor.username
-                AS granted_by_username,
-
-            grantor.display_name
-                AS granted_by_display_name,
-
-            revoker.username
-                AS revoked_by_username,
-
-            revoker.display_name
-                AS revoked_by_display_name
-
-        FROM membership_grants mg
-
-        INNER JOIN users member
-            ON member.id =
-                mg.user_id
-
-        LEFT JOIN users grantor
-            ON grantor.id =
-                mg.granted_by
-
-        LEFT JOIN users revoker
-            ON revoker.id =
-                mg.revoked_by
-
-        WHERE mg.grant_type =
-            \'complimentary\'
-
-        ORDER BY
-            CASE
-                WHEN mg.revoked_at IS NULL
-                 AND mg.ends_at > UTC_TIMESTAMP()
-                    THEN 0
-
-                ELSE 1
-            END ASC,
-
-            mg.ends_at DESC,
-            mg.id DESC
-
-        LIMIT 250
-        '
-    );
-
-
 $grants =
-    $grantStmt
-        ->fetchAll(
-            PDO::FETCH_ASSOC
-        );
+    $db
+        ->query(
+            '
+            SELECT
+                mg.id,
+                mg.user_id,
+                mg.starts_at,
+                mg.ends_at,
+                mg.reason,
+                mg.notes,
+                mg.revoked_at,
+                mg.revoke_reason,
+                mg.created_at,
+                member.username,
+                member.display_name,
+                member.email
+            FROM membership_grants mg
+            INNER JOIN users member
+                ON member.id = mg.user_id
+            WHERE mg.grant_type = \'complimentary\'
+            ORDER BY
+                CASE
+                    WHEN mg.revoked_at IS NULL
+                     AND mg.ends_at > UTC_TIMESTAMP()
+                    THEN 0
+                    ELSE 1
+                END,
+                mg.ends_at DESC,
+                mg.id DESC
+            LIMIT 250
+            '
+        )
+        ->fetchAll(PDO::FETCH_ASSOC);
 
 
 /* =========================================================
-   MEMBERSHIP COUNTS
+   COUNTS
    ========================================================= */
 
 $paidMonthlyCount =
     (int)
     $db
         ->query(
-            '
+            "
             SELECT COUNT(*)
-
             FROM users
-
             WHERE membership_status IN
-            (
-                \'active\',
-                \'trialing\',
-                \'past_due\'
-            )
-
-              AND membership_interval =
-                \'monthly\'
-            '
+            ('active','trialing','past_due')
+              AND membership_interval = 'monthly'
+            "
         )
         ->fetchColumn();
-
 
 $paidAnnualCount =
     (int)
     $db
         ->query(
-            '
+            "
             SELECT COUNT(*)
-
             FROM users
-
             WHERE membership_status IN
-            (
-                \'active\',
-                \'trialing\',
-                \'past_due\'
-            )
-
-              AND membership_interval =
-                \'annual\'
-            '
+            ('active','trialing','past_due')
+              AND membership_interval = 'annual'
+            "
         )
         ->fetchColumn();
-
-
-$pastDueCount =
-    (int)
-    $db
-        ->query(
-            '
-            SELECT COUNT(*)
-
-            FROM users
-
-            WHERE membership_status =
-                \'past_due\'
-            '
-        )
-        ->fetchColumn();
-
-
-$cancelingCount =
-    (int)
-    $db
-        ->query(
-            '
-            SELECT COUNT(*)
-
-            FROM users
-
-            WHERE stripe_cancel_at_period_end = 1
-
-              AND membership_status IN
-              (
-                  \'active\',
-                  \'trialing\',
-                  \'past_due\'
-              )
-            '
-        )
-        ->fetchColumn();
-
 
 $complimentaryCount =
     (int)
     $db
         ->query(
-            '
+            "
             SELECT COUNT(DISTINCT user_id)
-
             FROM membership_grants
-
-            WHERE grant_type =
-                \'complimentary\'
-
+            WHERE grant_type = 'complimentary'
               AND revoked_at IS NULL
+              AND starts_at <= UTC_TIMESTAMP()
+              AND ends_at > UTC_TIMESTAMP()
+            "
+        )
+        ->fetchColumn();
 
-              AND starts_at <=
-                UTC_TIMESTAMP()
+$pastDueCount =
+    (int)
+    $db
+        ->query(
+            "
+            SELECT COUNT(*)
+            FROM users
+            WHERE membership_status = 'past_due'
+            "
+        )
+        ->fetchColumn();
 
-              AND ends_at >
-                UTC_TIMESTAMP()
-            '
+$cancelingCount =
+    (int)
+    $db
+        ->query(
+            "
+            SELECT COUNT(*)
+            FROM users
+            WHERE stripe_cancel_at_period_end = 1
+              AND membership_status IN
+              ('active','trialing','past_due')
+            "
         )
         ->fetchColumn();
 
 
 /* =========================================================
-   DEFAULT PROMOTION TIMES
-
-   Start one hour from now.
-   End seven days later.
+   DEFAULT PROMOTION DATES
    ========================================================= */
 
-$defaultStart =
+$nowLocal =
     new DateTimeImmutable(
         'now',
         $ownerTimezone
     );
 
+$nextHour =
+    $nowLocal
+        ->modify('+1 hour');
 
 $defaultStart =
-    $defaultStart
-        ->modify(
-            '+1 hour'
-        )
+    $nextHour
         ->setTime(
             (int)
-            $defaultStart
-                ->modify(
-                    '+1 hour'
-                )
-                ->format(
-                    'H'
-                ),
+            $nextHour->format('H'),
             0
         );
 
-
 $defaultEnd =
     $defaultStart
-        ->modify(
-            '+7 days'
-        );
-
+        ->modify('+7 days');
 
 $durationOptions =
     llama_membership_grant_duration_options();
-
 
 ?>
 <!doctype html>
@@ -1852,7 +1071,6 @@ $durationOptions =
     content="noindex,nofollow"
   >
 
-
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
@@ -1868,613 +1086,432 @@ $durationOptions =
     href="https://llamascout.com/css/admin.css"
   >
 
-
   <style>
 
     .membership-owner-shell {
-      width:
-        min(
-          1180px,
-          calc(100% - 36px)
-        );
-
-      margin:
-        0
-        auto;
-
-      padding:
-        34px
-        0
-        80px;
+      width: min(1180px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 28px 0 72px;
     }
-
 
     .membership-owner-header {
-      margin-bottom: 28px;
+      margin-bottom: 22px;
     }
-
 
     .membership-owner-header h1 {
-      margin:
-        8px
-        0
-        10px;
+      margin: 7px 0 9px;
     }
 
-
-    .membership-owner-header p {
+    .membership-owner-header > p:last-child {
       max-width: 760px;
-
       margin: 0;
-
-      line-height: 1.65;
-
-      opacity: .74;
+      line-height: 1.6;
+      opacity: .72;
     }
-
 
     .owner-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
       margin: 0;
-
       font-size: .74rem;
       font-weight: 800;
       letter-spacing: .08em;
       text-transform: uppercase;
-
-      opacity: .66;
+      opacity: .72;
     }
 
+    .owner-eyebrow i {
+      color: #9b7134;
+    }
 
     .membership-owner-section {
-      margin-top: 30px;
+      margin-top: 28px;
     }
-
 
     .membership-owner-section-header {
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
-
 
     .membership-owner-section-header h2 {
-      margin:
-        0
-        0
-        6px;
+      margin: 0 0 5px;
     }
 
-
     .membership-owner-section-header p {
+      max-width: 880px;
       margin: 0;
-
-      line-height: 1.55;
-
+      line-height: 1.5;
       opacity: .68;
     }
 
+    .owner-notice {
+      margin-bottom: 16px;
+      padding: 13px 15px;
+      border-radius: 10px;
+      line-height: 1.45;
+    }
+
+    .owner-notice--success {
+      border: 1px solid rgba(53,110,78,.22);
+      background: rgba(53,110,78,.12);
+    }
+
+    .owner-notice--error {
+      border: 1px solid rgba(139,55,55,.24);
+      background: rgba(139,55,55,.11);
+    }
+
+    /* OVERVIEW */
 
     .membership-owner-stats {
       display: grid;
-
-      grid-template-columns:
-        repeat(
-          5,
-          minmax(
-            0,
-            1fr
-          )
-        );
-
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
     }
 
-
     .membership-owner-stat {
-      padding: 16px;
-
-      border:
-        1px solid
-        rgba(23, 40, 34, .11);
-
-      border-radius: 13px;
-
-      background:
-        rgba(255, 255, 255, .78);
+      min-height: 0;
+      padding: 13px 15px;
+      border: 1px solid rgba(23,40,34,.11);
+      border-radius: 12px;
+      background: rgba(255,255,255,.78);
     }
-
 
     .membership-owner-stat span {
       display: block;
-
-      margin-bottom: 5px;
-
-      font-size: .75rem;
-
-      opacity: .64;
+      margin-bottom: 2px;
+      font-size: .72rem;
+      opacity: .62;
     }
-
 
     .membership-owner-stat strong {
-      font-size: 1.45rem;
+      display: block;
+      font-size: 1.28rem;
+      line-height: 1.15;
     }
 
-
-    .membership-owner-grid {
-      display: grid;
-
-      grid-template-columns:
-        repeat(
-          2,
-          minmax(
-            0,
-            1fr
-          )
-        );
-
-      gap: 16px;
-    }
-
+    /* CARDS */
 
     .membership-owner-card {
       padding: 22px;
-
-      border:
-        1px solid
-        rgba(23, 40, 34, .12);
-
+      border: 1px solid rgba(23,40,34,.12);
       border-radius: 16px;
-
-      background:
-        rgba(255, 255, 255, .82);
+      background: rgba(255,255,255,.82);
     }
-
 
     .membership-owner-card h3 {
-      margin:
-        0
-        0
-        6px;
+      margin: 0 0 6px;
     }
 
-
     .membership-owner-card > p {
-      margin:
-        0
-        0
-        18px;
-
-      line-height: 1.55;
-
+      margin: 0 0 17px;
+      line-height: 1.5;
       opacity: .7;
     }
 
-
     .owner-form-grid {
       display: grid;
-
-      grid-template-columns:
-        repeat(
-          2,
-          minmax(
-            0,
-            1fr
-          )
-        );
-
-      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 16px;
     }
-
 
     .owner-field {
       min-width: 0;
     }
 
-
     .owner-field--full {
-      grid-column:
-        1
-        /
-        -1;
+      grid-column: 1 / -1;
     }
-
 
     .owner-field label {
       display: block;
-
       margin-bottom: 6px;
-
       font-size: .77rem;
-
       font-weight: 750;
     }
-
 
     .owner-field input,
     .owner-field select,
     .owner-field textarea {
+      display: block;
       width: 100%;
-
-      box-sizing:
-        border-box;
-
-      min-height: 43px;
-
-      padding:
-        9px
-        11px;
-
-      border:
-        1px solid
-        rgba(23, 40, 34, .16);
-
+      min-width: 0;
+      box-sizing: border-box;
+      min-height: 44px;
+      padding: 9px 11px;
+      border: 1px solid rgba(23,40,34,.16);
       border-radius: 8px;
-
       background: #fff;
-
       color: inherit;
-
       font: inherit;
     }
 
+    .owner-field input[type="datetime-local"] {
+      max-width: 100%;
+      min-inline-size: 0;
+      text-align: left;
+    }
 
     .owner-field textarea {
-      min-height: 90px;
-
+      min-height: 88px;
       resize: vertical;
     }
 
+    .owner-help {
+      margin-top: 6px;
+      font-size: .75rem;
+      line-height: 1.45;
+      opacity: .66;
+    }
+
+    .owner-help strong {
+      opacity: 1;
+    }
+
+    .stripe-help-box {
+      margin: 14px 0 18px;
+      padding: 13px 14px;
+      border-radius: 10px;
+      background: rgba(47,129,158,.08);
+      font-size: .79rem;
+      line-height: 1.55;
+    }
+
+    .stripe-help-box p {
+      margin: 0;
+    }
+
+    .stripe-help-box p + p {
+      margin-top: 8px;
+    }
 
     .owner-check {
       display: flex;
-
       align-items: center;
-
       gap: 8px;
-
-      margin-top: 12px;
+      margin-top: 13px;
     }
-
 
     .owner-check input {
       width: auto;
     }
 
+    .owner-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 15px;
+    }
 
     .owner-button {
       display: inline-flex;
-
       align-items: center;
-
       justify-content: center;
-
       gap: 7px;
-
       min-height: 42px;
-
-      padding:
-        10px
-        15px;
-
+      padding: 10px 15px;
       border: 0;
-
       border-radius: 8px;
-
       background: #172822;
-
       color: #fff;
-
       font: inherit;
       font-weight: 750;
-
       cursor: pointer;
     }
 
-
     .owner-button--secondary {
-      border:
-        1px solid
-        rgba(23, 40, 34, .18);
-
+      border: 1px solid rgba(23,40,34,.18);
       background: transparent;
-
       color: #172822;
     }
-
 
     .owner-button--danger {
       background: #5f2929;
     }
 
-
-    .owner-actions {
-      display: flex;
-
-      flex-wrap: wrap;
-
-      gap: 8px;
-
-      margin-top: 16px;
-    }
-
-
-    .owner-notice {
-      margin-bottom: 18px;
-
-      padding:
-        14px
-        16px;
-
-      border-radius: 10px;
-
-      line-height: 1.5;
-    }
-
-
-    .owner-notice--success {
-      background:
-        rgba(53, 110, 78, .12);
-
-      border:
-        1px solid
-        rgba(53, 110, 78, .22);
-    }
-
-
-    .owner-notice--error {
-      background:
-        rgba(139, 55, 55, .11);
-
-      border:
-        1px solid
-        rgba(139, 55, 55, .24);
-    }
-
-
     .owner-price-preview {
-      margin:
-        16px
-        0;
-
-      padding: 13px;
-
+      margin: 14px 0 16px;
+      padding: 12px 14px;
       border-radius: 10px;
-
-      background:
-        rgba(23, 40, 34, .055);
+      background: rgba(23,40,34,.055);
     }
-
 
     .owner-price-preview strong {
       font-size: 1.35rem;
     }
 
-
     .owner-price-preview del {
       margin-right: 7px;
-
-      opacity: .52;
+      opacity: .5;
     }
 
+    .owner-small {
+      font-size: .79rem;
+      line-height: 1.5;
+      opacity: .68;
+    }
+
+    /* PLAN TABS */
+
+    .plan-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding: 5px;
+      width: fit-content;
+      max-width: 100%;
+      border: 1px solid rgba(23,40,34,.11);
+      border-radius: 10px;
+      background: rgba(255,255,255,.58);
+    }
+
+    .plan-tab {
+      min-height: 40px;
+      padding: 8px 16px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: #172822;
+      font: inherit;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .plan-tab[aria-selected="true"] {
+      background: #172822;
+      color: #fff;
+    }
+
+    .plan-panel[hidden] {
+      display: none !important;
+    }
+
+    /* PROMOTIONS */
+
+    .promotion-plan-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
 
     .promotion-card,
     .grant-card {
       margin-top: 12px;
-
       padding: 17px;
-
-      border:
-        1px solid
-        rgba(23, 40, 34, .10);
-
+      border: 1px solid rgba(23,40,34,.10);
       border-radius: 12px;
-
-      background:
-        rgba(255, 255, 255, .72);
+      background: rgba(255,255,255,.72);
     }
-
 
     .promotion-card-header,
     .grant-card-header {
       display: flex;
-
       align-items: flex-start;
-
       justify-content: space-between;
-
       gap: 14px;
     }
 
-
     .promotion-card-header h3,
     .grant-card-header h3 {
-      margin:
-        0
-        0
-        5px;
+      margin: 0 0 5px;
     }
-
 
     .owner-pill {
       display: inline-flex;
-
       align-items: center;
-
       gap: 5px;
-
-      padding:
-        6px
-        9px;
-
+      padding: 6px 9px;
       border-radius: 999px;
-
-      background:
-        rgba(23, 40, 34, .08);
-
+      background: rgba(23,40,34,.08);
       font-size: .72rem;
       font-weight: 800;
-
       white-space: nowrap;
     }
 
-
     .owner-pill--live {
       background: #172822;
-
       color: #fff;
     }
 
-
     .owner-meta {
       display: grid;
-
-      grid-template-columns:
-        repeat(
-          2,
-          minmax(
-            0,
-            1fr
-          )
-        );
-
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
-
-      margin-top: 13px;
-    }
-
-
-    .owner-meta div {
-      padding: 10px;
-
-      border-radius: 8px;
-
-      background:
-        rgba(23, 40, 34, .045);
-    }
-
-
-    .owner-meta span {
-      display: block;
-
-      margin-bottom: 3px;
-
-      font-size: .7rem;
-
-      opacity: .6;
-    }
-
-
-    .owner-rule-list {
-      display: grid;
-
-      gap: 7px;
-
       margin-top: 12px;
     }
 
+    .owner-meta div {
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(23,40,34,.045);
+    }
+
+    .owner-meta span {
+      display: block;
+      margin-bottom: 3px;
+      font-size: .7rem;
+      opacity: .6;
+    }
+
+    .owner-rule-list {
+      display: grid;
+      gap: 7px;
+      margin-top: 12px;
+    }
 
     .owner-rule {
       display: flex;
-
       justify-content: space-between;
-
       gap: 12px;
-
-      padding:
-        9px
-        10px;
-
+      padding: 9px 10px;
       border-radius: 8px;
-
-      background:
-        rgba(47, 129, 158, .08);
+      background: rgba(47,129,158,.08);
     }
-
-
-    .owner-small {
-      font-size: .79rem;
-
-      line-height: 1.5;
-
-      opacity: .68;
-    }
-
 
     .owner-empty {
-      padding: 24px;
-
-      border:
-        1px dashed
-        rgba(23, 40, 34, .18);
-
+      padding: 22px;
+      border: 1px dashed rgba(23,40,34,.18);
       border-radius: 12px;
-
       text-align: center;
-
       opacity: .68;
     }
 
-
-    .billing-processing-note {
-      margin-top: 18px;
-
-      padding:
-        14px;
-
-      border-radius: 10px;
-
-      background:
-        rgba(47, 129, 158, .08);
-
-      line-height: 1.55;
-
-      font-size: .82rem;
-    }
-
-
-    @media (
-      max-width: 900px
-    ) {
+    @media (max-width: 900px) {
 
       .membership-owner-stats {
-        grid-template-columns:
-          repeat(
-            2,
-            minmax(
-              0,
-              1fr
-            )
-          );
+        grid-template-columns: repeat(5, minmax(0, 1fr));
       }
 
+      .promotion-plan-grid {
+        grid-template-columns: 1fr;
+      }
 
-      .membership-owner-grid {
-        grid-template-columns:
-          1fr;
+      .sale-date-grid {
+        grid-template-columns: 1fr;
       }
 
     }
 
+    @media (max-width: 760px) {
 
-    @media (
-      max-width: 620px
-    ) {
+      .membership-owner-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
 
       .owner-form-grid,
       .owner-meta {
-        grid-template-columns:
-          1fr;
+        grid-template-columns: 1fr;
       }
-
 
       .owner-field--full {
         grid-column: auto;
       }
 
-
       .promotion-card-header,
       .grant-card-header {
         display: block;
       }
-
 
       .owner-pill {
         margin-top: 8px;
@@ -2489,37 +1526,34 @@ $durationOptions =
 
 <body class="admin-page">
 
-
 <?php
-
 require_once
     dirname(__DIR__)
     . '/app/header.php';
-
 ?>
 
 
 <main class="membership-owner-shell">
 
-
   <a
     href="/"
     class="back-link"
   >
-
     <i
       class="fa-solid fa-arrow-left"
       aria-hidden="true"
     ></i>
-
     Back to Basecamp
-
   </a>
 
 
   <header class="membership-owner-header">
 
     <p class="owner-eyebrow">
+      <i
+        class="fa-solid fa-crown"
+        aria-hidden="true"
+      ></i>
       Owner Only
     </p>
 
@@ -2536,9 +1570,7 @@ require_once
   </header>
 
 
-  <?php if (
-      $success !== ''
-  ): ?>
+  <?php if ($success !== ''): ?>
 
     <div
       class="
@@ -2552,9 +1584,7 @@ require_once
   <?php endif; ?>
 
 
-  <?php if (
-      $error !== ''
-  ): ?>
+  <?php if ($error !== ''): ?>
 
     <div
       class="
@@ -2575,7 +1605,6 @@ require_once
   <section class="membership-owner-section">
 
     <div class="membership-owner-section-header">
-
       <h2>
         Membership Overview
       </h2>
@@ -2583,74 +1612,34 @@ require_once
       <p>
         Current subscription and access counts.
       </p>
-
     </div>
 
 
     <div class="membership-owner-stats">
 
       <article class="membership-owner-stat">
-
-        <span>
-          Monthly Paid
-        </span>
-
-        <strong>
-          <?= $paidMonthlyCount ?>
-        </strong>
-
+        <span>Monthly Paid</span>
+        <strong><?= $paidMonthlyCount ?></strong>
       </article>
 
-
       <article class="membership-owner-stat">
-
-        <span>
-          Annual Paid
-        </span>
-
-        <strong>
-          <?= $paidAnnualCount ?>
-        </strong>
-
+        <span>Annual Paid</span>
+        <strong><?= $paidAnnualCount ?></strong>
       </article>
 
-
       <article class="membership-owner-stat">
-
-        <span>
-          Complimentary
-        </span>
-
-        <strong>
-          <?= $complimentaryCount ?>
-        </strong>
-
+        <span>Complimentary</span>
+        <strong><?= $complimentaryCount ?></strong>
       </article>
 
-
       <article class="membership-owner-stat">
-
-        <span>
-          Past Due
-        </span>
-
-        <strong>
-          <?= $pastDueCount ?>
-        </strong>
-
+        <span>Past Due</span>
+        <strong><?= $pastDueCount ?></strong>
       </article>
 
-
       <article class="membership-owner-stat">
-
-        <span>
-          Canceling
-        </span>
-
-        <strong>
-          <?= $cancelingCount ?>
-        </strong>
-
+        <span>Canceling</span>
+        <strong><?= $cancelingCount ?></strong>
       </article>
 
     </div>
@@ -2671,311 +1660,323 @@ require_once
       </h2>
 
       <p>
-        These prices become the shared source for the public
-        Membership page, account Membership page, checkout,
-        and future pricing displays.
+        This is the shared source for public pricing,
+        account pricing, checkout, and future pricing displays.
       </p>
 
     </div>
 
 
-    <div class="membership-owner-grid">
+    <div
+      class="plan-tabs"
+      role="tablist"
+      aria-label="Membership plans"
+    >
 
-      <?php foreach (
-          $plans as
-          $plan
-      ): ?>
+      <?php foreach ($plans as $index => $plan): ?>
 
-
-        <?php
-
-        $interval =
-            (string)
-            $plan[
-                'interval_slug'
-            ];
-
-
-        $offer =
-            $offers[
-                $interval
-            ]
-            ?? null;
-
-        ?>
-
-
-        <article class="membership-owner-card">
-
-          <h3>
-            <?= e(
-                $plan[
-                    'name'
-                ]
-            ) ?>
-          </h3>
-
-          <p>
-            <?= e(
-                $plan[
-                    'description'
-                ]
-            ) ?>
-          </p>
-
-
-          <?php if (
-              $offer
-          ): ?>
-
-            <div class="owner-price-preview">
-
-              <?php if (
-                  !empty(
-                      $offer[
-                          'on_sale'
-                      ]
-                  )
-              ): ?>
-
-                <del>
-                  <?= e(
-                      llama_membership_format_money(
-                          (int)
-                          $offer[
-                              'base_price_cents'
-                          ],
-                          (string)
-                          $plan[
-                              'currency'
-                          ]
-                      )
-                  ) ?>
-                </del>
-
-                <strong>
-                  <?= e(
-                      llama_membership_format_money(
-                          (int)
-                          $offer[
-                              'effective_price_cents'
-                          ],
-                          (string)
-                          $plan[
-                              'currency'
-                          ]
-                      )
-                  ) ?>
-                </strong>
-
-                <div class="owner-small">
-                  Current sale price
-                </div>
-
-              <?php else: ?>
-
-                <strong>
-                  <?= e(
-                      llama_membership_format_money(
-                          (int)
-                          $plan[
-                              'base_price_cents'
-                          ],
-                          (string)
-                          $plan[
-                              'currency'
-                          ]
-                      )
-                  ) ?>
-                </strong>
-
-                <div class="owner-small">
-                  Regular price
-                </div>
-
-              <?php endif; ?>
-
-            </div>
-
-          <?php endif; ?>
-
-
-          <form method="post">
-
-            <input
-              type="hidden"
-              name="csrf_token"
-              value="<?= e($csrfToken) ?>"
-            >
-
-            <input
-              type="hidden"
-              name="action"
-              value="update_plan"
-            >
-
-            <input
-              type="hidden"
-              name="plan_id"
-              value="<?= (int)
-                  $plan[
-                      'id'
-                  ]
-              ?>"
-            >
-
-
-            <div class="owner-form-grid">
-
-              <div class="owner-field">
-
-                <label>
-                  Regular Price
-                </label>
-
-                <input
-                  type="text"
-                  inputmode="decimal"
-                  name="base_price"
-                  value="<?= e(
-                      membership_owner_cents_input(
-                          (int)
-                          $plan[
-                              'base_price_cents'
-                          ]
-                      )
-                  ) ?>"
-                  required
-                >
-
-              </div>
-
-
-              <div class="owner-field">
-
-                <label>
-                  Billing Interval
-                </label>
-
-                <input
-                  type="text"
-                  value="<?= e(
-                      ucfirst(
-                          $interval
-                      )
-                  ) ?>"
-                  disabled
-                >
-
-              </div>
-
-
-              <div
-                class="
-                  owner-field
-                  owner-field--full
-                "
-              >
-
-                <label>
-                  Stripe Product ID
-                </label>
-
-                <input
-                  type="text"
-                  name="stripe_product_id"
-                  value="<?= e(
-                      $plan[
-                          'stripe_product_id'
-                      ]
-                      ?? ''
-                  ) ?>"
-                  placeholder="prod_..."
-                >
-
-              </div>
-
-
-              <div
-                class="
-                  owner-field
-                  owner-field--full
-                "
-              >
-
-                <label>
-                  Stripe Price ID
-                </label>
-
-                <input
-                  type="text"
-                  name="stripe_price_id"
-                  value="<?= e(
-                      $plan[
-                          'stripe_price_id'
-                      ]
-                      ?? ''
-                  ) ?>"
-                  placeholder="price_..."
-                >
-
-              </div>
-
-            </div>
-
-
-            <label class="owner-check">
-
-              <input
-                type="checkbox"
-                name="is_active"
-                value="1"
-                <?= !empty(
-                    $plan[
-                        'is_active'
-                    ]
-                )
-                    ? 'checked'
-                    : ''
-                ?>
-              >
-
-              Accept new
-              <?= e($plan['name']) ?>
-              memberships
-
-            </label>
-
-
-            <div class="owner-actions">
-
-              <button
-                type="submit"
-                class="owner-button"
-              >
-                <i
-                  class="fa-solid fa-floppy-disk"
-                  aria-hidden="true"
-                ></i>
-
-                Save Plan
-              </button>
-
-            </div>
-
-          </form>
-
-        </article>
+        <button
+          type="button"
+          class="plan-tab"
+          role="tab"
+          id="plan-tab-<?= e(
+              $plan['interval_slug']
+          ) ?>"
+          aria-controls="plan-panel-<?= e(
+              $plan['interval_slug']
+          ) ?>"
+          aria-selected="<?= $index === 0
+              ? 'true'
+              : 'false'
+          ?>"
+          data-plan-tab="<?= e(
+              $plan['interval_slug']
+          ) ?>"
+        >
+          <?= e($plan['name']) ?>
+        </button>
 
       <?php endforeach; ?>
 
     </div>
 
+
+    <?php foreach ($plans as $index => $plan): ?>
+
+      <?php
+      $interval =
+          (string)
+          $plan['interval_slug'];
+
+      $offer =
+          $offers[$interval]
+          ?? null;
+      ?>
+
+      <article
+        class="
+          membership-owner-card
+          plan-panel
+        "
+        id="plan-panel-<?= e($interval) ?>"
+        role="tabpanel"
+        aria-labelledby="plan-tab-<?= e($interval) ?>"
+        data-plan-panel="<?= e($interval) ?>"
+        <?= $index === 0
+            ? ''
+            : 'hidden'
+        ?>
+      >
+
+        <h3>
+          <?= e($plan['name']) ?>
+        </h3>
+
+        <p>
+          <?= e($plan['description']) ?>
+        </p>
+
+
+        <?php if ($offer): ?>
+
+          <div class="owner-price-preview">
+
+            <?php if (!empty($offer['on_sale'])): ?>
+
+              <del>
+                <?= e(
+                    llama_membership_format_money(
+                        (int)
+                        $offer['base_price_cents'],
+                        (string)
+                        $plan['currency']
+                    )
+                ) ?>
+              </del>
+
+              <strong>
+                <?= e(
+                    llama_membership_format_money(
+                        (int)
+                        $offer['effective_price_cents'],
+                        (string)
+                        $plan['currency']
+                    )
+                ) ?>
+              </strong>
+
+              <div class="owner-small">
+                Current sale price
+              </div>
+
+            <?php else: ?>
+
+              <strong>
+                <?= e(
+                    llama_membership_format_money(
+                        (int)
+                        $plan['base_price_cents'],
+                        (string)
+                        $plan['currency']
+                    )
+                ) ?>
+              </strong>
+
+              <div class="owner-small">
+                Regular price
+              </div>
+
+            <?php endif; ?>
+
+          </div>
+
+        <?php endif; ?>
+
+
+        <div class="stripe-help-box">
+
+          <p>
+            <strong>Stripe Product ID:</strong>
+            identifies the membership product in Stripe.
+            It usually begins with <code>prod_</code>.
+          </p>
+
+          <p>
+            <strong>Stripe Price ID:</strong>
+            identifies the exact recurring price and billing
+            interval Stripe charges. It usually begins with
+            <code>price_</code>. Checkout ultimately uses
+            this ID.
+          </p>
+
+          <p>
+            If you permanently change the regular price,
+            create the matching new recurring Price in Stripe
+            and place its new Price ID here. Existing
+            subscribers can remain on their existing Stripe
+            Price unless you intentionally migrate them.
+          </p>
+
+        </div>
+
+
+        <form method="post">
+
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= e($csrfToken) ?>"
+          >
+
+          <input
+            type="hidden"
+            name="action"
+            value="update_plan"
+          >
+
+          <input
+            type="hidden"
+            name="plan_id"
+            value="<?= (int) $plan['id'] ?>"
+          >
+
+
+          <div class="owner-form-grid">
+
+            <div class="owner-field">
+
+              <label>
+                Regular Price
+              </label>
+
+              <input
+                type="text"
+                inputmode="decimal"
+                name="base_price"
+                value="<?= e(
+                    membership_owner_cents_input(
+                        (int)
+                        $plan['base_price_cents']
+                    )
+                ) ?>"
+                required
+              >
+
+            </div>
+
+
+            <div class="owner-field">
+
+              <label>
+                Billing Interval
+              </label>
+
+              <input
+                type="text"
+                value="<?= e(
+                    ucfirst($interval)
+                ) ?>"
+                disabled
+              >
+
+            </div>
+
+
+            <div
+              class="
+                owner-field
+                owner-field--full
+              "
+            >
+
+              <label>
+                Stripe Product ID
+              </label>
+
+              <input
+                type="text"
+                name="stripe_product_id"
+                value="<?= e(
+                    $plan['stripe_product_id']
+                    ?? ''
+                ) ?>"
+                placeholder="prod_..."
+              >
+
+            </div>
+
+
+            <div
+              class="
+                owner-field
+                owner-field--full
+              "
+            >
+
+              <label>
+                Stripe Price ID
+              </label>
+
+              <input
+                type="text"
+                name="stripe_price_id"
+                value="<?= e(
+                    $plan['stripe_price_id']
+                    ?? ''
+                ) ?>"
+                placeholder="price_..."
+              >
+
+            </div>
+
+          </div>
+
+
+          <label class="owner-check">
+
+            <input
+              type="checkbox"
+              name="is_active"
+              value="1"
+              <?= !empty($plan['is_active'])
+                  ? 'checked'
+                  : ''
+              ?>
+            >
+
+            Accept new
+            <?= e($plan['name']) ?>
+            memberships
+
+          </label>
+
+
+          <div class="owner-actions">
+
+            <button
+              type="submit"
+              class="owner-button"
+            >
+              <i
+                class="fa-solid fa-floppy-disk"
+                aria-hidden="true"
+              ></i>
+              Save Plan
+            </button>
+
+          </div>
+
+        </form>
+
+      </article>
+
+    <?php endforeach; ?>
+
   </section>
 
 
   <!-- =====================================================
-       CREATE SALE
+       SCHEDULE SALE
        ===================================================== -->
 
   <section class="membership-owner-section">
@@ -2987,9 +1988,8 @@ require_once
       </h2>
 
       <p>
-        Sales automatically become active and expire according
-        to their schedule. Base membership prices are not
-        overwritten.
+        Sales turn on and off automatically. Regular prices
+        remain unchanged underneath the promotion.
       </p>
 
     </div>
@@ -3044,6 +2044,16 @@ require_once
 
           </div>
 
+        </div>
+
+
+        <div
+          class="
+            owner-form-grid
+            sale-date-grid
+          "
+          style="margin-top:12px;"
+        >
 
           <div class="owner-field">
 
@@ -3056,9 +2066,7 @@ require_once
               name="starts_at"
               value="<?= e(
                   $defaultStart
-                      ->format(
-                          'Y-m-d\TH:i'
-                      )
+                      ->format('Y-m-d\TH:i')
               ) ?>"
               required
             >
@@ -3077,63 +2085,49 @@ require_once
               name="ends_at"
               value="<?= e(
                   $defaultEnd
-                      ->format(
-                          'Y-m-d\TH:i'
-                      )
+                      ->format('Y-m-d\TH:i')
               ) ?>"
               required
             >
 
           </div>
 
+        </div>
 
-          <div
-            class="
-              owner-field
-              owner-field--full
-            "
-          >
 
-            <label>
-              Public Description
-            </label>
+        <div
+          class="owner-field"
+          style="margin-top:12px;"
+        >
 
-            <textarea
-              name="public_description"
-              placeholder="Save on your first billing period during our holiday sale."
-            ></textarea>
+          <label>
+            Public Description
+          </label>
 
-          </div>
+          <textarea
+            name="public_description"
+            placeholder="Save on your first billing period during our holiday sale."
+          ></textarea>
 
         </div>
 
 
-        <p class="owner-small">
+        <p class="owner-help">
           Times are entered in
-          <?= e($ownerTimezoneName) ?>.
-          They are stored internally in UTC.
+          <strong><?= e($ownerTimezoneName) ?></strong>
+          and stored internally in UTC.
         </p>
 
 
-        <div class="membership-owner-grid">
+        <div class="promotion-plan-grid">
 
-
-          <?php foreach (
-              $plans as
-              $plan
-          ): ?>
-
+          <?php foreach ($plans as $plan): ?>
 
             <?php
-
             $interval =
                 (string)
-                $plan[
-                    'interval_slug'
-                ];
-
+                $plan['interval_slug'];
             ?>
-
 
             <div class="promotion-card">
 
@@ -3149,18 +2143,14 @@ require_once
                 >
 
                 Include
-                <?= e(
-                    $plan[
-                        'name'
-                    ]
-                ) ?>
+                <?= e($plan['name']) ?>
 
               </label>
 
 
               <div
                 class="owner-form-grid"
-                style="margin-top: 12px;"
+                style="margin-top:12px;"
               >
 
                 <div class="owner-field">
@@ -3224,21 +2214,27 @@ require_once
                     placeholder="coupon_..."
                   >
 
+                  <div class="owner-help">
+                    This is the Stripe Coupon that will be
+                    automatically attached to checkout while
+                    this sale is active. Members do not need
+                    to type a code.
+                  </div>
+
                 </div>
 
               </div>
 
 
-              <p class="owner-small">
-                For Percentage, enter a whole percentage such
-                as 20. For Fixed Dollar Amount, enter a dollar
-                value such as 10.00.
+              <p class="owner-help">
+                Percentage example: <strong>20</strong>.
+                Fixed amount example:
+                <strong>10.00</strong>.
               </p>
 
             </div>
 
           <?php endforeach; ?>
-
 
         </div>
 
@@ -3253,7 +2249,6 @@ require_once
               class="fa-solid fa-calendar-plus"
               aria-hidden="true"
             ></i>
-
             Schedule Promotion
           </button>
 
@@ -3267,7 +2262,7 @@ require_once
 
 
   <!-- =====================================================
-       EXISTING PROMOTIONS
+       PROMOTIONS
        ===================================================== -->
 
   <section class="membership-owner-section">
@@ -3285,9 +2280,7 @@ require_once
     </div>
 
 
-    <?php if (
-        !$promotions
-    ): ?>
+    <?php if (!$promotions): ?>
 
       <div class="owner-empty">
         No promotions have been created yet.
@@ -3296,31 +2289,20 @@ require_once
     <?php endif; ?>
 
 
-    <?php foreach (
-        $promotions as
-        $promotion
-    ): ?>
-
+    <?php foreach ($promotions as $promotion): ?>
 
       <?php
-
       $promotionStatus =
           llama_membership_promotion_status(
               $promotion
           );
 
-
       $rules =
           $promotionRulesById[
-              (int)
-              $promotion[
-                  'id'
-              ]
+              (int) $promotion['id']
           ]
           ?? [];
-
       ?>
-
 
       <article class="promotion-card">
 
@@ -3329,27 +2311,19 @@ require_once
           <div>
 
             <h3>
-              <?= e(
-                  $promotion[
-                      'name'
-                  ]
-              ) ?>
+              <?= e($promotion['name']) ?>
             </h3>
 
             <?php if (
                 !empty(
-                    $promotion[
-                        'public_label'
-                    ]
+                    $promotion['public_label']
                 )
             ): ?>
 
               <div class="owner-small">
                 Public:
                 <?= e(
-                    $promotion[
-                        'public_label'
-                    ]
+                    $promotion['public_label']
                 ) ?>
               </div>
 
@@ -3361,20 +2335,17 @@ require_once
           <span
             class="
               owner-pill
-              <?= $promotionStatus ===
-                  'live'
-                    ? 'owner-pill--live'
-                    : ''
+              <?= $promotionStatus === 'live'
+                  ? 'owner-pill--live'
+                  : ''
               ?>
             "
           >
-
             <?= e(
                 membership_owner_promotion_status_label(
                     $promotionStatus
                 )
             ) ?>
-
           </span>
 
         </div>
@@ -3383,42 +2354,27 @@ require_once
         <div class="owner-meta">
 
           <div>
-
-            <span>
-              Starts
-            </span>
-
+            <span>Starts</span>
             <strong>
               <?= e(
                   membership_owner_format_datetime(
-                      $promotion[
-                          'starts_at'
-                      ],
+                      $promotion['starts_at'],
                       $ownerTimezone
                   )
               ) ?>
             </strong>
-
           </div>
 
-
           <div>
-
-            <span>
-              Ends
-            </span>
-
+            <span>Ends</span>
             <strong>
               <?= e(
                   membership_owner_format_datetime(
-                      $promotion[
-                          'ends_at'
-                      ],
+                      $promotion['ends_at'],
                       $ownerTimezone
                   )
               ) ?>
             </strong>
-
           </div>
 
         </div>
@@ -3426,17 +2382,13 @@ require_once
 
         <?php if (
             !empty(
-                $promotion[
-                    'public_description'
-                ]
+                $promotion['public_description']
             )
         ): ?>
 
           <p>
             <?= e(
-                $promotion[
-                    'public_description'
-                ]
+                $promotion['public_description']
             ) ?>
           </p>
 
@@ -3445,59 +2397,36 @@ require_once
 
         <div class="owner-rule-list">
 
-          <?php foreach (
-              $rules as
-              $rule
-          ): ?>
-
+          <?php foreach ($rules as $rule): ?>
 
             <?php
-
             $discounted =
                 llama_membership_discounted_price_cents(
                     (int)
-                    $rule[
-                        'base_price_cents'
-                    ],
+                    $rule['base_price_cents'],
                     (string)
-                    $rule[
-                        'discount_type'
-                    ],
+                    $rule['discount_type'],
                     (int)
-                    $rule[
-                        'discount_value'
-                    ]
+                    $rule['discount_value']
                 );
-
             ?>
-
 
             <div class="owner-rule">
 
               <span>
-
-                <?= e(
-                    $rule[
-                        'plan_name'
-                    ]
-                ) ?>
-
+                <?= e($rule['plan_name']) ?>
               </span>
 
               <strong>
 
                 <?php if (
-                    $rule[
-                        'discount_type'
-                    ]
+                    $rule['discount_type']
                     ===
                     LLAMA_PROMOTION_DISCOUNT_PERCENT
                 ): ?>
 
                   <?= (int)
-                      $rule[
-                          'discount_value'
-                      ]
+                      $rule['discount_value']
                   ?>% off
 
                 <?php else: ?>
@@ -3505,20 +2434,22 @@ require_once
                   <?= e(
                       llama_membership_format_money(
                           (int)
-                          $rule[
-                              'discount_value'
-                          ]
+                          $rule['discount_value'],
+                          (string)
+                          $rule['currency']
                       )
                   ) ?>
                   off
 
                 <?php endif; ?>
 
-                →
+                â
 
                 <?= e(
                     llama_membership_format_money(
-                        $discounted
+                        $discounted,
+                        (string)
+                        $rule['currency']
                     )
                 ) ?>
 
@@ -3531,32 +2462,30 @@ require_once
         </div>
 
 
-        <div class="owner-actions">
+        <form method="post">
 
-          <form method="post">
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= e($csrfToken) ?>"
+          >
 
-            <input
-              type="hidden"
-              name="csrf_token"
-              value="<?= e($csrfToken) ?>"
-            >
+          <input
+            type="hidden"
+            name="action"
+            value="toggle_promotion"
+          >
 
-            <input
-              type="hidden"
-              name="action"
-              value="toggle_promotion"
-            >
+          <input
+            type="hidden"
+            name="promotion_id"
+            value="<?= (int)
+                $promotion['id']
+            ?>"
+          >
 
-            <input
-              type="hidden"
-              name="promotion_id"
-              value="<?= (int)
-                  $promotion[
-                      'id'
-                  ]
-              ?>"
-            >
 
+          <div class="owner-actions">
 
             <button
               type="submit"
@@ -3565,21 +2494,15 @@ require_once
                 owner-button--secondary
               "
             >
-
-              <?= !empty(
-                  $promotion[
-                      'is_enabled'
-                  ]
-              )
+              <?= !empty($promotion['is_enabled'])
                   ? 'Disable'
                   : 'Enable'
               ?>
-
             </button>
 
-          </form>
+          </div>
 
-        </div>
+        </form>
 
       </article>
 
@@ -3589,7 +2512,7 @@ require_once
 
 
   <!-- =====================================================
-       COMPLIMENTARY MEMBERSHIP
+       COMPLIMENTARY MEMBERSHIPS
        ===================================================== -->
 
   <section class="membership-owner-section">
@@ -3672,17 +2595,12 @@ require_once
 
                 <option
                   value="<?= e($key) ?>"
-                  <?= $key ===
-                      '1m'
-                        ? 'selected'
-                        : ''
+                  <?= $key === '1m'
+                      ? 'selected'
+                      : ''
                   ?>
                 >
-                  <?= e(
-                      $option[
-                          'label'
-                      ]
-                  ) ?>
+                  <?= e($option['label']) ?>
                 </option>
 
               <?php endforeach; ?>
@@ -3734,14 +2652,11 @@ require_once
             type="submit"
             class="owner-button"
           >
-
             <i
               class="fa-solid fa-gift"
               aria-hidden="true"
             ></i>
-
             Grant Access
-
           </button>
 
         </div>
@@ -3751,13 +2666,11 @@ require_once
     </article>
 
 
-    <?php if (
-        !$grants
-    ): ?>
+    <?php if (!$grants): ?>
 
       <div
         class="owner-empty"
-        style="margin-top: 16px;"
+        style="margin-top:16px;"
       >
         No complimentary memberships have been issued yet.
       </div>
@@ -3765,40 +2678,32 @@ require_once
     <?php endif; ?>
 
 
-    <?php foreach (
-        $grants as
-        $grant
-    ): ?>
-
+    <?php foreach ($grants as $grant): ?>
 
       <?php
+      $grantStart =
+          strtotime(
+              (string)
+              $grant['starts_at']
+          );
+
+      $grantEnd =
+          strtotime(
+              (string)
+              $grant['ends_at']
+          );
 
       $grantActive =
-          empty(
-              $grant[
-                  'revoked_at'
-              ]
-          )
+          empty($grant['revoked_at'])
           &&
-          strtotime(
-              (string)
-              $grant[
-                  'starts_at'
-              ]
-          )
-          <= time()
+          $grantStart !== false
           &&
-          strtotime(
-              (string)
-              $grant[
-                  'ends_at'
-              ]
-          )
-          >
-          time();
-
+          $grantEnd !== false
+          &&
+          $grantStart <= time()
+          &&
+          $grantEnd > time();
       ?>
-
 
       <article class="grant-card">
 
@@ -3807,39 +2712,17 @@ require_once
           <div>
 
             <h3>
-
               <?= e(
-                  $grant[
-                      'display_name'
-                  ]
+                  $grant['display_name']
                   ?:
-                  $grant[
-                      'username'
-                  ]
+                  $grant['username']
                   ?:
-                  $grant[
-                      'email'
-                  ]
+                  $grant['email']
               ) ?>
-
             </h3>
 
             <div class="owner-small">
-
-              @<?= e(
-                  $grant[
-                      'username'
-                  ]
-              ) ?>
-
-              ·
-
-              <?= e(
-                  $grant[
-                      'email'
-                  ]
-              ) ?>
-
+              <?= e($grant['email']) ?>
             </div>
 
           </div>
@@ -3856,36 +2739,17 @@ require_once
           >
 
             <?php
-
-            if (
-                !empty(
-                    $grant[
-                        'revoked_at'
-                    ]
-                )
-            ) {
-
+            if (!empty($grant['revoked_at'])) {
                 echo 'Revoked';
-
             } elseif (
-                strtotime(
-                    (string)
-                    $grant[
-                        'ends_at'
-                    ]
-                )
-                <=
-                time()
+                $grantEnd !== false
+                &&
+                $grantEnd <= time()
             ) {
-
                 echo 'Expired';
-
             } else {
-
                 echo 'Active';
-
             }
-
             ?>
 
           </span>
@@ -3896,94 +2760,54 @@ require_once
         <div class="owner-meta">
 
           <div>
-
-            <span>
-              Started
-            </span>
-
+            <span>Started</span>
             <strong>
               <?= e(
                   membership_owner_format_datetime(
-                      $grant[
-                          'starts_at'
-                      ],
+                      $grant['starts_at'],
                       $ownerTimezone
                   )
               ) ?>
             </strong>
-
           </div>
 
-
           <div>
-
-            <span>
-              Access Through
-            </span>
-
+            <span>Access Through</span>
             <strong>
               <?= e(
                   membership_owner_format_datetime(
-                      $grant[
-                          'ends_at'
-                      ],
+                      $grant['ends_at'],
                       $ownerTimezone
                   )
               ) ?>
             </strong>
-
           </div>
 
         </div>
 
 
-        <?php if (
-            !empty(
-                $grant[
-                    'reason'
-                ]
-            )
-        ): ?>
+        <?php if (!empty($grant['reason'])): ?>
 
           <p>
-            <strong>
-              Reason:
-            </strong>
-
-            <?= e(
-                $grant[
-                    'reason'
-                ]
-            ) ?>
+            <strong>Reason:</strong>
+            <?= e($grant['reason']) ?>
           </p>
 
         <?php endif; ?>
 
 
-        <?php if (
-            !empty(
-                $grant[
-                    'notes'
-                ]
-            )
-        ): ?>
+        <?php if (!empty($grant['notes'])): ?>
 
           <p class="owner-small">
             <?= nl2br(
-                e(
-                    $grant[
-                        'notes'
-                    ]
-                )
+                e($grant['notes'])
             ) ?>
           </p>
 
         <?php endif; ?>
 
 
-        <?php if (
-            $grantActive
-        ): ?>
+        <?php if ($grantActive): ?>
 
           <form method="post">
 
@@ -4002,17 +2826,13 @@ require_once
             <input
               type="hidden"
               name="grant_id"
-              value="<?= (int)
-                  $grant[
-                      'id'
-                  ]
-              ?>"
+              value="<?= (int) $grant['id'] ?>"
             >
 
 
             <div
               class="owner-field"
-              style="margin-top: 14px;"
+              style="margin-top:14px;"
             >
 
               <label>
@@ -4037,9 +2857,7 @@ require_once
                   owner-button--danger
                 "
               >
-
                 Revoke Access
-
               </button>
 
             </div>
@@ -4055,55 +2873,143 @@ require_once
   </section>
 
 
-  <!-- =====================================================
-       PAYMENT PROCESSING DISCLOSURE
-       ===================================================== -->
-
-  <section class="membership-owner-section">
-
-    <div class="membership-owner-section-header">
-
-      <h2>
-        Payment Processing
-      </h2>
-
-    </div>
-
-
-    <div class="billing-processing-note">
-
-      <strong>
-        Stripe processes Llama Scout payments.
-      </strong>
-
-      Llama Scout does not collect or store complete payment
-      card information. Members can contact
-      <a href="mailto:billing@llamascout.com">
-        billing@llamascout.com
-      </a>
-      for assistance. Some payment or payment-method issues
-      may need to be handled directly through Stripe.
-
-    </div>
-
-  </section>
-
-
 </main>
 
 
 <?php
-
 require_once
     dirname(__DIR__)
     . '/app/footer.php';
-
 ?>
 
 
 <script
   src="https://llamascout.com/js/header.js"
 ></script>
+
+
+<script>
+
+(() => {
+
+  const tabs =
+    Array.from(
+      document.querySelectorAll(
+        "[data-plan-tab]"
+      )
+    );
+
+  const panels =
+    Array.from(
+      document.querySelectorAll(
+        "[data-plan-panel]"
+      )
+    );
+
+
+  function activatePlan(
+    interval
+  ) {
+
+    tabs.forEach(
+      (tab) => {
+
+        const active =
+          tab.dataset.planTab
+          ===
+          interval;
+
+        tab.setAttribute(
+          "aria-selected",
+          active
+            ? "true"
+            : "false"
+        );
+
+      }
+    );
+
+
+    panels.forEach(
+      (panel) => {
+
+        panel.hidden =
+          panel.dataset.planPanel
+          !==
+          interval;
+
+      }
+    );
+
+
+    try {
+
+      sessionStorage.setItem(
+        "llama_owner_membership_plan_tab",
+        interval
+      );
+
+    } catch (error) {
+
+      /* Storage is optional. */
+
+    }
+
+  }
+
+
+  tabs.forEach(
+    (tab) => {
+
+      tab.addEventListener(
+        "click",
+        () => {
+
+          activatePlan(
+            tab.dataset.planTab
+          );
+
+        }
+      );
+
+    }
+  );
+
+
+  try {
+
+    const saved =
+      sessionStorage.getItem(
+        "llama_owner_membership_plan_tab"
+      );
+
+
+    if (
+      saved
+      &&
+      tabs.some(
+        (tab) =>
+          tab.dataset.planTab
+          ===
+          saved
+      )
+    ) {
+
+      activatePlan(
+        saved
+      );
+
+    }
+
+  } catch (error) {
+
+    /* Storage is optional. */
+
+  }
+
+})();
+
+</script>
 
 
 </body>
