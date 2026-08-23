@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+
+/* =========================================================
+   LLAMA SCOUT
+   SAVED PLACES
+   ========================================================= */
+
+
 require_once
     dirname(__DIR__)
     . '/app/auth.php';
@@ -9,6 +16,10 @@ require_once
 require_once
     dirname(__DIR__)
     . '/app/timezone.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/saved-places.php';
 
 
 require_login();
@@ -18,200 +29,73 @@ $user =
     current_user();
 
 
+if (
+    !$user
+) {
+
+    http_response_code(
+        401
+    );
+
+    exit(
+        'Authentication required.'
+    );
+
+}
+
+
 $db =
     db();
 
 
 $userId =
     (int)
-    $user['id'];
+    $user[
+        'id'
+    ];
 
 
 /* =========================================================
-   LOAD SAVED PLACES
-
-   Saved rows are preserved even if a Place later becomes
-   private.
-
-   Private Place metadata is deliberately NOT selected for
-   display. The user only receives a generic unavailable
-   record and can remove the bookmark.
+   STORAGE / MIGRATION PREFLIGHT
    ========================================================= */
 
-$stmt =
-    $db->prepare(
-        '
-        SELECT
-            sp.id
-                AS saved_id,
+try {
 
-            sp.place_id
-                AS saved_place_key,
-
-            sp.saved_at,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN 1
-                ELSE 0
-            END
-                AS is_public,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN p.id
-                ELSE NULL
-            END
-                AS public_place_id,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN p.slug
-                ELSE NULL
-            END
-                AS slug,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN p.name
-                ELSE NULL
-            END
-                AS name,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN p.type
-                ELSE NULL
-            END
-                AS type,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN p.city
-                ELSE NULL
-            END
-                AS city,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN p.state
-                ELSE NULL
-            END
-                AS state,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN p.elevation_feet
-                ELSE NULL
-            END
-                AS elevation_feet,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN pi.src
-                ELSE NULL
-            END
-                AS featured_image,
-
-            CASE
-                WHEN p.status IN
-                (
-                    \'active\',
-                    \'featured\'
-                )
-                THEN pi.alt_text
-                ELSE NULL
-            END
-                AS featured_image_alt
-
-        FROM saved_places sp
-
-        LEFT JOIN places p
-          ON
-          (
-              p.slug =
-                  sp.place_id
-
-              OR
-
-              CAST(
-                  p.id AS CHAR
-              ) =
-                  sp.place_id
-          )
-
-        LEFT JOIN place_images pi
-          ON pi.id =
-          (
-              SELECT pi_lookup.id
-
-              FROM place_images pi_lookup
-
-              WHERE pi_lookup.place_id =
-                  p.id
-
-              ORDER BY
-                  pi_lookup.is_featured DESC,
-                  pi_lookup.sort_order ASC,
-                  pi_lookup.id ASC
-
-              LIMIT 1
-          )
-
-        WHERE sp.user_id = ?
-
-        ORDER BY
-            sp.saved_at DESC,
-            sp.id DESC
-        '
+    llama_ensure_saved_places_storage(
+        $db
     );
 
 
-$stmt->execute([
-    $userId
-]);
+    $savedPlaces =
+        llama_saved_places_for_user(
+            $db,
+            $userId
+        );
 
+} catch (
+    Throwable $exception
+) {
 
-$savedPlaces =
-    $stmt->fetchAll(
-        PDO::FETCH_ASSOC
+    error_log(
+        'Llama Scout Saved Places page error for user #'
+        .
+        $userId
+        .
+        ': '
+        .
+        $exception
+            ->getMessage()
     );
+
+
+    $savedPlaces =
+        [];
+
+
+    $savedPlacesError =
+        'Saved Places is temporarily unavailable.';
+
+}
 
 
 /* =========================================================
@@ -247,12 +131,16 @@ function saved_place_type(
     ) {
 
         return 'Place';
+
     }
 
 
     return ucwords(
         str_replace(
-            '-',
+            [
+                '-',
+                '_',
+            ],
             ' ',
             $type
         )
@@ -264,7 +152,8 @@ function saved_place_location(
     array $place
 ): string {
 
-    $parts = [];
+    $parts =
+        [];
 
 
     $city =
@@ -295,6 +184,7 @@ function saved_place_location(
 
         $parts[] =
             $city;
+
     }
 
 
@@ -304,6 +194,7 @@ function saved_place_location(
 
         $parts[] =
             $state;
+
     }
 
 
@@ -324,6 +215,7 @@ function saved_place_date(
     ) {
 
         return '';
+
     }
 
 
@@ -389,7 +281,7 @@ function saved_place_date(
 
 
     .saved-card--unavailable {
-      opacity: .82;
+      opacity: .84;
     }
 
 
@@ -404,6 +296,108 @@ function saved_place_date(
 
     .saved-unavailable i {
       margin-top: 3px;
+    }
+
+
+    .saved-page-error {
+      margin:
+        0
+        0
+        20px;
+      padding:
+        14px
+        16px;
+      border:
+        1px solid
+        rgba(139,55,55,.22);
+      border-radius: 10px;
+      background:
+        rgba(139,55,55,.08);
+      line-height: 1.55;
+    }
+
+
+    .saved-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 16px;
+    }
+
+
+    .saved-card-actions a,
+    .saved-card-actions button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 42px;
+      padding:
+        10px
+        13px;
+      border-radius: 8px;
+      font: inherit;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+
+    .view-place-button {
+      border:
+        1px solid
+        #172822;
+      background: #172822;
+      color: #fff;
+      text-decoration: none;
+    }
+
+
+    .remove-place-button {
+      border:
+        1px solid
+        rgba(23,40,34,.17);
+      background: transparent;
+      color: inherit;
+    }
+
+
+    .remove-place-button:disabled {
+      cursor: wait;
+      opacity: .55;
+    }
+
+
+    .saved-toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 1000;
+      max-width: 320px;
+      padding:
+        12px
+        14px;
+      border-radius: 10px;
+      background: #172822;
+      color: #fff;
+      font-size: .84rem;
+      line-height: 1.45;
+      box-shadow:
+        0 12px 30px
+        rgba(0,0,0,.18);
+    }
+
+
+    @media (
+      max-width: 600px
+    ) {
+
+      .saved-toast {
+        right: 12px;
+        left: 12px;
+        bottom: 12px;
+        max-width: none;
+      }
+
     }
 
   </style>
@@ -455,7 +449,9 @@ require_once
 
 
     <?php if (
-        $savedPlaces
+        !empty(
+            $savedPlaces
+        )
     ): ?>
 
       <div class="saved-count">
@@ -479,7 +475,31 @@ require_once
 
 
   <?php if (
-      $savedPlaces
+      !empty(
+          $savedPlacesError
+      )
+  ): ?>
+
+    <div class="saved-page-error">
+
+      <i
+        class="fa-solid fa-triangle-exclamation"
+        aria-hidden="true"
+      ></i>
+
+      <?= e(
+          $savedPlacesError
+      ) ?>
+
+    </div>
+
+  <?php endif; ?>
+
+
+  <?php if (
+      !empty(
+          $savedPlaces
+      )
   ): ?>
 
 
@@ -498,10 +518,10 @@ require_once
 
         <?php
 
-        $savedPlaceKey =
-            (string)
+        $savedId =
+            (int)
             $place[
-                'saved_place_key'
+                'saved_id'
             ];
 
 
@@ -533,8 +553,51 @@ require_once
                 )
                 : '';
 
-        ?>
 
+        $removeKey =
+            $slug !== ''
+                ? $slug
+                : trim(
+                    (string) (
+                        $place[
+                            'place_slug_snapshot'
+                        ]
+                        ?? ''
+                    )
+                );
+
+
+        if (
+            $removeKey === ''
+            &&
+            !empty(
+                $place[
+                    'place_id'
+                ]
+            )
+        ) {
+
+            $removeKey =
+                (string)
+                $place[
+                    'place_id'
+                ];
+
+        }
+
+
+        $snapshotName =
+            trim(
+                (string) (
+                    $place[
+                        'place_name_snapshot'
+                    ]
+                    ?? ''
+                )
+            );
+
+
+        ?>
 
         <article
           class="
@@ -544,9 +607,7 @@ require_once
                 : 'saved-card--unavailable'
             ?>
           "
-          data-saved-card="<?= e(
-              $savedPlaceKey
-          ) ?>"
+          data-saved-card-id="<?= $savedId ?>"
         >
 
 
@@ -626,7 +687,9 @@ require_once
                   aria-hidden="true"
                 ></i>
 
-                <?= e($location) ?>
+                <?= e(
+                    $location
+                ) ?>
 
               </p>
 
@@ -675,7 +738,13 @@ require_once
 
 
             <h2>
-              Place Unavailable
+
+              <?= e(
+                  $snapshotName !== ''
+                      ? $snapshotName
+                      : 'Place Unavailable'
+              ) ?>
+
             </h2>
 
 
@@ -688,8 +757,8 @@ require_once
 
               <span>
                 This place is no longer publicly available.
-                Its details are hidden, but you can remove it
-                from Saved Places.
+                Its current details are hidden, but you can
+                still remove the bookmark.
               </span>
 
             </div>
@@ -709,7 +778,7 @@ require_once
 
               <a
                 class="view-place-button"
-                href="https://llamascout.com/place.php?place=<?= urlencode(
+                href="https://llamascout.com/place.php?place=<?= rawurlencode(
                     $slug
                 ) ?>"
               >
@@ -726,22 +795,29 @@ require_once
             <?php endif; ?>
 
 
-            <button
-              type="button"
-              class="remove-place-button"
-              data-remove-saved="<?= e(
-                  $savedPlaceKey
-              ) ?>"
-            >
+            <?php if (
+                $removeKey !== ''
+            ): ?>
 
-              <i
-                class="fa-solid fa-bookmark"
-                aria-hidden="true"
-              ></i>
+              <button
+                type="button"
+                class="remove-place-button"
+                data-remove-saved="<?= e(
+                    $removeKey
+                ) ?>"
+                data-saved-card-id="<?= $savedId ?>"
+              >
 
-              Remove
+                <i
+                  class="fa-solid fa-bookmark"
+                  aria-hidden="true"
+                ></i>
 
-            </button>
+                Remove
+
+              </button>
+
+            <?php endif; ?>
 
 
           </div>
@@ -773,7 +849,11 @@ require_once
     </div>
 
 
-  <?php else: ?>
+  <?php elseif (
+      empty(
+          $savedPlacesError
+      )
+  ): ?>
 
 
     <section class="empty-state">
@@ -833,205 +913,306 @@ require_once
 
 <script>
 
-document
-  .querySelectorAll(
-    "[data-remove-saved]"
-  )
-  .forEach(
-    initRemoveButton
+(() => {
+
+  const buttons =
+    Array.from(
+      document.querySelectorAll(
+        "[data-remove-saved]"
+      )
+    );
+
+
+  buttons.forEach(
+    initializeRemoveButton
   );
 
 
-async function initRemoveButton(
-  button
-) {
-
-  const placeId =
-    button.dataset.removeSaved;
-
-
-  if (!placeId) {
-    return;
-  }
-
-
-  try {
-
-    const response =
-      await fetch(
-        `save-place.php?place=${encodeURIComponent(
-          placeId
-        )}`,
-        {
-          credentials:
-            "include",
-
-          cache:
-            "no-store"
-        }
-      );
-
-
-    const result =
-      await response.json();
-
-
-    if (
-      !response.ok ||
-      !result.logged_in ||
-      !result.csrf_token
-    ) {
-      return;
-    }
-
-
-    button.dataset.csrf =
-      result.csrf_token;
-
-
-    button.addEventListener(
-      "click",
-      removeSavedPlace
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "Llama Scout saved-place error:",
-      error
-    );
-
-  }
-
-}
-
-
-async function removeSavedPlace(
-  event
-) {
-
-  const button =
-    event.currentTarget;
-
-
-  const placeId =
-    button.dataset.removeSaved;
-
-
-  const csrf =
-    button.dataset.csrf;
-
-
-  if (
-    !placeId ||
-    !csrf
+  async function initializeRemoveButton(
+    button
   ) {
-    return;
+
+    const placeKey =
+      button.dataset.removeSaved;
+
+
+    if (
+      !placeKey
+    ) {
+
+      return;
+
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          `https://llamascout.com/save-place.php?place=${encodeURIComponent(
+            placeKey
+          )}`,
+          {
+            credentials:
+              "include",
+
+            cache:
+              "no-store"
+          }
+        );
+
+
+      const result =
+        await response.json();
+
+
+      if (
+        !response.ok
+        ||
+        !result.logged_in
+        ||
+        !result.csrf_token
+      ) {
+
+        return;
+
+      }
+
+
+      button.dataset.csrf =
+        result.csrf_token;
+
+
+      button.addEventListener(
+        "click",
+        removeSavedPlace
+      );
+
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        "Llama Scout saved-place status error:",
+        error
+      );
+
+    }
+
   }
 
 
-  button.disabled =
-    true;
+  async function removeSavedPlace(
+    event
+  ) {
+
+    const button =
+      event.currentTarget;
 
 
-  try {
-
-    const body =
-      new URLSearchParams();
+    const placeKey =
+      button.dataset.removeSaved;
 
 
-    body.set(
-      "place",
-      placeId
-    );
+    const csrf =
+      button.dataset.csrf;
 
 
-    body.set(
-      "csrf_token",
-      csrf
-    );
-
-
-    const response =
-      await fetch(
-        "save-place.php",
-        {
-          method:
-            "POST",
-
-          credentials:
-            "include",
-
-          headers: {
-            "Content-Type":
-              "application/x-www-form-urlencoded"
-          },
-
-          body
-        }
-      );
-
-
-    const result =
-      await response.json();
+    const savedCardId =
+      button.dataset.savedCardId;
 
 
     if (
-      !response.ok ||
-      result.saved !==
-        false
+      !placeKey
+      ||
+      !csrf
     ) {
 
-      throw new Error(
-        result.message ||
-        "Could not remove saved place."
-      );
+      return;
+
     }
-
-
-    const card =
-      document.querySelector(
-        `[data-saved-card="${CSS.escape(
-          placeId
-        )}"]`
-      );
-
-
-    if (card) {
-      card.remove();
-    }
-
-
-    const remaining =
-      document.querySelectorAll(
-        "[data-saved-card]"
-      );
-
-
-    if (
-      remaining.length ===
-      0
-    ) {
-
-      window.location.reload();
-    }
-
-
-  } catch (error) {
-
-    console.error(
-      "Llama Scout saved-place error:",
-      error
-    );
 
 
     button.disabled =
-      false;
+      true;
+
+
+    try {
+
+      const body =
+        new URLSearchParams();
+
+
+      body.set(
+        "place",
+        placeKey
+      );
+
+
+      body.set(
+        "csrf_token",
+        csrf
+      );
+
+
+      const response =
+        await fetch(
+          "https://llamascout.com/save-place.php",
+          {
+            method:
+              "POST",
+
+            credentials:
+              "include",
+
+            headers: {
+              "Content-Type":
+                "application/x-www-form-urlencoded"
+            },
+
+            body
+          }
+        );
+
+
+      const result =
+        await response.json();
+
+
+      if (
+        !response.ok
+        ||
+        result.saved !==
+          false
+      ) {
+
+        throw new Error(
+          result.message
+          ||
+          "Could not remove saved place."
+        );
+
+      }
+
+
+      const card =
+        savedCardId
+          ? document.querySelector(
+              `[data-saved-card-id="${CSS.escape(
+                savedCardId
+              )}"]`
+            )
+          : null;
+
+
+      if (
+        card
+      ) {
+
+        card.remove();
+
+      }
+
+
+      showSavedToast(
+        result.message
+        ||
+        "Removed from Saved Places."
+      );
+
+
+      const remaining =
+        document.querySelectorAll(
+          "[data-saved-card-id]"
+        );
+
+
+      if (
+        remaining.length ===
+        0
+      ) {
+
+        window.location.reload();
+
+      }
+
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        "Llama Scout saved-place removal error:",
+        error
+      );
+
+
+      button.disabled =
+        false;
+
+
+      showSavedToast(
+        error.message
+        ||
+        "Saved Place could not be removed."
+      );
+
+    }
 
   }
 
-}
+
+  function showSavedToast(
+    message
+  ) {
+
+    const existing =
+      document.querySelector(
+        ".saved-toast"
+      );
+
+
+    if (
+      existing
+    ) {
+
+      existing.remove();
+
+    }
+
+
+    const toast =
+      document.createElement(
+        "div"
+      );
+
+
+    toast.className =
+      "saved-toast";
+
+
+    toast.textContent =
+      message;
+
+
+    document.body.appendChild(
+      toast
+    );
+
+
+    window.setTimeout(
+      () => {
+
+        toast.remove();
+
+      },
+      2800
+    );
+
+  }
+
+})();
 
 </script>
 
