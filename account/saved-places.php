@@ -115,6 +115,49 @@ function e(
 }
 
 
+function saved_place_image_url(
+    ?string $src
+): string {
+
+    $src =
+        trim(
+            (string)
+            $src
+        );
+
+
+    if (
+        $src === ''
+    ) {
+
+        return '';
+
+    }
+
+
+    if (
+        preg_match(
+            '#^https?://#i',
+            $src
+        )
+    ) {
+
+        return
+            $src;
+
+    }
+
+
+    return
+        'https://llamascout.com/'
+        .
+        ltrim(
+            $src,
+            '/'
+        );
+}
+
+
 function saved_place_type(
     ?string $type
 ): string {
@@ -624,9 +667,12 @@ require_once
             <img
               class="saved-card-image"
               src="<?= e(
-                  $place[
-                      'featured_image'
-                  ]
+                  saved_place_image_url(
+                      $place[
+                          'featured_image'
+                      ]
+                      ?? null
+                  )
               ) ?>"
               alt="<?= e(
                   $place[
