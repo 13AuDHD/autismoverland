@@ -14,6 +14,10 @@ require_once
     dirname(__DIR__)
     . '/app/memberships.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/stripe.php';
+
 
 require_login();
 start_llama_session();
@@ -82,31 +86,35 @@ $annualOffer =
    ACCOUNT + STRIPE MEMBERSHIP
    ========================================================= */
 
+$membershipSql =
+    '
+    SELECT
+        id,
+        email,
+        username,
+        display_name,
+        timezone,
+
+        stripe_customer_id,
+        stripe_subscription_id,
+        stripe_cancel_at_period_end,
+
+        membership_status,
+        membership_interval,
+        membership_started_at,
+        membership_ends_at
+
+    FROM users
+
+    WHERE id = ?
+
+    LIMIT 1
+    ';
+
+
 $stmt =
     $db->prepare(
-        '
-        SELECT
-            id,
-            email,
-            username,
-            display_name,
-            timezone,
-
-            stripe_customer_id,
-            stripe_subscription_id,
-            stripe_cancel_at_period_end,
-
-            membership_status,
-            membership_interval,
-            membership_started_at,
-            membership_ends_at
-
-        FROM users
-
-        WHERE id = ?
-
-        LIMIT 1
-        '
+        $membershipSql
     );
 
 
@@ -133,6 +141,246 @@ if (
         'Account not found.'
     );
 
+}
+
+
+/* =========================================================
+   EMBEDDED CHECKOUT RETURN
+
+   The webhook remains authoritative.
+
+   This immediate reconciliation prevents the member from
+   returning from a completed Stripe Checkout and briefly
+   seeing a Free account while the webhook is still in flight.
+   ========================================================= */
+
+$checkoutMessage =
+    '';
+
+
+$checkoutReturn =
+    strtolower(
+        trim(
+            (string) (
+                $_GET[
+                    'checkout'
+                ]
+                ?? ''
+            )
+        )
+    );
+
+
+$checkoutSessionId =
+    trim(
+        (string) (
+            $_GET[
+                'session_id'
+            ]
+            ?? ''
+        )
+    );
+
+
+if (
+    $checkoutReturn ===
+        'success'
+) {
+
+    if (
+        $checkoutSessionId === ''
+    ) {
+
+        $checkoutMessage =
+            'Checkout returned successfully, but membership confirmation is still processing. Your account will update automatically.';
+
+    } else {
+
+        try {
+
+            $stripe =
+                llama_stripe_client();
+
+
+            $checkoutSession =
+                $stripe
+                    ->checkout
+                    ->sessions
+                    ->retrieve(
+                        $checkoutSessionId,
+                        [
+                            'expand' => [
+                                'subscription',
+                            ],
+                        ]
+                    );
+
+
+            /* =============================================
+               VERIFY CHECKOUT BELONGS TO THIS USER
+               ============================================= */
+
+            $sessionUserId =
+                (int) (
+                    $checkoutSession
+                        ->metadata
+                        ->llama_user_id
+                    ??
+                    $checkoutSession
+                        ->client_reference_id
+                    ??
+                    0
+                );
+
+
+            if (
+                $sessionUserId !==
+                $userId
+            ) {
+
+                throw new RuntimeException(
+                    'Checkout Session does not belong to the logged-in account.'
+                );
+            }
+
+
+            if (
+                strtolower(
+                    trim(
+                        (string) (
+                            $checkoutSession
+                                ->status
+                            ?? ''
+                        )
+                    )
+                )
+                !==
+                'complete'
+            ) {
+
+                throw new RuntimeException(
+                    'Checkout Session is not complete.'
+                );
+            }
+
+
+            /* =============================================
+               SUBSCRIPTION
+               ============================================= */
+
+            $subscription =
+                $checkoutSession
+                    ->subscription
+                ?? null;
+
+
+            if (
+                is_string(
+                    $subscription
+                )
+                &&
+                $subscription !== ''
+            ) {
+
+                $subscription =
+                    $stripe
+                        ->subscriptions
+                        ->retrieve(
+                            $subscription,
+                            []
+                        );
+            }
+
+
+            if (
+                !is_object(
+                    $subscription
+                )
+            ) {
+
+                throw new RuntimeException(
+                    'Completed Checkout Session does not contain a subscription.'
+                );
+            }
+
+
+            /* =============================================
+               SAME SYNCHRONIZER USED BY WEBHOOKS
+               ============================================= */
+
+            llama_sync_stripe_subscription(
+                $db,
+                $subscription,
+                $userId
+            );
+
+
+            /* =============================================
+               RELOAD MEMBERSHIP STATE
+
+               Everything below this point will now calculate
+               access using the freshly synchronized values.
+               ============================================= */
+
+            $stmt =
+                $db->prepare(
+                    $membershipSql
+                );
+
+
+            $stmt->execute([
+                $userId
+            ]);
+
+
+            $membership =
+                $stmt->fetch(
+                    PDO::FETCH_ASSOC
+                );
+
+
+            if (
+                !$membership
+            ) {
+
+                throw new RuntimeException(
+                    'Membership account could not be reloaded after checkout.'
+                );
+            }
+
+
+            $checkoutMessage =
+                'Membership activated. Your Llama Scout access is ready.';
+
+
+        } catch (
+            Throwable $exception
+        ) {
+
+            error_log(
+                'Llama Scout Checkout return reconciliation error for user #'
+                .
+                $userId
+                .
+                ': '
+                .
+                $exception
+                    ->getMessage()
+            );
+
+
+            /*
+             * Do not claim checkout failed here. Stripe may
+             * already have completed payment successfully.
+             *
+             * The signed Stripe webhook remains authoritative
+             * and can still synchronize the account.
+             */
+
+            $checkoutMessage =
+                'Checkout completed. Stripe is finishing membership confirmation. Your account will update automatically.';
+        }
+    }
 }
 
 
@@ -1241,44 +1489,31 @@ if (
 
 /* =========================================================
    CHECKOUT MESSAGE
+
+   Successful embedded Checkout is reconciled near the top of
+   this file before membership/access state is calculated.
+
+   This block retains the older canceled-checkout message for
+   compatibility.
    ========================================================= */
 
-$checkoutMessage =
-    '';
-
-
 if (
+    $checkoutMessage === ''
+    &&
     isset(
         $_GET[
             'checkout'
         ]
     )
+    &&
+    $_GET[
+        'checkout'
+    ] ===
+        'canceled'
 ) {
 
-    if (
-        $_GET[
-            'checkout'
-        ]
-        ===
-        'success'
-    ) {
-
-        $checkoutMessage =
-            'Checkout completed. Stripe is confirming your membership. Your account will update automatically.';
-
-    } elseif (
-        $_GET[
-            'checkout'
-        ]
-        ===
-        'canceled'
-    ) {
-
-        $checkoutMessage =
-            'Checkout was canceled. No changes were made to your membership.';
-
-    }
-
+    $checkoutMessage =
+        'Checkout was canceled. No changes were made to your membership.';
 }
 
 
