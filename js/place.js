@@ -440,7 +440,7 @@ function renderMembershipGate(
 
 
 /* =========================================================
-   REPORT A PROBLEM
+   SOMETHING CHANGED?
    ========================================================= */
 
 function renderReportProblem(
@@ -462,12 +462,22 @@ function renderReportProblem(
   }
 
 
-  const reportUrl =
-    "https://account.llamascout.com/report-place.php?place="
-    +
+  const encodedSlug =
     encodeURIComponent(
       slug
     );
+
+
+  const updateUrl =
+    "https://account.llamascout.com/update-place.php?place="
+    +
+    encodedSlug;
+
+
+  const reportUrl =
+    "https://account.llamascout.com/report-place.php?place="
+    +
+    encodedSlug;
 
 
   return `
@@ -487,29 +497,90 @@ function renderReportProblem(
           </h2>
 
           <p>
-            Campsites, roads, access rules, closures,
-            and conditions can change quickly. If something
-            here is no longer accurate, let us know.
+            Campsites, roads, access, amenities, conditions,
+            and other details can change over time.
+            If you've visited recently or noticed something
+            that should be updated, let us know.
           </p>
 
         </div>
 
 
-        <a
-          class="report-place-button"
-          href="${escapeHTML(
-            reportUrl
-          )}"
+        <div
+          style="
+            display:grid;
+            grid-template-columns:
+              repeat(
+                auto-fit,
+                minmax(220px,1fr)
+              );
+            gap:10px;
+            width:100%;
+          "
         >
 
-          <i
-            class="fa-solid fa-triangle-exclamation"
-            aria-hidden="true"
-          ></i>
+          <a
+            href="${escapeHTML(
+              updateUrl
+            )}"
+            style="
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              gap:8px;
+              min-height:46px;
+              padding:11px 14px;
+              border:1px solid #172822;
+              border-radius:9px;
+              background:#172822;
+              color:#fff;
+              text-decoration:none;
+              font-weight:750;
+              text-align:center;
+            "
+          >
 
-          Mark a Problem With This Place
+            <i
+              class="fa-solid fa-pen-to-square"
+              aria-hidden="true"
+            ></i>
 
-        </a>
+            Suggest an Update
+
+          </a>
+
+
+          <a
+            href="${escapeHTML(
+              reportUrl
+            )}"
+            style="
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              gap:8px;
+              min-height:46px;
+              padding:11px 14px;
+              border:1px solid rgba(23,40,34,.18);
+              border-radius:9px;
+              background:transparent;
+              color:inherit;
+              text-decoration:none;
+              font-weight:750;
+              text-align:center;
+            "
+          >
+
+            <i
+              class="fa-solid fa-flag"
+              aria-hidden="true"
+            ></i>
+
+            Flag a Concern
+
+          </a>
+
+        </div>
 
       </div>
 
@@ -517,7 +588,6 @@ function renderReportProblem(
 
   `;
 }
-
 
 
 /* =========================================================
