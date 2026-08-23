@@ -1160,6 +1160,80 @@ if (
             }
 
 
+                  $photoJson =
+                $_POST[
+                    'update_photos_json'
+                ]
+                ?? '';
+
+
+            if (
+                is_array(
+                    $photoJson
+                )
+            ) {
+
+                throw new InvalidArgumentException(
+                    'The submitted photo information was invalid.'
+                );
+
+            }
+
+
+            $photoJson =
+                trim(
+                    (string)
+                    $photoJson
+                );
+
+
+            if (
+                $photoJson === ''
+            ) {
+
+                $updatePhotos =
+                    $editUpdate
+                    &&
+                    is_array(
+                        $editUpdate[
+                            'photos'
+                        ]
+                        ?? null
+                    )
+                        ? $editUpdate[
+                            'photos'
+                        ]
+                        : [];
+
+
+            } else {
+
+                $decodedPhotos =
+                    json_decode(
+                        $photoJson,
+                        true
+                    );
+
+
+                if (
+                    !is_array(
+                        $decodedPhotos
+                    )
+                ) {
+
+                    throw new InvalidArgumentException(
+                        'The submitted photo information could not be read.'
+                    );
+
+                }
+
+
+                $updatePhotos =
+                    $decodedPhotos;
+
+            }
+
+
             if (
                 $editUpdate
             ) {
@@ -1176,7 +1250,8 @@ if (
                         : null,
                     $contributorNotes !== ''
                         ? $contributorNotes
-                        : null
+                        : null,
+                    $updatePhotos
                 );
 
 
@@ -1199,11 +1274,11 @@ if (
                         $contributorNotes !== ''
                             ? $contributorNotes
                             : null,
-                        $originalValues
+                        $originalValues,
+                        $updatePhotos
                     );
 
             }
-
 
             $success =
                 true;
