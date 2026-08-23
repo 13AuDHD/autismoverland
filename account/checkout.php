@@ -1383,7 +1383,7 @@ require_once
           <span>
             Payment details are securely collected and
             processed by Stripe. Llama Scout does not receive
-            or store your full card number.
+            or store your card number.
           </span>
 
         </div>
