@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 
+require_once
+    __DIR__
+    . '/memberships.php';
+
+
+
 /* =========================================================
    LLAMA SCOUT STRIPE SERVICE
 
@@ -270,11 +276,92 @@ function llama_membership_interval_from_price(
 
 
     /*
-     * Database-backed membership catalog.
+     * Permanent source:
      *
-     * We intentionally do not run CREATE / ALTER operations
-     * here. Webhook synchronization must never perform schema
-     * migration work implicitly.
+     * membership_plan_prices contains every current and
+     * historical Stripe Price ID ever assigned to a Llama
+     * Scout membership plan.
+     *
+     * We intentionally do not run schema migration here.
+     * Webhooks must remain read/sync operations.
+     */
+
+    try {
+
+        $price =
+            llama_membership_price_by_stripe_price_id(
+                $db,
+                $priceId
+            );
+
+
+        if (
+            $price
+        ) {
+
+            $interval =
+                strtolower(
+                    trim(
+                        (string) (
+                            $price[
+                                'interval_slug'
+                            ]
+                            ?? ''
+                        )
+                    )
+                );
+
+
+            if (
+                in_array(
+                    $interval,
+                    [
+                        LLAMA_MEMBERSHIP_INTERVAL_MONTHLY,
+                        LLAMA_MEMBERSHIP_INTERVAL_ANNUAL,
+                    ],
+                    true
+                )
+            ) {
+
+                return
+                    $interval;
+
+            }
+
+        }
+
+    } catch (
+        Throwable $exception
+    ) {
+
+        /*
+         * Migration safety:
+         *
+         * If the versioned table is not available yet, continue
+         * to compatibility fallbacks below instead of breaking
+         * webhook processing.
+         */
+
+        error_log(
+            'Llama Scout historical Stripe Price lookup failed for '
+            .
+            $priceId
+            .
+            ': '
+            .
+            $exception
+                ->getMessage()
+        );
+
+    }
+
+
+    /*
+     * Compatibility shadow:
+     *
+     * During migration, membership_plans still contains the
+     * current Stripe Price ID. This catches a deployment where
+     * the service file changed before price history initialized.
      */
 
     try {
@@ -314,32 +401,33 @@ function llama_membership_interval_from_price(
             in_array(
                 $interval,
                 [
-                    'monthly',
-                    'annual',
+                    LLAMA_MEMBERSHIP_INTERVAL_MONTHLY,
+                    LLAMA_MEMBERSHIP_INTERVAL_ANNUAL,
                 ],
                 true
             )
         ) {
+
             return
                 $interval;
+
         }
 
     } catch (
-        Throwable $exception
+        Throwable
     ) {
 
         /*
-         * Migration safety only.
-         *
-         * If the new catalog is not available yet, continue
-         * to legacy private-config matching below.
+         * Continue to old private-config migration fallback.
          */
 
     }
 
 
     /*
-     * Optional legacy fallback.
+     * Old private configuration is now only a final migration
+     * fallback for subscriptions created before the database
+     * catalog became authoritative.
      */
 
     $config =
@@ -365,8 +453,10 @@ function llama_membership_interval_from_price(
             $priceId
         )
     ) {
+
         return
-            'monthly';
+            LLAMA_MEMBERSHIP_INTERVAL_MONTHLY;
+
     }
 
 
@@ -389,8 +479,10 @@ function llama_membership_interval_from_price(
             $priceId
         )
     ) {
+
         return
-            'annual';
+            LLAMA_MEMBERSHIP_INTERVAL_ANNUAL;
+
     }
 
 
