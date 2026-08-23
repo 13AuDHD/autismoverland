@@ -772,9 +772,11 @@ if (
             500
         );
 
+               $checkoutError =
+            $exception instanceof RuntimeException
+                ? $exception->getMessage()
+                : 'Something went wrong while connecting to secure checkout. No payment was created.';
 
-        $checkoutError =
-            'Something went wrong while connecting to secure checkout. No payment was created.';
     }
 }
 
