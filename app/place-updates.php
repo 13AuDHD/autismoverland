@@ -942,6 +942,201 @@ function llama_update_field_count(
 
    ========================================================= */
 
+function llama_place_update_clean_photos(
+    array $photos,
+    int $userId
+): array {
+
+    if (
+        $userId < 1
+    ) {
+
+        throw new InvalidArgumentException(
+            'A valid photo contributor is required.'
+        );
+
+    }
+
+
+    if (
+        count(
+            $photos
+        ) > 5
+    ) {
+
+        throw new InvalidArgumentException(
+            'A Place update can include up to 5 photos.'
+        );
+
+    }
+
+
+    $clean =
+        [];
+
+
+    $userPath =
+        '/user-'
+        .
+        $userId
+        .
+        '/';
+
+
+    foreach (
+        $photos as
+        $photo
+    ) {
+
+        if (
+            !is_array(
+                $photo
+            )
+        ) {
+
+            continue;
+
+        }
+
+
+        $url =
+            trim(
+                (string) (
+                    $photo['url']
+                    ??
+                    $photo['src']
+                    ??
+                    ''
+                )
+            );
+
+
+        if (
+            $url === ''
+        ) {
+
+            continue;
+
+        }
+
+
+        if (
+            !str_starts_with(
+                $url,
+                '/uploads/place-updates/'
+            )
+            ||
+            !str_contains(
+                $url,
+                $userPath
+            )
+        ) {
+
+            throw new InvalidArgumentException(
+                'One of the submitted update photos is not valid for this contributor.'
+            );
+
+        }
+
+
+        $filename =
+            basename(
+                $url
+            );
+
+
+        if (
+            !preg_match(
+                '/^photo-[a-f0-9]{32}\.jpg$/',
+                $filename
+            )
+        ) {
+
+            throw new InvalidArgumentException(
+                'One of the submitted update photos has an invalid filename.'
+            );
+
+        }
+
+
+        $alt =
+            trim(
+                (string) (
+                    $photo['alt']
+                    ?? ''
+                )
+            );
+
+
+        if (
+            mb_strlen(
+                $alt
+            ) > 300
+        ) {
+
+            $alt =
+                mb_substr(
+                    $alt,
+                    0,
+                    300
+                );
+
+        }
+
+
+        $clean[] = [
+
+            'url' =>
+                $url,
+
+            'filename' =>
+                $filename,
+
+            'width' =>
+                max(
+                    0,
+                    (int) (
+                        $photo['width']
+                        ?? 0
+                    )
+                ),
+
+            'height' =>
+                max(
+                    0,
+                    (int) (
+                        $photo['height']
+                        ?? 0
+                    )
+                ),
+
+            'size' =>
+                max(
+                    0,
+                    (int) (
+                        $photo['size']
+                        ?? 0
+                    )
+                ),
+
+            'alt' =>
+                $alt,
+
+        ];
+
+    }
+
+
+    return
+        array_slice(
+            $clean,
+            0,
+            5
+        );
+
+}
+
+
 function llama_create_place_update(
     PDO $db,
     int $placeId,
@@ -951,7 +1146,8 @@ function llama_create_place_update(
         LLAMA_PLACE_UPDATE,
     ?string $visitedAt = null,
     ?string $contributorNotes = null,
-    ?array $originalValues = null
+    ?array $originalValues = null,
+    ?array $photos = null
 ): int {
 
     if (
@@ -1041,6 +1237,14 @@ function llama_create_place_update(
     }
 
 
+    $photos =
+        llama_place_update_clean_photos(
+            $photos
+            ?? [],
+            $userId
+        );
+
+
     $stmt =
         $db->prepare(
             '
@@ -1054,6 +1258,7 @@ function llama_create_place_update(
                 visited_at,
                 proposed_changes,
                 original_values,
+                photos,
                 contributor_notes
             )
 
@@ -1063,6 +1268,7 @@ function llama_create_place_update(
                 ?,
                 ?,
                 \'pending\',
+                ?,
                 ?,
                 ?,
                 ?,
@@ -1089,19 +1295,18 @@ function llama_create_place_update(
                     $originalValues
                 )
                 : null,
+            $photos
+                ? llama_update_json(
+                    $photos
+                )
+                : null,
             $contributorNotes,
         ]);
+
 
     } catch (
         PDOException $exception
     ) {
-
-        /*
-         * MySQL duplicate-key errors use SQLSTATE 23000.
-         * Only translate the error when it came from the
-         * open-update uniqueness constraint. Other database
-         * integrity errors must still surface normally.
-         */
 
         $sqlState =
             (string) (
@@ -1193,7 +1398,8 @@ function llama_resubmit_place_update(
     array $originalValues,
     string $updateType,
     ?string $visitedAt = null,
-    ?string $contributorNotes = null
+    ?string $contributorNotes = null,
+    ?array $photos = null
 ): void {
 
     if (
@@ -1267,6 +1473,14 @@ function llama_resubmit_place_update(
     }
 
 
+    $photos =
+        llama_place_update_clean_photos(
+            $photos
+            ?? [],
+            $userId
+        );
+
+
     $stmt =
         $db->prepare(
             '
@@ -1278,6 +1492,7 @@ function llama_resubmit_place_update(
                 visited_at = ?,
                 proposed_changes = ?,
                 original_values = ?,
+                photos = ?,
                 contributor_notes = ?,
 
                 reviewed_by = NULL,
@@ -1307,6 +1522,11 @@ function llama_resubmit_place_update(
         llama_update_json(
             $originalValues
         ),
+        $photos
+            ? llama_update_json(
+                $photos
+            )
+            : null,
         $contributorNotes,
         $updateId,
         $userId,
@@ -1407,6 +1627,7 @@ function llama_place_update(
         [
             'proposed_changes',
             'original_values',
+            'photos',
         ]
         as
         $jsonField
@@ -1449,10 +1670,25 @@ function llama_place_update(
     }
 
 
+    if (
+        !isset(
+            $row['photos']
+        )
+        ||
+        !is_array(
+            $row['photos']
+        )
+    ) {
+
+        $row['photos'] =
+            [];
+
+    }
+
+
     return $row;
 
 }
-
 
 /* =========================================================
    USER HAS OPEN UPDATE
