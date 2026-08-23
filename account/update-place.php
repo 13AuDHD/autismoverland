@@ -2395,7 +2395,10 @@ require_once
   src="https://llamascout.com/js/header.js"
 ></script>
 
-
+<script
+  src="/js/update-place-photos.js"
+></script>
+    
 <script>
 
 document
