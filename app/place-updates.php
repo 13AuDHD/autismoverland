@@ -342,6 +342,82 @@ function llama_ensure_place_update_open_uniqueness(
    before any application transaction begins.
    ========================================================= */
 
+function llama_place_update_photos_column_exists(
+    PDO $db
+): bool {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM information_schema.columns
+
+            WHERE table_schema = DATABASE()
+
+              AND table_name =
+                  \'place_update_submissions\'
+
+              AND column_name =
+                  \'photos\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute();
+
+
+    return
+        $stmt->fetchColumn()
+        !==
+        false;
+
+}
+
+
+function llama_ensure_place_update_photos_column(
+    PDO $db
+): void {
+
+    if (
+        llama_place_update_photos_column_exists(
+            $db
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        $db->inTransaction()
+    ) {
+
+        throw new RuntimeException(
+            'Place update photo storage must be initialized before starting a transaction.'
+        );
+
+    }
+
+
+    $db->exec(
+        '
+        ALTER TABLE place_update_submissions
+
+        ADD COLUMN photos
+            JSON
+            NULL
+
+        AFTER original_values
+        '
+    );
+
+}
+
+
 function llama_ensure_place_updates_table(
     PDO $db
 ): void {
@@ -351,6 +427,11 @@ function llama_ensure_place_updates_table(
             $db
         )
     ) {
+
+        llama_ensure_place_update_photos_column(
+            $db
+        );
+
 
         llama_ensure_place_update_open_uniqueness(
             $db
@@ -433,6 +514,10 @@ function llama_ensure_place_updates_table(
                 NOT NULL,
 
             original_values
+                JSON
+                NULL,
+
+            photos
                 JSON
                 NULL,
 
@@ -523,7 +608,6 @@ function llama_ensure_place_updates_table(
     );
 
 }
-
 
 /* =========================================================
    VALID UPDATE TYPE
