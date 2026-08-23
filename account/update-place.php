@@ -2471,7 +2471,7 @@ require_once
 ></script>
 
 <script
-  src="/js/update-place-photos.js"
+  src="https://llamascout.com/js/update-place-photos.js"
 ></script>
     
 <script>
