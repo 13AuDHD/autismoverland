@@ -10,6 +10,10 @@ require_once
     dirname(__DIR__)
     . '/app/timezone.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/memberships.php';
+
 
 require_login();
 start_llama_session();
@@ -23,13 +27,59 @@ $user =
     current_user();
 
 
+if (
+    !$user
+) {
+
+    http_response_code(
+        401
+    );
+
+    exit(
+        'Authentication required.'
+    );
+
+}
+
+
 $userId =
     (int)
-    $user['id'];
+    $user[
+        'id'
+    ];
 
 
 /* =========================================================
-   ACCOUNT + MEMBERSHIP
+   MEMBERSHIP STORAGE / OFFERS
+   ========================================================= */
+
+llama_ensure_membership_storage(
+    $db
+);
+
+
+$offers =
+    llama_membership_offers(
+        $db
+    );
+
+
+$monthlyOffer =
+    $offers[
+        LLAMA_MEMBERSHIP_INTERVAL_MONTHLY
+    ]
+    ?? null;
+
+
+$annualOffer =
+    $offers[
+        LLAMA_MEMBERSHIP_INTERVAL_ANNUAL
+    ]
+    ?? null;
+
+
+/* =========================================================
+   ACCOUNT + STRIPE MEMBERSHIP
    ========================================================= */
 
 $stmt =
@@ -78,7 +128,6 @@ if (
     http_response_code(
         404
     );
-
 
     exit(
         'Account not found.'
@@ -272,8 +321,8 @@ if (
 
             $activeScoutExtension =
                 $extension;
-        }
 
+        }
 
     } catch (
         Throwable $exception
@@ -290,16 +339,6 @@ if (
                 ->getMessage()
         );
 
-
-        http_response_code(
-            500
-        );
-
-
-        exit(
-            'Your Scout access information could not be loaded.'
-        );
-
     }
 
 }
@@ -309,6 +348,29 @@ $isScoutExtension =
     is_array(
         $activeScoutExtension
     );
+
+
+/* =========================================================
+   COMPLIMENTARY ACCESS
+
+   New complimentary access is stored independently from the
+   Stripe membership fields.
+
+   Legacy membership_status=complimentary remains recognized
+   temporarily so an older account does not unexpectedly lose
+   access before migration.
+   ========================================================= */
+
+$activeComplimentaryGrant =
+    llama_active_complimentary_grant(
+        $db,
+        $userId
+    );
+
+
+$hasComplimentaryGrant =
+    $activeComplimentaryGrant !==
+        null;
 
 
 /* =========================================================
@@ -375,7 +437,7 @@ function membership_status_label(
             'Canceled',
 
         'complimentary' =>
-            'Complimentary',
+            'Legacy Complimentary',
 
         default =>
             'Free',
@@ -460,6 +522,104 @@ function scout_status_label(
 }
 
 
+function account_membership_offer_price(
+    ?array $offer
+): string {
+
+    if (
+        !$offer
+    ) {
+
+        return 'Unavailable';
+
+    }
+
+
+    return llama_membership_format_money(
+        (int)
+        $offer[
+            'effective_price_cents'
+        ],
+        (string)
+        $offer[
+            'plan'
+        ][
+            'currency'
+        ]
+    );
+
+}
+
+
+function account_membership_regular_price(
+    ?array $offer
+): string {
+
+    if (
+        !$offer
+    ) {
+
+        return '';
+
+    }
+
+
+    return llama_membership_format_money(
+        (int)
+        $offer[
+            'base_price_cents'
+        ],
+        (string)
+        $offer[
+            'plan'
+        ][
+            'currency'
+        ]
+    );
+
+}
+
+
+function account_membership_sale_label(
+    ?array $offer
+): ?string {
+
+    if (
+        !$offer
+        ||
+        empty(
+            $offer[
+                'on_sale'
+            ]
+        )
+    ) {
+
+        return null;
+
+    }
+
+
+    $label =
+        trim(
+            (string) (
+                $offer[
+                    'promotion'
+                ][
+                    'public_label'
+                ]
+                ?? ''
+            )
+        );
+
+
+    return
+        $label !== ''
+            ? $label
+            : 'Sale';
+
+}
+
+
 /* =========================================================
    PRIMARY ROLE
    ========================================================= */
@@ -471,14 +631,12 @@ if (
     $primaryRole =
         'Owner';
 
-
 } elseif (
     $isAdmin
 ) {
 
     $primaryRole =
         'Admin';
-
 
 } elseif (
     $isMasterScout
@@ -489,7 +647,6 @@ if (
     $primaryRole =
         'Master Scout';
 
-
 } elseif (
     $isScout
     &&
@@ -499,14 +656,12 @@ if (
     $primaryRole =
         'Scout';
 
-
 } elseif (
     $isMember
 ) {
 
     $primaryRole =
         'Member';
-
 
 } else {
 
@@ -546,7 +701,7 @@ $isStripeMembership =
     );
 
 
-$isComplimentary =
+$isLegacyComplimentary =
     $status ===
         'complimentary';
 
@@ -560,7 +715,9 @@ $hasPermanentAccess =
 $hasMembershipAccess =
     $isStripeMembership
     ||
-    $isComplimentary;
+    $hasComplimentaryGrant
+    ||
+    $isLegacyComplimentary;
 
 
 $hasFullAccess =
@@ -572,34 +729,45 @@ $hasFullAccess =
 
 
 /* =========================================================
-   ACCESS SOURCE
+   ACCESS SOURCES
+
+   Access sources are additive. One does not overwrite another.
    ========================================================= */
+
+$accessSources =
+    [];
+
 
 if (
     $isOwner
 ) {
 
-    $accessSource =
+    $accessSources[] =
         'Owner Role';
 
+}
 
-} elseif (
+
+if (
     $isAdmin
+    &&
+    !$isOwner
 ) {
 
-    $accessSource =
+    $accessSources[] =
         'Admin Role';
 
+}
 
-} elseif (
+
+if (
     $isScoutExtension
     &&
     $hasActiveScoutAccess
 ) {
 
-    $accessSource =
+    $accessSources[] =
         '30-Day Scout Extension';
-
 
 } elseif (
     $isMasterScout
@@ -607,9 +775,8 @@ if (
     $hasActiveScoutAccess
 ) {
 
-    $accessSource =
+    $accessSources[] =
         'Master Scout';
-
 
 } elseif (
     $isScout
@@ -617,36 +784,61 @@ if (
     $hasActiveScoutAccess
 ) {
 
-    $accessSource =
-        'Scout';
+    $accessSources[] =
+        'Llama Scout';
+
+}
 
 
-} elseif (
+if (
     $isStripeMembership
 ) {
 
-    $accessSource =
+    $accessSources[] =
         'Paid Membership';
 
+}
 
-} elseif (
-    $isComplimentary
+
+if (
+    $hasComplimentaryGrant
 ) {
 
-    $accessSource =
+    $accessSources[] =
         'Complimentary Membership';
 
+} elseif (
+    $isLegacyComplimentary
+) {
 
-} else {
+    $accessSources[] =
+        'Legacy Complimentary Access';
 
-    $accessSource =
+}
+
+
+if (
+    !$accessSources
+) {
+
+    $accessSources[] =
         'Free Account';
 
 }
 
 
+$accessSource =
+    implode(
+        ' + ',
+        $accessSources
+    );
+
+
 /* =========================================================
    ACCESS THROUGH
+
+   This is a simple summary. Individual access sources are
+   shown in their own sections below.
    ========================================================= */
 
 if (
@@ -654,8 +846,7 @@ if (
 ) {
 
     $accessThrough =
-        'Never';
-
+        'No expiration';
 
 } elseif (
     $isScoutExtension
@@ -675,7 +866,6 @@ if (
             $membership
         );
 
-
 } elseif (
     $hasActiveScoutAccess
     &&
@@ -694,8 +884,27 @@ if (
             $membership
         );
 
+} elseif (
+    $hasComplimentaryGrant
+    &&
+    !empty(
+        $activeComplimentaryGrant[
+            'ends_at'
+        ]
+    )
+) {
+
+    $accessThrough =
+        format_membership_date(
+            $activeComplimentaryGrant[
+                'ends_at'
+            ],
+            $membership
+        );
 
 } elseif (
+    $isStripeMembership
+    &&
     !empty(
         $membership[
             'membership_ends_at'
@@ -711,14 +920,12 @@ if (
             $membership
         );
 
-
 } elseif (
     $hasFullAccess
 ) {
 
     $accessThrough =
-        'Not scheduled';
-
+        'Active';
 
 } else {
 
@@ -801,6 +1008,34 @@ $extensionEnds =
 
 
 /* =========================================================
+   COMPLIMENTARY DISPLAY
+   ========================================================= */
+
+$complimentaryStarted =
+    $hasComplimentaryGrant
+    ? format_membership_date(
+        $activeComplimentaryGrant[
+            'starts_at'
+        ]
+        ?? null,
+        $membership
+    )
+    : 'Not applicable';
+
+
+$complimentaryEnds =
+    $hasComplimentaryGrant
+    ? format_membership_date(
+        $activeComplimentaryGrant[
+            'ends_at'
+        ]
+        ?? null,
+        $membership
+    )
+    : 'Not applicable';
+
+
+/* =========================================================
    BILLING DISPLAY
    ========================================================= */
 
@@ -871,7 +1106,6 @@ if (
     $renewalStatus =
         'Will not renew';
 
-
 } elseif (
     $isStripeMembership
 ) {
@@ -879,15 +1113,13 @@ if (
     $renewalStatus =
         'Renews automatically';
 
-
 } elseif (
     $status ===
-    'canceled'
+        'canceled'
 ) {
 
     $renewalStatus =
         'Canceled';
-
 
 } else {
 
@@ -922,6 +1154,7 @@ if (
 
 
 $csrfToken =
+    (string)
     $_SESSION[
         'membership_checkout_csrf'
     ];
@@ -946,8 +1179,10 @@ $showBillingSection =
         ]
     )
     ||
-    $status !==
-        'none'
+    $isStripeMembership
+    ||
+    $status ===
+        'canceled'
     ||
     !empty(
         $membership[
@@ -968,6 +1203,40 @@ $showBillingPortal =
             'stripe_subscription_id'
         ]
     );
+
+
+/* =========================================================
+   REQUESTED PLAN
+   ========================================================= */
+
+$requestedPlan =
+    strtolower(
+        trim(
+            (string) (
+                $_GET[
+                    'plan'
+                ]
+                ?? ''
+            )
+        )
+    );
+
+
+if (
+    !in_array(
+        $requestedPlan,
+        [
+            LLAMA_MEMBERSHIP_INTERVAL_MONTHLY,
+            LLAMA_MEMBERSHIP_INTERVAL_ANNUAL,
+        ],
+        true
+    )
+) {
+
+    $requestedPlan =
+        '';
+
+}
 
 
 /* =========================================================
@@ -997,7 +1266,6 @@ if (
         $checkoutMessage =
             'Checkout completed. Stripe is confirming your membership. Your account will update automatically.';
 
-
     } elseif (
         $_GET[
             'checkout'
@@ -1012,6 +1280,42 @@ if (
     }
 
 }
+
+
+$monthlyPrice =
+    account_membership_offer_price(
+        $monthlyOffer
+    );
+
+
+$annualPrice =
+    account_membership_offer_price(
+        $annualOffer
+    );
+
+
+$monthlyRegular =
+    account_membership_regular_price(
+        $monthlyOffer
+    );
+
+
+$annualRegular =
+    account_membership_regular_price(
+        $annualOffer
+    );
+
+
+$monthlySaleLabel =
+    account_membership_sale_label(
+        $monthlyOffer
+    );
+
+
+$annualSaleLabel =
+    account_membership_sale_label(
+        $annualOffer
+    );
 
 
 ?>
@@ -1061,46 +1365,23 @@ if (
           100%,
           980px
         );
-
-      margin:
-        0
-        auto;
-
+      margin: 0 auto;
       padding:
         34px
         18px
         80px;
     }
 
-
     .membership-card {
-      margin-top:
-        22px;
-
-      padding:
-        24px;
-
+      margin-top: 22px;
+      padding: 24px;
       border:
         1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .12
-        );
-
-      border-radius:
-        18px;
-
+        rgba(23,40,34,.12);
+      border-radius: 18px;
       background:
-        rgba(
-          255,
-          255,
-          255,
-          .82
-        );
+        rgba(255,255,255,.82);
     }
-
 
     .membership-card h2 {
       margin:
@@ -1109,253 +1390,133 @@ if (
         8px;
     }
 
-
     .membership-card > p {
       margin:
         0
         0
         20px;
-
-      line-height:
-        1.6;
-
-      opacity:
-        .76;
+      line-height: 1.6;
+      opacity: .76;
     }
 
-
     .membership-grid {
-      display:
-        grid;
-
+      display: grid;
       grid-template-columns:
         repeat(
           2,
-          minmax(
-            0,
-            1fr
-          )
+          minmax(0,1fr)
         );
-
-      gap:
-        12px;
+      gap: 12px;
     }
-
 
     .membership-item {
-      padding:
-        15px;
-
-      border-radius:
-        12px;
-
+      padding: 15px;
+      border-radius: 12px;
       background:
-        rgba(
-          23,
-          40,
-          34,
-          .055
-        );
+        rgba(23,40,34,.055);
     }
-
 
     .membership-item span {
-      display:
-        block;
-
-      margin-bottom:
-        5px;
-
-      font-size:
-        .79rem;
-
-      opacity:
-        .64;
+      display: block;
+      margin-bottom: 5px;
+      font-size: .79rem;
+      opacity: .64;
     }
-
 
     .membership-item strong {
-      display:
-        block;
+      display: block;
+      line-height: 1.45;
     }
 
-
     .membership-pill {
-      display:
-        inline-flex;
-
-      align-items:
-        center;
-
-      gap:
-        7px;
-
-      margin-bottom:
-        14px;
-
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 14px;
       padding:
         7px
         10px;
-
-      border-radius:
-        999px;
-
-      background:
-        #172822;
-
-      color:
-        #fff;
-
-      font-size:
-        .8rem;
-
-      font-weight:
-        750;
+      border-radius: 999px;
+      background: #172822;
+      color: #fff;
+      font-size: .8rem;
+      font-weight: 750;
     }
 
+    .membership-pill--gift {
+      background: #2f819e;
+    }
 
     .membership-note {
-      display:
-        flex;
-
-      gap:
-        10px;
-
-      margin-top:
-        16px;
-
-      padding:
-        14px;
-
-      border-radius:
-        12px;
-
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 12px;
       background:
-        rgba(
-          217,
-          196,
-          154,
-          .16
-        );
-
-      line-height:
-        1.55;
+        rgba(217,196,154,.16);
+      line-height: 1.55;
     }
-
 
     .membership-note i {
-      margin-top:
-        3px;
+      margin-top: 3px;
     }
-
 
     .membership-actions {
-      display:
-        flex;
-
-      flex-wrap:
-        wrap;
-
-      gap:
-        10px;
-
-      margin-top:
-        18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
     }
 
-
     .membership-button {
-      display:
-        inline-flex;
-
-      align-items:
-        center;
-
-      justify-content:
-        center;
-
-      gap:
-        8px;
-
-      min-height:
-        44px;
-
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
       padding:
         11px
         16px;
-
-      border:
-        0;
-
-      border-radius:
-        9px;
-
-      background:
-        #172822;
-
-      color:
-        #fff;
-
-      text-decoration:
-        none;
-
-      font:
-        inherit;
-
-      font-weight:
-        750;
-
-      cursor:
-        pointer;
+      border: 0;
+      border-radius: 9px;
+      background: #172822;
+      color: #fff;
+      text-decoration: none;
+      font: inherit;
+      font-weight: 750;
+      cursor: pointer;
     }
 
-
     .membership-plans {
-      display:
-        grid;
-
+      display: grid;
       grid-template-columns:
         repeat(
           2,
-          minmax(
-            0,
-            1fr
-          )
+          minmax(0,1fr)
         );
-
-      gap:
-        16px;
-
-      margin-top:
-        18px;
+      gap: 16px;
+      margin-top: 18px;
     }
-
 
     .membership-plan {
-      padding:
-        22px;
-
+      position: relative;
+      padding: 22px;
       border:
         1px solid
-        rgba(
-          23,
-          40,
-          34,
-          .12
-        );
-
-      border-radius:
-        16px;
-
+        rgba(23,40,34,.12);
+      border-radius: 16px;
       background:
-        rgba(
-          255,
-          255,
-          255,
-          .76
-        );
+        rgba(255,255,255,.76);
     }
 
+    .membership-plan.is-selected {
+      border-color:
+        rgba(47,129,158,.55);
+      box-shadow:
+        0 0 0 2px
+        rgba(47,129,158,.08);
+    }
 
     .membership-plan h3 {
       margin:
@@ -1364,54 +1525,80 @@ if (
         8px;
     }
 
+    .membership-plan-badge {
+      display: inline-flex;
+      margin-bottom: 10px;
+      padding:
+        5px
+        8px;
+      border-radius: 999px;
+      background: #2f819e;
+      color: #fff;
+      font-size: .68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
 
     .membership-price {
-      margin-bottom:
-        12px;
-
-      font-size:
-        2rem;
-
-      font-weight:
-        800;
+      margin-bottom: 12px;
+      font-size: 2rem;
+      font-weight: 800;
     }
-
 
     .membership-price span {
-      font-size:
-        .9rem;
-
-      font-weight:
-        500;
-
-      opacity:
-        .65;
+      font-size: .9rem;
+      font-weight: 500;
+      opacity: .65;
     }
 
+    .membership-price del {
+      margin-right: 6px;
+      font-size: 1rem;
+      font-weight: 500;
+      opacity: .5;
+    }
 
     .membership-plan ul {
       margin:
         14px
         0
         18px;
-
-      padding-left:
-        20px;
-
-      line-height:
-        1.65;
+      padding-left: 20px;
+      line-height: 1.65;
     }
 
+    .membership-billing-disclosure {
+      margin-top: 18px;
+      padding:
+        14px
+        15px;
+      border:
+        1px solid
+        rgba(23,40,34,.11);
+      border-radius: 11px;
+      background:
+        rgba(47,129,158,.07);
+      font-size: .8rem;
+      line-height: 1.6;
+      opacity: .86;
+    }
+
+    .membership-billing-disclosure strong {
+      opacity: 1;
+    }
+
+    .membership-billing-disclosure a {
+      font-weight: 750;
+      text-decoration: underline;
+    }
 
     @media (
-      max-width:
-        680px
+      max-width: 680px
     ) {
 
       .membership-grid,
       .membership-plans {
-        grid-template-columns:
-          1fr;
+        grid-template-columns: 1fr;
       }
 
     }
@@ -1458,7 +1645,8 @@ require_once
     </h1>
 
     <p>
-      Your current access, Scout status, and billing.
+      Your current access, Scout status, complimentary access,
+      and billing.
     </p>
 
   </header>
@@ -1475,20 +1663,22 @@ require_once
   <?php endif; ?>
 
 
+  <!-- =====================================================
+       CURRENT ACCESS
+       ===================================================== -->
+
   <section class="membership-card">
 
     <h2>
-      Current Membership
+      Current Access
     </h2>
 
-
     <p>
-      What your account can access right now.
+      What your account can access right now and why.
     </p>
 
 
     <div class="membership-grid">
-
 
       <div class="membership-item">
 
@@ -1510,12 +1700,10 @@ require_once
         </span>
 
         <strong>
-
           <?= $hasFullAccess
               ? 'Full Access'
               : 'Free Access'
           ?>
-
         </strong>
 
       </div>
@@ -1546,19 +1734,128 @@ require_once
 
       </div>
 
-
     </div>
 
   </section>
 
 
+  <!-- =====================================================
+       COMPLIMENTARY GRANT
+       ===================================================== -->
+
+  <?php if (
+      $hasComplimentaryGrant
+  ): ?>
+
+    <section class="membership-card">
+
+      <span
+        class="
+          membership-pill
+          membership-pill--gift
+        "
+      >
+
+        <i
+          class="fa-solid fa-gift"
+          aria-hidden="true"
+        ></i>
+
+        Complimentary Membership
+
+      </span>
+
+
+      <h2>
+        Complimentary Access
+      </h2>
+
+
+      <p>
+        This access was granted independently of any paid
+        Stripe subscription.
+      </p>
+
+
+      <div class="membership-grid">
+
+        <div class="membership-item">
+
+          <span>
+            Started
+          </span>
+
+          <strong>
+            <?= e(
+                $complimentaryStarted
+            ) ?>
+          </strong>
+
+        </div>
+
+
+        <div class="membership-item">
+
+          <span>
+            Access Through
+          </span>
+
+          <strong>
+            <?= e(
+                $complimentaryEnds
+            ) ?>
+          </strong>
+
+        </div>
+
+
+        <div class="membership-item">
+
+          <span>
+            Access Level
+          </span>
+
+          <strong>
+            Full Llama Scout Access
+          </strong>
+
+        </div>
+
+
+        <div class="membership-item">
+
+          <span>
+            Reason
+          </span>
+
+          <strong>
+            <?= e(
+                $activeComplimentaryGrant[
+                    'reason'
+                ]
+                ?:
+                'Complimentary access'
+            ) ?>
+          </strong>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  <?php endif; ?>
+
+
+  <!-- =====================================================
+       SCOUT STATUS
+       ===================================================== -->
+
   <?php if (
       $hasScoutProfile
   ): ?>
 
-
     <section class="membership-card">
-
 
       <span class="membership-pill">
 
@@ -1567,7 +1864,9 @@ require_once
           aria-hidden="true"
         ></i>
 
-        <?php if ($isScoutExtension): ?>
+        <?php if (
+            $isScoutExtension
+        ): ?>
 
           30-Day Scout Extension
 
@@ -1590,22 +1889,12 @@ require_once
 
 
       <p>
-
-        <?php if ($isScoutExtension): ?>
-
-          You currently have temporary basic Scout access.
-
-        <?php else: ?>
-
-          Scout access is separate from paid membership.
-
-        <?php endif; ?>
-
+        Scout access is independent of paid membership and
+        complimentary membership grants.
       </p>
 
 
       <div class="membership-grid">
-
 
         <div class="membership-item">
 
@@ -1620,8 +1909,9 @@ require_once
         </div>
 
 
-        <?php if ($isScoutExtension): ?>
-
+        <?php if (
+            $isScoutExtension
+        ): ?>
 
           <div class="membership-item">
 
@@ -1648,22 +1938,7 @@ require_once
 
           </div>
 
-
-          <div class="membership-item">
-
-            <span>
-              Rank
-            </span>
-
-            <strong>
-              Scout
-            </strong>
-
-          </div>
-
-
         <?php else: ?>
-
 
           <div class="membership-item">
 
@@ -1672,7 +1947,9 @@ require_once
             </span>
 
             <strong>
-              <?= e($scoutActiveThrough) ?>
+              <?= e(
+                  $scoutActiveThrough
+              ) ?>
             </strong>
 
           </div>
@@ -1694,7 +1971,6 @@ require_once
 
           </div>
 
-
         <?php endif; ?>
 
 
@@ -1705,116 +1981,42 @@ require_once
           </span>
 
           <strong>
-
             <?= $hasActiveScoutAccess
                 ? 'Full Llama Scout access'
                 : 'Not currently active'
             ?>
-
           </strong>
 
         </div>
 
-
       </div>
-
-
-      <?php if (
-          $isScoutExtension
-      ): ?>
-
-        <div class="membership-note">
-
-          <i
-            class="fa-solid fa-clock"
-            aria-hidden="true"
-          ></i>
-
-          <div>
-
-            <strong>
-              Temporary Scout reinstatement
-            </strong>
-
-            This 30-day extension gives you basic Scout
-            access while you work toward three newly accepted
-            Scout Reports.
-
-            Reports from before the extension do not satisfy
-            the extension requirement.
-
-            If all three are accepted during this period,
-            you return to regular basic Scout status.
-
-          </div>
-
-        </div>
-
-
-      <?php elseif (
-          $hasActiveScoutAccess
-      ): ?>
-
-        <div class="membership-note">
-
-          <i
-            class="fa-solid fa-binoculars"
-            aria-hidden="true"
-          ></i>
-
-          <div>
-
-            Active Scouts receive full Llama Scout access
-            while their Scout status remains active.
-
-          </div>
-
-        </div>
-
-      <?php endif; ?>
-
 
     </section>
 
-
   <?php endif; ?>
 
+
+  <!-- =====================================================
+       STRIPE BILLING
+       ===================================================== -->
 
   <?php if (
       $showBillingSection
   ): ?>
 
-
     <section class="membership-card">
 
-
       <h2>
-        Billing
+        Paid Membership & Billing
       </h2>
 
 
       <p>
-
-        <?php if (
-            $isComplimentary
-            &&
-            $hasActiveScoutAccess
-        ): ?>
-
-          Your complimentary access associated with Scout
-          status.
-
-        <?php else: ?>
-
-          Your paid membership history and Stripe status.
-
-        <?php endif; ?>
-
+        Your Stripe subscription status and renewal details.
       </p>
 
 
       <div class="membership-grid">
-
 
         <div class="membership-item">
 
@@ -1836,29 +2038,7 @@ require_once
           </span>
 
           <strong>
-
-            <?php if (
-                $isComplimentary
-                &&
-                $isScoutExtension
-            ): ?>
-
-              30-Day Scout Extension
-
-            <?php elseif (
-                $isComplimentary
-                &&
-                $hasActiveScoutAccess
-            ): ?>
-
-              Scout Complimentary
-
-            <?php else: ?>
-
-              <?= e($billingPlan) ?>
-
-            <?php endif; ?>
-
+            <?= e($billingPlan) ?>
           </strong>
 
         </div>
@@ -1871,7 +2051,9 @@ require_once
           </span>
 
           <strong>
-            <?= e($membershipStarted) ?>
+            <?= e(
+                $membershipStarted
+            ) ?>
           </strong>
 
         </div>
@@ -1880,12 +2062,7 @@ require_once
         <div class="membership-item">
 
           <span>
-
-            <?= $isStripeMembership
-                ? 'Paid Through'
-                : 'Access Through'
-            ?>
-
+            Paid Through
           </span>
 
           <strong>
@@ -1902,55 +2079,21 @@ require_once
           </span>
 
           <strong>
-            <?= e($renewalStatus) ?>
+            <?= e(
+                $renewalStatus
+            ) ?>
           </strong>
 
         </div>
-
 
       </div>
 
 
       <?php if (
-          $hasActiveScoutAccess
-          &&
           $isStripeMembership
           &&
           $cancelAtPeriodEnd
       ): ?>
-
-
-        <div class="membership-note">
-
-          <i
-            class="fa-solid fa-circle-check"
-            aria-hidden="true"
-          ></i>
-
-
-          <div>
-
-            <strong>
-              Your paid membership will not renew.
-            </strong>
-
-            It remains active through the paid period shown
-            above.
-
-            Your Scout access continues separately after the
-            paid membership ends.
-
-          </div>
-
-        </div>
-
-
-      <?php elseif (
-          $hasActiveScoutAccess
-          &&
-          $isStripeMembership
-      ): ?>
-
 
         <div class="membership-note">
 
@@ -1959,44 +2102,19 @@ require_once
             aria-hidden="true"
           ></i>
 
-
           <div>
 
             <strong>
-              Scout access is active.
+              Your paid membership will not renew.
             </strong>
 
-            Your paid Stripe subscription is also still active
-            and currently set to renew.
+            It remains active through the paid period shown
+            above. Any other active access source, such as
+            Scout or complimentary access, remains separate.
 
           </div>
 
         </div>
-
-
-      <?php elseif (
-          $isComplimentary
-          &&
-          $isScoutExtension
-      ): ?>
-
-
-        <div class="membership-note">
-
-          <i
-            class="fa-solid fa-clock"
-            aria-hidden="true"
-          ></i>
-
-          <div>
-
-            This complimentary access ends with your current
-            30-day Scout extension.
-
-          </div>
-
-        </div>
-
 
       <?php endif; ?>
 
@@ -2004,7 +2122,6 @@ require_once
       <?php if (
           $showBillingPortal
       ): ?>
-
 
         <div class="membership-actions">
 
@@ -2024,23 +2141,41 @@ require_once
 
         </div>
 
-
       <?php endif; ?>
 
 
-    </section>
+      <div class="membership-billing-disclosure">
 
+        <strong>
+          Stripe securely processes membership payments.
+        </strong>
+
+        Llama Scout does not collect or store your complete
+        payment card information. For membership or billing
+        assistance, contact
+        <a href="mailto:billing@llamascout.com">
+          billing@llamascout.com
+        </a>.
+        We will do our best to help. Some payment-method,
+        authorization, or card issues may need to be resolved
+        through Stripe or your financial institution.
+
+      </div>
+
+    </section>
 
   <?php endif; ?>
 
+
+  <!-- =====================================================
+       CHOOSE MEMBERSHIP
+       ===================================================== -->
 
   <?php if (
       $showMembershipPlans
   ): ?>
 
-
     <section class="membership-card">
-
 
       <h2>
         Choose Membership
@@ -2048,164 +2183,267 @@ require_once
 
 
       <p>
-        Unlock full Llama Scout access with a paid membership.
+        Unlock full Llama Scout access. Monthly and Annual
+        memberships include the same features.
       </p>
 
 
       <div class="membership-plans">
 
 
-        <article class="membership-plan">
+        <?php if (
+            $monthlyOffer
+        ): ?>
 
-          <h3>
-            Monthly
-          </h3>
-
-
-          <div class="membership-price">
-
-            $6.99
-
-            <span>
-              / month
-            </span>
-
-          </div>
-
-
-          <ul>
-
-            <li>
-              Exact place locations
-            </li>
-
-            <li>
-              Complete sensory details
-            </li>
-
-            <li>
-              Road and vehicle access details
-            </li>
-
-            <li>
-              Connectivity information
-            </li>
-
-            <li>
-              Full warnings, rules, and planning data
-            </li>
-
-          </ul>
-
-
-          <form
-            method="post"
-            action="checkout.php"
+          <article
+            class="
+              membership-plan
+              <?= $requestedPlan ===
+                  LLAMA_MEMBERSHIP_INTERVAL_MONTHLY
+                    ? 'is-selected'
+                    : ''
+              ?>
+            "
           >
 
-            <input
-              type="hidden"
-              name="csrf_token"
-              value="<?= e($csrfToken) ?>"
+            <?php if (
+                $monthlySaleLabel
+            ): ?>
+
+              <span class="membership-plan-badge">
+                <?= e(
+                    $monthlySaleLabel
+                ) ?>
+              </span>
+
+            <?php endif; ?>
+
+
+            <h3>
+              Monthly
+            </h3>
+
+
+            <div class="membership-price">
+
+              <?php if (
+                  !empty(
+                      $monthlyOffer[
+                          'on_sale'
+                      ]
+                  )
+              ): ?>
+
+                <del>
+                  <?= e(
+                      $monthlyRegular
+                  ) ?>
+                </del>
+
+              <?php endif; ?>
+
+              <?= e(
+                  $monthlyPrice
+              ) ?>
+
+              <span>
+                / month
+              </span>
+
+            </div>
+
+
+            <ul>
+
+              <li>
+                Exact place locations
+              </li>
+
+              <li>
+                Complete sensory details
+              </li>
+
+              <li>
+                Road and vehicle access details
+              </li>
+
+              <li>
+                Connectivity information
+              </li>
+
+              <li>
+                Full warnings, rules, and planning data
+              </li>
+
+            </ul>
+
+
+            <form
+              method="post"
+              action="checkout.php"
             >
 
-            <input
-              type="hidden"
-              name="interval"
-              value="monthly"
-            >
+              <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= e($csrfToken) ?>"
+              >
+
+              <input
+                type="hidden"
+                name="interval"
+                value="monthly"
+              >
 
 
-            <button
-              type="submit"
-              class="membership-button"
-            >
-              Choose Monthly
-            </button>
+              <button
+                type="submit"
+                class="membership-button"
+              >
+                Choose Monthly
+              </button>
 
-          </form>
+            </form>
 
-        </article>
+          </article>
 
-
-        <article class="membership-plan">
-
-          <h3>
-            Annual
-          </h3>
+        <?php endif; ?>
 
 
-          <div class="membership-price">
+        <?php if (
+            $annualOffer
+        ): ?>
 
-            $59.99
-
-            <span>
-              / year
-            </span>
-
-          </div>
-
-
-          <ul>
-
-            <li>
-              Everything in Monthly
-            </li>
-
-            <li>
-              Lower effective monthly cost
-            </li>
-
-            <li>
-              One renewal per year
-            </li>
-
-            <li>
-              Promotion codes supported
-            </li>
-
-            <li>
-              Manage billing through Stripe
-            </li>
-
-          </ul>
-
-
-          <form
-            method="post"
-            action="checkout.php"
+          <article
+            class="
+              membership-plan
+              <?= $requestedPlan ===
+                  LLAMA_MEMBERSHIP_INTERVAL_ANNUAL
+                    ? 'is-selected'
+                    : ''
+              ?>
+            "
           >
 
-            <input
-              type="hidden"
-              name="csrf_token"
-              value="<?= e($csrfToken) ?>"
+            <?php if (
+                $annualSaleLabel
+            ): ?>
+
+              <span class="membership-plan-badge">
+                <?= e(
+                    $annualSaleLabel
+                ) ?>
+              </span>
+
+            <?php endif; ?>
+
+
+            <h3>
+              Annual
+            </h3>
+
+
+            <div class="membership-price">
+
+              <?php if (
+                  !empty(
+                      $annualOffer[
+                          'on_sale'
+                      ]
+                  )
+              ): ?>
+
+                <del>
+                  <?= e(
+                      $annualRegular
+                  ) ?>
+                </del>
+
+              <?php endif; ?>
+
+              <?= e(
+                  $annualPrice
+              ) ?>
+
+              <span>
+                / year (12mo.)
+              </span>
+
+            </div>
+
+
+            <ul>
+
+              <li>
+                Everything included with Monthly
+              </li>
+
+              <li>
+                Same full-access membership
+              </li>
+
+              <li>
+                One annual renewal
+              </li>
+
+              <li>
+                Current scheduled promotions apply automatically
+              </li>
+
+              <li>
+                Billing managed securely through Stripe
+              </li>
+
+            </ul>
+
+
+            <form
+              method="post"
+              action="checkout.php"
             >
 
-            <input
-              type="hidden"
-              name="interval"
-              value="annual"
-            >
+              <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= e($csrfToken) ?>"
+              >
+
+              <input
+                type="hidden"
+                name="interval"
+                value="annual"
+              >
 
 
-            <button
-              type="submit"
-              class="membership-button"
-            >
-              Choose Annual
-            </button>
+              <button
+                type="submit"
+                class="membership-button"
+              >
+                Choose Annual
+              </button>
 
-          </form>
+            </form>
 
-        </article>
+          </article>
+
+        <?php endif; ?>
 
 
       </div>
 
 
-    </section>
+      <div class="membership-billing-disclosure">
 
+        <strong>
+          Payments are securely processed by Stripe.
+        </strong>
+
+        Llama Scout does not collect or store any
+        payment card information.
+
+      </div>
+
+    </section>
 
   <?php endif; ?>
 
