@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/memberships.php';
 require_once dirname(__DIR__) . '/app/timezone.php';
+require_once dirname(__DIR__) . '/app/role-display.php';
 
 require_role('owner');
 start_llama_session();
@@ -18,6 +19,16 @@ if (!$user) {
 }
 
 $ownerId = (int) $user['id'];
+
+$primaryRoleLabel =
+    llama_primary_role_label(
+        $ownerId
+    );
+
+$primaryRoleIcon =
+    llama_primary_role_icon(
+        $ownerId
+    );
 
 llama_ensure_membership_storage($db);
 
@@ -1088,41 +1099,12 @@ $durationOptions =
 
   <style>
 
-    .membership-owner-shell {
-      width: min(1180px, calc(100% - 36px));
-      margin: 0 auto;
-      padding: 28px 0 72px;
+    .membership-back-row {
+      margin-bottom: 28px;
     }
 
-    .membership-owner-header {
-      margin-bottom: 22px;
-    }
-
-    .membership-owner-header h1 {
-      margin: 7px 0 9px;
-    }
-
-    .membership-owner-header > p:last-child {
-      max-width: 760px;
+    .membership-back-row .back-link {
       margin: 0;
-      line-height: 1.6;
-      opacity: .72;
-    }
-
-    .owner-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      margin: 0;
-      font-size: .74rem;
-      font-weight: 800;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      opacity: .72;
-    }
-
-    .owner-eyebrow i {
-      color: #9b7134;
     }
 
     .membership-owner-section {
@@ -1533,41 +1515,73 @@ require_once
 ?>
 
 
-<main class="membership-owner-shell">
+<main class="admin-main">
 
-  <a
-    href="/"
-    class="back-link"
-  >
-    <i
-      class="fa-solid fa-arrow-left"
-      aria-hidden="true"
-    ></i>
-    Back to Basecamp
-  </a>
+  <div class="membership-back-row">
 
-
-  <header class="membership-owner-header">
-
-    <p class="owner-eyebrow">
+    <a
+      href="/"
+      class="back-link"
+    >
       <i
-        class="fa-solid fa-crown"
+        class="fa-solid fa-arrow-left"
         aria-hidden="true"
       ></i>
-      Owner Only
-    </p>
 
-    <h1>
-      Memberships
-    </h1>
+      Back to Basecamp
+    </a>
 
-    <p>
-      Manage membership pricing, Stripe plan references,
-      scheduled promotions, complimentary access, and
-      membership status from one place.
-    </p>
+  </div>
 
-  </header>
+
+  <section class="admin-intro">
+
+    <div class="admin-intro-row">
+
+      <div class="admin-intro-copy">
+
+        <p class="admin-eyebrow">
+
+          <i
+            class="<?= e(
+                $primaryRoleIcon
+            ) ?>"
+            aria-hidden="true"
+          ></i>
+
+          Llama Scout
+          <?= e(
+              $primaryRoleLabel
+          ) ?>
+
+        </p>
+
+
+        <h1>
+          Memberships
+        </h1>
+
+
+        <p>
+          Manage membership pricing, Stripe plan references,
+          scheduled promotions, complimentary access, and
+          membership status from one place.
+        </p>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+<?php
+
+require
+    dirname(__DIR__)
+    . '/app/admin-nav.php';
+
+?>
 
 
   <?php if ($success !== ''): ?>
