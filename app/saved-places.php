@@ -6,22 +6,22 @@ declare(strict_types=1);
 /* =========================================================
    LLAMA SCOUT SAVED PLACES
 
-   Canonical Saved Places storage.
-
-   New storage:
+   Canonical storage:
        user_saved_places.place_id
-           -> numeric places.id
+           = numeric places.id
 
-   This service dynamically matches the exact SQL types of
-   users.id and places.id before creating foreign keys.
-
-   Legacy saved_places data is migrated idempotently and left
-   untouched for rollback / audit safety.
+   Design goals:
+   - one saved row per user/place
+   - no slug stored as the relational identifier
+   - snapshots preserve bookmark identity
+   - legacy saved_places rows migrate automatically
+   - request-time setup does not depend on foreign-key
+     compatibility or storage-engine details
    ========================================================= */
 
 
 /* =========================================================
-   TABLE EXISTS
+   SCHEMA HELPERS
    ========================================================= */
 
 function llama_saved_places_table_exists(
@@ -33,31 +33,22 @@ function llama_saved_places_table_exists(
         $db->prepare(
             '
             SELECT 1
-
             FROM information_schema.tables
-
             WHERE table_schema = DATABASE()
               AND table_name = ?
-
             LIMIT 1
             '
         );
 
-
     $stmt->execute([
         $table
     ]);
-
 
     return
         (bool)
         $stmt->fetchColumn();
 }
 
-
-/* =========================================================
-   COLUMN INFO
-   ========================================================= */
 
 function llama_saved_places_column_info(
     PDO $db,
@@ -86,28 +77,21 @@ function llama_saved_places_column_info(
             '
         );
 
-
     $stmt->execute([
         $table,
         $column,
     ]);
-
 
     $row =
         $stmt->fetch(
             PDO::FETCH_ASSOC
         );
 
-
     return
         $row
         ?: null;
 }
 
-
-/* =========================================================
-   COLUMN EXISTS
-   ========================================================= */
 
 function llama_saved_places_column_exists(
     PDO $db,
@@ -125,101 +109,47 @@ function llama_saved_places_column_exists(
 }
 
 
-/* =========================================================
-   SAFE ID SQL TYPE
-
-   COLUMN_TYPE comes from MySQL itself, not user input.
-
-   We still validate it before interpolating it into DDL.
-   Typical valid values:
-       int
-       int unsigned
-       bigint
-       bigint unsigned
-       mediumint unsigned
-   ========================================================= */
-
-function llama_saved_places_id_sql_type(
+function llama_saved_places_index_exists(
     PDO $db,
     string $table,
-    string $column
-): string {
+    string $index
+): bool {
 
-    $info =
-        llama_saved_places_column_info(
-            $db,
-            $table,
-            $column
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+            FROM information_schema.statistics
+            WHERE table_schema = DATABASE()
+              AND table_name = ?
+              AND index_name = ?
+            LIMIT 1
+            '
         );
 
-
-    if (
-        !$info
-    ) {
-
-        throw new RuntimeException(
-            'Could not determine database type for '
-            .
-            $table
-            .
-            '.'
-            .
-            $column
-            .
-            '.'
-        );
-
-    }
-
-
-    $type =
-        strtolower(
-            trim(
-                (string)
-                $info[
-                    'COLUMN_TYPE'
-                ]
-            )
-        );
-
-
-    /*
-     * Saved Places foreign keys must point to integer primary
-     * keys. Reject anything unexpected rather than inserting
-     * arbitrary metadata into CREATE TABLE SQL.
-     */
-
-    if (
-        !preg_match(
-            '/^(tinyint|smallint|mediumint|int|bigint)(\([0-9]+\))?( unsigned)?$/',
-            $type
-        )
-    ) {
-
-        throw new RuntimeException(
-            'Unsupported database ID type for '
-            .
-            $table
-            .
-            '.'
-            .
-            $column
-            .
-            ': '
-            .
-            $type
-        );
-
-    }
-
+    $stmt->execute([
+        $table,
+        $index,
+    ]);
 
     return
-        $type;
+        (bool)
+        $stmt->fetchColumn();
 }
 
 
 /* =========================================================
    ENSURE STORAGE
+
+   No foreign keys are created here.
+
+   places.id remains the canonical relation and uniqueness is
+   enforced at the Saved Places table level. Place validity is
+   checked by the service before insert.
+
+   This avoids request-time failures caused by pre-existing
+   table engine/type incompatibilities while retaining the
+   correct application data model.
    ========================================================= */
 
 function llama_ensure_saved_places_storage(
@@ -233,28 +163,7 @@ function llama_ensure_saved_places_storage(
         throw new RuntimeException(
             'Saved Places storage cannot be initialized inside an active transaction.'
         );
-
     }
-
-
-    /*
-     * Match the real database exactly.
-     */
-
-    $userIdType =
-        llama_saved_places_id_sql_type(
-            $db,
-            'users',
-            'id'
-        );
-
-
-    $placeIdType =
-        llama_saved_places_id_sql_type(
-            $db,
-            'places',
-            'id'
-        );
 
 
     if (
@@ -264,25 +173,17 @@ function llama_ensure_saved_places_storage(
         )
     ) {
 
-        $sql =
+        $db->exec(
             '
             CREATE TABLE user_saved_places
             (
                 id BIGINT UNSIGNED
                     NOT NULL AUTO_INCREMENT,
 
-                user_id '
-                .
-                $userIdType
-                .
-                '
+                user_id BIGINT
                     NOT NULL,
 
-                place_id '
-                .
-                $placeIdType
-                .
-                '
+                place_id BIGINT
                     NULL,
 
                 place_slug_snapshot VARCHAR(190)
@@ -319,35 +220,21 @@ function llama_ensure_saved_places_storage(
                     (place_id),
 
                 KEY idx_user_saved_places_slug_snapshot
-                    (place_slug_snapshot),
-
-                CONSTRAINT fk_user_saved_places_user
-                    FOREIGN KEY (user_id)
-                    REFERENCES users(id)
-                    ON DELETE CASCADE,
-
-                CONSTRAINT fk_user_saved_places_place
-                    FOREIGN KEY (place_id)
-                    REFERENCES places(id)
-                    ON DELETE SET NULL
+                    (place_slug_snapshot)
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
             COLLATE=utf8mb4_unicode_ci
-            ';
-
-
-        $db->exec(
-            $sql
+            '
         );
 
+    } else {
+
+        llama_repair_saved_places_storage(
+            $db
+        );
     }
 
-
-    /*
-     * If an earlier attempt somehow created the table but did
-     * not finish migration, this remains safe and idempotent.
-     */
 
     llama_migrate_legacy_saved_places(
         $db
@@ -356,18 +243,267 @@ function llama_ensure_saved_places_storage(
 
 
 /* =========================================================
+   REPAIR EXISTING TABLE
+
+   Earlier development versions may have created the table
+   before the final schema was settled. Add any missing
+   columns/indexes instead of assuming a brand-new database.
+   ========================================================= */
+
+function llama_repair_saved_places_storage(
+    PDO $db
+): void {
+
+    $table =
+        'user_saved_places';
+
+
+    if (
+        !llama_saved_places_column_exists(
+            $db,
+            $table,
+            'id'
+        )
+    ) {
+
+        throw new RuntimeException(
+            'Existing user_saved_places table is missing its primary ID column.'
+        );
+    }
+
+
+    if (
+        !llama_saved_places_column_exists(
+            $db,
+            $table,
+            'user_id'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD COLUMN user_id BIGINT NOT NULL AFTER id
+            '
+        );
+    }
+
+
+    if (
+        !llama_saved_places_column_exists(
+            $db,
+            $table,
+            'place_id'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD COLUMN place_id BIGINT NULL AFTER user_id
+            '
+        );
+    }
+
+
+    if (
+        !llama_saved_places_column_exists(
+            $db,
+            $table,
+            'place_slug_snapshot'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD COLUMN place_slug_snapshot VARCHAR(190) NULL
+            AFTER place_id
+            '
+        );
+    }
+
+
+    if (
+        !llama_saved_places_column_exists(
+            $db,
+            $table,
+            'place_name_snapshot'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD COLUMN place_name_snapshot VARCHAR(255) NULL
+            AFTER place_slug_snapshot
+            '
+        );
+    }
+
+
+    if (
+        !llama_saved_places_column_exists(
+            $db,
+            $table,
+            'saved_at'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD COLUMN saved_at DATETIME
+            NOT NULL DEFAULT CURRENT_TIMESTAMP
+            '
+        );
+    }
+
+
+    if (
+        !llama_saved_places_column_exists(
+            $db,
+            $table,
+            'created_at'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD COLUMN created_at DATETIME
+            NOT NULL DEFAULT CURRENT_TIMESTAMP
+            '
+        );
+    }
+
+
+    if (
+        !llama_saved_places_column_exists(
+            $db,
+            $table,
+            'updated_at'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD COLUMN updated_at DATETIME
+            NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ON UPDATE CURRENT_TIMESTAMP
+            '
+        );
+    }
+
+
+    /*
+     * Add indexes only if absent.
+     */
+
+    if (
+        !llama_saved_places_index_exists(
+            $db,
+            $table,
+            'uq_user_saved_place'
+        )
+    ) {
+
+        /*
+         * Remove accidental duplicates before adding unique
+         * protection. Keep the oldest row.
+         */
+
+        $db->exec(
+            '
+            DELETE newer
+            FROM user_saved_places newer
+            INNER JOIN user_saved_places older
+                ON older.user_id = newer.user_id
+               AND older.place_id = newer.place_id
+               AND older.place_id IS NOT NULL
+               AND older.id < newer.id
+            '
+        );
+
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD UNIQUE KEY uq_user_saved_place
+            (
+                user_id,
+                place_id
+            )
+            '
+        );
+    }
+
+
+    if (
+        !llama_saved_places_index_exists(
+            $db,
+            $table,
+            'idx_user_saved_places_user'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD KEY idx_user_saved_places_user
+            (
+                user_id,
+                saved_at
+            )
+            '
+        );
+    }
+
+
+    if (
+        !llama_saved_places_index_exists(
+            $db,
+            $table,
+            'idx_user_saved_places_place'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD KEY idx_user_saved_places_place
+            (
+                place_id
+            )
+            '
+        );
+    }
+
+
+    if (
+        !llama_saved_places_index_exists(
+            $db,
+            $table,
+            'idx_user_saved_places_slug_snapshot'
+        )
+    ) {
+
+        $db->exec(
+            '
+            ALTER TABLE user_saved_places
+            ADD KEY idx_user_saved_places_slug_snapshot
+            (
+                place_slug_snapshot
+            )
+            '
+        );
+    }
+}
+
+
+/* =========================================================
    LEGACY MIGRATION
-
-   Old table:
-       saved_places.user_id
-       saved_places.place_id
-
-   place_id may contain either:
-       slug string
-       numeric ID text
-
-   saved_at is used only when that legacy column actually
-   exists.
    ========================================================= */
 
 function llama_migrate_legacy_saved_places(
@@ -382,7 +518,6 @@ function llama_migrate_legacy_saved_places(
     ) {
 
         return;
-
     }
 
 
@@ -401,7 +536,6 @@ function llama_migrate_legacy_saved_places(
     ) {
 
         return;
-
     }
 
 
@@ -412,14 +546,22 @@ function llama_migrate_legacy_saved_places(
             'saved_at'
         )
             ? 'COALESCE(sp.saved_at, CURRENT_TIMESTAMP)'
-            : 'CURRENT_TIMESTAMP';
+            : (
+                llama_saved_places_column_exists(
+                    $db,
+                    'saved_places',
+                    'created_at'
+                )
+                    ? 'COALESCE(sp.created_at, CURRENT_TIMESTAMP)'
+                    : 'CURRENT_TIMESTAMP'
+            );
 
 
     /*
-     * Migrate rows that still resolve to an existing Place.
+     * Resolved bookmarks.
      */
 
-    $resolvedSql =
+    $db->exec(
         '
         INSERT IGNORE INTO user_saved_places
         (
@@ -448,35 +590,27 @@ function llama_migrate_legacy_saved_places(
             (
                 p.slug =
                     CAST(
-                        sp.place_id
-                        AS CHAR
+                        sp.place_id AS CHAR
                     )
 
                 OR
 
                 CAST(
-                    p.id
-                    AS CHAR
+                    p.id AS CHAR
                 ) =
                     CAST(
-                        sp.place_id
-                        AS CHAR
+                        sp.place_id AS CHAR
                     )
             )
-        ';
-
-
-    $db->exec(
-        $resolvedSql
+        '
     );
 
 
     /*
-     * Preserve unresolved legacy bookmarks as snapshot-only
-     * rows instead of silently discarding them.
+     * Unresolved bookmarks.
      */
 
-    $unresolvedSql =
+    $db->exec(
         '
         INSERT INTO user_saved_places
         (
@@ -491,8 +625,7 @@ function llama_migrate_legacy_saved_places(
             sp.user_id,
             NULL,
             CAST(
-                sp.place_id
-                AS CHAR
+                sp.place_id AS CHAR
             ),
             NULL,
             '
@@ -508,19 +641,16 @@ function llama_migrate_legacy_saved_places(
             (
                 p.slug =
                     CAST(
-                        sp.place_id
-                        AS CHAR
+                        sp.place_id AS CHAR
                     )
 
                 OR
 
                 CAST(
-                    p.id
-                    AS CHAR
+                    p.id AS CHAR
                 ) =
                     CAST(
-                        sp.place_id
-                        AS CHAR
+                        sp.place_id AS CHAR
                     )
             )
 
@@ -529,7 +659,6 @@ function llama_migrate_legacy_saved_places(
           AND NOT EXISTS
           (
               SELECT 1
-
               FROM user_saved_places usp
 
               WHERE usp.user_id =
@@ -539,21 +668,16 @@ function llama_migrate_legacy_saved_places(
 
                 AND usp.place_slug_snapshot =
                     CAST(
-                        sp.place_id
-                        AS CHAR
+                        sp.place_id AS CHAR
                     )
           )
-        ';
-
-
-    $db->exec(
-        $unresolvedSql
+        '
     );
 }
 
 
 /* =========================================================
-   RESOLVE PUBLIC PLACE FOR SAVE
+   RESOLVE PLACE
    ========================================================= */
 
 function llama_resolve_public_place_for_save(
@@ -577,7 +701,6 @@ function llama_resolve_public_place_for_save(
     ) {
 
         return null;
-
     }
 
 
@@ -595,12 +718,7 @@ function llama_resolve_public_place_for_save(
             WHERE
             (
                 slug = ?
-
-                OR
-
-                CAST(
-                    id AS CHAR
-                ) = ?
+                OR CAST(id AS CHAR) = ?
             )
 
               AND status IN
@@ -633,7 +751,7 @@ function llama_resolve_public_place_for_save(
 
 
 /* =========================================================
-   FIND SAVE BY INPUT KEY
+   FIND SAVED RECORD
    ========================================================= */
 
 function llama_saved_place_record(
@@ -647,7 +765,6 @@ function llama_saved_place_record(
     ) {
 
         return null;
-
     }
 
 
@@ -662,15 +779,13 @@ function llama_saved_place_record(
     ) {
 
         return null;
-
     }
 
 
     $placeStmt =
         $db->prepare(
             '
-            SELECT
-                id
+            SELECT id
 
             FROM places
 
@@ -702,8 +817,7 @@ function llama_saved_place_record(
         $stmt =
             $db->prepare(
                 '
-                SELECT
-                    *
+                SELECT *
 
                 FROM user_saved_places
 
@@ -733,17 +847,14 @@ function llama_saved_place_record(
 
             return
                 $row;
-
         }
-
     }
 
 
     $stmt =
         $db->prepare(
             '
-            SELECT
-                *
+            SELECT *
 
             FROM user_saved_places
 
@@ -796,7 +907,7 @@ function llama_place_is_saved(
 
 
 /* =========================================================
-   SAVE PLACE
+   SAVE
    ========================================================= */
 
 function llama_save_place(
@@ -812,7 +923,6 @@ function llama_save_place(
         throw new InvalidArgumentException(
             'A valid user is required.'
         );
-
     }
 
 
@@ -830,7 +940,6 @@ function llama_save_place(
         throw new RuntimeException(
             'That place is not available to save.'
         );
-
     }
 
 
@@ -844,8 +953,7 @@ function llama_save_place(
     $existingStmt =
         $db->prepare(
             '
-            SELECT
-                *
+            SELECT *
 
             FROM user_saved_places
 
@@ -875,7 +983,6 @@ function llama_save_place(
 
         return
             $existing;
-
     }
 
 
@@ -938,13 +1045,11 @@ function llama_save_place(
 
             throw
                 $exception;
-
         }
 
 
         return
             $existing;
-
     }
 
 
@@ -956,8 +1061,7 @@ function llama_save_place(
     $stmt =
         $db->prepare(
             '
-            SELECT
-                *
+            SELECT *
 
             FROM user_saved_places
 
@@ -986,7 +1090,6 @@ function llama_save_place(
         throw new RuntimeException(
             'Saved Place could not be reloaded.'
         );
-
     }
 
 
@@ -996,7 +1099,7 @@ function llama_save_place(
 
 
 /* =========================================================
-   UNSAVE PLACE
+   UNSAVE
    ========================================================= */
 
 function llama_unsave_place(
@@ -1018,7 +1121,6 @@ function llama_unsave_place(
     ) {
 
         return false;
-
     }
 
 
@@ -1049,7 +1151,7 @@ function llama_unsave_place(
 
 
 /* =========================================================
-   SAVED PLACES FOR USER
+   LIST SAVED PLACES
    ========================================================= */
 
 function llama_saved_places_for_user(
@@ -1062,7 +1164,6 @@ function llama_saved_places_for_user(
     ) {
 
         return [];
-
     }
 
 
@@ -1189,8 +1290,7 @@ function llama_saved_places_for_user(
             LEFT JOIN place_images pi
                 ON pi.id =
                 (
-                    SELECT
-                        pi_lookup.id
+                    SELECT pi_lookup.id
 
                     FROM place_images pi_lookup
 
