@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/scout-maintenance.php';
+require_once __DIR__ . '/memberships.php';
 
 
 /* =========================================================
