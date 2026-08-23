@@ -661,6 +661,20 @@ function llama_ensure_membership_storage(
     );
 
 
+    /*
+     * Older Llama Scout checkout stored the Stripe monthly and
+     * annual Price IDs only in private/stripe.php. Import those
+     * existing IDs into the current immutable price versions
+     * when the new catalog does not have them yet.
+     *
+     * This is migration-only compatibility. Once imported, the
+     * database catalog remains authoritative.
+     */
+    llama_membership_import_legacy_stripe_price_ids(
+        $db
+    );
+
+
     llama_membership_backfill_promotion_price_versions(
         $db
     );
@@ -932,6 +946,263 @@ function llama_membership_sync_legacy_price_shadows(
                 pp.stripe_price_id
         '
     );
+}
+
+
+/* =========================================================
+   IMPORT LEGACY PRIVATE-CONFIG STRIPE PRICE IDS
+
+   Before the membership catalog became authoritative, Stripe
+   Price IDs lived in private/stripe.php as:
+
+     monthly_price_id
+     annual_price_id
+
+   A current price version created during migration can
+   therefore have the right amount but a NULL Stripe Price ID.
+
+   This helper fills only missing IDs. It never overwrites an
+   existing catalog Stripe Price ID.
+   ========================================================= */
+
+function llama_membership_import_legacy_stripe_price_ids(
+    PDO $db
+): void {
+
+    $configPath =
+        dirname(
+            __DIR__,
+            2
+        )
+        .
+        '/private/stripe.php';
+
+
+    if (
+        !is_file(
+            $configPath
+        )
+    ) {
+
+        return;
+    }
+
+
+    try {
+
+        $config =
+            require
+            $configPath;
+
+    } catch (
+        Throwable
+    ) {
+
+        return;
+    }
+
+
+    if (
+        !is_array(
+            $config
+        )
+    ) {
+
+        return;
+    }
+
+
+    $legacyByInterval = [
+
+        LLAMA_MEMBERSHIP_INTERVAL_MONTHLY =>
+            trim(
+                (string) (
+                    $config[
+                        'monthly_price_id'
+                    ]
+                    ?? ''
+                )
+            ),
+
+        LLAMA_MEMBERSHIP_INTERVAL_ANNUAL =>
+            trim(
+                (string) (
+                    $config[
+                        'annual_price_id'
+                    ]
+                    ?? ''
+                )
+            ),
+    ];
+
+
+    $planStmt =
+        $db->prepare(
+            '
+            SELECT
+                p.id,
+                p.interval_slug,
+                cp.id AS current_price_id,
+                cp.stripe_price_id
+
+            FROM membership_plans p
+
+            INNER JOIN membership_plan_prices cp
+                ON cp.plan_id = p.id
+               AND cp.is_current = 1
+
+            WHERE p.interval_slug = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $priceUpdate =
+        $db->prepare(
+            '
+            UPDATE membership_plan_prices
+
+            SET stripe_price_id = ?
+
+            WHERE id = ?
+              AND (
+                    stripe_price_id IS NULL
+                    OR stripe_price_id = \'\'
+                  )
+            '
+        );
+
+
+    $planUpdate =
+        $db->prepare(
+            '
+            UPDATE membership_plans
+
+            SET stripe_price_id = ?
+
+            WHERE id = ?
+              AND (
+                    stripe_price_id IS NULL
+                    OR stripe_price_id = \'\'
+                  )
+            '
+        );
+
+
+    foreach (
+        $legacyByInterval as
+        $interval =>
+        $legacyPriceId
+    ) {
+
+        if (
+            $legacyPriceId === ''
+        ) {
+
+            continue;
+        }
+
+
+        /*
+         * A Stripe Price ID must remain globally unique in the
+         * catalog. Do not import it if it is already assigned.
+         */
+        $duplicateStmt =
+            $db->prepare(
+                '
+                SELECT id
+
+                FROM membership_plan_prices
+
+                WHERE stripe_price_id = ?
+
+                LIMIT 1
+                '
+            );
+
+
+        $duplicateStmt->execute([
+            $legacyPriceId
+        ]);
+
+
+        $alreadyAssigned =
+            $duplicateStmt
+                ->fetchColumn();
+
+
+        $planStmt->execute([
+            $interval
+        ]);
+
+
+        $plan =
+            $planStmt->fetch(
+                PDO::FETCH_ASSOC
+            );
+
+
+        if (
+            !$plan
+        ) {
+
+            continue;
+        }
+
+
+        $currentStripePriceId =
+            trim(
+                (string) (
+                    $plan[
+                        'stripe_price_id'
+                    ]
+                    ?? ''
+                )
+            );
+
+
+        if (
+            $currentStripePriceId !== ''
+        ) {
+
+            continue;
+        }
+
+
+        if (
+            $alreadyAssigned
+            &&
+            (int)
+            $alreadyAssigned
+            !==
+            (int)
+            $plan[
+                'current_price_id'
+            ]
+        ) {
+
+            continue;
+        }
+
+
+        $priceUpdate->execute([
+            $legacyPriceId,
+            (int)
+            $plan[
+                'current_price_id'
+            ],
+        ]);
+
+
+        $planUpdate->execute([
+            $legacyPriceId,
+            (int)
+            $plan[
+                'id'
+            ],
+        ]);
+    }
 }
 
 
