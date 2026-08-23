@@ -133,10 +133,6 @@ require_once
 ></script>
 
 <script
-  src="/js/place-contribute.js"
-></script>
-
-<script
   src="/js/access-ui.js"
 ></script>
 
