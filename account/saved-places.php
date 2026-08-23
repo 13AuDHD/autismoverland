@@ -93,7 +93,17 @@ try {
 
 
     $savedPlacesError =
-        'Saved Places is temporarily unavailable.';
+        user_is_owner(
+            $userId
+        )
+            ? 'DEBUG: '
+              . get_class(
+                  $exception
+              )
+              . ' | '
+              . $exception
+                  ->getMessage()
+            : 'Saved Places is temporarily unavailable.';
 
 }
 
