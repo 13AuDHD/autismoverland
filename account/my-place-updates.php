@@ -742,7 +742,7 @@ require_once
                     )
                 ) ?>
 
-                Â·
+                &middot;
 
                 <?= $changeCount ?>
 
@@ -751,7 +751,7 @@ require_once
                     : 's'
                 ?>
 
-                Â· Submitted
+                &middot; Submitted
 
                 <?= e(
                     my_update_date(
@@ -769,7 +769,7 @@ require_once
                     )
                 ): ?>
 
-                  Â· Visited
+                &middot; Visited
 
                   <?= e(
                       my_update_date(
