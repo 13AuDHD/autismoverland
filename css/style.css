@@ -654,8 +654,7 @@ button.is-active {
   background:
     linear-gradient(
       180deg,
-      #f7f3ea 0%,
-      rgba(247, 243, 234, .6) 82%,
+      var(--surface-soft) 0%,
       transparent 100%
     );
 }
@@ -706,7 +705,7 @@ button.is-active {
 
   letter-spacing: -.045em;
 
-  color: #203127;
+  color: var(--ink);
 }
 
 
@@ -735,7 +734,7 @@ button.is-active {
     0
     28px;
 
-  color: #2f3732;
+  color: var(--muted);
 
   font-size: 1.15rem;
 
@@ -880,7 +879,7 @@ button.is-active {
 
 
 .section-heading a {
-  color: #0f5366;
+  color: var(--blue);
 
   font-weight: 600;
 }
