@@ -2678,22 +2678,24 @@ h3 {
 
   grid-template-columns:
     repeat(
-      2,
+      4,
       minmax(0, 1fr)
     );
 
-  gap: .85rem;
+  gap: .65rem;
 }
 
 
 .place-rating-card {
-  padding: 1rem;
+  padding:
+    .7rem
+    .8rem;
 
   border:
     1px solid
     rgba(0, 0, 0, .1);
 
-  border-radius: 10px;
+  border-radius: 9px;
 
   background:
     rgba(255, 255, 255, .65);
@@ -2705,11 +2707,11 @@ h3 {
 
   align-items: center;
 
-  gap: .55rem;
+  gap: .45rem;
 
-  margin-bottom: .75rem;
+  margin-bottom: .45rem;
 
-  font-size: .85rem;
+  font-size: .8rem;
 }
 
 
@@ -2720,9 +2722,8 @@ h3 {
 
   justify-content: space-between;
 
-  gap: 1rem;
+  gap: .5rem;
 }
-
 
 .place-rating-value strong {
   font-size: 1.15rem;
@@ -6254,6 +6255,15 @@ input:checked + span {
   }
 
 
+   .place-rating-grid {
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+}
+
+   
   /* =======================================================
      HERO
      ======================================================= */
@@ -6805,6 +6815,8 @@ input:checked + span {
 
 @media (max-width: 650px) {
 
+   
+
   .map-filter-toolbar {
     grid-template-columns:
       1fr
@@ -6859,11 +6871,18 @@ input:checked + span {
   }
 
 
-  .place-rating-grid,
-  .place-facts,
-  .place-gallery {
-    grid-template-columns: 1fr;
-  }
+.place-facts,
+.place-gallery {
+  grid-template-columns: 1fr;
+}
+
+.place-rating-grid {
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+} 
 
 
   .blog-hero,
