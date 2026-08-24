@@ -4070,7 +4070,7 @@ require
 
       </section>
 
-      <section class="admin-card">
+      <section class="admin-card scout-timeline">
 
         <h2>
           Scout Timeline
