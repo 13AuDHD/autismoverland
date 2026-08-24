@@ -1885,7 +1885,7 @@ $confirmationText =
 </head>
 
 
-<body>
+<body class="admin-page">
 
 
 <?php
@@ -1900,33 +1900,45 @@ require_once
 <main class="cleanup-main">
 
 
-  <section class="admin-intro">
+<section class="admin-intro">
 
-    <p class="admin-eyebrow">
-      Basecamp Â· Owner Tools
-    </p>
+  <div class="admin-intro-row">
 
-    <h1>
-      Test Account Tools
-    </h1>
+    <div class="admin-intro-copy">
 
-    <p>
-      Reset a reusable membership-testing account or permanently
-      remove a disposable test user without touching published
-      Llama Scout contribution history.
-    </p>
+      <p class="admin-eyebrow">
 
-    <p class="admin-role-line">
-      <?= e(
-          $primaryRoleIcon
-      ) ?>
-      <?= e(
-          $primaryRoleLabel
-      ) ?>
-    </p>
+        <i
+          class="<?= e(
+              $primaryRoleIcon
+          ) ?>"
+          aria-hidden="true"
+        ></i>
 
-  </section>
+        Llama Scout
+        <?= e(
+            $primaryRoleLabel
+        ) ?>
 
+      </p>
+
+      <h1>
+        Test Account Tools
+      </h1>
+
+      <p>
+        Owner Tools
+        &middot;
+        Reset a reusable membership-testing account or permanently
+        remove a disposable test user without touching published
+        Llama Scout contribution history.
+      </p>
+
+    </div>
+
+  </div>
+
+</section>
 
   <div class="cleanup-back">
 
