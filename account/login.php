@@ -181,6 +181,10 @@ function e(
     href="https://llamascout.com/css/account.css"
   >
 
+    <script
+  src="https://llamascout.com/js/accessibility.js"
+></script>
+    
 </head>
 
 
