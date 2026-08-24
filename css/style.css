@@ -6724,7 +6724,7 @@ input:checked + span {
 
    .accessibility-toggle {
      margin-left: auto;
-     margin-right: 6px;
+     margin-right: 4px;
    }
    
   .menu-toggle {
