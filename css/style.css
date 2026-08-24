@@ -2605,6 +2605,9 @@ h3 {
     minmax(0, 1fr)
     320px;
 
+  grid-template-areas:
+    "main sidebar";
+
   gap: 3rem;
 
   align-items: start;
@@ -2612,8 +2615,15 @@ h3 {
 
 
 .place-main {
+  grid-area: main;
+
   min-width: 0;
 }
+
+
+.place-sidebar {
+  grid-area: sidebar;
+}  
 
 
 .place-section {
@@ -2850,13 +2860,11 @@ h3 {
 
 
 .place-sidebar {
-  position: sticky;
-
-  top: 2rem;
-
   display: grid;
 
   gap: 1rem;
+
+  align-self: start;
 }
 
 
@@ -6639,15 +6647,15 @@ input:checked + span {
 
 @media (max-width: 850px) {
 
-  .place-layout {
-    grid-template-columns: 1fr;
-  }
+.place-layout {
+  grid-template-columns: 1fr;
 
+  grid-template-areas:
+    "sidebar"
+    "main";
 
-  .place-sidebar {
-    position: static;
-  }
-
+  gap: 2rem;
+}
 }
 
 
