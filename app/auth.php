@@ -919,11 +919,138 @@ function logout_user(): void
 
 
 /* =========================================================
+   SAFE LOGIN RETURN URL
+   ========================================================= */
+
+function llama_safe_return_url(
+    ?string $url
+): ?string {
+
+    $url =
+        trim(
+            (string)
+            $url
+        );
+
+
+    if (
+        $url === ''
+    ) {
+
+        return null;
+
+    }
+
+
+    $parts =
+        parse_url(
+            $url
+        );
+
+
+    if (
+        !is_array(
+            $parts
+        )
+    ) {
+
+        return null;
+
+    }
+
+
+    $scheme =
+        strtolower(
+            (string) (
+                $parts[
+                    'scheme'
+                ]
+                ?? ''
+            )
+        );
+
+
+    $host =
+        strtolower(
+            (string) (
+                $parts[
+                    'host'
+                ]
+                ?? ''
+            )
+        );
+
+
+    if (
+        $scheme !==
+        'https'
+    ) {
+
+        return null;
+
+    }
+
+
+    if (
+        $host !==
+        'llamascout.com'
+        &&
+        !str_ends_with(
+            $host,
+            '.llamascout.com'
+        )
+    ) {
+
+        return null;
+
+    }
+
+
+    return
+        $url;
+}
+
+
+function llama_current_request_url(): string
+{
+
+    $host =
+        trim(
+            (string) (
+                $_SERVER[
+                    'HTTP_HOST'
+                ]
+                ?? 'llamascout.com'
+            )
+        );
+
+
+    $uri =
+        (string) (
+            $_SERVER[
+                'REQUEST_URI'
+            ]
+            ?? '/'
+        );
+
+
+    return
+        'https://'
+        .
+        $host
+        .
+        $uri;
+}
+
+
+
+/* =========================================================
    REQUIRE LOGIN
    ========================================================= */
 
 function require_login(): void
 {
+
     if (
         is_logged_in()
     ) {
@@ -933,8 +1060,16 @@ function require_login(): void
     }
 
 
+    $returnUrl =
+        llama_current_request_url();
+
+
     header(
-        'Location: https://account.llamascout.com/login.php'
+        'Location: https://account.llamascout.com/login.php?return='
+        .
+        rawurlencode(
+            $returnUrl
+        )
     );
 
 
