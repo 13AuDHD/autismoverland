@@ -1468,13 +1468,12 @@ h3 {
 
   border:
     1px solid
-    rgba(118, 103, 85, .25);
+    var(--line);
 
   border-radius: 6px;
 
   box-shadow:
-    0 8px 20px
-    rgba(44, 49, 45, .08);
+    var(--shadow);
 
   backdrop-filter:
     blur(4px);
