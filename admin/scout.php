@@ -2661,7 +2661,7 @@ $introCopy =
       .scout-timeline
       .review-answer p {
         margin: 0;
-      
+        white-space: normal;
         line-height: 1.4;
       }
       
