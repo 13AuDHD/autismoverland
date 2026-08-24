@@ -252,6 +252,10 @@ function e(string $value): string
   href="https://llamascout.com/css/account.css"
 >
 
+<script
+  src="https://llamascout.com/js/accessibility.js"
+></script>
+    
 </head>
 
 <body class="account-auth-body">
