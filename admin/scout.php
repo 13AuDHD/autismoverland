@@ -2634,6 +2634,43 @@ $introCopy =
       background: rgba(217, 196, 154, .20);
     }
 
+     .scout-timeline
+      .review-answer {
+        display: grid;
+      
+        grid-template-columns:
+          minmax(150px, .8fr)
+          minmax(0, 1.2fr);
+      
+        align-items: baseline;
+      
+        gap: 16px;
+      
+        padding:
+          11px
+          0;
+      }
+      
+      
+      .scout-timeline
+      .review-answer strong {
+        margin: 0;
+      }
+      
+      
+      .scout-timeline
+      .review-answer p {
+        margin: 0;
+      
+        line-height: 1.4;
+      }
+      
+      
+      .scout-timeline
+      .review-answer p br {
+        display: none;
+      }
+     
     @media (max-width: 860px) {
       .scout-review-grid {
         grid-template-columns: 1fr;
@@ -2643,6 +2680,14 @@ $introCopy =
     @media (max-width: 560px) {
       .review-facts {
         grid-template-columns: 1fr;
+      }
+      .scout-timeline
+      .review-answer {
+        grid-template-columns: 1fr;
+        gap: 3px;
+        padding:
+          10px
+          0;
       }
     }
 
