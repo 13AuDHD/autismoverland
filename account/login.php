@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+
 require_once
     dirname(__DIR__)
     . '/app/auth.php';
@@ -10,16 +11,37 @@ require_once
 start_llama_session();
 
 
+$returnUrl =
+    llama_safe_return_url(
+        $_POST[
+            'return'
+        ]
+        ??
+        $_GET[
+            'return'
+        ]
+        ??
+        null
+    );
+
+
+$destination =
+    $returnUrl
+    ?:
+    'https://account.llamascout.com/';
+
+
 if (
     is_logged_in()
 ) {
 
     header(
-        'Location: https://account.llamascout.com/'
+        'Location: '
+        .
+        $destination
     );
 
     exit;
-
 }
 
 
@@ -36,18 +58,22 @@ if (
 
     $login =
         trim(
-            $_POST[
-                'login'
-            ]
-            ?? ''
+            (string) (
+                $_POST[
+                    'login'
+                ]
+                ?? ''
+            )
         );
 
 
     $password =
-        $_POST[
-            'password'
-        ]
-        ?? '';
+        (string) (
+            $_POST[
+                'password'
+            ]
+            ?? ''
+        );
 
 
     $remember =
@@ -58,57 +84,56 @@ if (
         );
 
 
-if (
-    $login === ''
-    ||
-    $password === ''
-) {
-
-    $error =
-        'Enter your email or username and password.';
-
-} else {
-
-    $loginResult =
-        attempt_login_result(
-            $login,
-            $password,
-            $remember
-        );
-
-
     if (
-        $loginResult ===
-        'success'
+        $login === ''
+        ||
+        $password === ''
     ) {
 
-        header(
-            'Location: https://account.llamascout.com/'
-        );
+        $error =
+            'Enter your email or username and password.';
 
-        exit;
+    } else {
 
-    }
+        $loginResult =
+            attempt_login_result(
+                $login,
+                $password,
+                $remember
+            );
 
 
-    $error =
-        match (
-            $loginResult
+        if (
+            $loginResult ===
+            'success'
         ) {
 
-            'suspended' =>
-                'This account has been suspended. Please contact Llama Scout if you believe this is an error.',
+            header(
+                'Location: '
+                .
+                $destination
+            );
 
-            'disabled' =>
-                'This account is currently disabled. Please contact Llama Scout for assistance.',
+            exit;
+        }
 
-            default =>
-                'The email, username, or password is incorrect.',
 
-        };
+        $error =
+            match (
+                $loginResult
+            ) {
 
-}
+                'suspended' =>
+                    'This account has been suspended. Please contact Llama Scout if you believe this is an error.',
 
+                'disabled' =>
+                    'This account is currently disabled. Please contact Llama Scout for assistance.',
+
+                default =>
+                    'The email, username, or password is incorrect.',
+
+            };
+    }
 }
 
 
@@ -121,7 +146,6 @@ function e(
         ENT_QUOTES,
         'UTF-8'
     );
-
 }
 
 ?>
@@ -194,7 +218,7 @@ function e(
 
 
       <?php if (
-          $error
+          $error !== ''
       ): ?>
 
         <div
@@ -212,6 +236,21 @@ function e(
 
 
       <form method="post">
+
+
+        <?php if (
+            $returnUrl !== null
+        ): ?>
+
+          <input
+            type="hidden"
+            name="return"
+            value="<?= e(
+                $returnUrl
+            ) ?>"
+          >
+
+        <?php endif; ?>
 
 
         <div class="account-field">
@@ -270,46 +309,34 @@ function e(
           >
 
           <span>
-
             Remember me for 30 days
-
           </span>
 
         </label>
 
 
-        <a
-          class="account-forgot"
-          href="forgot-password.php"
-        >
-
-          Forgot your password?
-
-        </a>
-
-
         <button
           type="submit"
-          class="account-submit"
+          class="account-button"
         >
-
           Log In
-
         </button>
 
 
       </form>
 
 
-      <p class="account-auth-footer">
+      <div class="account-auth-links">
 
-        New to Llama Scout?
+        <a href="/forgot-password.php">
+          Forgot your password?
+        </a>
 
-        <a href="register.php">
+        <a href="/register.php">
           Create an account
         </a>
 
-      </p>
+      </div>
 
 
     </section>
