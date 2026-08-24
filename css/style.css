@@ -1590,23 +1590,22 @@ h3 {
 .rating-dots {
   display: flex;
 
-  gap: 3px;
+  gap: 4px;
 }
 
 
 .rating-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 
   border:
-    1px solid
+    1.25px solid
     currentColor;
 
   border-radius: 50%;
 
-  opacity: .35;
+  opacity: .42;
 }
-
 
 .rating-dot.is-filled {
   background: currentColor;
