@@ -231,6 +231,61 @@ img {
 }
 
 
+.accessibility-toggle {
+  width: 44px;
+  height: 44px;
+
+  flex: 0 0 auto;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, .34);
+
+  border-radius: 50%;
+
+  background: transparent;
+
+  color: #f7f1e8;
+
+  font: inherit;
+  font-size: 1.25rem;
+
+  cursor: pointer;
+
+  transition:
+    background .2s ease,
+    border-color .2s ease,
+    transform .2s ease;
+}
+
+
+.accessibility-toggle:hover {
+  background:
+    rgba(255, 255, 255, .1);
+
+  border-color:
+    rgba(255, 255, 255, .62);
+
+  transform:
+    translateY(-1px);
+}
+
+
+.accessibility-toggle:focus-visible {
+  outline:
+    2px solid
+    #cde8f0;
+
+  outline-offset: 3px;
+}
+
+
 .submit-place {
   padding:
     12px
