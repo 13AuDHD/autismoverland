@@ -292,51 +292,57 @@ function e(
         </div>
 
 
-        <label
-          class="account-remember"
-          for="remember"
-        >
+<label
+  class="account-remember"
+  for="remember"
+>
 
-          <input
-            id="remember"
-            name="remember"
-            type="checkbox"
-            value="1"
-            <?= $remember
-                ? 'checked'
-                : ''
-            ?>
-          >
+  <input
+    id="remember"
+    name="remember"
+    type="checkbox"
+    value="1"
+    <?= $remember
+        ? 'checked'
+        : ''
+    ?>
+  >
 
-          <span>
-            Remember me for 30 days
-          </span>
+  <span>
+    Remember me for 30 days
+  </span>
 
-        </label>
-
-
-        <button
-          type="submit"
-          class="account-button"
-        >
-          Log In
-        </button>
+</label>
 
 
-      </form>
+<a
+  class="account-forgot"
+  href="forgot-password.php"
+>
+  Forgot your password?
+</a>
 
 
-      <div class="account-auth-links">
+<button
+  type="submit"
+  class="account-submit"
+>
+  Log In
+</button>
 
-        <a href="/forgot-password.php">
-          Forgot your password?
-        </a>
 
-        <a href="/register.php">
-          Create an account
-        </a>
+</form>
 
-      </div>
+
+<p class="account-auth-footer">
+
+  New to Llama Scout?
+
+  <a href="register.php">
+    Create an account
+  </a>
+
+</p>
 
 
     </section>
