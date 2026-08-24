@@ -5963,10 +5963,17 @@ input:checked + span {
   }
 
 
+   .accessibility-toggle {
+     margin-left: auto;
+     margin-right: 6px;
+   }
+   
   .menu-toggle {
     display: inline-flex;
 
-    position: relative;
+   margin-left: 0;
+     
+     position: relative;
 
     z-index: 10003;
   }
