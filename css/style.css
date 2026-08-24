@@ -898,11 +898,11 @@ button.is-active {
   padding: 18px;
 
   background:
-    rgba(221, 213, 203, .74);
+    var(--surface-soft);
 
   border:
     1px solid
-    rgba(118, 103, 85, .22);
+    var(--line);
 
   border-radius: 4px;
 
@@ -946,9 +946,10 @@ button.is-active {
   border-radius: 6px;
 
   background:
-    rgba(255, 255, 255, .82);
+    var(--surface);
 
-  color: #2c3832;
+  color:
+    var(--ink);
 
   font: inherit;
 
@@ -1009,7 +1010,7 @@ button.is-active {
   border-radius: 6px;
 
   background:
-    rgba(255, 255, 255, .75);
+    var(--surface);
 
   overflow: hidden;
 }
@@ -1096,7 +1097,7 @@ i {
   padding: 16px;
 
   background:
-    rgba(255, 255, 255, .82);
+    var(--surface);
 
   border:
     1px solid
@@ -1140,7 +1141,8 @@ i {
     11px
     0;
 
-  color: #3a423d;
+  color:
+    var(--muted);
 
   font-size: .9rem;
 }
@@ -1186,7 +1188,8 @@ i {
     1px solid
     var(--line);
 
-  background: #d6dfcf;
+  background:
+    var(--surface-soft);
 }
 
 
