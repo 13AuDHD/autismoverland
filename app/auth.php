@@ -698,15 +698,17 @@ function is_logged_in(): bool
    LOGIN
    ========================================================= */
 
-function attempt_login(
+function attempt_login_result(
     string $login,
     string $password,
     bool $remember = false
-): bool {
+): string {
 
     $login =
         strtolower(
-            trim($login)
+            trim(
+                $login
+            )
         );
 
 
@@ -735,9 +737,12 @@ function attempt_login(
         $stmt->fetch();
 
 
-    if (!$user) {
+    if (
+        !$user
+    ) {
 
-        return false;
+        return
+            'invalid_credentials';
 
     }
 
@@ -751,22 +756,39 @@ function attempt_login(
         )
     ) {
 
-        return false;
+        return
+            'invalid_credentials';
+
+    }
+
+
+    $status =
+        (string) (
+            $user[
+                'status'
+            ]
+            ?? ''
+        );
+
+
+    if (
+        $status ===
+        'suspended'
+    ) {
+
+        return
+            'suspended';
 
     }
 
 
     if (
-        $user[
-            'status'
-        ] === 'suspended'
-        ||
-        $user[
-            'status'
-        ] === 'disabled'
+        $status ===
+        'disabled'
     ) {
 
-        return false;
+        return
+            'disabled';
 
     }
 
@@ -818,7 +840,9 @@ function attempt_login(
     ]);
 
 
-    if ($remember) {
+    if (
+        $remember
+    ) {
 
         create_remember_token(
             (int)
@@ -830,9 +854,27 @@ function attempt_login(
     }
 
 
-    return true;
+    return
+        'success';
 }
 
+
+function attempt_login(
+    string $login,
+    string $password,
+    bool $remember = false
+): bool {
+
+    return
+        attempt_login_result(
+            $login,
+            $password,
+            $remember
+        )
+        ===
+        'success';
+
+}
 
 /* =========================================================
    LOGOUT
