@@ -1533,7 +1533,7 @@ if (
   >
 
   <title>
-    Mark a Problem | Llama Scout
+    Flag a Concern | Llama Scout
   </title>
 
   <meta
@@ -1603,7 +1603,7 @@ require_once
 
 
     <h1>
-      Mark a Problem
+      Flag a Concern
     </h1>
 
 
@@ -1660,14 +1660,14 @@ require_once
       >
 
         <strong>
-          Report received.
+          Concern received.
         </strong>
 
         <br><br>
 
         Thanks for flagging this place.
 
-        Your report is now waiting
+        Your concern is now waiting
         for review.
 
 
@@ -1765,7 +1765,7 @@ require_once
         has changed, tell us what you
         found.
 
-        Reports are reviewed before a
+        Concerns are thoroughly reviewed before a
         place is unlisted or removed.
 
       </p>
@@ -1821,7 +1821,7 @@ require_once
 
 
           <label for="problem_type">
-            What's wrong?
+            What's the concern?
           </label>
 
 
@@ -1832,7 +1832,7 @@ require_once
           >
 
             <option value="">
-              Choose a problem
+              Choose a concern
             </option>
 
 
@@ -1959,7 +1959,7 @@ require_once
             aria-hidden="true"
           ></i>
 
-          Submit Report
+          Submit Concern
 
         </button>
 
