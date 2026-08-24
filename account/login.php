@@ -58,22 +58,28 @@ if (
         );
 
 
-    if (
-        $login === ''
-        ||
-        $password === ''
-    ) {
+if (
+    $login === ''
+    ||
+    $password === ''
+) {
 
-        $error =
-            'Enter your email or username and password.';
+    $error =
+        'Enter your email or username and password.';
 
+} else {
 
-    } elseif (
-        attempt_login(
+    $loginResult =
+        attempt_login_result(
             $login,
             $password,
             $remember
-        )
+        );
+
+
+    if (
+        $loginResult ===
+        'success'
     ) {
 
         header(
@@ -82,13 +88,26 @@ if (
 
         exit;
 
-
-    } else {
-
-        $error =
-            'The email, username, or password is incorrect.';
-
     }
+
+
+    $error =
+        match (
+            $loginResult
+        ) {
+
+            'suspended' =>
+                'This account has been suspended. Please contact Llama Scout if you believe this is an error.',
+
+            'disabled' =>
+                'This account is currently disabled. Please contact Llama Scout for assistance.',
+
+            default =>
+                'The email, username, or password is incorrect.',
+
+        };
+
+}
 
 }
 
