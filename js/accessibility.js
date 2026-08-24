@@ -3,113 +3,90 @@
    ACCESSIBILITY + DISPLAY SETTINGS
    ========================================================= */
 
-document.addEventListener(
-  "DOMContentLoaded",
-  () => {
+(() => {
 
-    const toggle =
-      document.querySelector(
-        "[data-accessibility-toggle]"
-      );
+  const storageKey =
+    "llama-theme";
 
-    const panel =
-      document.getElementById(
-        "accessibility-panel"
-      );
 
-    const themeButtons =
-      document.querySelectorAll(
-        "[data-theme-choice]"
+  function savedTheme() {
+
+    const value =
+      localStorage.getItem(
+        storageKey
       );
 
 
     if (
-      !toggle
+      value === "light"
       ||
-      !panel
+      value === "dark"
+      ||
+      value === "system"
     ) {
-      return;
+      return value;
     }
 
 
-    const storageKey =
-      "llama-theme";
+    return "system";
+  }
 
 
-    function savedTheme() {
+  function resolvedTheme(
+    choice
+  ) {
 
-      const value =
-        localStorage.getItem(
-          storageKey
-        );
-
-
-      if (
-        value === "light"
-        ||
-        value === "dark"
-        ||
-        value === "system"
-      ) {
-        return value;
-      }
-
-
-      return "system";
+    if (
+      choice === "dark"
+    ) {
+      return "dark";
     }
 
 
-    function resolvedTheme(
-      choice
+    if (
+      choice === "light"
     ) {
-
-      if (
-        choice === "dark"
-      ) {
-        return "dark";
-      }
-
-
-      if (
-        choice === "light"
-      ) {
-        return "light";
-      }
-
-
-      return window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches
-        ? "dark"
-        : "light";
+      return "light";
     }
 
 
-    function applyTheme(
-      choice
-    ) {
-
-      const resolved =
-        resolvedTheme(
-          choice
-        );
+    return window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches
+      ? "dark"
+      : "light";
+  }
 
 
-      document.documentElement
-        .setAttribute(
-          "data-theme",
-          resolved
-        );
+  function applyTheme(
+    choice
+  ) {
+
+    const resolved =
+      resolvedTheme(
+        choice
+      );
 
 
-      document.documentElement
-        .setAttribute(
-          "data-theme-choice",
-          choice
-        );
+    document.documentElement
+      .setAttribute(
+        "data-theme",
+        resolved
+      );
 
 
-      themeButtons.forEach(
+    document.documentElement
+      .setAttribute(
+        "data-theme-choice",
+        choice
+      );
+
+
+    document
+      .querySelectorAll(
+        "[data-theme-choice]"
+      )
+      .forEach(
         (button) => {
 
           const active =
@@ -132,175 +109,226 @@ document.addEventListener(
           );
         }
       );
-    }
+  }
 
 
-    function panelIsOpen() {
+  /*
+   * Apply the theme immediately.
+   *
+   * This works whether or not the page has the
+   * accessibility panel/header.
+   */
 
-      return !panel.hidden;
-    }
-
-
-    function openPanel() {
-
-      panel.hidden =
-        false;
-
-
-      toggle.setAttribute(
-        "aria-expanded",
-        "true"
-      );
-    }
+  applyTheme(
+    savedTheme()
+  );
 
 
-    function closePanel(
-      returnFocus = false
-    ) {
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
-      panel.hidden =
-        true;
+      const toggle =
+        document.querySelector(
+          "[data-accessibility-toggle]"
+        );
 
 
-      toggle.setAttribute(
-        "aria-expanded",
-        "false"
-      );
+      const panel =
+        document.getElementById(
+          "accessibility-panel"
+        );
 
+
+      const themeButtons =
+        document.querySelectorAll(
+          "[data-theme-choice]"
+        );
+
+
+      /*
+       * Standalone pages such as login,
+       * registration and password recovery
+       * do not have the accessibility panel.
+       *
+       * Theme handling still remains active.
+       */
 
       if (
-        returnFocus
-      ) {
-        toggle.focus();
-      }
-    }
-
-
-    function togglePanel() {
-
-      if (
-        panelIsOpen()
+        toggle
+        &&
+        panel
       ) {
 
-        closePanel();
+        function panelIsOpen() {
 
-      } else {
-
-        openPanel();
-      }
-    }
+          return !panel.hidden;
+        }
 
 
-    const initialChoice =
-      savedTheme();
+        function openPanel() {
+
+          panel.hidden =
+            false;
 
 
-    applyTheme(
-      initialChoice
-    );
+          toggle.setAttribute(
+            "aria-expanded",
+            "true"
+          );
+        }
 
 
-    toggle.addEventListener(
-      "click",
-      togglePanel
-    );
+        function closePanel(
+          returnFocus = false
+        ) {
+
+          panel.hidden =
+            true;
 
 
-    themeButtons.forEach(
-      (button) => {
+          toggle.setAttribute(
+            "aria-expanded",
+            "false"
+          );
 
-        button.addEventListener(
+
+          if (
+            returnFocus
+          ) {
+            toggle.focus();
+          }
+        }
+
+
+        function togglePanel() {
+
+          if (
+            panelIsOpen()
+          ) {
+
+            closePanel();
+
+          } else {
+
+            openPanel();
+          }
+        }
+
+
+        toggle.addEventListener(
           "click",
-          () => {
-
-            const choice =
-              button.dataset.themeChoice;
+          togglePanel
+        );
 
 
-            localStorage.setItem(
-              storageKey,
-              choice
-            );
+        document.addEventListener(
+          "keydown",
+          (event) => {
+
+            if (
+              event.key === "Escape"
+              &&
+              panelIsOpen()
+            ) {
+
+              closePanel(
+                true
+              );
+            }
+          }
+        );
 
 
-            applyTheme(
-              choice
-            );
+        document.addEventListener(
+          "click",
+          (event) => {
+
+            if (
+              !panelIsOpen()
+            ) {
+              return;
+            }
+
+
+            if (
+              panel.contains(
+                event.target
+              )
+              ||
+              toggle.contains(
+                event.target
+              )
+            ) {
+              return;
+            }
+
+
+            closePanel();
           }
         );
       }
-    );
 
 
-    document.addEventListener(
-      "keydown",
-      (event) => {
+      themeButtons.forEach(
+        (button) => {
 
-        if (
-          event.key === "Escape"
-          &&
-          panelIsOpen()
-        ) {
+          button.addEventListener(
+            "click",
+            () => {
 
-          closePanel(
-            true
+              const choice =
+                button.dataset.themeChoice;
+
+
+              localStorage.setItem(
+                storageKey,
+                choice
+              );
+
+
+              applyTheme(
+                choice
+              );
+            }
           );
         }
-      }
-    );
-
-
-    document.addEventListener(
-      "click",
-      (event) => {
-
-        if (
-          !panelIsOpen()
-        ) {
-          return;
-        }
-
-
-        if (
-          panel.contains(
-            event.target
-          )
-          ||
-          toggle.contains(
-            event.target
-          )
-        ) {
-          return;
-        }
-
-
-        closePanel();
-      }
-    );
-
-
-    const systemTheme =
-      window.matchMedia(
-        "(prefers-color-scheme: dark)"
       );
 
 
-    systemTheme.addEventListener(
-      "change",
-      () => {
+      /*
+       * Refresh pressed-state after the
+       * DOM controls are available.
+       */
 
-        if (
-          savedTheme()
-          ===
-          "system"
-        ) {
+      applyTheme(
+        savedTheme()
+      );
+    }
+  );
 
-          applyTheme(
-            "system"
-          );
-        }
-      }
+
+  const systemTheme =
+    window.matchMedia(
+      "(prefers-color-scheme: dark)"
     );
 
-  }
-);
+
+  systemTheme.addEventListener(
+    "change",
+    () => {
+
+      if (
+        savedTheme()
+        ===
+        "system"
+      ) {
+
+        applyTheme(
+          "system"
+        );
+      }
+    }
+  );
+
+})();
