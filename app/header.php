@@ -223,6 +223,80 @@ $adminBase =
       
       </button>
 
+
+     <div
+        id="accessibility-panel"
+        class="accessibility-panel"
+        hidden
+      >
+      
+        <div class="accessibility-panel-header">
+      
+          <div>
+      
+            <strong>
+              Accessibility &amp; Display
+            </strong>
+      
+            <span>
+              Adjust how Llama Scout looks.
+            </span>
+      
+          </div>
+      
+        </div>
+      
+      
+        <div class="accessibility-setting">
+      
+          <span class="accessibility-setting-label">
+            Appearance
+          </span>
+      
+      
+          <div
+            class="accessibility-theme-options"
+            role="group"
+            aria-label="Appearance"
+          >
+      
+            <button
+              type="button"
+              data-theme-choice="system"
+              aria-pressed="false"
+            >
+              System
+            </button>
+      
+      
+            <button
+              type="button"
+              data-theme-choice="light"
+              aria-pressed="false"
+            >
+              Light
+            </button>
+      
+      
+            <button
+              type="button"
+              data-theme-choice="dark"
+              aria-pressed="false"
+            >
+              Dark
+            </button>
+      
+          </div>
+      
+        </div>
+      
+      
+        <p class="accessibility-panel-note">
+          More display and accessibility options will be added here.
+        </p>
+      
+      </div>
+
      
     <!-- ===================================================
          DESKTOP ACCOUNT BUTTON
