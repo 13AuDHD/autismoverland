@@ -230,7 +230,9 @@ $adminBase =
 
       <a
         class="submit-place"
-        href="<?= $accountBase ?>/login.php"
+      href="<?= $accountBase ?>/login.php?return=<?= rawurlencode(
+          llama_current_request_url()
+      ) ?>"
       >
         Log In / Sign Up
       </a>
@@ -477,7 +479,9 @@ $adminBase =
             mobile-nav-account-item
             mobile-nav-account-main
           "
-          href="<?= $accountBase ?>/login.php"
+         href="<?= $accountBase ?>/login.php?return=<?= rawurlencode(
+             llama_current_request_url()
+         ) ?>"
         >
 
           <i
