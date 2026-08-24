@@ -2634,8 +2634,10 @@ $introCopy =
       background: rgba(217, 196, 154, .20);
     }
 
-     .scout-timeline
-      .review-answer {
+.scout-timeline
+.review-answer,
+.scout-account
+.review-answer {
         display: grid;
       
         grid-template-columns:
@@ -2652,22 +2654,28 @@ $introCopy =
       }
       
       
-      .scout-timeline
-      .review-answer strong {
+.scout-timeline
+.review-answer strong,
+.scout-account
+.review-answer strong {
         margin: 0;
       }
       
       
-      .scout-timeline
-      .review-answer p {
+.scout-timeline
+.review-answer p,
+.scout-account
+.review-answer p {
         margin: 0;
         white-space: normal;
         line-height: 1.4;
       }
       
       
-      .scout-timeline
-      .review-answer p br {
+.scout-timeline
+.review-answer p br,
+.scout-account
+.review-answer p br {
         display: none;
       }
      
@@ -2681,8 +2689,10 @@ $introCopy =
       .review-facts {
         grid-template-columns: 1fr;
       }
-      .scout-timeline
-      .review-answer {
+.scout-timeline
+.review-answer,
+.scout-account
+.review-answer {
         grid-template-columns: 1fr;
         gap: 3px;
         padding:
@@ -4001,7 +4011,7 @@ require
 
       <?php endif; ?>
 
-      <section class="admin-card">
+   <section class="admin-card scout-account">
 
         <h2>
           Account
