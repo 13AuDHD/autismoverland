@@ -2454,7 +2454,7 @@ require_once
       ></i>
 
       Is this a closure, safety issue, private property
-      concern, or urgent access problem? Report a problem
+      concern, or urgent access problem? Flag a concern
       instead.
 
     </a>
