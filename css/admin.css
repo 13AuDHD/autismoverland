@@ -1955,24 +1955,6 @@ a.admin-card:focus-visible {
 
 @media (max-width: 900px) {
 
-  .admin-stats {
-    grid-template-columns:
-      repeat(
-        2,
-        minmax(0, 1fr)
-      );
-  }
-
-
-  .admin-stats--5 {
-    grid-template-columns:
-      repeat(
-        2,
-        minmax(0, 1fr)
-      );
-  }
-
-
   .admin-form-grid--3 {
     grid-template-columns:
       repeat(
@@ -2001,6 +1983,15 @@ a.admin-card:focus-visible {
 
 @media (max-width: 700px) {
 
+   .admin-stats,
+   .admin-stats--5 {
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+}
+   
   .admin-main {
     width:
       min(
@@ -2097,12 +2088,6 @@ a.admin-card:focus-visible {
 
 
 @media (max-width: 520px) {
-
-  .admin-stats,
-  .admin-stats--5 {
-    grid-template-columns: 1fr;
-  }
-
 
   .admin-stat {
     padding: 18px;
