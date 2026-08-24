@@ -173,15 +173,20 @@ body {
   background:
     radial-gradient(
       circle at 18% 8%,
-      rgba(255, 255, 255, .9),
+      var(--page-glow),
       transparent 28%
     ),
     linear-gradient(
-      rgba(244, 239, 231, .88),
-      rgba(244, 239, 231, .88)
+      var(--page-wash),
+      var(--page-wash)
     ),
     var(--paper);
+
+  transition:
+    background-color .2s ease,
+    color .2s ease;
 }
+
 
 body::before {
   content: "";
@@ -193,16 +198,16 @@ body::before {
 
   opacity: .18;
 
-  background-image:
-    linear-gradient(
-      90deg,
-      rgba(40, 40, 40, .05) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      rgba(40, 40, 40, .04) 1px,
-      transparent 1px
-    );
+background-image:
+  linear-gradient(
+    90deg,
+    var(--texture-line) 1px,
+    transparent 1px
+  ),
+  linear-gradient(
+    var(--texture-line-soft) 1px,
+    transparent 1px
+  );
 
   background-size: 5px 5px;
 
