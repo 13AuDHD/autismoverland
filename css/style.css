@@ -1259,17 +1259,16 @@ input[type="checkbox"] {
   overflow: hidden;
 
   background:
-    rgba(255, 255, 255, .84);
+    var(--card);
 
   border:
     1px solid
-    rgba(118, 103, 85, .22);
+    var(--line);
 
   border-radius: 12px;
 
   box-shadow:
-    0 8px 22px
-    rgba(44, 49, 45, .08);
+    var(--shadow);
 
   backdrop-filter:
     blur(5px);
@@ -1307,9 +1306,9 @@ input[type="checkbox"] {
 
   overflow: hidden;
 
-  background: #d7ddd8;
+  background:
+    var(--surface-soft);
 }
-
 
 #featured-locations-grid
 .location-card-image-link
@@ -1356,7 +1355,8 @@ h3 {
     0
     12px;
 
-  color: #1d251f;
+  color:
+    var(--ink);
 
   font-size: 1.12rem;
 
@@ -1394,13 +1394,13 @@ h3 {
 
   min-width: 0;
 
-  color: #58625b;
+  color:
+    var(--muted);
 
   font-size: .82rem;
 
   line-height: 1.3;
 }
-
 
 .homepage-place-detail i {
   flex:
@@ -1412,7 +1412,8 @@ h3 {
 
   text-align: center;
 
-  color: #59665e;
+  color:
+    var(--muted);
 }
 
 
