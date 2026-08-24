@@ -609,3 +609,8 @@ $adminBase =
 
 
 </header>
+
+<script
+  src="https://llamascout.com/js/accessibility.js"
+  defer
+></script>
