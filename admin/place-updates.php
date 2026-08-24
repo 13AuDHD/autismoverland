@@ -1804,7 +1804,7 @@ require
                   ) ?>
                 </strong>
 
-                Â·
+                &middot;
 
                 <?= e(
                     update_role_label(
@@ -1815,7 +1815,7 @@ require
                     )
                 ) ?>
 
-                Â·
+                &middot;
 
                 Submitted
 
@@ -1836,7 +1836,7 @@ require
                     )
                 ): ?>
 
-                  Â· Visited
+                  &middot; Visited
 
                   <?= e(
                       update_format_date(
