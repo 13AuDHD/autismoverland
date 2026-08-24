@@ -207,7 +207,23 @@ $adminBase =
 
     </nav>
 
+     <button
+        class="accessibility-toggle"
+        type="button"
+        aria-label="Accessibility and display settings"
+        aria-expanded="false"
+        aria-controls="accessibility-panel"
+        data-accessibility-toggle
+      >
+      
+        <i
+          class="fa-solid fa-universal-access"
+          aria-hidden="true"
+        ></i>
+      
+      </button>
 
+     
     <!-- ===================================================
          DESKTOP ACCOUNT BUTTON
          =================================================== -->
