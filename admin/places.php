@@ -10,6 +10,10 @@ require_once
     dirname(__DIR__)
     . '/app/role-display.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/place-provenance.php';
+
 
 require_role(
     'admin'
@@ -1171,13 +1175,15 @@ require
                 aria-hidden="true"
               ></i>
 
-              <?= e(
-                  source_label(
-                      $place[
-                          'source_type'
-                      ]
-                  )
-              ) ?>
+            <?= e(
+                llama_place_trust_label(
+                    $db,
+                    (int)
+                    $place[
+                        'id'
+                    ]
+                )
+            ) ?>
 
             </span>
 
