@@ -9,14 +9,134 @@
    ========================================================= */
 
 :root {
+  color-scheme: light;
+
   --ink: #1f2723;
   --muted: #5c665f;
+
   --paper: #f4efe7;
+  --surface: #ffffff;
+  --surface-soft: #f7f4ed;
+
   --line: #d8cec1;
+
   --blue: #2f819e;
   --blue-dark: #22667f;
-  --card: rgba(255, 255, 255, .74);
-  --shadow: 0 16px 38px rgba(41, 49, 44, .14);
+
+  --card:
+    rgba(
+      255,
+      255,
+      255,
+      .74
+    );
+
+  --shadow:
+    0 16px 38px
+    rgba(
+      41,
+      49,
+      44,
+      .14
+    );
+
+  --page-glow:
+    rgba(
+      255,
+      255,
+      255,
+      .9
+    );
+
+  --page-wash:
+    rgba(
+      244,
+      239,
+      231,
+      .88
+    );
+
+  --texture-line:
+    rgba(
+      40,
+      40,
+      40,
+      .05
+    );
+
+  --texture-line-soft:
+    rgba(
+      40,
+      40,
+      40,
+      .04
+    );
+}
+
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink: #edf2ee;
+  --muted: #aab5ae;
+
+  --paper: #101613;
+  --surface: #18201c;
+  --surface-soft: #1d2722;
+
+  --line: #34433b;
+
+  --blue: #79b9cf;
+  --blue-dark: #9bcddd;
+
+  --card:
+    rgba(
+      24,
+      32,
+      28,
+      .88
+    );
+
+  --shadow:
+    0 16px 38px
+    rgba(
+      0,
+      0,
+      0,
+      .32
+    );
+
+  --page-glow:
+    rgba(
+      54,
+      73,
+      64,
+      .22
+    );
+
+  --page-wash:
+    rgba(
+      16,
+      22,
+      19,
+      .92
+    );
+
+  --texture-line:
+    rgba(
+      255,
+      255,
+      255,
+      .025
+    );
+
+  --texture-line-soft:
+    rgba(
+      255,
+      255,
+      255,
+      .018
+    );
 }
 
 
