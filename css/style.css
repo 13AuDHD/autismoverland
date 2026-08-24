@@ -4261,7 +4261,7 @@ input:checked + span {
    ========================================================= */
 
 .about-page {
-  background: #f6f3ec;
+  background: var(--paper);
 }
 
 
@@ -4354,7 +4354,7 @@ input:checked + span {
 
 .about-section-soft {
   background:
-    rgba(255, 255, 255, .45);
+    var(--surface-soft);
 }
 
 
@@ -4456,12 +4456,12 @@ input:checked + span {
 
   border:
     1px solid
-    rgba(0, 0, 0, .1);
+    var(--line);
 
   border-radius: 12px;
 
   background:
-    rgba(255, 255, 255, .68);
+    var(--card);
 }
 
 
@@ -4507,7 +4507,7 @@ input:checked + span {
 
   border-top:
     1px solid
-    rgba(0, 0, 0, .14);
+    var(--line);
 }
 
 
@@ -4578,7 +4578,7 @@ input:checked + span {
 .post-page {
   min-height: 100vh;
 
-  background: #f6f3ec;
+  background: var(--paper);
 }
 
 
