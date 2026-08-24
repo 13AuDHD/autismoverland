@@ -656,7 +656,7 @@ require
       <article class="admin-stat">
 
         <span class="admin-stat-label">
-          Pending Submissions
+          Submissions
         </span>
 
         <strong class="admin-stat-value">
@@ -690,7 +690,7 @@ require
       >
 
         <span class="admin-stat-label">
-          New Problem Reports
+          New Concerns
         </span>
 
         <strong class="admin-stat-value">
@@ -782,7 +782,7 @@ require
       <article class="admin-stat">
 
         <span class="admin-stat-label">
-          Scout Profiles
+          Scouts
         </span>
 
         <strong class="admin-stat-value">
@@ -808,7 +808,7 @@ require
       <article class="admin-stat">
 
         <span class="admin-stat-label">
-          Awaiting Review
+          Review
         </span>
 
         <strong class="admin-stat-value">
@@ -821,7 +821,7 @@ require
       <article class="admin-stat">
 
         <span class="admin-stat-label">
-          Active Scouts
+          Active
         </span>
 
         <strong class="admin-stat-value">
