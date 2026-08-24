@@ -1511,7 +1511,7 @@ h3 {
     8px
     0;
 
-  color: #4e5851;
+  color: var(--muted);
 
   font-size: .9rem;
 
@@ -1751,7 +1751,7 @@ h3 {
    ========================================================= */
 
 .map-page {
-  background: #f6f3ec;
+  background: var(--paper);
 }
 
 
@@ -2013,8 +2013,8 @@ h3 {
 
   border-radius: 12px;
 
-  background:
-    rgba(255, 255, 255, .98);
+background:
+  var(--surface);
 
   box-shadow:
     0 10px 28px
@@ -2038,8 +2038,8 @@ h3 {
   #autismoverland-map
 )
 .leaflet-popup-tip {
-  background:
-    rgba(255, 255, 255, .98);
+background:
+  var(--surface);
 }
 
 
@@ -2062,9 +2062,8 @@ h3 {
 
   border-radius: 999px;
 
-  background:
-    rgba(255, 255, 255, .92);
-
+background:
+  var(--surface-soft);
   color: var(--ink);
 
   font-size: 1.15rem;
