@@ -1554,6 +1554,55 @@ body.account-auth-body {
    MY SUBMISSIONS
    ========================================================= */
 
+.submission-tools {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 10px;
+
+  margin:
+    18px
+    0
+    24px;
+}
+
+
+.submission-tools a {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  padding:
+    9px
+    12px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 8px;
+
+  text-decoration: none;
+
+  font-weight: 700;
+}
+
+
+.submission-tools a:hover,
+.submission-tools a:focus-visible {
+  background:
+    var(--surface);
+}
+
 .submissions-page {
   width:
     min(
