@@ -14,8 +14,11 @@
    ========================================================= */
 
 body.admin-page {
-  background: #f4efe6;
-  color: #172822;
+  background:
+    var(--paper);
+
+  color:
+    var(--ink);
 }
 
 
@@ -25,13 +28,18 @@ body.admin-page {
 
 
 .admin-main {
-  width: min(
-    1200px,
-    calc(100% - 36px)
-  );
+  width:
+    min(
+      1200px,
+      calc(100% - 36px)
+    );
 
   margin: 0 auto;
-  padding: 42px 0 70px;
+
+  padding:
+    42px
+    0
+    70px;
 }
 
 
@@ -47,8 +55,11 @@ body.admin-page {
 
 .admin-intro-row {
   display: flex;
+
   align-items: flex-start;
+
   justify-content: space-between;
+
   gap: 24px;
 }
 
@@ -59,26 +70,39 @@ body.admin-page {
 
 
 .admin-eyebrow {
-  margin: 0 0 8px;
+  margin:
+    0
+    0
+    8px;
 
-  color: #68736c;
+  color:
+    var(--muted);
 
   font-size: .76rem;
+
   font-weight: 800;
 
   letter-spacing: .09em;
+
   text-transform: uppercase;
 }
 
 
 .admin-intro h1 {
-  margin: 0 0 8px;
+  margin:
+    0
+    0
+    8px;
 
-  font-size: clamp(
-    2rem,
-    5vw,
-    3.5rem
-  );
+  color:
+    var(--ink);
+
+  font-size:
+    clamp(
+      2rem,
+      5vw,
+      3.5rem
+    );
 
   line-height: 1.05;
 }
@@ -89,7 +113,8 @@ body.admin-page {
 
   max-width: 760px;
 
-  color: #667069;
+  color:
+    var(--muted);
 
   line-height: 1.6;
 }
@@ -97,8 +122,11 @@ body.admin-page {
 
 .admin-intro-actions {
   display: flex;
+
   align-items: center;
+
   gap: 10px;
+
   flex-wrap: wrap;
 }
 
@@ -121,6 +149,7 @@ body.admin-page {
 
 .admin-nav-inner {
   display: flex;
+
   align-items: stretch;
 
   overflow-x: auto;
@@ -130,25 +159,36 @@ body.admin-page {
 
 
 .admin-nav a {
-  flex: 0 0 auto;
+  flex:
+    0
+    0
+    auto;
 
   display: inline-flex;
+
   align-items: center;
+
   justify-content: center;
+
   gap: 8px;
 
   min-height: 52px;
 
-  padding: 0 18px;
+  padding:
+    0
+    18px;
 
-  color: rgba(255, 255, 255, .76);
+  color:
+    rgba(255, 255, 255, .76);
 
   border-right:
-    1px solid rgba(255, 255, 255, .08);
+    1px solid
+    rgba(255, 255, 255, .08);
 
   text-decoration: none;
 
   font-size: .88rem;
+
   font-weight: 700;
 
   white-space: nowrap;
@@ -169,15 +209,17 @@ body.admin-page {
 
 
 .admin-nav a.is-active {
-  background: #fff;
-  color: #172822;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 }
 
 
 .admin-nav a:last-child {
   border-right: 0;
 }
-
 
 
 /* =========================================================
@@ -211,22 +253,38 @@ body.admin-page {
 .admin-stat {
   padding: 22px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 }
 
 
 .admin-stat--alert {
-  background: #fff4df;
+  background:
+    color-mix(
+      in srgb,
+      #b0782c 15%,
+      var(--surface)
+    );
 }
 
 
-.admin-stat--alert .admin-stat-value {
-  color: #9a5818;
+.admin-stat--alert
+.admin-stat-value {
+  color:
+    color-mix(
+      in srgb,
+      #d88a2b 72%,
+      var(--ink)
+    );
 }
 
 
@@ -235,12 +293,15 @@ body.admin-page {
 
   margin-bottom: 8px;
 
-  color: #6b746e;
+  color:
+    var(--muted);
 
   font-size: .76rem;
+
   font-weight: 800;
 
   letter-spacing: .07em;
+
   text-transform: uppercase;
 }
 
@@ -248,9 +309,11 @@ body.admin-page {
 .admin-stat-value {
   display: block;
 
-  color: #172822;
+  color:
+    var(--ink);
 
   font-size: 2rem;
+
   font-weight: 800;
 
   line-height: 1;
@@ -262,12 +325,13 @@ body.admin-page {
 
   margin-top: 10px;
 
-  color: #7a837d;
+  color:
+    var(--muted);
 
   font-size: .82rem;
+
   line-height: 1.4;
 }
-
 
 
 /* =========================================================
@@ -286,8 +350,11 @@ body.admin-page {
 
 .admin-section-header {
   display: flex;
+
   align-items: flex-end;
+
   justify-content: space-between;
+
   gap: 20px;
 
   margin-bottom: 16px;
@@ -297,16 +364,21 @@ body.admin-page {
 .admin-section-header h2 {
   margin: 0;
 
-  color: #172822;
+  color:
+    var(--ink);
 
   font-size: 1.35rem;
 }
 
 
 .admin-section-header p {
-  margin: 5px 0 0;
+  margin:
+    5px
+    0
+    0;
 
-  color: #6b746e;
+  color:
+    var(--muted);
 
   line-height: 1.5;
 }
@@ -314,10 +386,11 @@ body.admin-page {
 
 .admin-section-actions {
   display: flex;
+
   gap: 10px;
+
   flex-wrap: wrap;
 }
-
 
 
 /* =========================================================
@@ -342,11 +415,15 @@ body.admin-page {
 
   padding: 24px;
 
-  background: #fff;
-  color: inherit;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 
@@ -361,29 +438,43 @@ body.admin-page {
 
 a.admin-card:hover,
 a.admin-card:focus-visible {
-  transform: translateY(-2px);
+  transform:
+    translateY(-2px);
 
   border-color:
-    rgba(0, 0, 0, .16);
+    color-mix(
+      in srgb,
+      var(--ink) 20%,
+      var(--line)
+    );
 
   box-shadow:
-    0 10px 28px
-    rgba(0, 0, 0, .07);
+    var(--shadow);
 }
 
 
 .admin-card-icon {
   display: flex;
+
   align-items: center;
+
   justify-content: center;
 
   width: 42px;
+
   height: 42px;
 
   margin-bottom: 18px;
 
-  background: #edf1ed;
-  color: #314d42;
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--blue);
+
+  border:
+    1px solid
+    var(--line);
 
   border-radius: 10px;
 
@@ -393,9 +484,13 @@ a.admin-card:focus-visible {
 
 .admin-card h2,
 .admin-card h3 {
-  margin: 0 0 7px;
+  margin:
+    0
+    0
+    7px;
 
-  color: #172822;
+  color:
+    var(--ink);
 
   font-size: 1.15rem;
 }
@@ -404,7 +499,8 @@ a.admin-card:focus-visible {
 .admin-card p {
   margin: 0;
 
-  color: #6b746e;
+  color:
+    var(--muted);
 
   line-height: 1.55;
 }
@@ -412,12 +508,15 @@ a.admin-card:focus-visible {
 
 .admin-card-meta {
   display: flex;
+
   gap: 12px;
+
   flex-wrap: wrap;
 
   margin-top: 18px;
 
-  color: #777f7a;
+  color:
+    var(--muted);
 
   font-size: .82rem;
 }
@@ -425,9 +524,9 @@ a.admin-card:focus-visible {
 
 .admin-card--disabled {
   opacity: .55;
+
   cursor: default;
 }
-
 
 
 /* =========================================================
@@ -437,10 +536,15 @@ a.admin-card:focus-visible {
 .admin-panel {
   padding: 24px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 }
@@ -453,8 +557,11 @@ a.admin-card:focus-visible {
 
 .admin-panel-header {
   display: flex;
+
   align-items: flex-start;
+
   justify-content: space-between;
+
   gap: 18px;
 
   margin-bottom: 22px;
@@ -465,18 +572,22 @@ a.admin-card:focus-visible {
 .admin-panel-header h3 {
   margin: 0;
 
-  color: #172822;
+  color:
+    var(--ink);
 }
 
 
 .admin-panel-header p {
-  margin: 5px 0 0;
+  margin:
+    5px
+    0
+    0;
 
-  color: #6b746e;
+  color:
+    var(--muted);
 
   line-height: 1.5;
 }
-
 
 
 /* =========================================================
@@ -486,26 +597,36 @@ a.admin-card:focus-visible {
 .admin-button,
 .admin-button:visited {
   display: inline-flex;
+
   align-items: center;
+
   justify-content: center;
+
   gap: 8px;
 
   min-height: 42px;
 
-  padding: 9px 15px;
+  padding:
+    9px
+    15px;
 
   border:
-    1px solid transparent;
+    1px solid
+    transparent;
 
   border-radius: 9px;
 
-  background: #172822;
+  background:
+    var(--blue-dark);
+
   color: #fff;
 
   text-decoration: none;
 
   font: inherit;
+
   font-size: .86rem;
+
   font-weight: 750;
 
   cursor: pointer;
@@ -520,59 +641,87 @@ a.admin-card:focus-visible {
 
 .admin-button:hover,
 .admin-button:focus-visible {
-  background: #29483b;
+  background:
+    var(--blue);
+
   color: #fff;
 }
 
 
 .admin-button:active {
-  transform: translateY(1px);
+  transform:
+    translateY(1px);
 }
 
 
 .admin-button--secondary,
 .admin-button--secondary:visited {
-  background: #fff;
-  color: #172822;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border-color:
-    rgba(0, 0, 0, .16);
+    var(--line);
 }
 
 
 .admin-button--secondary:hover,
 .admin-button--secondary:focus-visible {
-  background: #f5f6f4;
-  color: #172822;
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
 }
 
 
 .admin-button--warning,
 .admin-button--warning:visited {
-  background: #fff8ea;
-  color: #7d4710;
+  background:
+    color-mix(
+      in srgb,
+      #b0782c 14%,
+      var(--surface)
+    );
 
-  border-color: #c07a25;
+  color:
+    var(--ink);
+
+  border-color:
+    #b0782c;
 }
 
 
 .admin-button--warning:hover,
 .admin-button--warning:focus-visible {
-  background: #fff0cf;
-  color: #64380c;
+  background:
+    color-mix(
+      in srgb,
+      #b0782c 22%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-button--danger,
 .admin-button--danger:visited {
-  background: #9e2f2f;
+  background:
+    #9e2f2f;
+
   color: #fff;
 }
 
 
 .admin-button--danger:hover,
 .admin-button--danger:focus-visible {
-  background: #7f2222;
+  background:
+    #7f2222;
+
   color: #fff;
 }
 
@@ -580,7 +729,9 @@ a.admin-card:focus-visible {
 .admin-button--small {
   min-height: 36px;
 
-  padding: 7px 11px;
+  padding:
+    7px
+    11px;
 
   font-size: .8rem;
 }
@@ -596,32 +747,42 @@ a.admin-card:focus-visible {
 }
 
 
-
 /* =========================================================
    FILTERS
    ========================================================= */
 
 .admin-filters {
   display: flex;
+
   align-items: end;
+
   gap: 12px;
+
   flex-wrap: wrap;
 
   margin-bottom: 20px;
 
   padding: 18px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 }
 
 
 .admin-filter {
-  flex: 1 1 180px;
+  flex:
+    1
+    1
+    180px;
 
   min-width: 0;
 }
@@ -637,24 +798,30 @@ a.admin-card:focus-visible {
 
   margin-bottom: 6px;
 
-  color: #59635d;
+  color:
+    var(--muted);
 
   font-size: .76rem;
+
   font-weight: 800;
 
   letter-spacing: .04em;
+
   text-transform: uppercase;
 }
 
 
 .admin-filter-summary {
-  margin: -8px 0 20px;
+  margin:
+    -8px
+    0
+    20px;
 
-  color: #69716c;
+  color:
+    var(--muted);
 
   font-size: .86rem;
 }
-
 
 
 /* =========================================================
@@ -663,6 +830,7 @@ a.admin-card:focus-visible {
 
 .admin-form {
   display: grid;
+
   gap: 22px;
 }
 
@@ -695,7 +863,8 @@ a.admin-card:focus-visible {
 
 
 .admin-field--full {
-  grid-column: 1 / -1;
+  grid-column:
+    1 / -1;
 }
 
 
@@ -704,19 +873,26 @@ a.admin-card:focus-visible {
 
   margin-bottom: 7px;
 
-  color: #3d4943;
+  color:
+    var(--ink);
 
   font-size: .82rem;
+
   font-weight: 750;
 }
 
 
 .admin-field-help {
-  margin: 6px 0 0;
+  margin:
+    6px
+    0
+    0;
 
-  color: #78817b;
+  color:
+    var(--muted);
 
   font-size: .8rem;
+
   line-height: 1.45;
 }
 
@@ -730,13 +906,19 @@ a.admin-card:focus-visible {
 
   box-sizing: border-box;
 
-  padding: 10px 12px;
+  padding:
+    10px
+    12px;
 
-  background: #fff;
-  color: #172822;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .18);
+    1px solid
+    var(--line);
 
   border-radius: 8px;
 
@@ -762,17 +944,24 @@ a.admin-card:focus-visible {
 .admin-field textarea:focus,
 .admin-filter input:focus,
 .admin-filter select:focus {
-  border-color: #426b59;
+  border-color:
+    var(--blue);
 
   box-shadow:
     0 0 0 3px
-    rgba(66, 107, 89, .14);
+    color-mix(
+      in srgb,
+      var(--blue) 18%,
+      transparent
+    );
 }
 
 
 .admin-checkbox {
   display: flex;
+
   align-items: flex-start;
+
   gap: 10px;
 }
 
@@ -786,16 +975,19 @@ a.admin-card:focus-visible {
 
 .admin-form-actions {
   display: flex;
+
   align-items: center;
+
   gap: 10px;
+
   flex-wrap: wrap;
 
   padding-top: 18px;
 
   border-top:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 }
-
 
 
 /* =========================================================
@@ -807,10 +999,15 @@ a.admin-card:focus-visible {
 
   overflow-x: auto;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 }
@@ -827,25 +1024,33 @@ a.admin-card:focus-visible {
 
 .admin-table th,
 .admin-table td {
-  padding: 14px 16px;
+  padding:
+    14px
+    16px;
 
   text-align: left;
+
   vertical-align: middle;
 
   border-bottom:
-    1px solid rgba(0, 0, 0, .07);
+    1px solid
+    var(--line);
 }
 
 
 .admin-table th {
-  background: #f7f5f0;
+  background:
+    var(--surface-soft);
 
-  color: #667069;
+  color:
+    var(--muted);
 
   font-size: .73rem;
+
   font-weight: 800;
 
   letter-spacing: .05em;
+
   text-transform: uppercase;
 
   white-space: nowrap;
@@ -858,12 +1063,14 @@ a.admin-card:focus-visible {
 
 
 .admin-table tbody tr:hover {
-  background: #faf9f6;
+  background:
+    var(--surface-soft);
 }
 
 
 .admin-table a {
-  color: #244f3c;
+  color:
+    var(--blue);
 
   font-weight: 700;
 }
@@ -871,10 +1078,11 @@ a.admin-card:focus-visible {
 
 .admin-table-actions {
   display: flex;
+
   gap: 8px;
+
   flex-wrap: wrap;
 }
-
 
 
 /* =========================================================
@@ -883,17 +1091,29 @@ a.admin-card:focus-visible {
 
 .admin-badge {
   display: inline-flex;
+
   align-items: center;
+
   gap: 6px;
 
-  padding: 5px 9px;
+  padding:
+    5px
+    9px;
 
   border-radius: 999px;
 
-  background: #ecefea;
-  color: #45524b;
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
 
   font-size: .72rem;
+
   font-weight: 800;
 
   line-height: 1;
@@ -901,34 +1121,64 @@ a.admin-card:focus-visible {
 
 
 .admin-badge--success {
-  background: #e4f1e8;
-  color: #27613b;
+  background:
+    color-mix(
+      in srgb,
+      #436d50 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-badge--warning {
-  background: #f8ecd0;
-  color: #785a15;
+  background:
+    color-mix(
+      in srgb,
+      #b0782c 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-badge--danger {
-  background: #f5dddd;
-  color: #8b2c2c;
+  background:
+    color-mix(
+      in srgb,
+      #b64b42 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-badge--info {
-  background: #dfeaf2;
-  color: #315f78;
+  background:
+    color-mix(
+      in srgb,
+      var(--blue) 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-badge--muted {
-  background: #ececec;
-  color: #6b6b6b;
-}
+  background:
+    var(--surface-soft);
 
+  color:
+    var(--muted);
+}
 
 
 /* =========================================================
@@ -938,14 +1188,21 @@ a.admin-card:focus-visible {
 .admin-notice {
   margin-bottom: 20px;
 
-  padding: 14px 16px;
+  padding:
+    14px
+    16px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .1);
+    1px solid
+    var(--line);
 
   border-radius: 10px;
-
-  background: #fff;
 
   line-height: 1.5;
 }
@@ -957,40 +1214,83 @@ a.admin-card:focus-visible {
 
 
 .admin-notice--success {
-  background: #e9f4ec;
-  color: #24583a;
+  background:
+    color-mix(
+      in srgb,
+      #436d50 16%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 
   border-color:
-    rgba(36, 88, 58, .18);
+    color-mix(
+      in srgb,
+      #436d50 38%,
+      var(--line)
+    );
 }
 
 
 .admin-notice--warning {
-  background: #fbf1dc;
-  color: #745613;
+  background:
+    color-mix(
+      in srgb,
+      #b0782c 16%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 
   border-color:
-    rgba(116, 86, 19, .18);
+    color-mix(
+      in srgb,
+      #b0782c 38%,
+      var(--line)
+    );
 }
 
 
 .admin-notice--error {
-  background: #f7e3e3;
-  color: #842f2f;
+  background:
+    color-mix(
+      in srgb,
+      #b64b42 16%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 
   border-color:
-    rgba(132, 47, 47, .18);
+    color-mix(
+      in srgb,
+      #b64b42 38%,
+      var(--line)
+    );
 }
 
 
 .admin-notice--info {
-  background: #e6eff4;
-  color: #31596e;
+  background:
+    color-mix(
+      in srgb,
+      var(--blue) 16%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 
   border-color:
-    rgba(49, 89, 110, .18);
+    color-mix(
+      in srgb,
+      var(--blue) 38%,
+      var(--line)
+    );
 }
-
 
 
 /* =========================================================
@@ -998,12 +1298,19 @@ a.admin-card:focus-visible {
    ========================================================= */
 
 .admin-empty {
-  padding: 44px 24px;
+  padding:
+    44px
+    24px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 
@@ -1014,7 +1321,8 @@ a.admin-card:focus-visible {
 .admin-empty i {
   margin-bottom: 14px;
 
-  color: #79837d;
+  color:
+    var(--muted);
 
   font-size: 1.5rem;
 }
@@ -1022,20 +1330,28 @@ a.admin-card:focus-visible {
 
 .admin-empty h2,
 .admin-empty h3 {
-  margin: 0 0 8px;
+  margin:
+    0
+    0
+    8px;
+
+  color:
+    var(--ink);
 }
 
 
 .admin-empty p {
-  margin: 0 auto;
+  margin:
+    0
+    auto;
 
   max-width: 580px;
 
-  color: #6b746e;
+  color:
+    var(--muted);
 
   line-height: 1.55;
 }
-
 
 
 /* =========================================================
@@ -1063,6 +1379,7 @@ a.admin-card:focus-visible {
 
 .admin-detail-list {
   display: grid;
+
   gap: 0;
 }
 
@@ -1076,10 +1393,13 @@ a.admin-card:focus-visible {
 
   gap: 18px;
 
-  padding: 13px 0;
+  padding:
+    13px
+    0;
 
   border-bottom:
-    1px solid rgba(0, 0, 0, .08);
+    1px solid
+    var(--line);
 }
 
 
@@ -1096,9 +1416,11 @@ a.admin-card:focus-visible {
 
 
 .admin-detail-label {
-  color: #6c756f;
+  color:
+    var(--muted);
 
   font-size: .8rem;
+
   font-weight: 750;
 }
 
@@ -1106,11 +1428,11 @@ a.admin-card:focus-visible {
 .admin-detail-value {
   min-width: 0;
 
-  color: #172822;
+  color:
+    var(--ink);
 
   overflow-wrap: anywhere;
 }
-
 
 
 /* =========================================================
@@ -1119,8 +1441,11 @@ a.admin-card:focus-visible {
 
 .admin-toolbar {
   display: flex;
+
   align-items: center;
+
   justify-content: space-between;
+
   gap: 14px;
 
   margin-bottom: 18px;
@@ -1130,11 +1455,13 @@ a.admin-card:focus-visible {
 .admin-toolbar-left,
 .admin-toolbar-right {
   display: flex;
+
   align-items: center;
+
   gap: 10px;
+
   flex-wrap: wrap;
 }
-
 
 
 /* =========================================================
@@ -1143,9 +1470,13 @@ a.admin-card:focus-visible {
 
 .admin-pagination {
   display: flex;
+
   align-items: center;
+
   justify-content: center;
+
   gap: 8px;
+
   flex-wrap: wrap;
 
   margin-top: 22px;
@@ -1155,42 +1486,55 @@ a.admin-card:focus-visible {
 .admin-pagination a,
 .admin-pagination span {
   display: inline-flex;
+
   align-items: center;
+
   justify-content: center;
 
   min-width: 38px;
+
   min-height: 38px;
 
-  padding: 6px 10px;
+  padding:
+    6px
+    10px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .13);
+    1px solid
+    var(--line);
 
   border-radius: 8px;
-
-  background: #fff;
-  color: #172822;
 
   text-decoration: none;
 
   font-size: .82rem;
+
   font-weight: 700;
 }
 
 
 .admin-pagination a:hover,
 .admin-pagination a:focus-visible {
-  background: #f2f3f0;
+  background:
+    var(--surface-soft);
 }
 
 
 .admin-pagination .is-current {
-  background: #172822;
+  background:
+    var(--blue-dark);
+
   color: #fff;
 
-  border-color: #172822;
+  border-color:
+    var(--blue-dark);
 }
-
 
 
 /* =========================================================
@@ -1207,6 +1551,7 @@ a.admin-card:focus-visible {
   overflow-x: auto;
 
   background: #101815;
+
   color: #e9efe9;
 
   border-radius: 10px;
@@ -1220,12 +1565,13 @@ a.admin-card:focus-visible {
     monospace;
 
   font-size: .8rem;
+
   line-height: 1.55;
 
   white-space: pre-wrap;
+
   overflow-wrap: anywhere;
 }
-
 
 
 /* =========================================================
@@ -1234,23 +1580,27 @@ a.admin-card:focus-visible {
 
 .admin-foot-actions {
   display: flex;
+
   gap: 18px;
+
   flex-wrap: wrap;
 
   margin-top: 38px;
+
   padding-top: 20px;
 
   border-top:
-    1px solid rgba(0, 0, 0, .12);
+    1px solid
+    var(--line);
 }
 
 
 .admin-foot-actions a {
-  color: #244f3c;
+  color:
+    var(--blue);
 
   font-weight: 700;
 }
-
 
 
 /* =========================================================
@@ -1272,10 +1622,15 @@ a.admin-card:focus-visible {
 
   padding: 18px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 }
@@ -1291,9 +1646,11 @@ a.admin-card:focus-visible {
 
   margin-bottom: 6px;
 
-  color: #68716c;
+  color:
+    var(--muted);
 
   font-size: .72rem;
+
   font-weight: 800;
 
   text-transform: uppercase;
@@ -1308,15 +1665,21 @@ a.admin-card:focus-visible {
 
   box-sizing: border-box;
 
-  padding: 10px 11px;
+  padding:
+    10px
+    11px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .18);
+    1px solid
+    var(--line);
 
   border-radius: 7px;
-
-  background: #fff;
-  color: #172822;
 
   font: inherit;
 
@@ -1326,22 +1689,30 @@ a.admin-card:focus-visible {
 
 .admin-place-control input:focus,
 .admin-place-control select:focus {
-  border-color: #426b59;
+  border-color:
+    var(--blue);
 
   box-shadow:
     0 0 0 3px
-    rgba(66, 107, 89, .14);
+    color-mix(
+      in srgb,
+      var(--blue) 18%,
+      transparent
+    );
 }
 
 
 .admin-place-filter-summary {
-  margin: -10px 0 20px;
+  margin:
+    -10px
+    0
+    20px;
 
-  color: #69716c;
+  color:
+    var(--muted);
 
   font-size: .86rem;
 }
-
 
 
 /* =========================================================
@@ -1350,6 +1721,7 @@ a.admin-card:focus-visible {
 
 .admin-place-list {
   display: grid;
+
   gap: 14px;
 }
 
@@ -1357,10 +1729,15 @@ a.admin-card:focus-visible {
 .admin-place-card {
   padding: 20px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 }
@@ -1368,14 +1745,18 @@ a.admin-card:focus-visible {
 
 .admin-place-card.has-reports {
   border-left:
-    5px solid #c07a25;
+    5px solid
+    #c07a25;
 }
 
 
 .admin-place-top {
   display: flex;
+
   align-items: flex-start;
+
   justify-content: space-between;
+
   gap: 18px;
 }
 
@@ -1386,9 +1767,13 @@ a.admin-card:focus-visible {
 
 
 .admin-place-name {
-  margin: 0 0 5px;
+  margin:
+    0
+    0
+    5px;
 
-  color: #172822;
+  color:
+    var(--ink);
 
   font-size: 1.2rem;
 }
@@ -1397,17 +1782,20 @@ a.admin-card:focus-visible {
 .admin-place-location {
   margin: 0;
 
-  color: #667069;
+  color:
+    var(--muted);
 }
 
 
 .admin-place-flags {
   display: flex;
+
   flex-wrap: wrap;
+
   justify-content: flex-end;
+
   gap: 7px;
 }
-
 
 
 /* =========================================================
@@ -1418,17 +1806,23 @@ a.admin-card:focus-visible {
 .admin-place-verification,
 .admin-place-report {
   display: inline-flex;
+
   align-items: center;
+
   gap: 5px;
 
-  padding: 6px 9px;
+  padding:
+    6px
+    9px;
 
   border-radius: 999px;
 
   font-size: .7rem;
+
   font-weight: 800;
 
   text-transform: uppercase;
+
   letter-spacing: .04em;
 
   white-space: nowrap;
@@ -1436,48 +1830,76 @@ a.admin-card:focus-visible {
 
 
 .admin-place-status {
-  background: #e8ece8;
-  color: #45524b;
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
 
   letter-spacing: .05em;
 }
 
 
-.admin-place-status--featured {
-  background: #e6efe5;
-  color: #355443;
-}
-
-
+.admin-place-status--featured,
 .admin-place-status--active {
-  background: #e4eee9;
-  color: #355443;
+  background:
+    color-mix(
+      in srgb,
+      #436d50 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-place-status--draft {
-  background: #eceae4;
-  color: #666057;
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--muted);
 }
 
 
 .admin-place-status--unlisted {
-  background: #fff0c9;
-  color: #766123;
+  background:
+    color-mix(
+      in srgb,
+      #b0782c 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-place-status--removed {
-  background: #f3dddd;
-  color: #873c35;
+  background:
+    color-mix(
+      in srgb,
+      #b64b42 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-place-status--archived {
-  background: #e3e3e3;
-  color: #666;
-}
+  background:
+    var(--surface-soft);
 
+  color:
+    var(--muted);
+}
 
 
 /* =========================================================
@@ -1486,8 +1908,23 @@ a.admin-card:focus-visible {
 
 .admin-place-report,
 .admin-place-report:visited {
-  background: #fff0cf;
-  color: #7d4710;
+  background:
+    color-mix(
+      in srgb,
+      #b0782c 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      #b0782c 40%,
+      var(--line)
+    );
 
   text-decoration: none;
 }
@@ -1495,16 +1932,30 @@ a.admin-card:focus-visible {
 
 .admin-place-report--new,
 .admin-place-report--new:visited {
-  background: #f5ddd7;
-  color: #8b342a;
+  background:
+    color-mix(
+      in srgb,
+      #b64b42 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border-color:
+    color-mix(
+      in srgb,
+      #b64b42 40%,
+      var(--line)
+    );
 }
 
 
 .admin-place-report:hover,
 .admin-place-report:focus-visible {
-  filter: brightness(.96);
+  filter:
+    brightness(.96);
 }
-
 
 
 /* =========================================================
@@ -1512,34 +1963,68 @@ a.admin-card:focus-visible {
    ========================================================= */
 
 .admin-place-verification {
-  background: #ece9df;
-  color: #666057;
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--muted);
+
+  border:
+    1px solid
+    var(--line);
 }
 
 
 .admin-place-verification--current {
-  background: #e6efe5;
-  color: #355443;
+  background:
+    color-mix(
+      in srgb,
+      #436d50 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-place-verification--aging {
-  background: #f4eed8;
-  color: #766123;
+  background:
+    color-mix(
+      in srgb,
+      #b08a2c 16%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-place-verification--due {
-  background: #fff0cf;
-  color: #7d4710;
+  background:
+    color-mix(
+      in srgb,
+      #b0782c 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-place-verification--never {
-  background: #f2dddd;
-  color: #873c35;
-}
+  background:
+    color-mix(
+      in srgb,
+      #b64b42 18%,
+      var(--surface)
+    );
 
+  color:
+    var(--ink);
+}
 
 
 /* =========================================================
@@ -1548,6 +2033,7 @@ a.admin-card:focus-visible {
 
 .admin-place-meta {
   display: flex;
+
   flex-wrap: wrap;
 
   gap:
@@ -1556,7 +2042,8 @@ a.admin-card:focus-visible {
 
   margin-top: 15px;
 
-  color: #707870;
+  color:
+    var(--muted);
 
   font-size: .84rem;
 }
@@ -1564,14 +2051,18 @@ a.admin-card:focus-visible {
 
 .admin-place-meta span {
   display: inline-flex;
+
   align-items: center;
+
   gap: 5px;
 }
 
 
 .admin-place-actions {
   display: flex;
+
   flex-wrap: wrap;
+
   gap: 9px;
 
   margin-top: 18px;
@@ -1581,18 +2072,20 @@ a.admin-card:focus-visible {
 .admin-place-empty {
   padding: 30px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--muted);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 
   text-align: center;
-
-  color: #667069;
 }
-
 
 
 /* =========================================================
@@ -1615,10 +2108,15 @@ a.admin-card:focus-visible {
 
   padding: 18px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 }
@@ -1639,12 +2137,15 @@ a.admin-card:focus-visible {
 
   margin-bottom: 6px;
 
-  color: #68716c;
+  color:
+    var(--muted);
 
   font-size: .72rem;
+
   font-weight: 800;
 
   text-transform: uppercase;
+
   letter-spacing: .05em;
 }
 
@@ -1655,15 +2156,21 @@ a.admin-card:focus-visible {
 
   box-sizing: border-box;
 
-  padding: 10px 11px;
+  padding:
+    10px
+    11px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .18);
+    1px solid
+    var(--line);
 
   border-radius: 7px;
-
-  background: #fff;
-  color: #172822;
 
   font: inherit;
 
@@ -1673,22 +2180,30 @@ a.admin-card:focus-visible {
 
 .admin-user-control input:focus,
 .admin-user-control select:focus {
-  border-color: #426b59;
+  border-color:
+    var(--blue);
 
   box-shadow:
     0 0 0 3px
-    rgba(66, 107, 89, .14);
+    color-mix(
+      in srgb,
+      var(--blue) 18%,
+      transparent
+    );
 }
 
 
 .admin-user-filter-summary {
-  margin: 0 0 20px;
+  margin:
+    0
+    0
+    20px;
 
-  color: #69716c;
+  color:
+    var(--muted);
 
   font-size: .86rem;
 }
-
 
 
 /* =========================================================
@@ -1697,6 +2212,7 @@ a.admin-card:focus-visible {
 
 .admin-user-list {
   display: grid;
+
   gap: 14px;
 }
 
@@ -1704,10 +2220,15 @@ a.admin-card:focus-visible {
 .admin-user-card {
   padding: 20px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 }
@@ -1715,13 +2236,16 @@ a.admin-card:focus-visible {
 
 .admin-user-card.needs-attention {
   border-left:
-    5px solid #c07a25;
+    5px solid
+    #c07a25;
 }
 
 
 .admin-user-top {
   display: flex;
+
   align-items: flex-start;
+
   justify-content: space-between;
 
   gap: 18px;
@@ -1734,9 +2258,13 @@ a.admin-card:focus-visible {
 
 
 .admin-user-name {
-  margin: 0 0 4px;
+  margin:
+    0
+    0
+    4px;
 
-  color: #172822;
+  color:
+    var(--ink);
 
   font-size: 1.18rem;
 }
@@ -1745,7 +2273,8 @@ a.admin-card:focus-visible {
 .admin-user-identity {
   margin: 0;
 
-  color: #667069;
+  color:
+    var(--muted);
 
   overflow-wrap: anywhere;
 }
@@ -1753,11 +2282,13 @@ a.admin-card:focus-visible {
 
 .admin-user-flags {
   display: flex;
+
   flex-wrap: wrap;
+
   justify-content: flex-end;
+
   gap: 7px;
 }
-
 
 
 /* =========================================================
@@ -1766,71 +2297,100 @@ a.admin-card:focus-visible {
 
 .admin-user-badge {
   display: inline-flex;
+
   align-items: center;
+
   gap: 5px;
 
-  padding: 6px 9px;
+  padding:
+    6px
+    9px;
 
   border-radius: 999px;
 
   font-size: .7rem;
+
   font-weight: 800;
 
   text-transform: uppercase;
+
   letter-spacing: .04em;
 
   white-space: nowrap;
 }
 
 
-.admin-user-status--active {
-  background: #e4eee9;
-  color: #355443;
+.admin-user-status--active,
+.admin-user-verified--yes,
+.admin-user-role--scout {
+  background:
+    color-mix(
+      in srgb,
+      #436d50 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-user-status--pending {
-  background: #fff0c9;
-  color: #7d4710;
+  background:
+    color-mix(
+      in srgb,
+      #b0782c 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
 
 
 .admin-user-status--suspended,
 .admin-user-status--disabled {
-  background: #f3dddd;
-  color: #873c35;
-}
+  background:
+    color-mix(
+      in srgb,
+      #b64b42 18%,
+      var(--surface)
+    );
 
-
-.admin-user-verified--yes {
-  background: #e6efe5;
-  color: #355443;
+  color:
+    var(--ink);
 }
 
 
 .admin-user-verified--no {
-  background: #ece9df;
-  color: #666057;
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--muted);
 }
 
 
 .admin-user-role {
-  background: #e8ece8;
-  color: #43534d;
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
 }
 
 
 .admin-user-role--admin {
-  background: #e3e1f0;
-  color: #4d456d;
+  background:
+    color-mix(
+      in srgb,
+      #65578f 20%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
 }
-
-
-.admin-user-role--scout {
-  background: #e2ece4;
-  color: #375843;
-}
-
 
 
 /* =========================================================
@@ -1839,6 +2399,7 @@ a.admin-card:focus-visible {
 
 .admin-user-meta {
   display: flex;
+
   flex-wrap: wrap;
 
   gap:
@@ -1847,7 +2408,8 @@ a.admin-card:focus-visible {
 
   margin-top: 15px;
 
-  color: #707870;
+  color:
+    var(--muted);
 
   font-size: .84rem;
 }
@@ -1855,14 +2417,18 @@ a.admin-card:focus-visible {
 
 .admin-user-meta span {
   display: inline-flex;
+
   align-items: center;
+
   gap: 5px;
 }
 
 
 .admin-user-actions {
   display: flex;
+
   flex-wrap: wrap;
+
   gap: 9px;
 
   margin-top: 18px;
@@ -1872,18 +2438,20 @@ a.admin-card:focus-visible {
 .admin-user-empty {
   padding: 30px;
 
-  background: #fff;
+  background:
+    var(--surface);
+
+  color:
+    var(--muted);
 
   border:
-    1px solid rgba(0, 0, 0, .09);
+    1px solid
+    var(--line);
 
   border-radius: 12px;
 
   text-align: center;
-
-  color: #667069;
 }
-
 
 
 /* =========================================================
@@ -1891,17 +2459,28 @@ a.admin-card:focus-visible {
    ========================================================= */
 
 .admin-muted {
-  color: #737d77;
+  color:
+    var(--muted);
 }
 
 
 .admin-danger-text {
-  color: #8b2c2c;
+  color:
+    color-mix(
+      in srgb,
+      #d66a61 78%,
+      var(--ink)
+    );
 }
 
 
 .admin-success-text {
-  color: #27613b;
+  color:
+    color-mix(
+      in srgb,
+      #62a878 78%,
+      var(--ink)
+    );
 }
 
 
@@ -1916,9 +2495,9 @@ a.admin-card:focus-visible {
 
 
 .admin-hidden {
-  display: none !important;
+  display:
+    none !important;
 }
-
 
 
 /* =========================================================
@@ -1946,11 +2525,11 @@ a.admin-card:focus-visible {
 
 
   .admin-user-control--search {
-    grid-column: 1 / -1;
+    grid-column:
+      1 / -1;
   }
 
 }
-
 
 
 @media (max-width: 900px) {
@@ -1965,7 +2544,8 @@ a.admin-card:focus-visible {
 
 
   .admin-detail-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns:
+      1fr;
   }
 
 
@@ -1980,18 +2560,18 @@ a.admin-card:focus-visible {
 }
 
 
-
 @media (max-width: 700px) {
 
-   .admin-stats,
-   .admin-stats--5 {
-  grid-template-columns:
-    repeat(
-      2,
-      minmax(0, 1fr)
-    );
-}
-   
+  .admin-stats,
+  .admin-stats--5 {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+
   .admin-main {
     width:
       min(
@@ -2000,7 +2580,8 @@ a.admin-card:focus-visible {
       );
 
     padding:
-      28px 0
+      28px
+      0
       54px;
   }
 
@@ -2009,6 +2590,7 @@ a.admin-card:focus-visible {
   .admin-section-header,
   .admin-toolbar {
     align-items: stretch;
+
     flex-direction: column;
   }
 
@@ -2020,18 +2602,21 @@ a.admin-card:focus-visible {
 
 
   .admin-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns:
+      1fr;
   }
 
 
   .admin-form-grid,
   .admin-form-grid--3 {
-    grid-template-columns: 1fr;
+    grid-template-columns:
+      1fr;
   }
 
 
   .admin-detail-row {
-    grid-template-columns: 1fr;
+    grid-template-columns:
+      1fr;
 
     gap: 4px;
   }
@@ -2039,6 +2624,7 @@ a.admin-card:focus-visible {
 
   .admin-nav {
     margin-left: -12px;
+
     margin-right: -12px;
 
     border-radius: 0;
@@ -2061,11 +2647,11 @@ a.admin-card:focus-visible {
 }
 
 
-
 @media (max-width: 650px) {
 
   .admin-user-controls {
-    grid-template-columns: 1fr;
+    grid-template-columns:
+      1fr;
   }
 
 
@@ -2076,15 +2662,14 @@ a.admin-card:focus-visible {
 }
 
 
-
 @media (max-width: 600px) {
 
   .admin-place-controls {
-    grid-template-columns: 1fr;
+    grid-template-columns:
+      1fr;
   }
 
 }
-
 
 
 @media (max-width: 520px) {
@@ -2105,7 +2690,8 @@ a.admin-card:focus-visible {
   }
 
 
-  .admin-form-actions .admin-button {
+  .admin-form-actions
+  .admin-button {
     width: 100%;
   }
 
@@ -2122,8 +2708,10 @@ a.admin-card:focus-visible {
   }
 
 
-  .admin-place-actions .admin-button,
-  .admin-user-actions .admin-button {
+  .admin-place-actions
+  .admin-button,
+  .admin-user-actions
+  .admin-button {
     width: 100%;
   }
 
