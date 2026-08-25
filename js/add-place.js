@@ -652,43 +652,28 @@ async function handleCurrentLocationSuccess(
   try {
 
     const url =
-      new URL(
-        "/api/location-lookup.php",
-        window.location.origin
-      );
-
-
-    url.searchParams.set(
-      "lat",
-      String(
+      "/api/location-lookup.php"
+      +
+      "?lat="
+      +
+      encodeURIComponent(
         latitude
       )
-    );
-
-
-    url.searchParams.set(
-      "lon",
-      String(
+      +
+      "&lon="
+      +
+      encodeURIComponent(
         longitude
       )
-    );
-
-
-    /*
-     * Prevent browser caching while testing location data.
-     */
-
-    url.searchParams.set(
-      "cb",
-      String(
-        Date.now()
-      )
-    );
+      +
+      "&cb="
+      +
+      Date.now();
 
 
     const response =
       await fetch(
-        url.toString(),
+        url,
         {
 
           credentials:
@@ -733,37 +718,37 @@ async function handleCurrentLocationSuccess(
     );
 
 
-} catch (
-  error
-) {
-
-  console.error(
-    "Llama Scout location lookup failed:",
+  } catch (
     error
-  );
+  ) {
+
+    console.error(
+      "Llama Scout location lookup failed:",
+      error
+    );
 
 
-  const message =
-    error instanceof Error
-      ? error.message
-      : String(
-          error
-        );
+    const message =
+      error instanceof Error
+        ? error.message
+        : String(
+            error
+          );
 
 
-  setLocationStatus(
-    "Location lookup error: "
-    +
-    message
-  );
+    setLocationStatus(
+      "Location lookup error: "
+      +
+      message
+    );
 
-} finally {
-     
+
+  } finally {
+
     resetLocationButton();
 
   }
 }
-
 
 
 /* =========================================================
