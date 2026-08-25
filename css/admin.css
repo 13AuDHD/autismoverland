@@ -2798,3 +2798,325 @@ a.admin-card:focus-visible {
 }
 
 
+/* =========================================================
+   SCOUT POLICY
+   ========================================================= */
+
+.policy-notice {
+  margin:
+    18px
+    0;
+
+  padding:
+    14px
+    16px;
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+}
+
+
+.policy-notice--success {
+  background:
+    color-mix(
+      in srgb,
+      #4d7e5d 16%,
+      var(--surface)
+    );
+}
+
+
+.policy-notice--error {
+  background:
+    color-mix(
+      in srgb,
+      #a9443d 16%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border-color:
+    color-mix(
+      in srgb,
+      #a9443d 38%,
+      var(--line)
+    );
+}
+
+
+.policy-form {
+  display: grid;
+
+  gap: 22px;
+}
+
+
+.policy-card {
+  padding: 22px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 15px;
+}
+
+
+.policy-card-header {
+  margin-bottom: 19px;
+}
+
+
+.policy-card-header h2 {
+  margin:
+    0
+    0
+    6px;
+
+  color:
+    var(--ink);
+}
+
+
+.policy-card-header p {
+  max-width: 760px;
+
+  margin: 0;
+
+  color:
+    var(--muted);
+
+  line-height: 1.55;
+}
+
+
+.policy-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap: 16px;
+}
+
+
+.policy-field {
+  display: grid;
+
+  gap: 7px;
+}
+
+
+.policy-field label {
+  color:
+    var(--ink);
+
+  font-weight: 750;
+}
+
+
+.policy-field small {
+  color:
+    var(--muted);
+
+  line-height: 1.45;
+}
+
+
+.policy-field input[type="number"] {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding:
+    11px
+    12px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 8px;
+
+  font: inherit;
+
+  outline: none;
+}
+
+
+.policy-field input[type="number"]:focus {
+  border-color:
+    var(--blue);
+
+  box-shadow:
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--blue) 18%,
+      transparent
+    );
+}
+
+
+.policy-toggle {
+  display: flex;
+
+  gap: 11px;
+
+  align-items: flex-start;
+
+  padding: 15px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+}
+
+
+.policy-toggle input {
+  width: 18px;
+
+  height: 18px;
+
+  margin-top: 3px;
+
+  accent-color:
+    var(--blue);
+}
+
+
+.policy-toggle strong {
+  display: block;
+
+  margin-bottom: 4px;
+}
+
+
+.policy-toggle p {
+  margin: 0;
+
+  color:
+    var(--muted);
+
+  font-size: .86rem;
+
+  line-height: 1.5;
+}
+
+
+.policy-warning {
+  margin-top: 16px;
+
+  padding:
+    14px
+    15px;
+
+  background:
+    color-mix(
+      in srgb,
+      #d29a38 14%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border-left:
+    4px solid
+    #d29a38;
+
+  line-height: 1.55;
+}
+
+
+.policy-actions {
+  display: flex;
+
+  justify-content: flex-end;
+
+  padding-top: 4px;
+}
+
+
+.policy-save {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding:
+    12px
+    18px;
+
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border:
+    1px solid
+    var(--blue-dark);
+
+  border-radius: 9px;
+
+  font: inherit;
+
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+
+.policy-save:hover,
+.policy-save:focus-visible {
+  background:
+    var(--blue);
+
+  border-color:
+    var(--blue);
+}
+
+
+@media (max-width: 700px) {
+
+  .policy-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+}
