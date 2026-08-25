@@ -1145,42 +1145,32 @@ function visitor_place_view(
     }
 
 
-    if (
-        $publicLocationLabel !== ''
-    ) {
+    /*
+ * City and state are public for all users.
+ *
+ * They are already used for the public local-weather
+ * forecast and do not reveal the campsite's exact location.
+ */
 
+if (
+    !isset(
         $place[
             'location'
-        ][
-            'city'
-        ] =
-            $publicLocationLabel;
-
-
+        ]
+    )
+    ||
+    !is_array(
         $place[
             'location'
-        ][
-            'state'
-        ] =
-            null;
+        ]
+    )
+) {
 
-
-    } else {
-
-        /*
-         * Logged-out visitors retain the broad state but not
-         * the nearest city unless an explicit public location
-         * label was supplied.
-         */
-
-        $place[
-            'location'
-        ][
-            'city'
-        ] =
-            null;
-    }
-
+    $place[
+        'location'
+    ] =
+        [];
+}
 
     foreach (
         [
