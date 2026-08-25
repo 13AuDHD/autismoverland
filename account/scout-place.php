@@ -765,14 +765,14 @@ $sections = [
 
             [
                 'id' => 'city',
-                'label' => 'Nearest City / Locality',
-                'placeholder' => 'Pagosa Springs'
+                'label' => 'Locality',
+                'placeholder' => 'Piedra'
             ],
 
             [
                 'id' => 'county',
                 'label' => 'County',
-                'placeholder' => 'Archuleta'
+                'placeholder' => 'La Plata'
             ],
 
             [
@@ -784,7 +784,7 @@ $sections = [
             [
                 'id' => 'region',
                 'label' => 'Region / Ranger District',
-                'placeholder' => 'Pagosa Ranger District'
+                'placeholder' => 'San Juan Ranger District'
             ],
 
             [
@@ -1508,7 +1508,7 @@ require_once
               >
 
               <small>
-                Example: first-fork-riverside-camp
+                Example: tucked-away-single
               </small>
 
             </label>
@@ -1703,22 +1703,68 @@ require_once
         <?php foreach ($sections as $section): ?>
 
 
-          <?php
-
-          section_start(
-              $section['icon'],
-              $section['title'],
-              $section['subtitle']
-          );
-
-          ?>
-
-
-          <?php if (!empty($section['fields'])): ?>
-
-            <?php render_grid($section['fields']); ?>
-
-          <?php endif; ?>
+    <?php
+    
+    section_start(
+        $section['icon'],
+        $section['title'],
+        $section['subtitle']
+    );
+    
+    ?>
+    
+    
+    <?php if ($section['title'] === 'Location'): ?>
+    
+      <div class="location-autofill">
+    
+        <div class="location-autofill-copy">
+    
+          <strong>
+            Start with your location
+          </strong>
+    
+          <p>
+            Use your device's current location to automatically
+            fill coordinates, locality, county, state, elevation,
+            and road information.
+          </p>
+    
+        </div>
+    
+    
+        <button
+          type="button"
+          class="small-btn"
+          id="use-current-location"
+        >
+    
+          <i
+            class="fa-solid fa-location-crosshairs"
+            aria-hidden="true"
+          ></i>
+    
+          Use My Current Location
+    
+        </button>
+    
+    
+        <div
+          id="location-autofill-status"
+          class="location-autofill-status"
+          aria-live="polite"
+        ></div>
+    
+      </div>
+    
+    <?php endif; ?>
+    
+    
+    <?php if (!empty($section['fields'])): ?>
+    
+      <?php render_grid($section['fields']); ?>
+    
+    <?php endif; ?>
 
 
           <?php if (!empty($section['ratings'])): ?>
