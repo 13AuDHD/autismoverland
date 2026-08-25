@@ -9,13 +9,13 @@ declare(strict_types=1);
 
    Takes exact coordinates and attempts to determine:
 
-   - nearest city / town
+   - local named place / locality
    - state
    - county
+   - road / display name
    - elevation
 
-   This file does not read browser location itself.
-   The browser location will be passed through our API later.
+   Locality is intentionally separate from nearby.nearestTown.
    ========================================================= */
 
 
@@ -28,6 +28,9 @@ const LLAMA_LOCATION_REVERSE_URL =
 
 const LLAMA_LOCATION_ELEVATION_URL =
     'https://api.open-meteo.com/v1/elevation';
+
+const LLAMA_LOCATION_OVERPASS_URL =
+    'https://overpass-api.de/api/interpreter';
 
 
 
@@ -96,12 +99,7 @@ function location_http_get(
                 5,
 
             CURLOPT_TIMEOUT =>
-                10,
-
-            /*
-             * Nominatim requires an identifiable
-             * application User-Agent.
-             */
+                12,
 
             CURLOPT_USERAGENT =>
                 'LlamaScout/1.0 (+https://llamascout.com)',
@@ -232,6 +230,9 @@ function location_coordinates_valid(
 
 /* =========================================================
    REVERSE GEOCODING
+
+   Best for road, county, state, and display name.
+   It is NOT trusted to identify the nearest locality.
    ========================================================= */
 
 function location_reverse_geocode(
@@ -252,7 +253,7 @@ function location_reverse_geocode(
 
                 'format' =>
                     'geocodejson',
-                          
+
                 'addressdetails' =>
                     1,
 
@@ -263,382 +264,392 @@ function location_reverse_geocode(
         );
 
 
-$features =
-
-    $data[
-
-        'features'
-
-    ]
-
-    ?? [];
-
-$feature =
-
-    (
-
-        is_array(
-
-            $features
-
-        )
-
-        &&
-
-        isset(
-
-            $features[
-
-                0
-
-            ]
-
-        )
-
-        &&
-
-        is_array(
-
-            $features[
-
-                0
-
-            ]
-
-        )
-
-    )
-
-        ? $features[
-
-            0
-
+    $features =
+        $data[
+            'features'
         ]
+        ?? [];
 
-        : [];
 
-$properties =
-
-    $feature[
-
-        'properties'
-
-    ][
-
-        'geocoding'
-
-    ]
-
-    ?? [];
-
-if (
-
-    !is_array(
-
-        $properties
-
-    )
-
-) {
-
-    $properties = [];
-
-}
-
-/*
-
- * "Locality" means the recognizable place the campsite
-
- * belongs to or is immediately associated with.
-
- *
-
- * This is intentionally separate from nearby.nearestTown,
-
- * which represents the larger service town.
-
- */
-
-$locality =
-
-    location_first_string(
-
-        $properties,
-
-        [
-
-            'locality',
-
-            'city',
-
-            'district'
-
-        ]
-
-    );
-
-$state =
-
-    location_first_string(
-
-        $properties,
-
-        [
-
-            'state'
-
-        ]
-
-    );
-
-$county =
-
-    location_first_string(
-
-        $properties,
-
-        [
-
-            'county'
-
-        ]
-
-    );
-
-return [
-
-    'locality' =>
-
-        $locality,
-
-    'state' =>
-
-        $state,
-
-    'county' =>
-
-        $county,
-
-    'displayName' =>
-
-        isset(
-
-            $properties[
-
-                'label'
-
-            ]
-
-        )
-
-            ? trim(
-
-                (string)
-
-                $properties[
-
-                    'label'
-
-                ]
-
+    $feature =
+        (
+            is_array(
+                $features
             )
+            &&
+            isset(
+                $features[
+                    0
+                ]
+            )
+            &&
+            is_array(
+                $features[
+                    0
+                ]
+            )
+        )
+            ? $features[
+                0
+            ]
+            : [];
 
-            : null
 
-];
+    $properties =
+        $feature[
+            'properties'
+        ][
+            'geocoding'
+        ]
+        ?? [];
+
+
+    if (
+        !is_array(
+            $properties
+        )
+    ) {
+
+        $properties = [];
+    }
+
+
+    return [
+
+        'state' =>
+            location_first_string(
+                $properties,
+                [
+                    'state'
+                ]
+            ),
+
+        'county' =>
+            location_first_string(
+                $properties,
+                [
+                    'county'
+                ]
+            ),
+
+        'road' =>
+            location_first_string(
+                $properties,
+                [
+                    'street',
+                    'name'
+                ]
+            ),
+
+        'displayName' =>
+            isset(
+                $properties[
+                    'label'
+                ]
+            )
+                ? trim(
+                    (string)
+                    $properties[
+                        'label'
+                    ]
+                )
+                : null
+
+    ];
 }
 
 
 
-function location_nearest_settlement(
+/* =========================================================
+   LOCALITY LOOKUP
+
+   Searches nearby named places using OpenStreetMap data.
+
+   This is intentionally separate from nearby.nearestTown.
+   ========================================================= */
+
+function location_lookup_locality(
     float $latitude,
     float $longitude
 ): ?array {
 
-    /*
-     * Try progressively broader Nominatim settlement levels.
-     *
-     * Zoom 10 = city
-     * Zoom 12 = town
-     * Zoom 13 = village / suburb
-     * Zoom 15 = any settlement
-     */
+    $query =
+        sprintf(
+            '[out:json][timeout:10];'
+            .
+            '('
+            .
+            'node["place"~"^(city|town|village|hamlet|locality)$"]'
+            .
+            '(around:25000,%F,%F);'
+            .
+            ');'
+            .
+            'out;',
+            $latitude,
+            $longitude
+        );
 
-    foreach (
-        [
-            10,
-            12,
-            13,
-            15
-        ] as
-        $zoom
+
+    $data =
+        location_http_get(
+            LLAMA_LOCATION_OVERPASS_URL,
+            [
+                'data' =>
+                    $query
+            ]
+        );
+
+
+    $elements =
+        $data[
+            'elements'
+        ]
+        ?? [];
+
+
+    if (
+        !is_array(
+            $elements
+        )
+        ||
+        !$elements
     ) {
 
-        try {
-
-            $data =
-                location_http_get(
-                    LLAMA_LOCATION_REVERSE_URL,
-                    [
-
-                        'lat' =>
-                            $latitude,
-
-                        'lon' =>
-                            $longitude,
-
-                        'format' =>
-                            'jsonv2',
-
-                        'addressdetails' =>
-                            1,
-
-                        'layer' =>
-                            'address',
-
-                        'zoom' =>
-                            $zoom
-
-                    ]
-                );
+        return null;
+    }
 
 
-            $address =
-                $data[
-                    'address'
-                ]
-                ?? [];
+    $best =
+        null;
 
 
-            if (
-                !is_array(
-                    $address
-                )
-            ) {
+    foreach (
+        $elements as
+        $element
+    ) {
 
-                continue;
-            }
-
-
-            $name =
-                location_first_string(
-                    $address,
-                    [
-                        'city',
-                        'town',
-                        'village',
-                        'municipality',
-                        'hamlet',
-                        'locality'
-                    ]
-                );
-
-
-            if (
-                $name === null
-            ) {
-
-                /*
-                 * At settlement-level zooms, sometimes
-                 * the returned object itself is the place.
-                 */
-
-                $type =
-                    trim(
-                        (string) (
-                            $data[
-                                'type'
-                            ]
-                            ??
-                            ''
-                        )
-                    );
-
-
-                if (
-                    in_array(
-                        $type,
-                        [
-                            'city',
-                            'town',
-                            'village',
-                            'hamlet',
-                            'municipality',
-                            'locality'
-                        ],
-                        true
-                    )
-                ) {
-
-                    $name =
-                        trim(
-                            (string) (
-                                $data[
-                                    'name'
-                                ]
-                                ??
-                                ''
-                            )
-                        );
-
-
-                    if (
-                        $name === ''
-                    ) {
-
-                        $name =
-                            null;
-                    }
-                }
-            }
-
-
-            if (
-                $name === null
-            ) {
-
-                continue;
-            }
-
-
-            return [
-
-                'city' =>
-                    $name,
-
-                'state' =>
-                    location_first_string(
-                        $address,
-                        [
-                            'state'
-                        ]
-                    ),
-
-                'county' =>
-                    location_first_string(
-                        $address,
-                        [
-                            'county'
-                        ]
-                    )
-
-            ];
-
-        } catch (
-            Throwable $error
+        if (
+            !is_array(
+                $element
+            )
         ) {
 
-            /*
-             * A failed fallback lookup should not break
-             * the entire location lookup.
-             */
+            continue;
+        }
+
+
+        $tags =
+            $element[
+                'tags'
+            ]
+            ?? [];
+
+
+        if (
+            !is_array(
+                $tags
+            )
+        ) {
 
             continue;
+        }
+
+
+        $name =
+            trim(
+                (string) (
+                    $tags[
+                        'name'
+                    ]
+                    ?? ''
+                )
+            );
+
+
+        if (
+            $name === ''
+        ) {
+
+            continue;
+        }
+
+
+        $placeType =
+            trim(
+                (string) (
+                    $tags[
+                        'place'
+                    ]
+                    ?? ''
+                )
+            );
+
+
+        $placeLatitude =
+            $element[
+                'lat'
+            ]
+            ?? null;
+
+
+        $placeLongitude =
+            $element[
+                'lon'
+            ]
+            ?? null;
+
+
+        if (
+            !is_numeric(
+                $placeLatitude
+            )
+            ||
+            !is_numeric(
+                $placeLongitude
+            )
+        ) {
+
+            continue;
+        }
+
+
+        $distance =
+            location_distance_miles(
+                $latitude,
+                $longitude,
+                (float)
+                $placeLatitude,
+                (float)
+                $placeLongitude
+            );
+
+
+        if (
+            $best === null
+            ||
+            $distance
+            <
+            $best[
+                'distanceMiles'
+            ]
+        ) {
+
+            $best = [
+
+                'name' =>
+                    $name,
+
+                'type' =>
+                    $placeType,
+
+                'latitude' =>
+                    (float)
+                    $placeLatitude,
+
+                'longitude' =>
+                    (float)
+                    $placeLongitude,
+
+                'distanceMiles' =>
+                    $distance
+
+            ];
         }
     }
 
 
-    return null;
+    return
+        $best;
+}
+
+
+
+/* =========================================================
+   DISTANCE
+   ========================================================= */
+
+function location_distance_miles(
+    float $latitude1,
+    float $longitude1,
+    float $latitude2,
+    float $longitude2
+): float {
+
+    $earthRadiusMiles =
+        3958.7613;
+
+
+    $lat1 =
+        deg2rad(
+            $latitude1
+        );
+
+
+    $lat2 =
+        deg2rad(
+            $latitude2
+        );
+
+
+    $deltaLat =
+        deg2rad(
+            $latitude2
+            -
+            $latitude1
+        );
+
+
+    $deltaLon =
+        deg2rad(
+            $longitude2
+            -
+            $longitude1
+        );
+
+
+    $a =
+        sin(
+            $deltaLat / 2
+        )
+        **
+        2
+        +
+        cos(
+            $lat1
+        )
+        *
+        cos(
+            $lat2
+        )
+        *
+        sin(
+            $deltaLon / 2
+        )
+        **
+        2;
+
+
+    $c =
+        2
+        *
+        atan2(
+            sqrt(
+                $a
+            ),
+            sqrt(
+                1 - $a
+            )
+        );
+
+
+    return
+        round(
+            $earthRadiusMiles
+            *
+            $c,
+            2
+        );
 }
 
 
@@ -696,17 +707,13 @@ function location_lookup_elevation_feet(
     }
 
 
-    $meters =
-        (float)
-        $elevations[
-            0
-        ];
-
-
     return
         (int)
         round(
-            $meters
+            (float)
+            $elevations[
+                0
+            ]
             *
             3.28084
         );
@@ -715,7 +722,7 @@ function location_lookup_elevation_feet(
 
 
 /* =========================================================
-   COMPLETE LOCATION LOOKUP
+   COMPLETE LOOKUP
    ========================================================= */
 
 function location_lookup(
@@ -742,70 +749,32 @@ function location_lookup(
             $longitude
         );
 
-   if (
-    empty(
-        $geography[
-            'city'
-        ]
-    )
-) {
 
-    $settlement =
-        location_nearest_settlement(
-            $latitude,
-            $longitude
-        );
+    /*
+     * Locality is a separate nearby-place search.
+     */
+
+    try {
+
+        $localityResult =
+            location_lookup_locality(
+                $latitude,
+                $longitude
+            );
 
 
-    if (
-        $settlement !== null
+    } catch (
+        Throwable $error
     ) {
 
-        $geography[
-            'city'
-        ] =
-            $settlement[
-                'city'
-            ]
-            ?? null;
+        /*
+         * A failed locality lookup should not prevent the
+         * rest of the location information from loading.
+         */
 
-
-        if (
-            empty(
-                $geography[
-                    'state'
-                ]
-            )
-        ) {
-
-            $geography[
-                'state'
-            ] =
-                $settlement[
-                    'state'
-                ]
-                ?? null;
-        }
-
-
-        if (
-            empty(
-                $geography[
-                    'county'
-                ]
-            )
-        ) {
-
-            $geography[
-                'county'
-            ] =
-                $settlement[
-                    'county'
-                ]
-                ?? null;
-        }
+        $localityResult =
+            null;
     }
-}
 
 
     $elevationFeet =
@@ -824,8 +793,20 @@ function location_lookup(
             $longitude,
 
         'locality' =>
-            $geography[
-                'locality'
+            $localityResult[
+                'name'
+            ]
+            ?? null,
+
+        'localityType' =>
+            $localityResult[
+                'type'
+            ]
+            ?? null,
+
+        'localityDistanceMiles' =>
+            $localityResult[
+                'distanceMiles'
             ]
             ?? null,
 
@@ -838,6 +819,12 @@ function location_lookup(
         'county' =>
             $geography[
                 'county'
+            ]
+            ?? null,
+
+        'road' =>
+            $geography[
+                'road'
             ]
             ?? null,
 
