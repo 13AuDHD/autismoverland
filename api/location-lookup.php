@@ -190,9 +190,9 @@ try {
                     'longitude'
                 ],
 
-            'city' =>
+            'locality' =>
                 $location[
-                    'city'
+                    'locality'
                 ],
 
             'state' =>
