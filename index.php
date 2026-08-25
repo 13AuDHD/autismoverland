@@ -216,7 +216,7 @@ require_once
           <input
             id="homepage-map-search"
             type="search"
-            placeholder="Search places"
+            placeholder="Where are we going?"
             autocomplete="off"
           >
 
