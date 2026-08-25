@@ -45,6 +45,23 @@ header(
 );
 
 
+/* =========================================================
+   ACCOUNT SUBDOMAIN ACCESS
+   ========================================================= */
+
+header(
+    'Access-Control-Allow-Origin: https://account.llamascout.com'
+);
+
+header(
+    'Access-Control-Allow-Credentials: true'
+);
+
+header(
+    'Vary: Origin'
+);
+
+
 
 /* =========================================================
    RESPONSE HELPERS
