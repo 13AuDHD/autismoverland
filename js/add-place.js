@@ -651,8 +651,8 @@ async function handleCurrentLocationSuccess(
 
   try {
 
-    const url =
-      "/api/location-lookup.php"
+      const url =
+        "https://llamascout.com/api/location-lookup.php"
       +
       "?lat="
       +
