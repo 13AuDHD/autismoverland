@@ -32,9 +32,7 @@
   align-items: flex-start;
   justify-content: center;
 
-  padding:
-    28px 20px
-    40px;
+  padding: 20px;
 
   box-sizing: border-box;
 }
@@ -50,8 +48,8 @@
 
   text-align: center;
 
-  padding:
-  clamp(24px, 4vw, 42px)
+padding:
+  20px
   clamp(20px, 5vw, 52px)
   clamp(28px, 5vw, 52px);
 
@@ -733,7 +731,7 @@
     align-items: flex-start;
 
     padding:
-      20px 14px;
+      14px;
   }
 
 
@@ -787,7 +785,7 @@
 
   .maintenance-card {
     padding:
-      24px 14px;
+      14px;
   }
 
 
