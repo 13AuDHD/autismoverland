@@ -3120,3 +3120,1009 @@ a.admin-card:focus-visible {
   }
 
 }
+
+
+/* =========================================================
+   OWNER MEMBERSHIPS
+   ========================================================= */
+
+.membership-back-row {
+  margin-bottom: 28px;
+}
+
+
+.membership-back-row .back-link {
+  margin: 0;
+}
+
+
+.membership-owner-section {
+  margin-top: 28px;
+}
+
+
+.membership-owner-section-header {
+  margin-bottom: 14px;
+}
+
+
+.membership-owner-section-header h2 {
+  margin:
+    0
+    0
+    5px;
+
+  color:
+    var(--ink);
+}
+
+
+.membership-owner-section-header p {
+  max-width: 880px;
+
+  margin: 0;
+
+  color:
+    var(--muted);
+
+  line-height: 1.5;
+}
+
+
+/* NOTICES */
+
+.owner-notice {
+  margin-bottom: 16px;
+
+  padding:
+    13px
+    15px;
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+
+  line-height: 1.45;
+}
+
+
+.owner-notice--success {
+  background:
+    color-mix(
+      in srgb,
+      #356e4e 14%,
+      var(--surface)
+    );
+
+  border-color:
+    color-mix(
+      in srgb,
+      #356e4e 36%,
+      var(--line)
+    );
+}
+
+
+.owner-notice--error {
+  background:
+    color-mix(
+      in srgb,
+      #8b3737 14%,
+      var(--surface)
+    );
+
+  border-color:
+    color-mix(
+      in srgb,
+      #8b3737 36%,
+      var(--line)
+    );
+}
+
+
+/* OVERVIEW */
+
+.membership-owner-stats {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      5,
+      minmax(0, 1fr)
+    );
+
+  gap: 10px;
+}
+
+
+.membership-owner-stat {
+  min-height: 0;
+
+  padding:
+    13px
+    15px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+}
+
+
+.membership-owner-stat span {
+  display: block;
+
+  margin-bottom: 2px;
+
+  color:
+    var(--muted);
+
+  font-size: .72rem;
+}
+
+
+.membership-owner-stat strong {
+  display: block;
+
+  color:
+    var(--ink);
+
+  font-size: 1.28rem;
+
+  line-height: 1.15;
+}
+
+
+/* CARDS */
+
+.membership-owner-card {
+  padding: 22px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 16px;
+}
+
+
+.membership-owner-card h3 {
+  margin:
+    0
+    0
+    6px;
+
+  color:
+    var(--ink);
+}
+
+
+.membership-owner-card > p {
+  margin:
+    0
+    0
+    17px;
+
+  color:
+    var(--muted);
+
+  line-height: 1.5;
+}
+
+
+/* FORMS */
+
+.owner-form-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap:
+    12px
+    16px;
+}
+
+
+.owner-field {
+  min-width: 0;
+}
+
+
+.owner-field--full {
+  grid-column:
+    1 / -1;
+}
+
+
+.owner-field label {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color:
+    var(--ink);
+
+  font-size: .77rem;
+
+  font-weight: 750;
+}
+
+
+.owner-field input,
+.owner-field select,
+.owner-field textarea {
+  display: block;
+
+  width: 100%;
+
+  min-width: 0;
+
+  box-sizing: border-box;
+
+  min-height: 44px;
+
+  padding:
+    9px
+    11px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 8px;
+
+  font: inherit;
+
+  outline: none;
+}
+
+
+.owner-field input:focus,
+.owner-field select:focus,
+.owner-field textarea:focus {
+  border-color:
+    var(--blue);
+
+  box-shadow:
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--blue) 18%,
+      transparent
+    );
+}
+
+
+.owner-field input[type="datetime-local"] {
+  max-width: 100%;
+
+  min-inline-size: 0;
+
+  text-align: left;
+}
+
+
+.owner-field textarea {
+  min-height: 88px;
+
+  resize: vertical;
+}
+
+
+.owner-help {
+  margin-top: 6px;
+
+  color:
+    var(--muted);
+
+  font-size: .75rem;
+
+  line-height: 1.45;
+}
+
+
+.owner-help strong {
+  color:
+    var(--ink);
+}
+
+
+/* STRIPE HELP */
+
+.stripe-help-box {
+  margin:
+    14px
+    0
+    18px;
+
+  padding:
+    13px
+    14px;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--blue) 10%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      var(--blue) 26%,
+      var(--line)
+    );
+
+  border-radius: 10px;
+
+  font-size: .79rem;
+
+  line-height: 1.55;
+}
+
+
+.stripe-help-box p {
+  margin: 0;
+}
+
+
+.stripe-help-box p + p {
+  margin-top: 8px;
+}
+
+
+/* CHECKS */
+
+.owner-check {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  margin-top: 13px;
+
+  color:
+    var(--ink);
+}
+
+
+.owner-check input {
+  width: auto;
+
+  accent-color:
+    var(--blue);
+}
+
+
+/* ACTIONS */
+
+.owner-actions {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+
+  margin-top: 15px;
+}
+
+
+.owner-button {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 7px;
+
+  min-height: 42px;
+
+  padding:
+    10px
+    15px;
+
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border:
+    1px solid
+    var(--blue-dark);
+
+  border-radius: 8px;
+
+  font: inherit;
+
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+
+.owner-button:hover,
+.owner-button:focus-visible {
+  background:
+    var(--blue);
+
+  border-color:
+    var(--blue);
+}
+
+
+.owner-button--secondary {
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border-color:
+    var(--line);
+}
+
+
+.owner-button--secondary:hover,
+.owner-button--secondary:focus-visible {
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+}
+
+
+.owner-button--danger {
+  background:
+    #5f2929;
+
+  color: #fff;
+
+  border-color:
+    #5f2929;
+}
+
+
+.owner-button--danger:hover,
+.owner-button--danger:focus-visible {
+  background:
+    #4b2020;
+
+  border-color:
+    #4b2020;
+}
+
+
+/* PRICE PREVIEW */
+
+.owner-price-preview {
+  margin:
+    14px
+    0
+    16px;
+
+  padding:
+    12px
+    14px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+}
+
+
+.owner-price-preview strong {
+  font-size: 1.35rem;
+}
+
+
+.owner-price-preview del {
+  margin-right: 7px;
+
+  color:
+    var(--muted);
+}
+
+
+.owner-small {
+  color:
+    var(--muted);
+
+  font-size: .79rem;
+
+  line-height: 1.5;
+}
+
+
+/* PRICE HISTORY */
+
+.price-history {
+  margin-top: 18px;
+
+  padding-top: 16px;
+
+  border-top:
+    1px solid
+    var(--line);
+}
+
+
+.price-history h4 {
+  margin:
+    0
+    0
+    9px;
+
+  color:
+    var(--ink);
+
+  font-size: .88rem;
+}
+
+
+.price-history-list {
+  display: grid;
+
+  gap: 7px;
+}
+
+
+.price-history-row {
+  display: grid;
+
+  grid-template-columns:
+    minmax(100px, .55fr)
+    minmax(0, 1.45fr)
+    auto;
+
+  gap: 10px;
+
+  align-items: center;
+
+  padding:
+    9px
+    10px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 8px;
+
+  font-size: .77rem;
+}
+
+
+.price-history-row code {
+  overflow-wrap: anywhere;
+
+  font-size: .72rem;
+}
+
+
+.price-history-current {
+  display: inline-flex;
+
+  width: fit-content;
+
+  padding:
+    3px
+    6px;
+
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border-radius: 999px;
+
+  font-size: .62rem;
+
+  font-weight: 800;
+
+  text-transform: uppercase;
+}
+
+
+/* PLAN TABS */
+
+.plan-tabs {
+  display: flex;
+
+  gap: 6px;
+
+  width: fit-content;
+
+  max-width: 100%;
+
+  margin-bottom: 12px;
+
+  padding: 5px;
+
+  background:
+    var(--surface);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+}
+
+
+.plan-tab {
+  min-height: 40px;
+
+  padding:
+    8px
+    16px;
+
+  background:
+    transparent;
+
+  color:
+    var(--ink);
+
+  border: 0;
+
+  border-radius: 7px;
+
+  font: inherit;
+
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+
+.plan-tab:hover,
+.plan-tab:focus-visible {
+  background:
+    var(--surface-soft);
+}
+
+
+.plan-tab[aria-selected="true"] {
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+}
+
+
+.plan-panel[hidden] {
+  display:
+    none !important;
+}
+
+
+/* PROMOTIONS */
+
+.promotion-plan-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 14px;
+
+  margin-top: 14px;
+}
+
+
+.promotion-card,
+.grant-card {
+  margin-top: 12px;
+
+  padding: 17px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+}
+
+
+.promotion-card-header,
+.grant-card-header {
+  display: flex;
+
+  align-items: flex-start;
+
+  justify-content: space-between;
+
+  gap: 14px;
+}
+
+
+.promotion-card-header h3,
+.grant-card-header h3 {
+  margin:
+    0
+    0
+    5px;
+
+  color:
+    var(--ink);
+}
+
+
+/* PILLS */
+
+.owner-pill {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  padding:
+    6px
+    9px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 999px;
+
+  font-size: .72rem;
+
+  font-weight: 800;
+
+  white-space: nowrap;
+}
+
+
+.owner-pill--live {
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border-color:
+    var(--blue-dark);
+}
+
+
+/* META */
+
+.owner-meta {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 8px;
+
+  margin-top: 12px;
+}
+
+
+.owner-meta div {
+  padding: 10px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 8px;
+}
+
+
+.owner-meta span {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color:
+    var(--muted);
+
+  font-size: .7rem;
+}
+
+
+/* RULES */
+
+.owner-rule-list {
+  display: grid;
+
+  gap: 7px;
+
+  margin-top: 12px;
+}
+
+
+.owner-rule {
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 12px;
+
+  padding:
+    9px
+    10px;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--blue) 10%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      var(--blue) 24%,
+      var(--line)
+    );
+
+  border-radius: 8px;
+}
+
+
+.owner-empty {
+  padding: 22px;
+
+  color:
+    var(--muted);
+
+  border:
+    1px dashed
+    var(--line);
+
+  border-radius: 12px;
+
+  text-align: center;
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 900px) {
+
+  .membership-owner-stats {
+    grid-template-columns:
+      repeat(
+        5,
+        minmax(0, 1fr)
+      );
+  }
+
+
+  .promotion-plan-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .sale-date-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+}
+
+
+@media (max-width: 760px) {
+
+  .membership-owner-stats {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+
+  .owner-form-grid,
+  .owner-meta {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .owner-field--full {
+    grid-column:
+      auto;
+  }
+
+
+  .promotion-card-header,
+  .grant-card-header {
+    display: block;
+  }
+
+
+  .owner-pill {
+    margin-top: 8px;
+  }
+
+
+  .price-history-row {
+    grid-template-columns:
+      1fr;
+  }
+
+}
+
+
+
