@@ -257,7 +257,7 @@ function location_reverse_geocode(
                     1,
 
                 'zoom' =>
-                    10
+                    18
 
             ]
         );
