@@ -640,6 +640,71 @@ function location_lookup(
             $longitude
         );
 
+   if (
+    empty(
+        $geography[
+            'city'
+        ]
+    )
+) {
+
+    $settlement =
+        location_nearest_settlement(
+            $latitude,
+            $longitude
+        );
+
+
+    if (
+        $settlement !== null
+    ) {
+
+        $geography[
+            'city'
+        ] =
+            $settlement[
+                'city'
+            ]
+            ?? null;
+
+
+        if (
+            empty(
+                $geography[
+                    'state'
+                ]
+            )
+        ) {
+
+            $geography[
+                'state'
+            ] =
+                $settlement[
+                    'state'
+                ]
+                ?? null;
+        }
+
+
+        if (
+            empty(
+                $geography[
+                    'county'
+                ]
+            )
+        ) {
+
+            $geography[
+                'county'
+            ] =
+                $settlement[
+                    'county'
+                ]
+                ?? null;
+        }
+    }
+}
+
 
     $elevationFeet =
         location_lookup_elevation_feet(
