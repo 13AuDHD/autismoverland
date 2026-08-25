@@ -10,10 +10,16 @@ declare(strict_types=1);
 
    Accepts latitude + longitude from the browser and returns:
 
-   - city
+   - latitude
+   - longitude
+   - locality
+   - locality type
+   - locality distance
+   - road
    - state
    - county
    - elevation
+   - display name
    ========================================================= */
 
 
@@ -31,7 +37,11 @@ header(
 );
 
 header(
-    'Cache-Control: no-store'
+    'Cache-Control: no-store, no-cache, must-revalidate, max-age=0'
+);
+
+header(
+    'Pragma: no-cache'
 );
 
 
@@ -90,9 +100,6 @@ function location_api_success(
 
 /* =========================================================
    REQUIRE SIGNED-IN USER
-
-   Add Place already requires an account, so we keep this
-   lookup behind the same authenticated experience.
    ========================================================= */
 
 start_llama_session();
@@ -132,7 +139,6 @@ $longitude =
     ?? null;
 
 
-
 if (
     $latitude === null
     ||
@@ -144,7 +150,6 @@ if (
         400
     );
 }
-
 
 
 if (
@@ -180,40 +185,67 @@ try {
 
     location_api_success(
         [
+
             'latitude' =>
                 $location[
                     'latitude'
-                ],
+                ]
+                ?? null,
 
             'longitude' =>
                 $location[
                     'longitude'
-                ],
+                ]
+                ?? null,
 
             'locality' =>
                 $location[
                     'locality'
-                ],
+                ]
+                ?? null,
+
+            'localityType' =>
+                $location[
+                    'localityType'
+                ]
+                ?? null,
+
+            'localityDistanceMiles' =>
+                $location[
+                    'localityDistanceMiles'
+                ]
+                ?? null,
+
+            'road' =>
+                $location[
+                    'road'
+                ]
+                ?? null,
 
             'state' =>
                 $location[
                     'state'
-                ],
+                ]
+                ?? null,
 
             'county' =>
                 $location[
                     'county'
-                ],
+                ]
+                ?? null,
 
             'elevationFeet' =>
                 $location[
                     'elevationFeet'
-                ],
+                ]
+                ?? null,
 
             'displayName' =>
                 $location[
                     'displayName'
                 ]
+                ?? null
+
         ]
     );
 
