@@ -3692,6 +3692,9 @@ async function initPlaceWeather(
       container,
       payload.data
     );
+     renderWeatherReport(
+      payload.data
+    );
 
 
   } catch (error) {
