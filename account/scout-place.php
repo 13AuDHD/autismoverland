@@ -749,6 +749,13 @@ $sections = [
                 'step' => 'any',
                 'placeholder' => '-107.2192'
             ],
+        
+            [
+                'id' => 'gps-accuracy',
+                'label' => 'GPS Accuracy, meters',
+                'type' => 'number',
+                'placeholder' => 'Automatically measured'
+            ],
 
             [
                 'id' => 'elevation',
