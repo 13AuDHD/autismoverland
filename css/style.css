@@ -7620,6 +7620,91 @@ details:last-child {
 }
 
 
+/* =========================================================
+   PLACE CONTRIBUTION ACTIONS
+   ========================================================= */
+
+.place-contribution-actions {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(220px, 1fr)
+    );
+
+  gap: 10px;
+
+  width: 100%;
+}
+
+
+.place-contribution-button {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  min-height: 46px;
+
+  padding:
+    11px
+    14px;
+
+  border-radius: 9px;
+
+  text-decoration: none;
+
+  font-weight: 750;
+
+  text-align: center;
+}
+
+
+.place-contribution-button--primary {
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border:
+    1px solid
+    var(--blue-dark);
+}
+
+
+.place-contribution-button--primary:hover,
+.place-contribution-button--primary:focus-visible {
+  background:
+    var(--blue);
+
+  border-color:
+    var(--blue);
+}
+
+
+.place-contribution-button--secondary {
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+}
+
+
+.place-contribution-button--secondary:hover,
+.place-contribution-button--secondary:focus-visible {
+  background:
+    var(--surface-soft);
+}
+
 
 
 
