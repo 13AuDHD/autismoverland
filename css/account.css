@@ -6895,3 +6895,594 @@ body.account-auth-body {
   }
 
 }
+
+
+
+
+/* =========================================================
+   UPDATE PLACE
+   ========================================================= */
+
+.update-place-shell {
+  width:
+    min(
+      100%,
+      980px
+    );
+
+  margin:
+    0
+    auto;
+
+  padding:
+    34px
+    18px
+    80px;
+}
+
+
+/* =========================================================
+   INTRO
+   ========================================================= */
+
+.update-place-intro {
+  margin-bottom: 22px;
+}
+
+
+.update-place-intro h1 {
+  margin-bottom: 8px;
+
+  color:
+    var(--ink);
+}
+
+
+.update-place-location {
+  margin: 0;
+
+  color:
+    var(--muted);
+}
+
+
+.update-place-note {
+  margin-top: 16px;
+
+  padding:
+    14px
+    15px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 11px;
+
+  line-height: 1.55;
+}
+
+
+.update-place-note strong {
+  display: block;
+
+  margin-bottom: 4px;
+}
+
+
+/* =========================================================
+   MESSAGES
+   ========================================================= */
+
+.update-place-message {
+  margin:
+    18px
+    0;
+
+  padding:
+    14px
+    16px;
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 11px;
+
+  line-height: 1.55;
+}
+
+
+.update-place-message.error {
+  background:
+    color-mix(
+      in srgb,
+      #8c3232 14%,
+      var(--surface)
+    );
+
+  border-color:
+    color-mix(
+      in srgb,
+      #8c3232 35%,
+      var(--line)
+    );
+}
+
+
+.update-place-message.success {
+  background:
+    color-mix(
+      in srgb,
+      #1f7a48 14%,
+      var(--surface)
+    );
+
+  border-color:
+    color-mix(
+      in srgb,
+      #1f7a48 32%,
+      var(--line)
+    );
+}
+
+
+.update-place-message strong {
+  color:
+    var(--ink);
+}
+
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
+.update-place-card {
+  margin-top: 18px;
+
+  padding: 22px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 16px;
+}
+
+
+.update-place-card h2 {
+  margin:
+    0
+    0
+    7px;
+
+  color:
+    var(--ink);
+}
+
+
+.update-place-card > p {
+  margin:
+    0
+    0
+    16px;
+
+  color:
+    var(--muted);
+
+  line-height: 1.55;
+}
+
+
+/* =========================================================
+   CONTRIBUTION TYPE
+   ========================================================= */
+
+.update-kind-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap: 12px;
+}
+
+
+.update-kind {
+  display: block;
+
+  padding: 14px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 11px;
+
+  cursor: pointer;
+}
+
+
+.update-kind:has(input:checked) {
+  background:
+    color-mix(
+      in srgb,
+      var(--blue) 12%,
+      var(--surface)
+    );
+
+  border-color:
+    var(--blue);
+}
+
+
+.update-kind input {
+  margin-right: 7px;
+
+  accent-color:
+    var(--blue);
+}
+
+
+.update-kind strong {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color:
+    var(--ink);
+}
+
+
+.update-kind span {
+  display: block;
+
+  color:
+    var(--muted);
+
+  font-size: .82rem;
+
+  line-height: 1.45;
+}
+
+
+/* =========================================================
+   FIELD GROUPS
+   ========================================================= */
+
+.update-field-group {
+  overflow: hidden;
+
+  margin-top: 16px;
+
+  background:
+    var(--surface);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 13px;
+}
+
+
+.update-field-group summary {
+  padding:
+    14px
+    16px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  cursor: pointer;
+
+  font-weight: 800;
+}
+
+
+.update-field-group[open] summary {
+  border-bottom:
+    1px solid
+    var(--line);
+}
+
+
+.update-field-list {
+  display: grid;
+}
+
+
+.update-field-row {
+  display: grid;
+
+  grid-template-columns:
+    minmax(
+      0,
+      1fr
+    )
+    minmax(
+      220px,
+      .8fr
+    );
+
+  gap: 16px;
+
+  align-items: center;
+
+  padding:
+    14px
+    16px;
+
+  border-top:
+    1px solid
+    var(--line);
+}
+
+
+.update-field-row:first-child {
+  border-top: 0;
+}
+
+
+.update-field-copy {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 10px;
+
+  color:
+    var(--ink);
+}
+
+
+.update-field-copy input {
+  margin-top: 3px;
+
+  accent-color:
+    var(--blue);
+}
+
+
+.update-field-copy strong {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color:
+    var(--ink);
+}
+
+
+.update-current {
+  display: block;
+
+  color:
+    var(--muted);
+
+  font-size: .78rem;
+}
+
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
+
+.update-field-input input,
+.update-field-input select,
+.update-field-input textarea,
+.update-meta-grid input,
+.update-meta-grid textarea {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding:
+    10px
+    11px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 8px;
+
+  font: inherit;
+
+  outline: none;
+}
+
+
+.update-field-input input:focus,
+.update-field-input select:focus,
+.update-field-input textarea:focus,
+.update-meta-grid input:focus,
+.update-meta-grid textarea:focus {
+  border-color:
+    var(--blue);
+
+  box-shadow:
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--blue) 18%,
+      transparent
+    );
+}
+
+
+.update-field-input textarea {
+  min-height: 90px;
+
+  resize: vertical;
+}
+
+
+.update-field-input input:disabled,
+.update-field-input select:disabled,
+.update-field-input textarea:disabled {
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--muted);
+
+  opacity: .62;
+
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   VISIT + CONTRIBUTOR NOTES
+   ========================================================= */
+
+.update-meta-grid {
+  display: grid;
+
+  grid-template-columns:
+    220px
+    minmax(
+      0,
+      1fr
+    );
+
+  gap: 16px;
+}
+
+
+.update-meta-grid label {
+  display: grid;
+
+  gap: 6px;
+
+  color:
+    var(--ink);
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.update-submit {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  margin-top: 18px;
+
+  padding:
+    12px
+    18px;
+
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border:
+    1px solid
+    var(--blue-dark);
+
+  border-radius: 9px;
+
+  font: inherit;
+
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+
+.update-submit:hover,
+.update-submit:focus-visible {
+  background:
+    var(--blue);
+
+  border-color:
+    var(--blue);
+}
+
+
+.update-secondary-link {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  margin-top: 14px;
+
+  color:
+    var(--ink);
+}
+
+
+.update-secondary-link:hover,
+.update-secondary-link:focus-visible {
+  color:
+    var(--blue);
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 720px) {
+
+  .update-kind-grid,
+  .update-meta-grid,
+  .update-field-row {
+    grid-template-columns:
+      1fr;
+  }
+
+}
+
+
+
+
