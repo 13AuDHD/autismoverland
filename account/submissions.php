@@ -377,46 +377,6 @@ function submission_type_label(
   >
 
 
-  <style>
-
-    .submission-tools {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-
-      margin:
-        18px
-        0
-        24px;
-    }
-
-
-    .submission-tools a {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-
-      padding:
-        9px
-        12px;
-
-      border-radius: 8px;
-
-      background:
-        rgba(
-          23,
-          40,
-          34,
-          .07
-        );
-
-      color: inherit;
-      text-decoration: none;
-      font-weight: 700;
-    }
-
-  </style>
-
 </head>
 
 
