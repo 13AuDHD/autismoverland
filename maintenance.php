@@ -131,7 +131,7 @@ if (
 ) {
 
     $message =
-        'The llama is under the hood.';
+        'The llama is busy...';
 }
 
 ?>
@@ -200,7 +200,7 @@ if (
 
 
     <h1>
-      The llama is under the hood.
+      The llama is busy...
     </h1>
 
 
