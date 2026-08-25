@@ -264,7 +264,7 @@ try {
                       $elevationFeet
                     : null,
 
-                7
+                5
             );
 
 
@@ -352,7 +352,7 @@ try {
         weather_fetch_city_forecast(
             $city,
             $state,
-            7
+            5
         );
 
 
