@@ -233,7 +233,9 @@ ${renderHero(
           ${renderRecommendedFor(place)}
 
           ${renderSeason(place)}
-
+         
+          ${renderWeatherSection(place)}
+         
           ${renderRegulations(place)}
 
           ${renderLandUseRules(place)}
