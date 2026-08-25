@@ -51,8 +51,9 @@
   text-align: center;
 
   padding:
-    clamp(28px, 6vw, 64px)
-    clamp(20px, 5vw, 52px);
+  clamp(24px, 4vw, 42px)
+  clamp(20px, 5vw, 52px)
+  clamp(28px, 5vw, 52px);
 
   box-sizing: border-box;
 
