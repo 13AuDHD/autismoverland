@@ -6145,3 +6145,753 @@ body.account-auth-body {
   }
 
 }
+
+
+
+
+
+/* =========================================================
+   SCOUT TRAINING
+   ========================================================= */
+
+.scout-training-page {
+  padding:
+    34px
+    18px
+    80px;
+}
+
+
+.scout-training-shell {
+  width:
+    min(
+      100%,
+      980px
+    );
+
+  margin:
+    0
+    auto;
+}
+
+
+/* =========================================================
+   PROGRESS
+   ========================================================= */
+
+.scout-training-page
+.scout-progress {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      5,
+      1fr
+    );
+
+  gap: 8px;
+
+  margin-bottom: 24px;
+}
+
+
+.scout-training-page
+.scout-progress-step {
+  padding:
+    11px
+    8px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--muted);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+
+  text-align: center;
+
+  font-size: .76rem;
+
+  font-weight: 700;
+}
+
+
+.scout-training-page
+.scout-progress-step.done {
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+}
+
+
+.scout-training-page
+.scout-progress-step.active {
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border-color:
+    var(--blue-dark);
+}
+
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
+.scout-training-hero {
+  padding:
+    clamp(
+      30px,
+      7vw,
+      60px
+    );
+
+  background:
+    linear-gradient(
+      145deg,
+      #10211b,
+      #1c342a
+    );
+
+  color: #fff;
+
+  border-radius: 24px;
+}
+
+
+.scout-training-eyebrow {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  margin:
+    0
+    0
+    14px;
+
+  color:
+    #d9c49a;
+
+  font-size: .78rem;
+
+  font-weight: 800;
+
+  letter-spacing: .13em;
+
+  text-transform: uppercase;
+}
+
+
+.scout-training-hero h1 {
+  margin:
+    0
+    0
+    16px;
+
+  color: #fff;
+
+  font-size:
+    clamp(
+      2.1rem,
+      6vw,
+      4rem
+    );
+
+  line-height: 1;
+
+  letter-spacing: -.04em;
+}
+
+
+.scout-training-hero p {
+  max-width: 740px;
+
+  margin: 0;
+
+  color:
+    rgba(
+      255,
+      255,
+      255,
+      .82
+    );
+
+  line-height: 1.7;
+}
+
+
+/* =========================================================
+   CARD
+   ========================================================= */
+
+.scout-training-card {
+  margin-top: 24px;
+
+  padding:
+    clamp(
+      22px,
+      5vw,
+      36px
+    );
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 18px;
+}
+
+
+.scout-training-card h2 {
+  margin:
+    0
+    0
+    9px;
+
+  color:
+    var(--ink);
+}
+
+
+.scout-training-card > p {
+  max-width: 760px;
+
+  margin:
+    0
+    0
+    22px;
+
+  color:
+    var(--muted);
+
+  line-height: 1.65;
+}
+
+
+/* =========================================================
+   VIDEO
+   ========================================================= */
+
+.scout-video-shell {
+  overflow: hidden;
+
+  background:
+    #08110e;
+
+  border-radius: 16px;
+
+  box-shadow:
+    var(--shadow);
+}
+
+
+.scout-training-video {
+  display: block;
+
+  width: 100%;
+
+  aspect-ratio:
+    16 / 9;
+
+  background:
+    #000;
+}
+
+
+.scout-video-placeholder {
+  display: grid;
+
+  place-items: center;
+
+  min-height: 340px;
+
+  padding: 40px;
+
+  color:
+    rgba(
+      255,
+      255,
+      255,
+      .84
+    );
+
+  text-align: center;
+}
+
+
+.scout-video-placeholder i {
+  display: block;
+
+  margin-bottom: 16px;
+
+  font-size: 2rem;
+}
+
+
+.scout-video-placeholder strong {
+  display: block;
+
+  margin-bottom: 8px;
+
+  font-size: 1.15rem;
+}
+
+
+.scout-video-placeholder p {
+  max-width: 520px;
+
+  margin: 0;
+
+  color:
+    rgba(
+      255,
+      255,
+      255,
+      .64
+    );
+
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   VIDEO STATUS
+   ========================================================= */
+
+.scout-video-status {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  margin-top: 16px;
+
+  padding:
+    14px
+    16px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+}
+
+
+.scout-video-status.complete {
+  background:
+    color-mix(
+      in srgb,
+      #1f7a48 14%,
+      var(--surface)
+    );
+}
+
+
+/* =========================================================
+   TEMPORARY TEST CONTROL
+   ========================================================= */
+
+.scout-training-test {
+  margin-top: 18px;
+
+  padding: 18px;
+
+  background:
+    color-mix(
+      in srgb,
+      #d9c49a 14%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border:
+    1px dashed
+    color-mix(
+      in srgb,
+      #936f30 50%,
+      var(--line)
+    );
+
+  border-radius: 12px;
+}
+
+
+.scout-training-test-heading {
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+
+  margin-bottom: 7px;
+
+  color:
+    var(--ink);
+
+  font-weight: 800;
+}
+
+
+.scout-training-test p {
+  margin:
+    0
+    0
+    13px;
+
+  color:
+    var(--ink);
+
+  line-height: 1.55;
+}
+
+
+.scout-training-test small {
+  display: block;
+
+  margin-top: 10px;
+
+  color:
+    var(--muted);
+
+  line-height: 1.5;
+}
+
+
+.scout-test-button {
+  padding:
+    11px
+    15px;
+
+  background:
+    #5d4b28;
+
+  color: #fff;
+
+  border:
+    1px solid
+    #5d4b28;
+
+  border-radius: 8px;
+
+  font: inherit;
+
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+
+.scout-test-button:hover,
+.scout-test-button:focus-visible {
+  background:
+    #715b31;
+
+  border-color:
+    #715b31;
+}
+
+
+/* =========================================================
+   ACKNOWLEDGEMENTS
+   ========================================================= */
+
+.scout-training-agreements {
+  display: grid;
+
+  gap: 12px;
+}
+
+
+.scout-training-agreement {
+  display: grid;
+
+  grid-template-columns:
+    22px
+    1fr;
+
+  gap: 11px;
+
+  padding: 16px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+}
+
+
+.scout-training-agreement input {
+  width: 18px;
+
+  height: 18px;
+
+  margin-top: 2px;
+
+  accent-color:
+    var(--blue);
+}
+
+
+.scout-training-agreement label {
+  color:
+    var(--ink);
+
+  line-height: 1.55;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   ERRORS
+   ========================================================= */
+
+.scout-training-page
+.scout-errors {
+  margin-top: 20px;
+
+  padding:
+    16px
+    18px;
+
+  background:
+    color-mix(
+      in srgb,
+      #ae3434 14%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      #ae3434 35%,
+      var(--line)
+    );
+
+  border-radius: 12px;
+}
+
+
+.scout-training-page
+.scout-errors strong {
+  display: block;
+
+  margin-bottom: 8px;
+}
+
+
+.scout-training-page
+.scout-errors ul {
+  margin:
+    0
+    0
+    0
+    18px;
+
+  padding: 0;
+}
+
+
+/* =========================================================
+   SUBMIT
+   ========================================================= */
+
+.scout-training-submit {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 18px;
+
+  margin-top: 24px;
+}
+
+
+.scout-training-submit p {
+  max-width: 590px;
+
+  margin: 0;
+
+  color:
+    var(--muted);
+
+  font-size: .86rem;
+
+  line-height: 1.55;
+}
+
+
+.scout-training-button {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  min-height: 50px;
+
+  padding:
+    13px
+    22px;
+
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border:
+    1px solid
+    var(--blue-dark);
+
+  border-radius: 10px;
+
+  font: inherit;
+
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+
+.scout-training-button:hover,
+.scout-training-button:focus-visible {
+  background:
+    var(--blue);
+
+  border-color:
+    var(--blue);
+}
+
+
+.scout-training-button:disabled {
+  opacity: .45;
+
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   PENDING REVIEW
+   ========================================================= */
+
+.scout-pending {
+  padding:
+    46px
+    24px;
+
+  color:
+    var(--ink);
+
+  text-align: center;
+}
+
+
+.scout-pending i {
+  margin-bottom: 16px;
+
+  font-size: 2.2rem;
+}
+
+
+.scout-pending h2 {
+  margin:
+    0
+    0
+    10px;
+
+  color:
+    var(--ink);
+}
+
+
+.scout-pending p {
+  max-width: 620px;
+
+  margin:
+    0
+    auto;
+
+  color:
+    var(--muted);
+
+  line-height: 1.65;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+  .scout-training-page
+  .scout-progress {
+    overflow-x: auto;
+  }
+
+
+  .scout-training-page
+  .scout-progress-step {
+    min-width: 88px;
+  }
+
+
+  .scout-training-submit {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+
+  .scout-training-button {
+    width: 100%;
+  }
+
+
+  .scout-video-placeholder {
+    min-height: 240px;
+  }
+
+}
