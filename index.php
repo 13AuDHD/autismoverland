@@ -363,13 +363,13 @@ require_once
 
 
       <h2 id="featured-title">
-        Recently Added
+        Freshly Scouted
       </h2>
 
 
       <a href="/places.php">
 
-        Browse All Places
+        See Where the Llama Went
 
         <i
           class="fa-solid fa-arrow-right"
@@ -415,8 +415,8 @@ require_once
 
       <a href="/blog.php">
 
-        View All Guides
-
+        Read the Field Guides
+        
         <i
           class="fa-solid fa-arrow-right"
           aria-hidden="true"
