@@ -147,19 +147,46 @@
       null;
 
 
-    try {
+const rawResponse =
+  await response.text();
 
-      payload =
-        await response.json();
 
-    } catch (
-      error
-    ) {
+try {
 
-      throw new Error(
-        "The server returned an unreadable response."
-      );
-    }
+  payload =
+    JSON.parse(
+      rawResponse
+    );
+
+} catch (
+  error
+) {
+
+  console.error(
+    "Profile image upload raw response:",
+    rawResponse
+  );
+
+
+  throw new Error(
+    rawResponse.trim()
+      ? rawResponse
+          .replace(
+            /<[^>]*>/g,
+            " "
+          )
+          .replace(
+            /\s+/g,
+            " "
+          )
+          .trim()
+          .slice(
+            0,
+            300
+          )
+      : "The server returned an empty response."
+  );
+}
 
 
     if (
