@@ -251,8 +251,8 @@ function location_reverse_geocode(
                     $longitude,
 
                 'format' =>
-                    'jsonv2',
-
+                    'geocodejson',
+                          
                 'addressdetails' =>
                     1,
 
@@ -263,89 +263,191 @@ function location_reverse_geocode(
         );
 
 
-    $address =
-        $data[
-            'address'
-        ]
-        ?? [];
+$features =
 
+    $data[
 
-    if (
-        !is_array(
-            $address
+        'features'
+
+    ]
+
+    ?? [];
+
+$feature =
+
+    (
+
+        is_array(
+
+            $features
+
         )
-    ) {
 
-        $address = [];
-    }
+        &&
 
+        isset(
 
-    /*
-     * Remote campsites may resolve as a city, town,
-     * village, hamlet, municipality, or locality.
-     *
-     * Prefer the larger settlement labels first.
-     */
+            $features[
 
-    $city =
-        location_first_string(
-            $address,
-            [
-                'city',
-                'town',
-                'village',
-                'municipality',
-                'hamlet',
-                'locality'
+                0
+
             ]
-        );
 
+        )
 
-    $state =
-        location_first_string(
-            $address,
-            [
-                'state'
+        &&
+
+        is_array(
+
+            $features[
+
+                0
+
             ]
-        );
 
+        )
 
-    $county =
-        location_first_string(
-            $address,
-            [
-                'county'
-            ]
-        );
+    )
 
+        ? $features[
 
-    return [
+            0
 
-        'city' =>
-            $city,
+        ]
 
-        'state' =>
-            $state,
+        : [];
 
-        'county' =>
-            $county,
+$properties =
 
-        'displayName' =>
-            isset(
-                $data[
-                    'display_name'
-                ]
-            )
-                ? trim(
-                    (string)
-                    $data[
-                        'display_name'
-                    ]
-                )
-                : null
+    $feature[
 
-    ];
+        'properties'
+
+    ][
+
+        'geocoding'
+
+    ]
+
+    ?? [];
+
+if (
+
+    !is_array(
+
+        $properties
+
+    )
+
+) {
+
+    $properties = [];
+
 }
+
+/*
+
+ * "Locality" means the recognizable place the campsite
+
+ * belongs to or is immediately associated with.
+
+ *
+
+ * This is intentionally separate from nearby.nearestTown,
+
+ * which represents the larger service town.
+
+ */
+
+$locality =
+
+    location_first_string(
+
+        $properties,
+
+        [
+
+            'locality',
+
+            'city',
+
+            'district'
+
+        ]
+
+    );
+
+$state =
+
+    location_first_string(
+
+        $properties,
+
+        [
+
+            'state'
+
+        ]
+
+    );
+
+$county =
+
+    location_first_string(
+
+        $properties,
+
+        [
+
+            'county'
+
+        ]
+
+    );
+
+return [
+
+    'locality' =>
+
+        $locality,
+
+    'state' =>
+
+        $state,
+
+    'county' =>
+
+        $county,
+
+    'displayName' =>
+
+        isset(
+
+            $properties[
+
+                'label'
+
+            ]
+
+        )
+
+            ? trim(
+
+                (string)
+
+                $properties[
+
+                    'label'
+
+                ]
+
+            )
+
+            : null
+
+];
+}
+
 
 
 function location_nearest_settlement(
@@ -721,9 +823,9 @@ function location_lookup(
         'longitude' =>
             $longitude,
 
-        'city' =>
+        'locality' =>
             $geography[
-                'city'
+                'locality'
             ]
             ?? null,
 
