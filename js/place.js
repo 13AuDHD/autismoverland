@@ -2888,6 +2888,55 @@ function renderSeason(
 }
 
 
+/* =========================================================
+   WEATHER SECTION
+   ========================================================= */
+
+function renderWeatherSection(
+  place
+) {
+
+  if (
+    place.accessLevel !== "member" &&
+    place.memberAccess !== true
+  ) {
+
+    return "";
+  }
+
+
+  return `
+
+    <section
+      id="weather"
+      class="place-section place-weather-section"
+    >
+
+      <h2>
+        Weather
+      </h2>
+
+
+      <div
+        class="place-weather-report-loading"
+        data-place-weather-report
+      >
+
+        <i
+          class="fa-solid fa-spinner fa-spin"
+          aria-hidden="true"
+        ></i>
+
+        Loading campsite forecast...
+
+      </div>
+
+    </section>
+
+  `;
+}
+
+
 
 /* =========================================================
    REGULATIONS
@@ -4476,6 +4525,532 @@ function abbreviateState(
     state
   );
 }
+
+
+
+/* =========================================================
+   FULL CAMPSITE WEATHER REPORT
+   ========================================================= */
+
+function renderWeatherReport(
+  data
+) {
+
+  const container =
+    document.querySelector(
+      "[data-place-weather-report]"
+    );
+
+
+  if (!container) {
+    return;
+  }
+
+
+  if (
+    data.forecastType !== "campsite"
+  ) {
+
+    container.innerHTML = "";
+
+    return;
+  }
+
+
+  const weather =
+    safeObject(
+      data.weather
+    );
+
+
+  const forecast =
+    safeObject(
+      weather.forecast
+    );
+
+
+  const current =
+    safeObject(
+      forecast.current
+    );
+
+
+  const daily =
+    safeObject(
+      forecast.daily
+    );
+
+
+  const location =
+    safeObject(
+      weather.location
+    );
+
+
+  const elevation =
+    isUsableNumber(
+      location.elevationFeet
+    )
+      ? `${Number(
+          location.elevationFeet
+        ).toLocaleString()} ft`
+      : null;
+
+
+  const currentTemperature =
+    isUsableNumber(
+      current.temperature_2m
+    )
+      ? `${Math.round(
+          Number(
+            current.temperature_2m
+          )
+        )}°F`
+      : null;
+
+
+  const feelsLike =
+    isUsableNumber(
+      current.apparent_temperature
+    )
+      ? `${Math.round(
+          Number(
+            current.apparent_temperature
+          )
+        )}°F`
+      : null;
+
+
+  const humidity =
+    isUsableNumber(
+      current.relative_humidity_2m
+    )
+      ? `${Math.round(
+          Number(
+            current.relative_humidity_2m
+          )
+        )}%`
+      : null;
+
+
+  const wind =
+    isUsableNumber(
+      current.wind_speed_10m
+    )
+      ? `${Math.round(
+          Number(
+            current.wind_speed_10m
+          )
+        )} mph`
+      : null;
+
+
+  const gusts =
+    isUsableNumber(
+      current.wind_gusts_10m
+    )
+      ? `${Math.round(
+          Number(
+            current.wind_gusts_10m
+          )
+        )} mph`
+      : null;
+
+
+  const condition =
+    weatherCondition(
+      current.weather_code
+    );
+
+
+  const dailyCards =
+    renderDailyForecastCards(
+      daily
+    );
+
+
+  container.innerHTML = `
+
+    <div class="place-section-intro">
+
+      <i
+        class="fa-solid fa-location-crosshairs"
+        aria-hidden="true"
+      ></i>
+
+      <p>
+        Forecast calculated for this campsite's exact
+        location${elevation ? ` at ${escapeHTML(elevation)}` : ""}.
+        Mountain weather can change quickly.
+      </p>
+
+    </div>
+
+
+    <div class="place-weather-current-report">
+
+      <div class="place-weather-current-main">
+
+        <i
+          class="fa-solid ${escapeHTML(
+            weatherIcon(
+              current.weather_code,
+              current.is_day
+            )
+          )}"
+          aria-hidden="true"
+        ></i>
+
+
+        ${
+          currentTemperature
+            ? `
+              <strong>
+                ${escapeHTML(
+                  currentTemperature
+                )}
+              </strong>
+            `
+            : ""
+        }
+
+
+        ${
+          condition
+            ? `
+              <span>
+                ${escapeHTML(
+                  condition
+                )}
+              </span>
+            `
+            : ""
+        }
+
+      </div>
+
+
+      <div class="place-facts">
+
+        ${fact(
+          "Feels like",
+          feelsLike
+        )}
+
+        ${fact(
+          "Humidity",
+          humidity
+        )}
+
+        ${fact(
+          "Wind",
+          wind
+        )}
+
+        ${fact(
+          "Wind gusts",
+          gusts
+        )}
+
+      </div>
+
+    </div>
+
+
+    ${
+      dailyCards
+        ? `
+
+          <h3 class="place-subheading">
+            7-Day Forecast
+          </h3>
+
+          <div class="place-weather-forecast-grid">
+            ${dailyCards}
+          </div>
+
+        `
+        : ""
+    }
+
+  `;
+}
+
+
+
+/* =========================================================
+   DAILY FORECAST CARDS
+   ========================================================= */
+
+function renderDailyForecastCards(
+  daily
+) {
+
+  const dates =
+    Array.isArray(
+      daily.time
+    )
+      ? daily.time
+      : [];
+
+
+  if (!dates.length) {
+    return "";
+  }
+
+
+  return dates
+    .map(
+      (
+        date,
+        index
+      ) => {
+
+        const code =
+          Array.isArray(
+            daily.weather_code
+          )
+            ? daily.weather_code[index]
+            : null;
+
+
+        const high =
+          Array.isArray(
+            daily.temperature_2m_max
+          )
+            ? daily.temperature_2m_max[index]
+            : null;
+
+
+        const low =
+          Array.isArray(
+            daily.temperature_2m_min
+          )
+            ? daily.temperature_2m_min[index]
+            : null;
+
+
+        const precipitation =
+          Array.isArray(
+            daily.precipitation_probability_max
+          )
+            ? daily.precipitation_probability_max[index]
+            : null;
+
+
+        const wind =
+          Array.isArray(
+            daily.wind_speed_10m_max
+          )
+            ? daily.wind_speed_10m_max[index]
+            : null;
+
+
+        const gusts =
+          Array.isArray(
+            daily.wind_gusts_10m_max
+          )
+            ? daily.wind_gusts_10m_max[index]
+            : null;
+
+
+        return `
+
+          <div class="place-weather-day">
+
+            <strong class="place-weather-day-name">
+              ${escapeHTML(
+                weatherDayLabel(
+                  date,
+                  index
+                )
+              )}
+            </strong>
+
+
+            <i
+              class="fa-solid ${escapeHTML(
+                weatherIcon(
+                  code,
+                  1
+                )
+              )}"
+              aria-hidden="true"
+            ></i>
+
+
+            <span class="place-weather-day-condition">
+              ${escapeHTML(
+                weatherCondition(
+                  code
+                )
+                ||
+                "Forecast"
+              )}
+            </span>
+
+
+            <div class="place-weather-day-temperatures">
+
+              ${
+                isUsableNumber(
+                  high
+                )
+                  ? `
+                    <strong>
+                      ${Math.round(
+                        Number(
+                          high
+                        )
+                      )}°
+                    </strong>
+                  `
+                  : ""
+              }
+
+              ${
+                isUsableNumber(
+                  low
+                )
+                  ? `
+                    <span>
+                      ${Math.round(
+                        Number(
+                          low
+                        )
+                      )}°
+                    </span>
+                  `
+                  : ""
+              }
+
+            </div>
+
+
+            ${
+              isUsableNumber(
+                precipitation
+              )
+                ? `
+                  <span class="place-weather-day-detail">
+
+                    <i
+                      class="fa-solid fa-droplet"
+                      aria-hidden="true"
+                    ></i>
+
+                    ${Math.round(
+                      Number(
+                        precipitation
+                      )
+                    )}%
+
+                  </span>
+                `
+                : ""
+            }
+
+
+            ${
+              isUsableNumber(
+                wind
+              )
+                ? `
+                  <span class="place-weather-day-detail">
+
+                    <i
+                      class="fa-solid fa-wind"
+                      aria-hidden="true"
+                    ></i>
+
+                    ${Math.round(
+                      Number(
+                        wind
+                      )
+                    )} mph
+
+                  </span>
+                `
+                : ""
+            }
+
+
+            ${
+              isUsableNumber(
+                gusts
+              )
+                ? `
+                  <span class="place-weather-day-detail">
+                    Gusts ${Math.round(
+                      Number(
+                        gusts
+                      )
+                    )} mph
+                  </span>
+                `
+                : ""
+            }
+
+          </div>
+
+        `;
+      }
+    )
+    .join("");
+}
+
+
+
+/* =========================================================
+   FORECAST DAY LABEL
+   ========================================================= */
+
+function weatherDayLabel(
+  date,
+  index
+) {
+
+  if (
+    index === 0
+  ) {
+
+    return "Today";
+  }
+
+
+  if (
+    index === 1
+  ) {
+
+    return "Tomorrow";
+  }
+
+
+  const parsed =
+    new Date(
+      `${date}T12:00:00`
+    );
+
+
+  if (
+    Number.isNaN(
+      parsed.getTime()
+    )
+  ) {
+
+    return date;
+  }
+
+
+  return parsed.toLocaleDateString(
+    "en-US",
+    {
+      weekday: "short"
+    }
+  );
+}
+
+
 
 /* =========================================================
    GENERIC SECTION
