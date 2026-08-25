@@ -348,6 +348,198 @@ function location_reverse_geocode(
 }
 
 
+function location_nearest_settlement(
+    float $latitude,
+    float $longitude
+): ?array {
+
+    /*
+     * Try progressively broader Nominatim settlement levels.
+     *
+     * Zoom 10 = city
+     * Zoom 12 = town
+     * Zoom 13 = village / suburb
+     * Zoom 15 = any settlement
+     */
+
+    foreach (
+        [
+            10,
+            12,
+            13,
+            15
+        ] as
+        $zoom
+    ) {
+
+        try {
+
+            $data =
+                location_http_get(
+                    LLAMA_LOCATION_REVERSE_URL,
+                    [
+
+                        'lat' =>
+                            $latitude,
+
+                        'lon' =>
+                            $longitude,
+
+                        'format' =>
+                            'jsonv2',
+
+                        'addressdetails' =>
+                            1,
+
+                        'layer' =>
+                            'address',
+
+                        'zoom' =>
+                            $zoom
+
+                    ]
+                );
+
+
+            $address =
+                $data[
+                    'address'
+                ]
+                ?? [];
+
+
+            if (
+                !is_array(
+                    $address
+                )
+            ) {
+
+                continue;
+            }
+
+
+            $name =
+                location_first_string(
+                    $address,
+                    [
+                        'city',
+                        'town',
+                        'village',
+                        'municipality',
+                        'hamlet',
+                        'locality'
+                    ]
+                );
+
+
+            if (
+                $name === null
+            ) {
+
+                /*
+                 * At settlement-level zooms, sometimes
+                 * the returned object itself is the place.
+                 */
+
+                $type =
+                    trim(
+                        (string) (
+                            $data[
+                                'type'
+                            ]
+                            ??
+                            ''
+                        )
+                    );
+
+
+                if (
+                    in_array(
+                        $type,
+                        [
+                            'city',
+                            'town',
+                            'village',
+                            'hamlet',
+                            'municipality',
+                            'locality'
+                        ],
+                        true
+                    )
+                ) {
+
+                    $name =
+                        trim(
+                            (string) (
+                                $data[
+                                    'name'
+                                ]
+                                ??
+                                ''
+                            )
+                        );
+
+
+                    if (
+                        $name === ''
+                    ) {
+
+                        $name =
+                            null;
+                    }
+                }
+            }
+
+
+            if (
+                $name === null
+            ) {
+
+                continue;
+            }
+
+
+            return [
+
+                'city' =>
+                    $name,
+
+                'state' =>
+                    location_first_string(
+                        $address,
+                        [
+                            'state'
+                        ]
+                    ),
+
+                'county' =>
+                    location_first_string(
+                        $address,
+                        [
+                            'county'
+                        ]
+                    )
+
+            ];
+
+        } catch (
+            Throwable $error
+        ) {
+
+            /*
+             * A failed fallback lookup should not break
+             * the entire location lookup.
+             */
+
+            continue;
+        }
+    }
+
+
+    return null;
+}
+
+
 
 /* =========================================================
    ELEVATION
