@@ -7485,4 +7485,446 @@ body.account-auth-body {
 
 
 
+/* =========================================================
+   SCOUT PLACE PHOTO UPLOADER
+   ========================================================= */
+
+.scout-photo-upload {
+  display: grid;
+
+  gap: 18px;
+}
+
+
+.scout-photo-upload-note {
+  margin: 0;
+
+  color:
+    var(--ink);
+
+  line-height: 1.65;
+}
+
+
+/* =========================================================
+   PRIVACY NOTE
+   ========================================================= */
+
+.scout-photo-privacy {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 10px;
+
+  margin: 0;
+
+  padding:
+    14px
+    16px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+
+  line-height: 1.55;
+}
+
+
+.scout-photo-privacy i {
+  margin-top: 3px;
+
+  color:
+    var(--muted);
+}
+
+
+/* =========================================================
+   PICKER
+   ========================================================= */
+
+.scout-photo-picker {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  align-items: center;
+
+  gap: 12px;
+}
+
+
+.scout-photo-input {
+  position: absolute;
+
+  width: 1px;
+
+  height: 1px;
+
+  opacity: 0;
+
+  pointer-events: none;
+}
+
+
+.scout-photo-button {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  min-height: 46px;
+
+  padding:
+    11px
+    18px;
+
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border:
+    1px solid
+    var(--blue-dark);
+
+  border-radius: 9px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.scout-photo-button:hover,
+.scout-photo-button:focus-visible {
+  background:
+    var(--blue);
+
+  border-color:
+    var(--blue);
+}
+
+
+.scout-photo-button.is-disabled {
+  opacity: .45;
+
+  pointer-events: none;
+}
+
+
+.scout-photo-count {
+  margin: 0;
+
+  color:
+    var(--muted);
+}
+
+
+/* =========================================================
+   PROGRESS + MESSAGES
+   ========================================================= */
+
+.scout-photo-progress,
+.scout-photo-message {
+  display: none;
+
+  padding:
+    14px
+    16px;
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+}
+
+
+.scout-photo-progress.is-visible,
+.scout-photo-message.is-visible {
+  display: block;
+}
+
+
+.scout-photo-progress {
+  background:
+    var(--surface-soft);
+}
+
+
+.scout-photo-message.success {
+  background:
+    color-mix(
+      in srgb,
+      #1f7a48 14%,
+      var(--surface)
+    );
+
+  border-color:
+    color-mix(
+      in srgb,
+      #1f7a48 32%,
+      var(--line)
+    );
+}
+
+
+.scout-photo-message.error {
+  background:
+    color-mix(
+      in srgb,
+      #ae3434 14%,
+      var(--surface)
+    );
+
+  border-color:
+    color-mix(
+      in srgb,
+      #ae3434 35%,
+      var(--line)
+    );
+}
+
+
+/* =========================================================
+   PHOTO GRID
+   ========================================================= */
+
+.scout-photo-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(
+        150px,
+        1fr
+      )
+    );
+
+  gap: 14px;
+}
+
+
+.scout-photo-empty {
+  padding: 24px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--muted);
+
+  border:
+    1px dashed
+    var(--line);
+
+  border-radius: 12px;
+
+  text-align: center;
+}
+
+
+.scout-photo-card {
+  overflow: hidden;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+}
+
+
+/* =========================================================
+   PHOTO PREVIEW
+   ========================================================= */
+
+.scout-photo-preview {
+  position: relative;
+
+  overflow: hidden;
+
+  aspect-ratio:
+    4 / 3;
+
+  background:
+    var(--surface-soft);
+}
+
+
+.scout-photo-preview img {
+  display: block;
+
+  width: 100%;
+
+  height: 100%;
+
+  object-fit: cover;
+}
+
+
+.scout-photo-featured {
+  position: absolute;
+
+  top: 8px;
+
+  left: 8px;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  padding:
+    6px
+    9px;
+
+  background:
+    rgba(
+      0,
+      0,
+      0,
+      .76
+    );
+
+  color: #fff;
+
+  border-radius: 999px;
+
+  font-size: .76rem;
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   PHOTO ACTIONS
+   ========================================================= */
+
+.scout-photo-actions {
+  display: grid;
+
+  gap: 8px;
+
+  padding: 10px;
+}
+
+
+.scout-photo-action {
+  min-height: 38px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 8px;
+
+  font: inherit;
+
+  font-size: .86rem;
+
+  font-weight: 650;
+
+  cursor: pointer;
+}
+
+
+.scout-photo-action:hover,
+.scout-photo-action:focus-visible {
+  background:
+    var(--surface);
+}
+
+
+.scout-photo-action:disabled {
+  opacity: .55;
+
+  cursor: wait;
+}
+
+
+.scout-photo-action--remove {
+  color:
+    #c65a5a;
+}
+
+
+.scout-photo-size {
+  margin: 0;
+
+  padding:
+    0
+    10px
+    10px;
+
+  color:
+    var(--muted);
+
+  font-size: .78rem;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .scout-photo-grid {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(
+          0,
+          1fr
+        )
+      );
+  }
+
+
+  .scout-photo-picker {
+    align-items: stretch;
+
+    flex-direction: column;
+  }
+
+
+  .scout-photo-button {
+    width: 100%;
+  }
+
+}
+
+
+
+
 
