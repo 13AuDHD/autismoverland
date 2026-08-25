@@ -3408,15 +3408,32 @@ function renderQuickInfo(
 
   const facts = [
 
-    fact(
-      "Elevation",
-      elevation
-    ),
+  fact(
+    "Location",
+    [
+      safeDisplayValue(
+        location.city
+      ),
 
-    fact(
-      "Road",
-      location.road
-    ),
+      abbreviateState(
+        safeDisplayValue(
+          location.state
+        )
+      )
+    ]
+      .filter(Boolean)
+      .join(", ")
+  ),
+
+  fact(
+    "Elevation",
+    elevation
+  ),
+
+  fact(
+    "Road",
+    location.road
+  ),
 
     fact(
       "County",
