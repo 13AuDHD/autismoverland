@@ -6,7 +6,9 @@
 
 .place-provenance-badge {
   display: inline-flex;
+
   align-items: center;
+
   gap: 7px;
 
   width: fit-content;
@@ -20,6 +22,7 @@
   border-radius: 999px;
 
   font-size: .8rem;
+
   font-weight: 800;
 
   line-height: 1;
@@ -28,19 +31,27 @@
 
 .place-provenance-badge--scouted {
   background:
-    rgba(255, 255, 255, .94);
+    var(--surface);
 
   color:
-    #172822;
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
 }
 
 
 .place-provenance-badge--community {
   background:
-    rgba(255, 255, 255, .82);
+    var(--surface-soft);
 
   color:
-    #172822;
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
 }
 
 
@@ -51,7 +62,9 @@
 
 .place-provenance-status {
   display: flex;
+
   align-items: center;
+
   gap: 9px;
 
   margin:
@@ -65,19 +78,30 @@
 
   border-radius: 9px;
 
+  color:
+    var(--ink);
+
   font-size: .9rem;
 }
 
 
 .place-provenance-status.is-scouted {
   background:
-    rgba(77, 126, 93, .13);
+    color-mix(
+      in srgb,
+      #4d7e5d 18%,
+      var(--surface)
+    );
 }
 
 
 .place-provenance-status.is-community {
   background:
-    rgba(217, 196, 154, .22);
+    color-mix(
+      in srgb,
+      #d9c49a 18%,
+      var(--surface)
+    );
 }
 
 
@@ -92,9 +116,10 @@
     0;
 
   color:
-    rgba(23, 40, 34, .72);
+    var(--muted);
 
   font-size: .82rem;
+
   line-height: 1.55;
 }
 
@@ -106,7 +131,7 @@
 
   border-top:
     1px solid
-    rgba(23, 40, 34, .12);
+    var(--line);
 }
 
 
@@ -116,15 +141,20 @@
     0
     12px;
 
+  color:
+    var(--ink);
+
   font-size: .95rem;
 }
 
 
 .place-contribution-history ul {
   display: grid;
+
   gap: 13px;
 
   margin: 0;
+
   padding: 0;
 
   list-style: none;
@@ -136,32 +166,39 @@
 
   border-bottom:
     1px solid
-    rgba(23, 40, 34, .09);
+    var(--line);
 }
 
 
 .place-contribution-item:last-child {
   padding-bottom: 0;
+
   border-bottom: 0;
 }
 
 
 .place-contribution-person {
   display: flex;
+
   flex-wrap: wrap;
+
   align-items: baseline;
+
   gap: 6px;
 }
 
 
 .place-contribution-person strong {
+  color:
+    var(--ink);
+
   font-size: .88rem;
 }
 
 
 .place-contributor-username {
   color:
-    rgba(23, 40, 34, .6);
+    var(--muted);
 
   font-size: .76rem;
 }
@@ -169,13 +206,15 @@
 
 .place-contribution-meta {
   display: flex;
+
   flex-wrap: wrap;
+
   gap: 5px;
 
   margin-top: 3px;
 
   color:
-    rgba(23, 40, 34, .7);
+    var(--muted);
 
   font-size: .76rem;
 }
@@ -185,7 +224,7 @@
   margin-top: 3px;
 
   color:
-    rgba(23, 40, 34, .56);
+    var(--muted);
 
   font-size: .73rem;
 }
@@ -193,15 +232,13 @@
 
 .place-provenance-empty {
   color:
-    rgba(23, 40, 34, .65);
+    var(--muted);
 
   font-size: .8rem;
 }
 
 
-@media (
-  max-width: 700px
-) {
+@media (max-width: 700px) {
 
   .place-provenance-badge {
     margin-top: 10px;
