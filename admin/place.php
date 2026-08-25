@@ -3611,8 +3611,7 @@ require
       </span>
 
       <strong
-        class="admin-stat-value"
-        style="font-size:1.15rem;"
+        class="admin-stat-value admin-place-summary-value"
       >
         <?= e(
             $locationText
@@ -3629,8 +3628,7 @@ require
       </span>
 
       <strong
-        class="admin-stat-value"
-        style="font-size:1.15rem;"
+        class="admin-stat-value admin-place-summary-value"
       >
 
         <?= e(
@@ -3675,8 +3673,7 @@ require
       </span>
 
       <strong
-        class="admin-stat-value"
-        style="font-size:1.15rem;"
+        class="admin-stat-value admin-place-summary-value"
       >
 
         <?= e(
