@@ -4888,6 +4888,10 @@ a.admin-card:focus-visible {
    SCOUT LIST
    ========================================================= */
 
+.scout-filter-form {
+  display: contents;
+}
+
 .scouts-list {
   display: grid;
 
