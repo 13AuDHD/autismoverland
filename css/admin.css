@@ -4882,3 +4882,319 @@ a.admin-card:focus-visible {
   }
 
 }
+
+
+/* =========================================================
+   SCOUT LIST
+   ========================================================= */
+
+.scouts-list {
+  display: grid;
+
+  gap: 12px;
+
+  margin-top: 18px;
+}
+
+
+.scout-row {
+  display: grid;
+
+  grid-template-columns:
+    minmax(220px, 1.5fr)
+    minmax(150px, .8fr)
+    minmax(155px, .8fr)
+    minmax(150px, .8fr)
+    auto;
+
+  gap: 16px;
+
+  align-items: center;
+
+  padding: 18px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 14px;
+}
+
+
+.scout-name {
+  color:
+    var(--ink);
+
+  font-size: 1rem;
+
+  font-weight: 800;
+}
+
+
+.scout-username {
+  margin-top: 3px;
+
+  color:
+    var(--muted);
+
+  font-size: .82rem;
+}
+
+
+.scout-label {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color:
+    var(--muted);
+
+  font-size: .72rem;
+}
+
+
+.scout-value {
+  color:
+    var(--ink);
+
+  font-weight: 700;
+}
+
+
+.scout-meta {
+  margin-top: 5px;
+
+  color:
+    var(--muted);
+
+  font-size: .75rem;
+}
+
+
+.scout-rank {
+  display: inline-block;
+
+  margin-top: 6px;
+
+  color:
+    var(--muted);
+
+  font-size: .74rem;
+
+  font-weight: 750;
+}
+
+
+.scout-extension-tag {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  margin-top: 7px;
+
+  padding:
+    5px
+    8px;
+
+  background:
+    color-mix(
+      in srgb,
+      #d9c49a 18%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 999px;
+
+  font-size: .7rem;
+
+  font-weight: 750;
+}
+
+
+.scout-progress {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+}
+
+
+.scout-progress-track {
+  overflow: hidden;
+
+  width: 78px;
+
+  height: 8px;
+
+  background:
+    var(--surface-soft);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 999px;
+}
+
+
+.scout-progress-fill {
+  height: 100%;
+
+  background:
+    var(--blue);
+
+  border-radius: inherit;
+}
+
+
+.scout-requirement-met {
+  margin-top: 5px;
+
+  color:
+    var(--muted);
+
+  font-size: .72rem;
+
+  font-weight: 700;
+}
+
+
+/* FILTERS */
+
+.scout-filter-controls {
+  grid-template-columns:
+    minmax(180px, 1fr)
+    minmax(280px, 2fr)
+    auto;
+}
+
+
+.scout-filter-controls
+.admin-place-control
+input {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding:
+    10px
+    11px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 7px;
+
+  font: inherit;
+
+  outline: none;
+}
+
+
+.scout-filter-controls
+.admin-place-control
+input:focus {
+  border-color:
+    var(--blue);
+
+  box-shadow:
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--blue) 18%,
+      transparent
+    );
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 900px) {
+
+  .scout-filter-controls {
+    grid-template-columns:
+      1fr
+      1fr;
+  }
+
+
+  .scout-filter-controls
+  .scout-filter-action {
+    grid-column:
+      1 / -1;
+  }
+
+}
+
+
+@media (max-width: 600px) {
+
+  .scout-filter-controls {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .scout-filter-controls
+  .scout-filter-action {
+    grid-column:
+      auto;
+  }
+
+}
+
+
+@media (max-width: 980px) {
+
+  .scout-row {
+    grid-template-columns:
+      1fr
+      1fr;
+  }
+
+
+  .scout-row-action {
+    grid-column:
+      1 / -1;
+  }
+
+}
+
+
+@media (max-width: 700px) {
+
+  .scout-row {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .scout-row-action {
+    grid-column:
+      auto;
+  }
+
+}
