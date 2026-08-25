@@ -690,6 +690,10 @@ async function handleCurrentLocationSuccess(
     position.coords.longitude;
 
 
+  const accuracy =
+     position.coords.accuracy;
+
+
   setFieldValue(
     "latitude",
     latitude.toFixed(6)
@@ -701,6 +705,20 @@ async function handleCurrentLocationSuccess(
     longitude.toFixed(6)
   );
 
+
+   if (
+  Number.isFinite(
+    accuracy
+  )
+) {
+
+  setFieldValue(
+    "gps-accuracy",
+    Math.round(
+      accuracy
+    )
+  );
+}
 
   setLocationStatus(
     "Coordinates found. Looking up place details..."
