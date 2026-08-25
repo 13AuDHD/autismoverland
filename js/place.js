@@ -506,38 +506,13 @@ function renderReportProblem(
         </div>
 
 
-        <div
-          style="
-            display:grid;
-            grid-template-columns:
-              repeat(
-                auto-fit,
-                minmax(220px,1fr)
-              );
-            gap:10px;
-            width:100%;
-          "
-        >
+        <div class="place-contribution-actions">
 
           <a
             href="${escapeHTML(
               updateUrl
             )}"
-            style="
-              display:flex;
-              align-items:center;
-              justify-content:center;
-              gap:8px;
-              min-height:46px;
-              padding:11px 14px;
-              border:1px solid #172822;
-              border-radius:9px;
-              background:#172822;
-              color:#fff;
-              text-decoration:none;
-              font-weight:750;
-              text-align:center;
-            "
+            class="place-contribution-button place-contribution-button--primary"
           >
 
             <i
@@ -554,21 +529,7 @@ function renderReportProblem(
             href="${escapeHTML(
               reportUrl
             )}"
-            style="
-              display:flex;
-              align-items:center;
-              justify-content:center;
-              gap:8px;
-              min-height:46px;
-              padding:11px 14px;
-              border:1px solid rgba(23,40,34,.18);
-              border-radius:9px;
-              background:transparent;
-              color:inherit;
-              text-decoration:none;
-              font-weight:750;
-              text-align:center;
-            "
+            class="place-contribution-button place-contribution-button--secondary"
           >
 
             <i
