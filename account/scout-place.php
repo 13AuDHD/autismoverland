@@ -628,6 +628,10 @@ function field(array $f): void
             ? 'required'
             : ''
         ?>
+        <?= !empty($f['readonly'])
+            ? 'readonly'
+            : ''
+        ?>
       >
 
       <?php if (!empty($f['help'])): ?>
@@ -754,6 +758,7 @@ $sections = [
                 'id' => 'gps-accuracy',
                 'label' => 'GPS Accuracy, meters',
                 'type' => 'number',
+                'readonly' => true,
                 'placeholder' => 'Automatically measured'
             ],
 
