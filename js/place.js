@@ -252,11 +252,13 @@ ${renderHero(
         </div>
 
 
-        <aside class="place-sidebar">
-
-          ${renderQuickInfo(place)}
-
-        </aside>
+         <aside class="place-sidebar">
+         
+           ${renderQuickInfo(place)}
+         
+           ${renderWeatherSummary(place)}
+         
+         </aside>
 
 
       </div>
@@ -266,7 +268,9 @@ ${renderHero(
   `;
 
 
-  initSavePlaceButton();
+initSavePlaceButton();
+
+initPlaceWeather(place); 
 }
 
 
@@ -3496,6 +3500,980 @@ function renderQuickInfo(
   `;
 }
 
+
+/* =========================================================
+   SIDEBAR WEATHER
+   ========================================================= */
+
+function renderWeatherSummary(
+  place
+) {
+
+  const slug =
+    safeDisplayValue(
+      place.slug
+    )
+    ||
+    safeDisplayValue(
+      place.id
+    );
+
+
+  if (!slug) {
+    return "";
+  }
+
+
+  return `
+
+    <div
+      class="place-sidebar-card place-weather-card"
+      data-place-weather
+    >
+
+      <h2>
+
+        <i
+          class="fa-solid fa-cloud-sun"
+          aria-hidden="true"
+        ></i>
+
+        Weather
+
+      </h2>
+
+
+      <div
+        class="place-weather-loading"
+        data-place-weather-content
+      >
+
+        <i
+          class="fa-solid fa-spinner fa-spin"
+          aria-hidden="true"
+        ></i>
+
+        Loading weather...
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+
+
+/* =========================================================
+   LOAD SIDEBAR WEATHER
+   ========================================================= */
+
+async function initPlaceWeather(
+  place
+) {
+
+  const container =
+    document.querySelector(
+      "[data-place-weather-content]"
+    );
+
+
+  if (!container) {
+    return;
+  }
+
+
+  const slug =
+    safeDisplayValue(
+      place.slug
+    )
+    ||
+    safeDisplayValue(
+      place.id
+    );
+
+
+  if (!slug) {
+
+    renderWeatherUnavailable(
+      container
+    );
+
+    return;
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `/api/weather.php?place=${encodeURIComponent(
+          slug
+        )}`,
+        {
+          credentials: "include",
+          cache: "no-store"
+        }
+      );
+
+
+    const payload =
+      await response.json();
+
+
+    if (
+      !response.ok
+      ||
+      payload?.ok !== true
+      ||
+      !payload?.data
+    ) {
+
+      throw new Error(
+        payload?.error
+        ||
+        "Weather request failed."
+      );
+    }
+
+
+    renderWeatherData(
+      container,
+      payload.data
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Llama Scout weather error:",
+      error
+    );
+
+
+    renderWeatherUnavailable(
+      container
+    );
+  }
+}
+
+
+
+/* =========================================================
+   RENDER SIDEBAR WEATHER DATA
+   ========================================================= */
+
+function renderWeatherData(
+  container,
+  data
+) {
+
+  const weather =
+    safeObject(
+      data.weather
+    );
+
+
+  const forecast =
+    safeObject(
+      weather.forecast
+    );
+
+
+  const current =
+    safeObject(
+      forecast.current
+    );
+
+
+  const daily =
+    safeObject(
+      forecast.daily
+    );
+
+
+  const forecastType =
+    safeDisplayValue(
+      data.forecastType
+    );
+
+
+  const isCampsite =
+    forecastType ===
+    "campsite";
+
+
+  const heading =
+    isCampsite
+      ? "Campsite Weather"
+      : "Local Weather";
+
+
+  let locationLabel =
+    "";
+
+
+  if (isCampsite) {
+
+    const elevation =
+      weather.location?.elevationFeet;
+
+
+    locationLabel =
+      isUsableNumber(
+        elevation
+      )
+        ? `Exact campsite forecast · ${Number(
+            elevation
+          ).toLocaleString()} ft`
+        : "Exact campsite forecast";
+
+
+  } else {
+
+    const weatherLocation =
+      safeObject(
+        data.weatherLocation
+      );
+
+
+    locationLabel =
+      [
+        safeDisplayValue(
+          weatherLocation.city
+        ),
+
+        abbreviateState(
+          safeDisplayValue(
+            weatherLocation.state
+          )
+        )
+      ]
+        .filter(Boolean)
+        .join(", ");
+  }
+
+
+  const temperature =
+    isUsableNumber(
+      current.temperature_2m
+    )
+      ? Math.round(
+          Number(
+            current.temperature_2m
+          )
+        )
+      : null;
+
+
+  const apparentTemperature =
+    isUsableNumber(
+      current.apparent_temperature
+    )
+      ? Math.round(
+          Number(
+            current.apparent_temperature
+          )
+        )
+      : null;
+
+
+  const weatherCode =
+    isUsableNumber(
+      current.weather_code
+    )
+      ? Number(
+          current.weather_code
+        )
+      : null;
+
+
+  const condition =
+    weatherCondition(
+      weatherCode
+    );
+
+
+  const icon =
+    weatherIcon(
+      weatherCode,
+      current.is_day
+    );
+
+
+  const high =
+    firstWeatherNumber(
+      daily.temperature_2m_max
+    );
+
+
+  const low =
+    firstWeatherNumber(
+      daily.temperature_2m_min
+    );
+
+
+  const precipitationChance =
+    firstWeatherNumber(
+      daily.precipitation_probability_max
+    );
+
+
+  const wind =
+    isUsableNumber(
+      current.wind_speed_10m
+    )
+      ? Math.round(
+          Number(
+            current.wind_speed_10m
+          )
+        )
+      : null;
+
+
+  const gusts =
+    isUsableNumber(
+      current.wind_gusts_10m
+    )
+      ? Math.round(
+          Number(
+            current.wind_gusts_10m
+          )
+        )
+      : null;
+
+
+  container.innerHTML = `
+
+    <div class="place-weather-header">
+
+      <div
+        class="place-weather-icon"
+        aria-hidden="true"
+      >
+
+        <i
+          class="fa-solid ${escapeHTML(
+            icon
+          )}"
+        ></i>
+
+      </div>
+
+
+      <div class="place-weather-current">
+
+        ${
+          temperature !== null
+            ? `
+
+              <strong class="place-weather-temperature">
+                ${temperature}°F
+              </strong>
+
+            `
+            : ""
+        }
+
+
+        ${
+          condition
+            ? `
+
+              <span class="place-weather-condition">
+                ${escapeHTML(
+                  condition
+                )}
+              </span>
+
+            `
+            : ""
+        }
+
+      </div>
+
+    </div>
+
+
+    <div class="place-weather-title">
+
+      <strong>
+        ${escapeHTML(
+          heading
+        )}
+      </strong>
+
+      ${
+        locationLabel
+          ? `
+
+            <span>
+              ${escapeHTML(
+                locationLabel
+              )}
+            </span>
+
+          `
+          : ""
+      }
+
+    </div>
+
+
+    <div class="place-weather-facts">
+
+      ${
+        apparentTemperature !== null
+          ? weatherFact(
+              "Feels like",
+              `${apparentTemperature}°`
+            )
+          : ""
+      }
+
+      ${
+        high !== null
+        ||
+        low !== null
+          ? weatherFact(
+              "Today",
+              weatherHighLow(
+                high,
+                low
+              )
+            )
+          : ""
+      }
+
+      ${
+        precipitationChance !== null
+          ? weatherFact(
+              "Precipitation",
+              `${Math.round(
+                precipitationChance
+              )}%`
+            )
+          : ""
+      }
+
+      ${
+        wind !== null
+          ? weatherFact(
+              "Wind",
+              `${wind} mph`
+            )
+          : ""
+      }
+
+      ${
+        gusts !== null
+          ? weatherFact(
+              "Gusts",
+              `${gusts} mph`
+            )
+          : ""
+      }
+
+    </div>
+
+
+    ${
+      isCampsite
+        ? `
+
+          <a
+            href="#weather"
+            class="place-weather-link"
+          >
+
+            Full campsite forecast
+
+            <i
+              class="fa-solid fa-arrow-down"
+              aria-hidden="true"
+            ></i>
+
+          </a>
+
+        `
+        : `
+
+          <p class="place-weather-note">
+
+            Weather shown for the nearby city.
+            Members get a forecast for this campsite's
+            exact location and elevation.
+
+          </p>
+
+        `
+    }
+
+  `;
+}
+
+
+
+/* =========================================================
+   WEATHER FACT
+   ========================================================= */
+
+function weatherFact(
+  label,
+  value
+) {
+
+  if (
+    !hasValue(
+      value
+    )
+  ) {
+
+    return "";
+  }
+
+
+  return `
+
+    <div class="place-fact">
+
+      <span>
+        ${escapeHTML(
+          label
+        )}
+      </span>
+
+      <strong>
+        ${escapeHTML(
+          value
+        )}
+      </strong>
+
+    </div>
+
+  `;
+}
+
+
+
+/* =========================================================
+   WEATHER HIGH / LOW
+   ========================================================= */
+
+function weatherHighLow(
+  high,
+  low
+) {
+
+  const parts =
+    [];
+
+
+  if (
+    isUsableNumber(
+      high
+    )
+  ) {
+
+    parts.push(
+      `High ${Math.round(
+        Number(
+          high
+        )
+      )}°`
+    );
+  }
+
+
+  if (
+    isUsableNumber(
+      low
+    )
+  ) {
+
+    parts.push(
+      `Low ${Math.round(
+        Number(
+          low
+        )
+      )}°`
+    );
+  }
+
+
+  return parts.join(
+    " · "
+  );
+}
+
+
+
+/* =========================================================
+   FIRST DAILY WEATHER VALUE
+   ========================================================= */
+
+function firstWeatherNumber(
+  values
+) {
+
+  if (
+    !Array.isArray(
+      values
+    )
+    ||
+    !values.length
+  ) {
+
+    return null;
+  }
+
+
+  const value =
+    values[0];
+
+
+  return isUsableNumber(
+    value
+  )
+    ? Number(
+        value
+      )
+    : null;
+}
+
+
+
+/* =========================================================
+   WEATHER CONDITION
+   WMO WEATHER CODES
+   ========================================================= */
+
+function weatherCondition(
+  code
+) {
+
+  if (
+    !isUsableNumber(
+      code
+    )
+  ) {
+
+    return null;
+  }
+
+
+  const conditions = {
+
+    0:
+      "Clear",
+
+    1:
+      "Mostly Clear",
+
+    2:
+      "Partly Cloudy",
+
+    3:
+      "Overcast",
+
+    45:
+      "Fog",
+
+    48:
+      "Freezing Fog",
+
+    51:
+      "Light Drizzle",
+
+    53:
+      "Drizzle",
+
+    55:
+      "Heavy Drizzle",
+
+    56:
+      "Freezing Drizzle",
+
+    57:
+      "Heavy Freezing Drizzle",
+
+    61:
+      "Light Rain",
+
+    63:
+      "Rain",
+
+    65:
+      "Heavy Rain",
+
+    66:
+      "Freezing Rain",
+
+    67:
+      "Heavy Freezing Rain",
+
+    71:
+      "Light Snow",
+
+    73:
+      "Snow",
+
+    75:
+      "Heavy Snow",
+
+    77:
+      "Snow Grains",
+
+    80:
+      "Light Showers",
+
+    81:
+      "Showers",
+
+    82:
+      "Heavy Showers",
+
+    85:
+      "Snow Showers",
+
+    86:
+      "Heavy Snow Showers",
+
+    95:
+      "Thunderstorms",
+
+    96:
+      "Thunderstorms with Hail",
+
+    99:
+      "Severe Thunderstorms with Hail"
+
+  };
+
+
+  return (
+    conditions[
+      Number(
+        code
+      )
+    ]
+    ||
+    "Current Conditions"
+  );
+}
+
+
+
+/* =========================================================
+   WEATHER ICON
+   ========================================================= */
+
+function weatherIcon(
+  code,
+  isDay
+) {
+
+  const numericCode =
+    Number(
+      code
+    );
+
+
+  const daytime =
+    Number(
+      isDay
+    ) === 1;
+
+
+  if (
+    numericCode === 0
+  ) {
+
+    return daytime
+      ? "fa-sun"
+      : "fa-moon";
+  }
+
+
+  if (
+    numericCode === 1
+    ||
+    numericCode === 2
+  ) {
+
+    return daytime
+      ? "fa-cloud-sun"
+      : "fa-cloud-moon";
+  }
+
+
+  if (
+    numericCode === 3
+  ) {
+
+    return "fa-cloud";
+  }
+
+
+  if (
+    numericCode === 45
+    ||
+    numericCode === 48
+  ) {
+
+    return "fa-smog";
+  }
+
+
+  if (
+    numericCode >= 51
+    &&
+    numericCode <= 67
+  ) {
+
+    return "fa-cloud-rain";
+  }
+
+
+  if (
+    (
+      numericCode >= 71
+      &&
+      numericCode <= 77
+    )
+    ||
+    numericCode === 85
+    ||
+    numericCode === 86
+  ) {
+
+    return "fa-snowflake";
+  }
+
+
+  if (
+    numericCode >= 80
+    &&
+    numericCode <= 82
+  ) {
+
+    return "fa-cloud-showers-heavy";
+  }
+
+
+  if (
+    numericCode >= 95
+  ) {
+
+    return "fa-cloud-bolt";
+  }
+
+
+  return "fa-cloud-sun";
+}
+
+
+
+/* =========================================================
+   WEATHER UNAVAILABLE
+   ========================================================= */
+
+function renderWeatherUnavailable(
+  container
+) {
+
+  container.innerHTML = `
+
+    <div class="place-weather-unavailable">
+
+      <i
+        class="fa-solid fa-cloud"
+        aria-hidden="true"
+      ></i>
+
+      <span>
+        Weather is temporarily unavailable.
+      </span>
+
+    </div>
+
+  `;
+}
+
+
+
+/* =========================================================
+   STATE ABBREVIATION
+   ========================================================= */
+
+function abbreviateState(
+  state
+) {
+
+  const states = {
+
+    Alabama: "AL",
+    Alaska: "AK",
+    Arizona: "AZ",
+    Arkansas: "AR",
+    California: "CA",
+    Colorado: "CO",
+    Connecticut: "CT",
+    Delaware: "DE",
+    Florida: "FL",
+    Georgia: "GA",
+    Hawaii: "HI",
+    Idaho: "ID",
+    Illinois: "IL",
+    Indiana: "IN",
+    Iowa: "IA",
+    Kansas: "KS",
+    Kentucky: "KY",
+    Louisiana: "LA",
+    Maine: "ME",
+    Maryland: "MD",
+    Massachusetts: "MA",
+    Michigan: "MI",
+    Minnesota: "MN",
+    Mississippi: "MS",
+    Missouri: "MO",
+    Montana: "MT",
+    Nebraska: "NE",
+    Nevada: "NV",
+    "New Hampshire": "NH",
+    "New Jersey": "NJ",
+    "New Mexico": "NM",
+    "New York": "NY",
+    "North Carolina": "NC",
+    "North Dakota": "ND",
+    Ohio: "OH",
+    Oklahoma: "OK",
+    Oregon: "OR",
+    Pennsylvania: "PA",
+    "Rhode Island": "RI",
+    "South Carolina": "SC",
+    "South Dakota": "SD",
+    Tennessee: "TN",
+    Texas: "TX",
+    Utah: "UT",
+    Vermont: "VT",
+    Virginia: "VA",
+    Washington: "WA",
+    "West Virginia": "WV",
+    Wisconsin: "WI",
+    Wyoming: "WY"
+
+  };
+
+
+  return (
+    states[
+      state
+    ]
+    ||
+    state
+  );
+}
 
 /* =========================================================
    GENERIC SECTION
