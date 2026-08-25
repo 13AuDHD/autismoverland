@@ -490,7 +490,7 @@ require_once
               ]
           ) ?>
 
-          Â·
+          &middot;
 
           <?= !empty(
               $scoutSummary[
@@ -582,9 +582,7 @@ require_once
             Active Through
           </span>
 
-          <strong
-            style="font-size: 1rem;"
-          >
+        <strong class="scout-summary-date">
 
             <?= e(
                 account_scout_date(
