@@ -5453,3 +5453,695 @@ body.account-auth-body {
 }
 
 
+/* =========================================================
+   SCOUT APPLICATION ***************************************
+   ========================================================= */
+
+.scout-about-page {
+  padding:
+    34px
+    18px
+    80px;
+}
+
+
+.scout-about-shell {
+  width:
+    min(
+      100%,
+      980px
+    );
+
+  margin:
+    0
+    auto;
+}
+
+
+/* =========================================================
+   PROGRESS
+   ========================================================= */
+
+.scout-about-page
+.scout-progress {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      5,
+      1fr
+    );
+
+  gap: 8px;
+
+  margin-bottom: 24px;
+}
+
+
+.scout-about-page
+.scout-progress-step {
+  padding:
+    11px
+    8px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--muted);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+
+  text-align: center;
+
+  font-size: .76rem;
+
+  font-weight: 700;
+}
+
+
+.scout-about-page
+.scout-progress-step.done {
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+}
+
+
+.scout-about-page
+.scout-progress-step.active {
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border-color:
+    var(--blue-dark);
+}
+
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
+.scout-about-hero {
+  padding:
+    clamp(
+      30px,
+      7vw,
+      60px
+    );
+
+  background:
+    linear-gradient(
+      145deg,
+      #10211b,
+      #1c342a
+    );
+
+  color: #fff;
+
+  border-radius: 24px;
+}
+
+
+.scout-about-eyebrow {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  margin:
+    0
+    0
+    14px;
+
+  color:
+    #d9c49a;
+
+  font-size: .78rem;
+
+  font-weight: 800;
+
+  letter-spacing: .13em;
+
+  text-transform: uppercase;
+}
+
+
+.scout-about-hero h1 {
+  max-width: 700px;
+
+  margin:
+    0
+    0
+    16px;
+
+  color: #fff;
+
+  font-size:
+    clamp(
+      2.1rem,
+      6vw,
+      4rem
+    );
+
+  line-height: 1;
+
+  letter-spacing: -.04em;
+}
+
+
+.scout-about-hero p {
+  max-width: 720px;
+
+  margin: 0;
+
+  color:
+    rgba(
+      255,
+      255,
+      255,
+      .82
+    );
+
+  line-height: 1.7;
+}
+
+
+/* =========================================================
+   FORM
+   ========================================================= */
+
+.scout-about-form {
+  display: grid;
+
+  gap: 22px;
+
+  margin-top: 26px;
+}
+
+
+.scout-form-card {
+  padding:
+    clamp(
+      22px,
+      5vw,
+      36px
+    );
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 18px;
+}
+
+
+.scout-form-card h2 {
+  margin:
+    0
+    0
+    8px;
+
+  color:
+    var(--ink);
+}
+
+
+.scout-form-card > p {
+  max-width: 740px;
+
+  margin:
+    0
+    0
+    24px;
+
+  color:
+    var(--muted);
+
+  line-height: 1.65;
+}
+
+
+.scout-form-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap: 16px;
+}
+
+
+.scout-field {
+  display: grid;
+
+  gap: 7px;
+}
+
+
+.scout-field.wide {
+  grid-column:
+    1
+    /
+    -1;
+}
+
+
+.scout-field label {
+  color:
+    var(--ink);
+
+  font-weight: 700;
+}
+
+
+.scout-field small {
+  color:
+    var(--muted);
+
+  line-height: 1.45;
+}
+
+
+.scout-field input,
+.scout-field textarea {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding:
+    12px
+    13px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 9px;
+
+  font: inherit;
+
+  outline: none;
+}
+
+
+.scout-field input:focus,
+.scout-field textarea:focus,
+.scout-question textarea:focus {
+  border-color:
+    var(--blue);
+
+  box-shadow:
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--blue) 18%,
+      transparent
+    );
+}
+
+
+.scout-field textarea {
+  min-height: 132px;
+
+  resize: vertical;
+
+  line-height: 1.55;
+}
+
+
+/* =========================================================
+   QUESTIONS
+   ========================================================= */
+
+.scout-question {
+  margin-top: 22px;
+}
+
+
+.scout-question:first-of-type {
+  margin-top: 0;
+}
+
+
+.scout-question h3 {
+  margin:
+    0
+    0
+    6px;
+
+  color:
+    var(--ink);
+
+  font-size: 1.06rem;
+}
+
+
+.scout-question p {
+  margin:
+    0
+    0
+    10px;
+
+  color:
+    var(--muted);
+
+  line-height: 1.5;
+}
+
+
+.scout-question textarea {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  min-height: 150px;
+
+  padding: 14px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+
+  font: inherit;
+
+  line-height: 1.55;
+
+  resize: vertical;
+
+  outline: none;
+}
+
+
+/* =========================================================
+   PRIVATE INFO
+   ========================================================= */
+
+.scout-private-note {
+  display: flex;
+
+  gap: 12px;
+
+  margin-bottom: 22px;
+
+  padding:
+    15px
+    17px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+
+  line-height: 1.55;
+}
+
+
+.scout-private-note i {
+  margin-top: 3px;
+
+  color:
+    var(--muted);
+}
+
+
+/* =========================================================
+   AGREEMENTS
+   ========================================================= */
+
+.scout-agreements {
+  display: grid;
+
+  gap: 12px;
+}
+
+
+.scout-agreement {
+  display: grid;
+
+  grid-template-columns:
+    22px
+    1fr;
+
+  gap: 11px;
+
+  align-items: start;
+
+  padding: 16px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+}
+
+
+.scout-agreement input {
+  width: 18px;
+
+  height: 18px;
+
+  margin-top: 2px;
+
+  accent-color:
+    var(--blue);
+}
+
+
+.scout-agreement label {
+  color:
+    var(--ink);
+
+  line-height: 1.55;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   ERRORS
+   ========================================================= */
+
+.scout-errors {
+  margin-top: 20px;
+
+  padding:
+    16px
+    18px;
+
+  background:
+    color-mix(
+      in srgb,
+      #ae3434 14%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      #ae3434 35%,
+      var(--line)
+    );
+
+  border-radius: 12px;
+}
+
+
+.scout-errors strong {
+  display: block;
+
+  margin-bottom: 8px;
+}
+
+
+.scout-errors ul {
+  margin:
+    0
+    0
+    0
+    18px;
+
+  padding: 0;
+}
+
+
+.scout-errors li + li {
+  margin-top: 5px;
+}
+
+
+/* =========================================================
+   ACTION
+   ========================================================= */
+
+.scout-submit-wrap {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 18px;
+
+  padding-top: 4px;
+}
+
+
+.scout-submit-copy {
+  max-width: 580px;
+
+  color:
+    var(--muted);
+
+  font-size: .86rem;
+
+  line-height: 1.55;
+}
+
+
+.scout-submit-button {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  min-height: 50px;
+
+  padding:
+    13px
+    22px;
+
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border:
+    1px solid
+    var(--blue-dark);
+
+  border-radius: 10px;
+
+  font: inherit;
+
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+
+.scout-submit-button:hover,
+.scout-submit-button:focus-visible {
+  background:
+    var(--blue);
+
+  border-color:
+    var(--blue);
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+  .scout-about-page
+  .scout-progress {
+    grid-template-columns:
+      1fr
+      1fr
+      1fr
+      1fr
+      1fr;
+
+    overflow-x: auto;
+  }
+
+
+  .scout-about-page
+  .scout-progress-step {
+    min-width: 88px;
+  }
+
+
+  .scout-form-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .scout-field.wide {
+    grid-column:
+      auto;
+  }
+
+
+  .scout-submit-wrap {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+
+  .scout-submit-button {
+    width: 100%;
+  }
+
+}
