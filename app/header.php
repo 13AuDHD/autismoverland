@@ -37,12 +37,49 @@ if (
 }
 
 
+/* =========================================================
+   MAINTENANCE MODE
+   ========================================================= */
+
+$maintenanceFile =
+    __DIR__
+    . '/maintenance.php';
+
+
+if (
+    file_exists(
+        $maintenanceFile
+    )
+) {
+
+    require_once
+        $maintenanceFile;
+}
+
+
 $headerUser =
     function_exists(
         'current_user'
     )
         ? current_user()
         : null;
+
+
+if (
+    function_exists(
+        'llama_enforce_maintenance_mode'
+    )
+    &&
+    function_exists(
+        'db'
+    )
+) {
+
+    llama_enforce_maintenance_mode(
+        db(),
+        $headerUser
+    );
+}
 
 
 $headerLoggedIn =
