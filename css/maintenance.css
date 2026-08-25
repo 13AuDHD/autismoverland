@@ -1,0 +1,431 @@
+/* =========================================================
+   LLAMA SCOUT
+   MAINTENANCE PAGE
+   css/maintenance.css
+   ========================================================= */
+
+
+/* =========================================================
+   PAGE
+   ========================================================= */
+
+.maintenance-body {
+  margin: 0;
+  min-height: 100vh;
+
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(255, 255, 255, 0.06),
+      transparent 38%
+    ),
+    #111;
+
+  color: #fff;
+}
+
+
+.maintenance-page {
+  min-height: 100vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 32px 20px;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   CARD
+   ========================================================= */
+
+.maintenance-card {
+  width: 100%;
+  max-width: 760px;
+
+  text-align: center;
+
+  padding:
+    clamp(28px, 6vw, 64px)
+    clamp(20px, 5vw, 52px);
+
+  box-sizing: border-box;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.035
+    );
+
+  border:
+    1px solid
+    rgba(
+      255,
+      255,
+      255,
+      0.10
+    );
+
+  border-radius: 28px;
+
+  box-shadow:
+    0 24px 80px
+    rgba(
+      0,
+      0,
+      0,
+      0.35
+    );
+}
+
+
+/* =========================================================
+   LLAMA
+   ========================================================= */
+
+.maintenance-illustration {
+  width: min(
+    100%,
+    340px
+  );
+
+  margin:
+    0 auto
+    26px;
+}
+
+
+.maintenance-illustration img {
+  display: block;
+
+  width: 100%;
+  height: auto;
+
+  object-fit: contain;
+}
+
+
+/* =========================================================
+   COPY
+   ========================================================= */
+
+.maintenance-eyebrow {
+  margin:
+    0 0
+    10px;
+
+  font-size: 0.8rem;
+  font-weight: 700;
+
+  letter-spacing: 0.18em;
+
+  text-transform: uppercase;
+
+  opacity: 0.62;
+}
+
+
+.maintenance-card h1 {
+  margin:
+    0 auto
+    18px;
+
+  max-width: 620px;
+
+  font-size:
+    clamp(
+      2rem,
+      7vw,
+      4.25rem
+    );
+
+  line-height: 1.02;
+
+  letter-spacing: -0.04em;
+}
+
+
+.maintenance-message {
+  margin:
+    0 auto
+    16px;
+
+  max-width: 600px;
+
+  font-size:
+    clamp(
+      1.1rem,
+      3vw,
+      1.35rem
+    );
+
+  line-height: 1.55;
+
+  font-weight: 600;
+}
+
+
+.maintenance-copy {
+  margin:
+    0 auto
+    32px;
+
+  max-width: 600px;
+
+  font-size: 1rem;
+  line-height: 1.7;
+
+  opacity: 0.74;
+}
+
+
+/* =========================================================
+   COUNTDOWN
+   ========================================================= */
+
+.maintenance-countdown {
+  margin:
+    36px auto
+    28px;
+
+  padding:
+    26px 20px;
+
+  max-width: 620px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.04
+    );
+
+  border:
+    1px solid
+    rgba(
+      255,
+      255,
+      255,
+      0.09
+    );
+
+  border-radius: 22px;
+}
+
+
+.maintenance-countdown-label {
+  margin:
+    0 0
+    18px;
+
+  font-size: 0.95rem;
+  font-weight: 700;
+
+  opacity: 0.7;
+}
+
+
+.maintenance-countdown-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap: 12px;
+}
+
+
+.maintenance-countdown-unit {
+  padding:
+    18px 8px;
+
+  border-radius: 16px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.055
+    );
+}
+
+
+.maintenance-countdown-unit strong {
+  display: block;
+
+  font-size:
+    clamp(
+      1.7rem,
+      6vw,
+      2.8rem
+    );
+
+  line-height: 1;
+
+  font-variant-numeric:
+    tabular-nums;
+}
+
+
+.maintenance-countdown-unit span {
+  display: block;
+
+  margin-top: 8px;
+
+  font-size: 0.72rem;
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+
+  text-transform: uppercase;
+
+  opacity: 0.55;
+}
+
+
+.maintenance-countdown-finished {
+  margin:
+    22px 0 0;
+
+  font-weight: 700;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   NO RETURN TIME
+   ========================================================= */
+
+.maintenance-no-time {
+  margin:
+    30px auto
+    28px;
+
+  max-width: 560px;
+
+  padding:
+    18px 22px;
+
+  border-radius: 18px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.045
+    );
+
+  font-weight: 700;
+
+  line-height: 1.55;
+}
+
+
+/* =========================================================
+   FOOTNOTE
+   ========================================================= */
+
+.maintenance-footnote {
+  margin:
+    30px auto
+    0;
+
+  max-width: 540px;
+
+  font-size: 0.84rem;
+  line-height: 1.6;
+
+  opacity: 0.48;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (
+  max-width: 640px
+) {
+
+  .maintenance-page {
+    align-items: flex-start;
+
+    padding:
+      20px 14px;
+  }
+
+
+  .maintenance-card {
+    border-radius: 22px;
+  }
+
+
+  .maintenance-illustration {
+    width: min(
+      100%,
+      270px
+    );
+
+    margin-bottom: 22px;
+  }
+
+
+  .maintenance-countdown-grid {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(
+          0,
+          1fr
+        )
+      );
+  }
+
+
+  .maintenance-countdown-unit {
+    padding:
+      16px 8px;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL SCREENS
+   ========================================================= */
+
+@media (
+  max-width: 360px
+) {
+
+  .maintenance-page {
+    padding:
+      12px 8px;
+  }
+
+
+  .maintenance-card {
+    padding:
+      24px 14px;
+  }
+
+
+  .maintenance-countdown {
+    padding:
+      20px 12px;
+  }
+}
