@@ -357,12 +357,26 @@ function llama_maintenance_user_can_bypass(
 
 
 /* =========================================================
-   PATH EXCLUSIONS
+   REQUEST EXCLUSIONS
    ========================================================= */
 
-function llama_maintenance_path_is_exempt(
+function llama_maintenance_request_is_exempt(
+    string $host,
     string $path
 ): bool {
+
+    $host =
+        strtolower(
+            trim(
+                preg_replace(
+                    '/:\d+$/',
+                    '',
+                    $host
+                )
+                ?? $host
+            )
+        );
+
 
     $path =
         '/' .
@@ -373,10 +387,35 @@ function llama_maintenance_path_is_exempt(
 
 
     /*
+     * The entire Admin Basecamp stays available.
+     *
+     * This is necessary so owners/admins can continue
+     * working and can turn maintenance mode back off.
+     */
+
+    if (
+        $host ===
+        'admin.llamascout.com'
+    ) {
+
+        return true;
+    }
+
+
+    /*
      * Never intercept the maintenance page itself.
      */
 
     if (
+        in_array(
+            $host,
+            [
+                'llamascout.com',
+                'www.llamascout.com',
+            ],
+            true
+        )
+        &&
         $path ===
         '/maintenance.php'
     ) {
@@ -386,57 +425,48 @@ function llama_maintenance_path_is_exempt(
 
 
     /*
-     * Admin must remain reachable so the site can be
-     * brought back online.
+     * Account authentication pages remain reachable so an
+     * owner/admin can sign in during maintenance.
+     *
+     * Regular users may reach the login form, but once they
+     * navigate elsewhere they will see maintenance mode.
      */
 
     if (
-        str_starts_with(
-            $path,
-            '/admin/'
-        )
-        ||
-        $path ===
-        '/admin'
+        $host ===
+        'account.llamascout.com'
     ) {
 
-        return true;
+        $accountExempt = [
+
+            '/login.php',
+
+            '/logout.php',
+
+            '/forgot-password.php',
+
+            '/reset-password.php',
+
+            '/verify-email.php',
+
+        ];
+
+
+        if (
+            in_array(
+                $path,
+                $accountExempt,
+                true
+            )
+        ) {
+
+            return true;
+        }
     }
 
 
     /*
-     * Account login must stay available so an owner/admin
-     * can authenticate and reach the control panel.
-     */
-
-    $accountExempt = [
-
-        '/account/login.php',
-
-        '/account/logout.php',
-
-        '/account/forgot-password.php',
-
-        '/account/reset-password.php',
-
-    ];
-
-
-    if (
-        in_array(
-            $path,
-            $accountExempt,
-            true
-        )
-    ) {
-
-        return true;
-    }
-
-
-    /*
-     * Static assets must remain available or the maintenance
-     * page would lose its styling and graphics.
+     * Static assets should never be intercepted.
      */
 
     $assetPrefixes = [
@@ -497,6 +527,15 @@ function llama_enforce_maintenance_mode(
     }
 
 
+    $host =
+        (string) (
+            $_SERVER[
+                'HTTP_HOST'
+            ]
+            ?? 'llamascout.com'
+        );
+
+
     $path =
         parse_url(
             $_SERVER[
@@ -515,15 +554,9 @@ function llama_enforce_maintenance_mode(
             : '/';
 
 
-    if (
-        llama_maintenance_path_is_exempt(
-            $path
-        )
-    ) {
-
-        return;
-    }
-
+    /*
+     * Owners and admins can keep working normally.
+     */
 
     if (
         llama_maintenance_user_can_bypass(
@@ -536,8 +569,30 @@ function llama_enforce_maintenance_mode(
     }
 
 
+    /*
+     * Certain requests must remain reachable.
+     */
+
+    if (
+        llama_maintenance_request_is_exempt(
+            $host,
+            $path
+        )
+    ) {
+
+        return;
+    }
+
+
+    /*
+     * ALWAYS send maintenance traffic to the main site.
+     *
+     * Never use /maintenance.php here because that would
+     * point to the current subdomain.
+     */
+
     header(
-        'Location: /maintenance.php',
+        'Location: https://llamascout.com/maintenance.php',
         true,
         302
     );
