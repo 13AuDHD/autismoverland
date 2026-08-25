@@ -592,11 +592,70 @@ function useCurrentLocation() {
   }
 
 
+  /*
+   * First try for a fresh, high-accuracy GPS location.
+   */
+
   navigator.geolocation.getCurrentPosition(
 
     handleCurrentLocationSuccess,
 
-    handleCurrentLocationError,
+    function (
+      error
+    ) {
+
+      /*
+       * Android browsers can sometimes time out waiting
+       * for a brand-new GPS fix even though Android already
+       * has a recent fused location available.
+       *
+       * If the high-accuracy attempt times out or cannot
+       * determine a position, retry using Android's faster
+       * cached / network-assisted location.
+       */
+
+      if (
+        error.code === 2
+        ||
+        error.code === 3
+      ) {
+
+        setLocationStatus(
+          "GPS is taking a while. Trying your device's recent location..."
+        );
+
+
+        navigator.geolocation.getCurrentPosition(
+
+          handleCurrentLocationSuccess,
+
+          handleCurrentLocationError,
+
+          {
+
+            enableHighAccuracy:
+              false,
+
+            timeout:
+              20000,
+
+            maximumAge:
+              300000
+
+          }
+
+        );
+
+
+        return;
+      }
+
+
+      handleCurrentLocationError(
+        error
+      );
+
+    },
 
     {
 
@@ -604,16 +663,15 @@ function useCurrentLocation() {
         true,
 
       timeout:
-        15000,
+        12000,
 
       maximumAge:
-        0
+        60000
 
     }
 
   );
 }
-
 
 
 /* =========================================================
