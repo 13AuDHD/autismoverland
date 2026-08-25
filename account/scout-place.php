@@ -1664,7 +1664,7 @@ require_once
               'id' => 'place-name',
               'label' => 'Place Name',
               'wide' => true,
-              'placeholder' => 'First Fork Riverside Camp',
+              'placeholder' => 'Peaceful Riverside Camp',
               'required' => true
           ]);
 
