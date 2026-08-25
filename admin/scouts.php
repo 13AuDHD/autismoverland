@@ -1019,11 +1019,11 @@ require
   aria-label="Scout filters"
 >
 
-  <form
-    method="get"
-    action="/scouts.php"
-    style="display: contents;"
-  >
+<form
+  method="get"
+  action="/scouts.php"
+  class="scout-filter-form"
+>
 
     <div
       class="
