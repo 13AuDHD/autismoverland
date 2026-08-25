@@ -491,7 +491,14 @@ function initPlaceEditor() {
 
   buildRatingControls();
 
+  document
+ .getElementById("use-current-location")
+ ?.addEventListener(
+   "click",
+   useCurrentLocation
+ );
 
+   
   document
     .getElementById("generate-place")
     ?.addEventListener(
@@ -523,6 +530,507 @@ function initPlaceEditor() {
       handleFormReset
     );
 
+}
+
+
+/* =========================================================
+   CURRENT LOCATION
+   ========================================================= */
+
+function useCurrentLocation() {
+
+  const button =
+    document.getElementById(
+      "use-current-location"
+    );
+
+
+  const status =
+    document.getElementById(
+      "location-autofill-status"
+    );
+
+
+  if (
+    !navigator.geolocation
+  ) {
+
+    if (status) {
+
+      status.textContent =
+        "Location services are not supported by this browser.";
+    }
+
+
+    return;
+  }
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+
+    button.innerHTML = `
+
+      <i
+        class="fa-solid fa-spinner fa-spin"
+        aria-hidden="true"
+      ></i>
+
+      Finding Location...
+
+    `;
+  }
+
+
+  if (status) {
+
+    status.textContent =
+      "Getting your device location...";
+  }
+
+
+  navigator.geolocation.getCurrentPosition(
+
+    handleCurrentLocationSuccess,
+
+    handleCurrentLocationError,
+
+    {
+
+      enableHighAccuracy:
+        true,
+
+      timeout:
+        15000,
+
+      maximumAge:
+        0
+
+    }
+
+  );
+}
+
+
+
+/* =========================================================
+   LOCATION SUCCESS
+   ========================================================= */
+
+async function handleCurrentLocationSuccess(
+  position
+) {
+
+  const latitude =
+    position.coords.latitude;
+
+
+  const longitude =
+    position.coords.longitude;
+
+
+  setFieldValue(
+    "latitude",
+    latitude.toFixed(6)
+  );
+
+
+  setFieldValue(
+    "longitude",
+    longitude.toFixed(6)
+  );
+
+
+  setLocationStatus(
+    "Coordinates found. Looking up place details..."
+  );
+
+
+  try {
+
+    const url =
+      new URL(
+        "/api/location-lookup.php",
+        window.location.origin
+      );
+
+
+    url.searchParams.set(
+      "lat",
+      String(
+        latitude
+      )
+    );
+
+
+    url.searchParams.set(
+      "lon",
+      String(
+        longitude
+      )
+    );
+
+
+    /*
+     * Prevent browser caching while testing location data.
+     */
+
+    url.searchParams.set(
+      "cb",
+      String(
+        Date.now()
+      )
+    );
+
+
+    const response =
+      await fetch(
+        url.toString(),
+        {
+
+          credentials:
+            "same-origin",
+
+          cache:
+            "no-store"
+
+        }
+      );
+
+
+    const payload =
+      await response.json();
+
+
+    if (
+      !response.ok
+      ||
+      !payload
+      ||
+      payload.ok !== true
+      ||
+      !payload.data
+    ) {
+
+      throw new Error(
+        payload?.error
+        ||
+        "Location details could not be loaded."
+      );
+    }
+
+
+    applyLocationLookup(
+      payload.data
+    );
+
+
+    setLocationStatus(
+      "Location details filled in. Check anything that looks wrong."
+    );
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      "Llama Scout location lookup failed:",
+      error
+    );
+
+
+    setLocationStatus(
+      "Coordinates were found, but the location details could not be filled automatically."
+    );
+
+  } finally {
+
+    resetLocationButton();
+
+  }
+}
+
+
+
+/* =========================================================
+   LOCATION ERROR
+   ========================================================= */
+
+function handleCurrentLocationError(
+  error
+) {
+
+  let message =
+    "Your location could not be determined.";
+
+
+  if (
+    error
+    &&
+    typeof error.code ===
+    "number"
+  ) {
+
+    switch (
+      error.code
+    ) {
+
+      case 1:
+
+        message =
+          "Location permission was denied. You can still enter the coordinates manually.";
+
+        break;
+
+
+      case 2:
+
+        message =
+          "Your device could not determine its current location.";
+
+        break;
+
+
+      case 3:
+
+        message =
+          "Location lookup timed out. Try again where your device has a clearer GPS signal.";
+
+        break;
+
+    }
+  }
+
+
+  setLocationStatus(
+    message
+  );
+
+
+  resetLocationButton();
+}
+
+
+
+/* =========================================================
+   APPLY LOOKUP RESULTS
+   ========================================================= */
+
+function applyLocationLookup(
+  data
+) {
+
+  if (
+    !data
+    ||
+    typeof data !==
+    "object"
+  ) {
+
+    return;
+  }
+
+
+  if (
+    data.latitude != null
+  ) {
+
+    setFieldValue(
+      "latitude",
+      Number(
+        data.latitude
+      ).toFixed(6)
+    );
+  }
+
+
+  if (
+    data.longitude != null
+  ) {
+
+    setFieldValue(
+      "longitude",
+      Number(
+        data.longitude
+      ).toFixed(6)
+    );
+  }
+
+
+  if (
+    data.elevationFeet != null
+  ) {
+
+    setFieldValue(
+      "elevation",
+      Math.round(
+        Number(
+          data.elevationFeet
+        )
+      )
+    );
+  }
+
+
+  if (
+    data.road
+  ) {
+
+    setFieldValue(
+      "road",
+      data.road
+    );
+  }
+
+
+  if (
+    data.locality
+  ) {
+
+    setFieldValue(
+      "city",
+      data.locality
+    );
+  }
+
+
+  if (
+    data.county
+  ) {
+
+    setFieldValue(
+      "county",
+      cleanCountyName(
+        data.county
+      )
+    );
+  }
+
+
+  if (
+    data.state
+  ) {
+
+    setFieldValue(
+      "state",
+      data.state
+    );
+  }
+}
+
+
+
+/* =========================================================
+   FIELD VALUE HELPER
+   ========================================================= */
+
+function setFieldValue(
+  id,
+  value
+) {
+
+  const field =
+    document.getElementById(
+      id
+    );
+
+
+  if (!field) {
+    return;
+  }
+
+
+  field.value =
+    value ?? "";
+}
+
+
+
+/* =========================================================
+   COUNTY CLEANUP
+   ========================================================= */
+
+function cleanCountyName(
+  county
+) {
+
+  if (
+    typeof county !==
+    "string"
+  ) {
+
+    return county;
+  }
+
+
+  return county
+    .replace(
+      /\s+County$/i,
+      ""
+    )
+    .trim();
+}
+
+
+
+/* =========================================================
+   LOCATION STATUS
+   ========================================================= */
+
+function setLocationStatus(
+  message
+) {
+
+  const status =
+    document.getElementById(
+      "location-autofill-status"
+    );
+
+
+  if (status) {
+
+    status.textContent =
+      message;
+  }
+}
+
+
+
+/* =========================================================
+   RESET LOCATION BUTTON
+   ========================================================= */
+
+function resetLocationButton() {
+
+  const button =
+    document.getElementById(
+      "use-current-location"
+    );
+
+
+  if (!button) {
+    return;
+  }
+
+
+  button.disabled =
+    false;
+
+
+  button.innerHTML = `
+
+    <i
+      class="fa-solid fa-location-crosshairs"
+      aria-hidden="true"
+    ></i>
+
+    Use My Current Location
+
+  `;
 }
 
 
