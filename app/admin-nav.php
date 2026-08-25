@@ -69,7 +69,10 @@ $activeAdminSection =
 
         'import-places.php' =>
             'import',
-
+        
+        'site-maintenance.php' =>
+            'maintenance',
+        
         default =>
             '',
 
@@ -347,6 +350,26 @@ $canModeratePlaces =
       </a>
 
 
+      <a
+          class="<?= llama_admin_nav_active(
+              'maintenance',
+              $activeAdminSection
+          ) ?>"
+          href="/site-maintenance.php"
+          <?= llama_admin_nav_current(
+              'maintenance',
+              $activeAdminSection
+          ) ?>
+        >
+        
+          <i
+            class="fa-solid fa-screwdriver-wrench"
+            aria-hidden="true"
+          ></i>
+        
+          Maintenance
+        
+        </a>
     <?php endif; ?>
 
 
