@@ -733,22 +733,32 @@ async function handleCurrentLocationSuccess(
     );
 
 
-  } catch (
+} catch (
+  error
+) {
+
+  console.error(
+    "Llama Scout location lookup failed:",
     error
-  ) {
-
-    console.error(
-      "Llama Scout location lookup failed:",
-      error
-    );
+  );
 
 
-    setLocationStatus(
-      "Coordinates were found, but the location details could not be filled automatically."
-    );
+  const message =
+    error instanceof Error
+      ? error.message
+      : String(
+          error
+        );
 
-  } finally {
 
+  setLocationStatus(
+    "Location lookup error: "
+    +
+    message
+  );
+
+} finally {
+     
     resetLocationButton();
 
   }
