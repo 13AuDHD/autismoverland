@@ -3474,10 +3474,12 @@ function renderQuickInfo(
 
 
   const coordinates =
-    hasCoordinates(
-      place
-    )
-      ? `
+  hasCoordinates(
+    place
+  )
+    ? `
+
+      <div class="place-coordinate-block">
 
         <p class="place-coordinates">
 
@@ -3509,8 +3511,38 @@ function renderQuickInfo(
 
         </p>
 
-      `
-      : "";
+
+        ${
+          place.exactLocationAvailable === true
+          &&
+          isUsableNumber(
+            location.accuracyMeters
+          )
+            ? `
+
+              <p class="place-coordinate-accuracy">
+
+                <i
+                  class="fa-solid fa-bullseye"
+                  aria-hidden="true"
+                ></i>
+
+                GPS accuracy ±${Math.round(
+                  Number(
+                    location.accuracyMeters
+                  )
+                )} m
+
+              </p>
+
+            `
+            : ""
+        }
+
+      </div>
+
+    `
+    : "";
 
 
   const mapLink =
