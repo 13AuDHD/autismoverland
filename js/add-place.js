@@ -676,8 +676,8 @@ async function handleCurrentLocationSuccess(
         url,
         {
 
-          credentials:
-            "same-origin",
+         credentials:
+           "include",
 
           cache:
             "no-store"
