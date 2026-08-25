@@ -1376,13 +1376,16 @@ function generatePlaceJSON() {
 
     location: {
 
-      latitude,
+  latitude,
 
-      longitude,
+  longitude,
 
-      elevationFeet:
-        numberValue("elevation"),
+     accuracyMeters:
+       numberValue("gps-accuracy"),
 
+     elevationFeet:
+       numberValue("elevation"),
+       
       road:
         textValue("road"),
 
