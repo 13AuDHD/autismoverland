@@ -3317,3 +3317,342 @@ body.account-auth-body {
   }
 
 }
+
+
+
+/* =========================================================
+   MY PLACE UPDATES
+   ========================================================= */
+
+.updates-page {
+  width:
+    min(
+      100%,
+      980px
+    );
+
+  margin:
+    0
+    auto;
+
+  padding:
+    34px
+    18px
+    80px;
+}
+
+
+.updates-header {
+  margin:
+    20px
+    0
+    24px;
+}
+
+
+.updates-header h1 {
+  margin-bottom: 8px;
+
+  color:
+    var(--ink);
+}
+
+
+.updates-header p {
+  max-width: 700px;
+
+  margin: 0;
+
+  color:
+    var(--muted);
+
+  line-height: 1.6;
+}
+
+
+.update-list {
+  display: grid;
+
+  gap: 16px;
+}
+
+
+.update-card {
+  padding: 20px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 15px;
+}
+
+
+.update-card-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 16px;
+
+  align-items: flex-start;
+}
+
+
+.update-card h2 {
+  margin:
+    0
+    0
+    5px;
+
+  color:
+    var(--ink);
+
+  font-size: 1.18rem;
+}
+
+
+.update-meta {
+  margin: 0;
+
+  color:
+    var(--muted);
+
+  font-size: .82rem;
+
+  line-height: 1.55;
+}
+
+
+.submission-status {
+  white-space: nowrap;
+}
+
+
+.update-review {
+  margin-top: 15px;
+
+  padding:
+    13px
+    14px;
+
+  background:
+    color-mix(
+      in srgb,
+      #d9c49a 15%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+}
+
+
+.update-review strong {
+  display: block;
+
+  margin-bottom: 5px;
+}
+
+
+.update-review p {
+  margin: 0;
+
+  color:
+    var(--ink);
+
+  white-space: pre-wrap;
+
+  line-height: 1.55;
+}
+
+
+.update-actions {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 9px;
+
+  margin-top: 16px;
+}
+
+
+.update-button {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  padding:
+    9px
+    12px;
+
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border:
+    1px solid
+    var(--blue-dark);
+
+  border-radius: 8px;
+
+  text-decoration: none;
+
+  font: inherit;
+
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+
+.update-button:hover,
+.update-button:focus-visible {
+  background:
+    var(--blue);
+
+  border-color:
+    var(--blue);
+}
+
+
+.update-button.secondary {
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border-color:
+    var(--line);
+}
+
+
+.update-button.secondary:hover,
+.update-button.secondary:focus-visible {
+  background:
+    var(--surface);
+}
+
+
+.update-button.danger {
+  background:
+    #8c3232;
+
+  color: #fff;
+
+  border-color:
+    #8c3232;
+}
+
+
+.update-button.danger:hover,
+.update-button.danger:focus-visible {
+  background:
+    #742828;
+
+  border-color:
+    #742828;
+}
+
+
+.update-id {
+  margin-top: 14px;
+
+  color:
+    var(--muted);
+
+  font-size: .75rem;
+}
+
+
+.updates-empty {
+  padding: 34px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--muted);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 15px;
+
+  text-align: center;
+}
+
+
+.page-message {
+  margin-bottom: 18px;
+
+  padding:
+    13px
+    15px;
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+}
+
+
+.page-message.success {
+  background:
+    color-mix(
+      in srgb,
+      #1f7a48 14%,
+      var(--surface)
+    );
+}
+
+
+.page-message.error {
+  background:
+    color-mix(
+      in srgb,
+      #8c3232 14%,
+      var(--surface)
+    );
+
+  color:
+    var(--ink);
+}
+
+
+@media (max-width: 620px) {
+
+  .update-card-header {
+    display: block;
+  }
+
+
+  .submission-status {
+    display: inline-flex;
+
+    margin-top: 10px;
+  }
+
+}
