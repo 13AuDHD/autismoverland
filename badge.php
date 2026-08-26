@@ -390,6 +390,52 @@ $howToEarn =
   ) ?>"
 >
 
+<meta
+  property="og:title"
+  content="<?= badge_e(
+      $badge[
+          'name'
+      ]
+  ) ?> Badge | Llama Scout"
+>
+
+<meta
+  property="og:description"
+  content="<?= badge_e(
+      $badge[
+          'description'
+      ]
+      ??
+      'Llama Scout community badge.'
+  ) ?>"
+>
+
+<meta
+  property="og:url"
+  content="<?= badge_e(
+      $canonicalUrl
+  ) ?>"
+>
+
+<meta
+  property="og:type"
+  content="website"
+>
+
+<?php if (
+    $badgeImage
+): ?>
+
+<meta
+  property="og:image"
+  content="<?= badge_e(
+      $badgeImage
+  ) ?>"
+>
+
+<?php endif; ?>
+
+   
 <link
   rel="stylesheet"
   href="/css/style.css"
