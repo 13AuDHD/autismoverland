@@ -7974,19 +7974,24 @@ body.account-auth-body {
 }
 
 
-
 /* =========================================================
    COMMUNITY PROFILE PHOTOS
    ========================================================= */
 
+.community-profile-editor-section {
+  margin-top: 28px;
+}
+
+
 .community-profile-avatar-preview {
   display: flex;
+
   justify-content: center;
 
   margin:
     18px
     0
-    18px;
+    22px;
 }
 
 
@@ -8007,6 +8012,104 @@ body.account-auth-body {
 }
 
 
+.community-profile-editor-section
+.account-field-note {
+  margin:
+    0
+    0
+    14px;
+
+  font-size: .95rem;
+
+  line-height: 1.6;
+}
+
+
+#profile-image-upload-form {
+  display: grid;
+
+  gap: 14px;
+
+  margin-top: 14px;
+}
+
+
+#profile-images {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  min-height: 58px;
+
+  padding:
+    10px
+    12px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 9px;
+
+  font: inherit;
+
+  font-size: 1rem;
+
+  cursor: pointer;
+}
+
+
+#profile-images::file-selector-button {
+  min-height: 38px;
+
+  margin-right: 14px;
+
+  padding:
+    9px
+    15px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 7px;
+
+  font: inherit;
+
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+
+#profile-images::file-selector-button:hover {
+  background:
+    var(--surface-soft);
+}
+
+
+#profile-image-upload-form
+.account-submit {
+  margin-top: 2px;
+
+  min-height: 52px;
+
+  font-size: 1rem;
+}
+
+
 .community-profile-image-grid {
   display: grid;
 
@@ -8018,7 +8121,7 @@ body.account-auth-body {
 
   gap: 14px;
 
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 
@@ -8046,7 +8149,9 @@ body.account-auth-body {
   display: block;
 
   width: 100%;
-  aspect-ratio: 1 / 1;
+
+  aspect-ratio:
+    1 / 1;
 
   object-fit: cover;
 
@@ -8055,7 +8160,7 @@ body.account-auth-body {
 
 
 .community-profile-image strong {
-  font-size: .82rem;
+  font-size: .84rem;
 
   text-align: center;
 }
@@ -8064,15 +8169,11 @@ body.account-auth-body {
 .community-profile-image button {
   width: 100%;
 
+  min-height: 40px;
+
   padding:
     9px
     10px;
-
-  border:
-    1px solid
-    var(--line);
-
-  border-radius: 7px;
 
   background:
     var(--surface);
@@ -8080,9 +8181,16 @@ body.account-auth-body {
   color:
     var(--ink);
 
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 7px;
+
   font: inherit;
 
-  font-size: .82rem;
+  font-size: .84rem;
+
   font-weight: 700;
 
   cursor: pointer;
@@ -8092,6 +8200,11 @@ body.account-auth-body {
 .community-profile-image button:hover {
   background:
     var(--surface-soft);
+}
+
+
+[data-profile-image-status] {
+  margin-top: 16px;
 }
 
 
@@ -8109,9 +8222,27 @@ body.account-auth-body {
     grid-template-columns:
       repeat(
         2,
-        minmax(0, 1fr)
+        minmax(
+          0,
+          1fr
+        )
       );
   }
 
-}
 
+  #profile-images {
+    min-height: 56px;
+
+    font-size: .95rem;
+  }
+
+
+  #profile-images::file-selector-button {
+    margin-right: 10px;
+
+    padding:
+      9px
+      12px;
+  }
+
+}
