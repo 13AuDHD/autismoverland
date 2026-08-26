@@ -173,12 +173,12 @@ if (
     !is_logged_in()
 ) {
 
-    $returnUrl =
-        'https://llamascout.com/profile.php?username='
-        .
-        rawurlencode(
-            $username
-        );
+   $returnUrl =
+       'https://llamascout.com/profile/'
+       .
+       rawurlencode(
+           $username
+       );
 
 
     header(
