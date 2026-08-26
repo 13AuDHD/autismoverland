@@ -407,6 +407,10 @@
       applyTheme(
         savedTheme()
       );
+
+      applyFontSize(
+        savedFontSize()
+      );
     }
   );
 
