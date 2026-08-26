@@ -1024,64 +1024,97 @@ require_once
       </h2>
 
 
-      <div class="community-profile-badges">
+<div class="community-profile-badges">
 
-        <?php foreach (
-            $featuredBadges
-            as
-            $badge
-        ): ?>
-
-          <article class="community-profile-badge">
-
-            <i
-              class="fa-solid <?= profile_e(
-                  $badge[
-                      'icon'
-                  ]
-                  ?? 'fa-award'
-              ) ?>"
-              aria-hidden="true"
-            ></i>
+  <?php foreach (
+      $featuredBadges
+      as
+      $badge
+  ): ?>
 
 
-            <div>
+    <?php
 
-              <strong>
-                <?= profile_e(
-                    $badge[
-                        'name'
-                    ]
-                    ?? ''
-                ) ?>
-              </strong>
+    $badgeSlug =
+        (string) (
+            $badge[
+                'slug'
+            ]
+            ?? ''
+        );
 
 
-              <?php if (
-                  !empty(
-                      $badge[
-                          'description'
-                      ]
-                  )
-              ): ?>
+    $badgeName =
+        (string) (
+            $badge[
+                'name'
+            ]
+            ?? 'Badge'
+        );
 
-                <span>
-                  <?= profile_e(
-                      $badge[
-                          'description'
-                      ]
-                  ) ?>
-                </span>
 
-              <?php endif; ?>
+    $badgeImage =
+        $badge[
+            'resolved_image_src'
+        ]
+        ?? null;
 
-            </div>
+    ?>
 
-          </article>
 
-        <?php endforeach; ?>
+    <a
+      class="community-profile-badge"
+      href="/badges/<?= profile_e(
+          $badgeSlug
+      ) ?>"
+      title="<?= profile_e(
+          $badgeName
+      ) ?>"
+      aria-label="<?= profile_e(
+          $badgeName
+      ) ?>"
+    >
 
-      </div>
+
+      <?php if (
+          $badgeImage
+      ): ?>
+
+        <img
+          src="<?= profile_e(
+              $badgeImage
+          ) ?>"
+          alt="<?= profile_e(
+              $badgeName
+          ) ?>"
+          loading="lazy"
+        >
+
+      <?php else: ?>
+
+        <span class="community-profile-badge-fallback">
+
+          <i
+            class="fa-solid <?= profile_e(
+                $badge[
+                    'icon'
+                ]
+                ?? 'fa-award'
+            ) ?>"
+            aria-hidden="true"
+          ></i>
+
+        </span>
+
+      <?php endif; ?>
+
+
+    </a>
+
+
+  <?php endforeach; ?>
+
+</div>
 
     </section>
 
