@@ -523,16 +523,15 @@ $badges =
 
 
 /*
- * Profile header shows the newest six.
+ * Show up to sixteen badges on the profile.
  */
 
 $featuredBadges =
     array_slice(
         $badges,
         0,
-        6
+        16
     );
-
 
 /* =========================================================
    PROFILE FIELDS
