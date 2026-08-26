@@ -94,3 +94,53 @@ echo
     )
     .
     "\n";
+
+
+
+
+echo
+    '.user.ini exists: '
+    .
+    (
+        is_file(
+            __DIR__
+            . '/.user.ini'
+        )
+            ? 'yes'
+            : 'no'
+    )
+    .
+    "\n";
+
+echo
+    '.user.ini readable: '
+    .
+    (
+        is_readable(
+            __DIR__
+            . '/.user.ini'
+        )
+            ? 'yes'
+            : 'no'
+    )
+    .
+    "\n";
+
+echo
+    '.user.ini contents: '
+    .
+    "\n"
+    .
+    (
+        is_readable(
+            __DIR__
+            . '/.user.ini'
+        )
+            ? file_get_contents(
+                __DIR__
+                . '/.user.ini'
+            )
+            : 'unavailable'
+    )
+    .
+    "\n";
