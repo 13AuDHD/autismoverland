@@ -260,6 +260,38 @@ if (
         ) ?>"
       >
 
+    <meta
+        name="twitter:card"
+        content="summary_large_image"
+      >
+
+      <meta
+        name="twitter:title"
+        content="<?= htmlspecialchars(
+            $shareTitle,
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?> | Llama Scout"
+      >
+
+      <meta
+        name="twitter:description"
+        content="<?= htmlspecialchars(
+            $shareDescription,
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>"
+      >
+
+      <meta
+        name="twitter:image"
+        content="<?= htmlspecialchars(
+            (string) $shareImage,
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>"
+      >
+
     <?php endif; ?>
 
   <?php endif; ?>
