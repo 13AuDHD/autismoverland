@@ -344,9 +344,18 @@ $productSql =
     )
     .
     '
-
-    GROUP BY
-        p.id
+        GROUP BY
+        p.id,
+        p.slug,
+        p.name,
+        p.short_description,
+        p.description,
+        p.product_type,
+        p.primary_image_url,
+        p.is_featured,
+        p.requires_shipping,
+        p.sort_order,
+        p.created_at
 
     ORDER BY
         p.is_featured DESC,
