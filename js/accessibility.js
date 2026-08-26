@@ -9,6 +9,79 @@
     "llama-theme";
 
 
+    const fontSizeStorageKey =
+    "llama-font-size";
+
+
+  function savedFontSize() {
+
+    const value =
+      localStorage.getItem(
+        fontSizeStorageKey
+      );
+
+
+    if (
+      value === "normal"
+      ||
+      value === "larger"
+      ||
+      value === "largest"
+    ) {
+      return value;
+    }
+
+
+    return "normal";
+  }
+
+
+  function applyFontSize(
+    choice
+  ) {
+
+    document.documentElement
+      .setAttribute(
+        "data-font-size",
+        choice
+      );
+
+
+    document
+      .querySelectorAll(
+        "[data-font-size-choice]"
+      )
+      .forEach(
+        (button) => {
+
+          const active =
+            button.dataset.fontSizeChoice
+            ===
+            choice;
+
+
+          button.classList.toggle(
+            "is-active",
+            active
+          );
+
+
+          button.setAttribute(
+            "aria-pressed",
+            active
+              ? "true"
+              : "false"
+          );
+        }
+      );
+  }
+
+
+  applyFontSize(
+    savedFontSize()
+  );
+
+   
   function savedTheme() {
 
     const value =
