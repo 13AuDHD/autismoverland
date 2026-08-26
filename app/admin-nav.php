@@ -350,6 +350,42 @@ $canModeratePlaces =
       </a>
 
 
+            <?php if (
+          $currentNavUserId > 0
+          &&
+          user_has_role(
+              'owner',
+              $currentNavUserId
+          )
+      ): ?>
+
+
+        <a
+          class="<?= llama_admin_nav_active(
+              'shop',
+              $activeAdminSection
+          ) ?>"
+          href="/shop.php"
+          <?= llama_admin_nav_current(
+              'shop',
+              $activeAdminSection
+          ) ?>
+        >
+
+          <i
+            class="fa-solid fa-store"
+            aria-hidden="true"
+          ></i>
+
+          Shop
+
+        </a>
+
+
+      <?php endif; ?>
+
+
+      
       <a
           class="<?= llama_admin_nav_active(
               'maintenance',
