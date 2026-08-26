@@ -569,23 +569,50 @@ if (
            CHECK SLUG
            ================================================= */
 
-        $slugCheck =
-            $db->prepare(
-                '
-                SELECT id
+        if (
+            $isEditing
+        ) {
 
-                FROM shop_products
+            $slugCheck =
+                $db->prepare(
+                    '
+                    SELECT id
 
-                WHERE slug = ?
+                    FROM shop_products
 
-                LIMIT 1
-                '
-            );
+                    WHERE slug = ?
+                      AND id <> ?
+
+                    LIMIT 1
+                    '
+                );
 
 
-        $slugCheck->execute([
-            $slug
-        ]);
+            $slugCheck->execute([
+                $slug,
+                $productId,
+            ]);
+
+        } else {
+
+            $slugCheck =
+                $db->prepare(
+                    '
+                    SELECT id
+
+                    FROM shop_products
+
+                    WHERE slug = ?
+
+                    LIMIT 1
+                    '
+                );
+
+
+            $slugCheck->execute([
+                $slug
+            ]);
+        }
 
 
         if (
@@ -599,8 +626,84 @@ if (
 
 
         /* =================================================
-           INSERT PRODUCT
+           SAVE PRODUCT
            ================================================= */
+
+        if (
+            $isEditing
+        ) {
+
+            $update =
+                $db->prepare(
+                    '
+                    UPDATE shop_products
+
+                    SET
+                        slug = ?,
+                        name = ?,
+                        short_description = ?,
+                        description = ?,
+                        status = ?,
+                        product_type = ?,
+                        primary_image_url = ?,
+                        is_featured = ?,
+                        requires_shipping = ?
+
+                    WHERE id = ?
+
+                    LIMIT 1
+                    '
+                );
+
+
+            $update->execute([
+
+                $slug,
+
+                $name,
+
+                $shortDescription !== ''
+                    ? $shortDescription
+                    : null,
+
+                $description !== ''
+                    ? $description
+                    : null,
+
+                $status,
+
+                $productType !== ''
+                    ? $productType
+                    : null,
+
+                $primaryImageUrl !== ''
+                    ? $primaryImageUrl
+                    : null,
+
+                $isFeatured
+                    ? 1
+                    : 0,
+
+                $requiresShipping
+                    ? 1
+                    : 0,
+
+                $productId,
+
+            ]);
+
+
+            header(
+                'Location: /shop-product.php?id='
+                .
+                $productId
+                .
+                '&saved=1'
+            );
+
+            exit;
+        }
+
 
         $insert =
             $db->prepare(
@@ -668,16 +771,10 @@ if (
         ]);
 
 
-        $productId =
-            (int)
-            $db->lastInsertId();
-
-
         header(
             'Location: /shop.php?created=1'
         );
 
-        
         exit;
 
 
