@@ -324,12 +324,56 @@ $adminBase =
             </button>
       
           </div>
-      
+
         </div>
-      
-      
+
+
+        <div class="accessibility-setting">
+
+          <span class="accessibility-setting-label">
+            Font Size
+          </span>
+
+
+          <div
+            class="accessibility-theme-options"
+            role="group"
+            aria-label="Font size"
+          >
+
+            <button
+              type="button"
+              data-font-size-choice="normal"
+              aria-pressed="false"
+            >
+              Normal
+            </button>
+
+
+            <button
+              type="button"
+              data-font-size-choice="larger"
+              aria-pressed="false"
+            >
+              Larger
+            </button>
+
+
+            <button
+              type="button"
+              data-font-size-choice="largest"
+              aria-pressed="false"
+            >
+              Largest
+            </button>
+
+          </div>
+
+        </div>
+
+
         <p class="accessibility-panel-note">
-          More display and accessibility options will be added here.
+          Your display preferences are saved on this device.
         </p>
       
       </div>
