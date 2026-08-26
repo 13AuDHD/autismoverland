@@ -93,6 +93,143 @@ function e(
     );
 }
 
+function social_profile_url(
+    string $platform,
+    string $handle
+): string {
+
+    $handle =
+        trim(
+            $handle
+        );
+
+
+    if (
+        $handle === ''
+    ) {
+        return '';
+    }
+
+
+    $handle =
+        ltrim(
+            $handle,
+            '@'
+        );
+
+
+    return match (
+        $platform
+    ) {
+
+        'instagram' =>
+            'https://www.instagram.com/'
+            . rawurlencode(
+                $handle
+            ),
+
+        'facebook' =>
+            'https://www.facebook.com/'
+            . rawurlencode(
+                $handle
+            ),
+
+        'bluesky' =>
+            'https://bsky.app/profile/'
+            . rawurlencode(
+                $handle
+            ),
+
+        'youtube' =>
+            'https://www.youtube.com/@'
+            . rawurlencode(
+                $handle
+            ),
+
+        'tiktok' =>
+            'https://www.tiktok.com/@'
+            . rawurlencode(
+                $handle
+            ),
+
+        default =>
+            '',
+    };
+}
+
+function social_profile_handle(
+    string $platform,
+    string $url
+): string {
+
+    $url =
+        trim(
+            $url
+        );
+
+
+    if (
+        $url === ''
+    ) {
+        return '';
+    }
+
+
+    $path =
+        parse_url(
+            $url,
+            PHP_URL_PATH
+        );
+
+
+    if (
+        !is_string(
+            $path
+        )
+    ) {
+        return $url;
+    }
+
+
+    $path =
+        trim(
+            $path,
+            '/'
+        );
+
+
+    if (
+        $platform === 'bluesky'
+        &&
+        str_starts_with(
+            $path,
+            'profile/'
+        )
+    ) {
+
+        $path =
+            substr(
+                $path,
+                8
+            );
+    }
+
+
+    $handle =
+        basename(
+            $path
+        );
+
+
+    return
+        ltrim(
+            rawurldecode(
+                $handle
+            ),
+            '@'
+        );
+}
+
 
 function create_email_verification(
     PDO $db,
@@ -571,6 +708,40 @@ if (
             )
         );
 
+    
+        $instagramUrl =
+        social_profile_url(
+            'instagram',
+            $instagramUrl
+        );
+
+
+    $facebookUrl =
+        social_profile_url(
+            'facebook',
+            $facebookUrl
+        );
+
+
+    $blueskyUrl =
+        social_profile_url(
+            'bluesky',
+            $blueskyUrl
+        );
+
+
+    $youtubeUrl =
+        social_profile_url(
+            'youtube',
+            $youtubeUrl
+        );
+
+
+    $tiktokUrl =
+        social_profile_url(
+            'tiktok',
+            $tiktokUrl
+        );
 
     /* =====================================================
        VALIDATION
@@ -679,21 +850,6 @@ if (
 
         'Website' =>
             $websiteUrl,
-
-        'Instagram' =>
-            $instagramUrl,
-
-        'Facebook' =>
-            $facebookUrl,
-
-        'Bluesky' =>
-            $blueskyUrl,
-
-        'YouTube' =>
-            $youtubeUrl,
-
-        'TikTok' =>
-            $tiktokUrl,
 
         'Other social link' =>
             $otherSocialUrl,
@@ -1712,37 +1868,66 @@ require_once
 
           'website_url' => [
               'Website',
-              $websiteUrl
+              $websiteUrl,
+              'url',
+              'https://'
           ],
 
           'instagram_url' => [
               'Instagram',
-              $instagramUrl
+              social_profile_handle(
+                  'instagram',
+                  $instagramUrl
+              ),
+              'text',
+              'username'
           ],
 
           'facebook_url' => [
               'Facebook',
-              $facebookUrl
+              social_profile_handle(
+                  'facebook',
+                  $facebookUrl
+              ),
+              'text',
+              'username'
           ],
 
           'bluesky_url' => [
               'Bluesky',
-              $blueskyUrl
+              social_profile_handle(
+                  'bluesky',
+                  $blueskyUrl
+              ),
+              'text',
+              'handle.bsky.social'
           ],
 
           'youtube_url' => [
               'YouTube',
-              $youtubeUrl
+              social_profile_handle(
+                  'youtube',
+                  $youtubeUrl
+              ),
+              'text',
+              'channel handle'
           ],
 
           'tiktok_url' => [
               'TikTok',
-              $tiktokUrl
+              social_profile_handle(
+                  'tiktok',
+                  $tiktokUrl
+              ),
+              'text',
+              'username'
           ],
 
           'other_social_url' => [
               'Other link',
-              $otherSocialUrl
+              $otherSocialUrl,
+              'url',
+              'https://'
           ],
 
       ];
