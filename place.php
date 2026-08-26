@@ -135,14 +135,67 @@ if (
   >
 
   <title>
-    Place | Llama Scout
+
+  <meta
+    name="robots"
+    content="<?= $sharePlace
+        ? 'index, follow'
+        : 'noindex, follow'
+    ?>"
+  >
+      
+      <?php if (
+        $sharePlace
+    ): ?>
+
+      <?= htmlspecialchars(
+          (string) (
+              $sharePlace[
+                  'name'
+              ]
+              ?? 'Place'
+          ),
+          ENT_QUOTES,
+          'UTF-8'
+      ) ?> | Llama Scout
+
+    <?php else: ?>
+
+      Place | Llama Scout
+
+    <?php endif; ?>
   </title>
+
 
   <meta
     name="description"
-    content="Detailed Llama Scout place information including access, sensory conditions, connectivity, amenities, accessibility, field observations, and contribution history."
-  >
+    content="<?php
 
+      if (
+          $sharePlace
+          &&
+          !empty(
+              $sharePlace[
+                  'public_summary'
+              ]
+          )
+      ) {
+
+          echo htmlspecialchars(
+              (string) $sharePlace[
+                  'public_summary'
+              ],
+              ENT_QUOTES,
+              'UTF-8'
+          );
+
+      } else {
+
+          echo 'Detailed Llama Scout place information including access, sensory conditions, connectivity, amenities, accessibility, field observations, and contribution history.';
+      }
+
+    ?>"
+  >
   <?php if (
       $sharePlace
   ): ?>
@@ -242,11 +295,25 @@ if (
       ) ?>"
     >
 
+    <link
+      rel="canonical"
+      href="<?= htmlspecialchars(
+          $shareUrl,
+          ENT_QUOTES,
+          'UTF-8'
+      ) ?>"
+    >
+    
     <meta
       property="og:type"
       content="website"
     >
 
+    <meta
+      property="og:site_name"
+      content="Llama Scout"
+    >
+    
     <?php if (
         $shareImage
     ): ?>
