@@ -517,6 +517,12 @@ function e(
 <script
   src="https://llamascout.com/js/accessibility.js"
 ></script>
+
+<script
+  src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+  async
+  defer
+></script>
     
 </head>
 
