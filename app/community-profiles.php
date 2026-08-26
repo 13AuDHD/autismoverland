@@ -662,6 +662,68 @@ function llama_primary_profile_image(
 
 
 /* =========================================================
+   BADGE ARTWORK
+   ========================================================= */
+
+function llama_badge_image_url(
+    string $slug
+): ?string {
+
+    $slug =
+        strtolower(
+            trim(
+                $slug
+            )
+        );
+
+
+    if (
+        $slug === ''
+        ||
+        !preg_match(
+            '/^[a-z0-9-]+$/',
+            $slug
+        )
+    ) {
+
+        return null;
+    }
+
+
+    $relativePath =
+        '/images/badges/'
+        .
+        $slug
+        .
+        '.png';
+
+
+    $physicalPath =
+        dirname(
+            __DIR__
+        )
+        .
+        $relativePath;
+
+
+    if (
+        !is_file(
+            $physicalPath
+        )
+    ) {
+
+        return null;
+    }
+
+
+    return
+        'https://llamascout.com'
+        .
+        $relativePath;
+}
+
+
+/* =========================================================
    GET USER BADGES
    ========================================================= */
 
