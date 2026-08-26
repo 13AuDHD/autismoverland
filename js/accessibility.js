@@ -374,6 +374,31 @@
       );
 
 
+      fontSizeButtons.forEach(
+        (button) => {
+
+          button.addEventListener(
+            "click",
+            () => {
+
+              const choice =
+                button.dataset.fontSizeChoice;
+
+
+              localStorage.setItem(
+                fontSizeStorageKey,
+                choice
+              );
+
+
+              applyFontSize(
+                choice
+              );
+            }
+          );
+        }
+      );
+       
       /*
        * Refresh pressed-state after the
        * DOM controls are available.
