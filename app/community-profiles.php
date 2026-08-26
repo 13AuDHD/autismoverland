@@ -960,3 +960,318 @@ function llama_seed_profile_badges(
         );
     }
 }
+
+
+/* =========================================================
+   AUTOMATIC PROFILE BADGES
+   ========================================================= */
+
+function llama_sync_automatic_profile_badges(
+    PDO $db,
+    int $userId
+): void {
+
+    if (
+        $userId < 1
+    ) {
+        return;
+    }
+
+
+    llama_ensure_community_profile_tables(
+        $db
+    );
+
+
+    /* =====================================================
+       CONTRIBUTION COUNTS
+       ===================================================== */
+
+    $statsStmt =
+        $db->prepare(
+            '
+            SELECT
+
+                COUNT(*)
+                    AS contribution_count,
+
+                COUNT(
+                    DISTINCT
+                    CASE
+                        WHEN contribution_type = \'new_place\'
+                        THEN place_id
+                    END
+                )
+                    AS new_place_count,
+
+                COUNT(
+                    DISTINCT
+                    CASE
+                        WHEN
+                            visited_at IS NOT NULL
+
+                            AND role_at_time IN
+                            (
+                                \'scout\',
+                                \'master-scout\',
+                                \'master_scout\',
+                                \'admin\',
+                                \'owner\'
+                            )
+
+                        THEN place_id
+                    END
+                )
+                    AS scouted_count,
+
+                SUM(
+                    CASE
+                        WHEN contribution_type IN
+                        (
+                            \'update\',
+                            \'correction\'
+                        )
+                        THEN 1
+                        ELSE 0
+                    END
+                )
+                    AS edit_count
+
+            FROM place_contributions
+
+            WHERE user_id = ?
+              AND status = \'approved\'
+            '
+        );
+
+
+    $statsStmt->execute([
+        $userId
+    ]);
+
+
+    $stats =
+        $statsStmt->fetch(
+            PDO::FETCH_ASSOC
+        )
+        ?: [];
+
+
+    $contributionCount =
+        (int) (
+            $stats[
+                'contribution_count'
+            ]
+            ?? 0
+        );
+
+
+    $newPlaceCount =
+        (int) (
+            $stats[
+                'new_place_count'
+            ]
+            ?? 0
+        );
+
+
+    $scoutedCount =
+        (int) (
+            $stats[
+                'scouted_count'
+            ]
+            ?? 0
+        );
+
+
+    $editCount =
+        (int) (
+            $stats[
+                'edit_count'
+            ]
+            ?? 0
+        );
+
+
+    /* =====================================================
+       CURRENT ROLE
+       ===================================================== */
+
+    $roles =
+        user_roles(
+            $userId
+        );
+
+
+    $isMasterScout =
+        in_array(
+            'master-scout',
+            $roles,
+            true
+        )
+        ||
+        in_array(
+            'master_scout',
+            $roles,
+            true
+        );
+
+
+    /* =====================================================
+       EARNED AUTOMATIC BADGES
+       ===================================================== */
+
+    $earnedSlugs =
+        [];
+
+
+    if (
+        $contributionCount >= 1
+    ) {
+
+        $earnedSlugs[] =
+            'first-contribution';
+    }
+
+
+    if (
+        $newPlaceCount >= 1
+    ) {
+
+        $earnedSlugs[] =
+            'first-place';
+    }
+
+
+    if (
+        $scoutedCount >= 1
+    ) {
+
+        $earnedSlugs[] =
+            'first-llama-scout';
+    }
+
+
+    if (
+        $scoutedCount >= 5
+    ) {
+
+        $earnedSlugs[] =
+            'five-places-scouted';
+    }
+
+
+    if (
+        $scoutedCount >= 10
+    ) {
+
+        $earnedSlugs[] =
+            'ten-places-scouted';
+    }
+
+
+    if (
+        $scoutedCount >= 25
+    ) {
+
+        $earnedSlugs[] =
+            'twenty-five-places-scouted';
+    }
+
+
+    if (
+        $editCount >= 1
+    ) {
+
+        $earnedSlugs[] =
+            'helpful-editor';
+    }
+
+
+    if (
+        $isMasterScout
+    ) {
+
+        $earnedSlugs[] =
+            'master-scout';
+    }
+
+
+    if (
+        !$earnedSlugs
+    ) {
+
+        return;
+    }
+
+
+    /* =====================================================
+       INSERT BADGES
+       ===================================================== */
+
+    $badgeStmt =
+        $db->prepare(
+            '
+            SELECT id
+
+            FROM badge_definitions
+
+            WHERE slug = ?
+              AND award_type = \'automatic\'
+              AND is_active = 1
+
+            LIMIT 1
+            '
+        );
+
+
+    $insertStmt =
+        $db->prepare(
+            '
+            INSERT IGNORE INTO user_badges
+            (
+                user_id,
+                badge_id,
+                review_status
+            )
+
+            VALUES
+            (
+                ?,
+                ?,
+                \'earned\'
+            )
+            '
+        );
+
+
+    foreach (
+        $earnedSlugs
+        as
+        $slug
+    ) {
+
+        $badgeStmt->execute([
+            $slug
+        ]);
+
+
+        $badgeId =
+            (int)
+            $badgeStmt->fetchColumn();
+
+
+        if (
+            $badgeId < 1
+        ) {
+
+            continue;
+        }
+
+
+        $insertStmt->execute([
+            $userId,
+            $badgeId
+        ]);
+    }
+}
