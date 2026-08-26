@@ -443,6 +443,37 @@ function llama_community_profile(
    PROFILE IMAGES
    ========================================================= */
 
+function llama_profile_image_url(
+    string $image
+): string {
+
+    $image =
+        trim(
+            $image
+        );
+
+
+    if (
+        $image !== ''
+        &&
+        str_starts_with(
+            $image,
+            '/'
+        )
+    ) {
+
+        return
+            'https://llamascout.com'
+            .
+            $image;
+    }
+
+
+    return
+        $image;
+}
+
+
 function llama_community_profile_images(
     PDO $db,
     int $userId
@@ -480,16 +511,40 @@ function llama_community_profile_images(
     ]);
 
 
-    return
-        $stmt->fetchAll(
-            PDO::FETCH_ASSOC
+$images =
+    $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
+
+
+foreach (
+    $images
+    as &$image
+) {
+
+    $image['image_src'] =
+        llama_profile_image_url(
+            (string) (
+                $image['image_src']
+                ?? ''
+            )
         );
+}
+
+unset(
+    $image
+);
+
+
+return
+    $images;
 }
 
 
 /* =========================================================
    PRIMARY PROFILE IMAGE
    ========================================================= */
+
 
 function llama_primary_profile_image(
     PDO $db,
@@ -570,10 +625,10 @@ function llama_primary_profile_image(
                     $image;
             }
             
-            
             return
-                $image;
-                    }
+                llama_profile_image_url(
+                    $image
+                );
 
 
         /*
