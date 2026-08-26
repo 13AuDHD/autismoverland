@@ -68,3 +68,29 @@ echo
     )
     .
     "\n";
+
+echo
+    'Document root: '
+    .
+    (
+        $_SERVER['DOCUMENT_ROOT']
+        ?? 'unknown'
+    )
+    .
+    "\n";
+
+echo
+    'Current directory: '
+    .
+    __DIR__
+    .
+    "\n";
+
+echo
+    'user_ini.cache_ttl: '
+    .
+    ini_get(
+        'user_ini.cache_ttl'
+    )
+    .
+    "\n";
