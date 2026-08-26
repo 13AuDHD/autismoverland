@@ -897,6 +897,18 @@ function llama_seed_profile_badges(
         ],
 
         [
+             'fifty-places-scouted',
+             '50 Places Scouted',
+             'Llama Scouted fifty places.',
+             'scouting',
+             null,
+             'fa-map-location-dot',
+             'automatic',
+             50,
+             65
+         ],
+
+        [
             'helpful-editor',
             'Helpful Editor',
             'Helped improve information already on Llama Scout.',
