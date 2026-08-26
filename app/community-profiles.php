@@ -629,6 +629,7 @@ function llama_primary_profile_image(
                 llama_profile_image_url(
                     $image
                 );
+        }
 
 
         /*
