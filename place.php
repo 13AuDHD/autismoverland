@@ -70,6 +70,53 @@ if (
             PDO::FETCH_ASSOC
         )
         ?: null;
+
+
+    if (
+        $sharePlace
+    ) {
+
+        $imageStmt =
+            $db->prepare(
+                '
+                SELECT
+                    src
+
+                FROM place_images
+
+                WHERE place_id = ?
+
+                ORDER BY
+                    is_featured DESC,
+                    sort_order ASC,
+                    id ASC
+
+                LIMIT 1
+                '
+            );
+
+
+        $imageStmt->execute([
+            (int) $sharePlace[
+                'id'
+            ]
+        ]);
+
+
+        $shareImage =
+            $imageStmt->fetchColumn()
+            ?: null;
+
+    } else {
+
+        $shareImage =
+            null;
+    }
+
+} else {
+
+    $shareImage =
+        null;
 }
 
 ?>
