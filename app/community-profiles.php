@@ -1280,6 +1280,15 @@ function llama_sync_automatic_profile_badges(
             'twenty-five-places-scouted';
     }
 
+   
+   if (
+       $scoutedCount >= 50
+   ) {
+
+       $earnedSlugs[] =
+           'fifty-places-scouted';
+   }
+
 
     if (
         $editCount >= 1
