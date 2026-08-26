@@ -84,6 +84,47 @@ if (
 
 
 /* =========================================================
+   CANONICAL PROFILE URL
+   ========================================================= */
+
+$canonicalUrl =
+    'https://llamascout.com/profile/'
+    .
+    rawurlencode(
+        $username
+    );
+
+
+$requestUri =
+    (string) (
+        $_SERVER[
+            'REQUEST_URI'
+        ]
+        ?? ''
+    );
+
+
+if (
+    str_starts_with(
+        $requestUri,
+        '/profile.php'
+    )
+) {
+
+    header(
+        'Location: '
+        .
+        $canonicalUrl,
+        true,
+        301
+    );
+
+
+    exit;
+}
+
+
+/* =========================================================
    FIND USER
    ========================================================= */
 
