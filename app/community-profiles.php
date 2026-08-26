@@ -551,11 +551,29 @@ function llama_primary_profile_image(
             ) !== ''
         ) {
 
-            return
+            $image =
                 trim(
                     $image
                 );
-        }
+            
+            
+            if (
+                str_starts_with(
+                    $image,
+                    '/'
+                )
+            ) {
+            
+                return
+                    'https://llamascout.com'
+                    .
+                    $image;
+            }
+            
+            
+            return
+                $image;
+                    }
 
 
         /*
