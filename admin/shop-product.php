@@ -210,6 +210,139 @@ $error =
 
 
 /* =========================================================
+   LOAD EXISTING PRODUCT
+   ========================================================= */
+
+$productId =
+    (int) (
+        $_GET[
+            'id'
+        ]
+        ?? 0
+    );
+
+
+$isEditing =
+    $productId > 0;
+
+
+if (
+    $isEditing
+) {
+
+    $productStmt =
+        $db->prepare(
+            '
+            SELECT *
+
+            FROM shop_products
+
+            WHERE id = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $productStmt->execute([
+        $productId
+    ]);
+
+
+    $product =
+        $productStmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    if (
+        !$product
+    ) {
+
+        http_response_code(
+            404
+        );
+
+        exit(
+            'Product not found.'
+        );
+    }
+
+
+    $name =
+        (string)
+        $product[
+            'name'
+        ];
+
+
+    $slug =
+        (string)
+        $product[
+            'slug'
+        ];
+
+
+    $shortDescription =
+        (string) (
+            $product[
+                'short_description'
+            ]
+            ?? ''
+        );
+
+
+    $description =
+        (string) (
+            $product[
+                'description'
+            ]
+            ?? ''
+        );
+
+
+    $productType =
+        (string) (
+            $product[
+                'product_type'
+            ]
+            ?? ''
+        );
+
+
+    $primaryImageUrl =
+        (string) (
+            $product[
+                'primary_image_url'
+            ]
+            ?? ''
+        );
+
+
+    $status =
+        (string)
+        $product[
+            'status'
+        ];
+
+
+    $isFeatured =
+        (bool)
+        $product[
+            'is_featured'
+        ];
+
+
+    $requiresShipping =
+        (bool)
+        $product[
+            'requires_shipping'
+        ];
+}
+
+
+
+/* =========================================================
    CREATE PRODUCT
    ========================================================= */
 
