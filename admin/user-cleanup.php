@@ -2288,33 +2288,13 @@ require_once
           </div>
 
 
-          <div class="cleanup-field">
-
-            <label>
-              Confirm Account
-            </label>
-
-            <input
-              type="text"
-              name="confirm_username"
-              autocomplete="off"
-              placeholder="<?= e(
-                  $confirmationText
-              ) ?>"
-              required
-            >
-
-            <div class="cleanup-help">
-              Type exactly:
-              <strong>
-                <?= e(
-                    $confirmationText
-                ) ?>
-              </strong>
-            </div>
-
-          </div>
-
+         <input
+           type="hidden"
+           name="confirm_username"
+           value="<?= e(
+               $confirmationText
+           ) ?>"
+         >
 
           <div class="cleanup-actions">
 
@@ -2353,12 +2333,12 @@ require_once
       >
 
         <h2>
-          Permanently Delete Test User
+            Permanently Delete Account
         </h2>
 
         <p>
           This removes the user identity and disposable
-          account-owned test records. It is deliberately
+          account-owned records. It is deliberately
           blocked when Llama Scout detects published Place
           provenance or approved Place Update history.
         </p>
@@ -2474,8 +2454,8 @@ require_once
             >
 
             <span>
-              I understand this permanently removes the test
-              account and cannot be undone.
+               I understand this permanently removes this
+               account and cannot be undone.
             </span>
 
           </label>
