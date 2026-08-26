@@ -156,6 +156,21 @@ html {
   scroll-behavior: smooth;
 }
 
+html[data-font-size="normal"] {
+  font-size: 100%;
+}
+
+
+html[data-font-size="larger"] {
+  font-size: 112.5%;
+}
+
+
+html[data-font-size="largest"] {
+  font-size: 125%;
+}
+
+
 body {
   margin: 0;
   padding-top: 82px;
