@@ -292,7 +292,7 @@
 
   grid-template-columns:
     repeat(
-      2,
+      8,
       minmax(
         0,
         1fr
@@ -304,59 +304,66 @@
 
 
 .community-profile-badge {
-  display: flex;
+  display: block;
 
-  align-items: flex-start;
+  width: 100%;
 
-  gap: 12px;
+  aspect-ratio:
+    1 / 1;
 
-  padding:
-    15px;
+  text-decoration: none;
+
+  border-radius: 50%;
+
+  transition:
+    transform .15s ease;
+}
+
+
+.community-profile-badge:hover,
+.community-profile-badge:focus-visible {
+  transform:
+    translateY(
+      -3px
+    );
+}
+
+
+.community-profile-badge img {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: contain;
+}
+
+
+.community-profile-badge-fallback {
+  display: grid;
+
+  place-items: center;
+
+  width: 100%;
+  height: 100%;
 
   background:
     var(--surface-soft);
+
+  color:
+    var(--ink);
 
   border:
     1px solid
     var(--line);
 
-  border-radius: 13px;
+  border-radius: 50%;
 }
 
 
-.community-profile-badge > i {
-  flex:
-    0
-    0
-    auto;
-
-  margin-top: 2px;
-
-  font-size: 1.2rem;
+.community-profile-badge-fallback i {
+  font-size: 1.5rem;
 }
-
-
-.community-profile-badge strong {
-  display: block;
-
-  margin-bottom: 4px;
-
-  color:
-    var(--ink);
-}
-
-
-.community-profile-badge span {
-  display: block;
-
-  color:
-    var(--muted);
-
-  font-size: .82rem;
-
-  line-height: 1.45;
-}
-
 
 /* =========================================================
    DETAILS
@@ -561,12 +568,22 @@
   }
 
 
-  .community-profile-badges,
-  .community-profile-details {
-    grid-template-columns:
-      1fr;
-  }
+.community-profile-badges {
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(
+        0,
+        1fr
+      )
+    );
+}
 
+
+.community-profile-details {
+  grid-template-columns:
+    1fr;
+}
 }
 
 
