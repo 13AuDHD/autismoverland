@@ -1229,17 +1229,59 @@ function llama_store_uploaded_photos(
             $upload
         ) {
 
-            if (
-                $upload['error']
-                !==
-                UPLOAD_ERR_OK
-            ) {
+if (
+    $upload['error']
+    !==
+    UPLOAD_ERR_OK
+) {
 
-                throw new RuntimeException(
-                    'One of the selected photos could not be uploaded.'
-                );
+    $uploadError =
+        (int)
+        $upload['error'];
 
-            }
+
+    $uploadErrorMessage =
+        match (
+            $uploadError
+        ) {
+
+            UPLOAD_ERR_INI_SIZE =>
+                'The photo is larger than the server upload_max_filesize limit. PHP error code: 1.',
+
+            UPLOAD_ERR_FORM_SIZE =>
+                'The photo is larger than the upload size allowed by the form. PHP error code: 2.',
+
+            UPLOAD_ERR_PARTIAL =>
+                'The photo only partially uploaded. PHP error code: 3.',
+
+            UPLOAD_ERR_NO_FILE =>
+                'No photo reached the server. PHP error code: 4.',
+
+            UPLOAD_ERR_NO_TMP_DIR =>
+                'The server is missing its temporary upload folder. PHP error code: 6.',
+
+            UPLOAD_ERR_CANT_WRITE =>
+                'The server could not write the uploaded photo to disk. PHP error code: 7.',
+
+            UPLOAD_ERR_EXTENSION =>
+                'A PHP extension stopped the photo upload. PHP error code: 8.',
+
+            default =>
+                'The photo upload failed with PHP error code: '
+                .
+                $uploadError
+                .
+                '.',
+        };
+
+
+    throw new RuntimeException(
+        $uploadErrorMessage
+    );
+
+}
+
+           
 
 
             if (
