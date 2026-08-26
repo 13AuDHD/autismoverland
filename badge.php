@@ -509,6 +509,28 @@ require_once
         <?php endif; ?>
 
 
+                 <?php if (
+            !empty(
+                $badge[
+                    'source_organization'
+                ]
+            )
+        ): ?>
+
+          <p>
+            Issued by:
+            <strong>
+              <?= badge_e(
+                  $badge[
+                      'source_organization'
+                  ]
+              ) ?>
+            </strong>
+          </p>
+
+        <?php endif; ?>
+
+         
         <div class="badge-detail-stats">
 
 
