@@ -2081,6 +2081,26 @@ require
           $isCandidate;
 
 
+        $canDeleteAccount =
+            !$rowIsOwner
+            &&
+            !$rowIsAdmin
+            &&
+            !$rowIsScout
+            &&
+            !$hasScoutProcess
+            &&
+            empty(
+                $row['last_login_at']
+            )
+            &&
+            !$row['is_verified']
+            &&
+            $row['submission_count'] === 0
+            &&
+            $row['approved_submission_count'] === 0;
+
+        
       $scoutFilter =
           'none';
 
@@ -2599,7 +2619,39 @@ require
 
             </a>
 
+            <?php if (
+                $canDeleteAccount
+                &&
+                $currentUserIsOwner
+            ): ?>
+            
+              <a
+                class="
+                  admin-button
+                  admin-button--small
+                "
+                style="
+                  background:#9f3028;
+                  border-color:#9f3028;
+                  color:#fff;
+                "
+                href="/user-cleanup.php?id=<?= (int)
+                    $row['id']
+                ?>"
+              >
+            
+                <i
+                  class="fa-solid fa-trash-can"
+                  aria-hidden="true"
+                ></i>
+            
+                Delete Account
+            
+              </a>
+            
+            <?php endif; ?>
 
+            
           <?php else: ?>
 
             <span
