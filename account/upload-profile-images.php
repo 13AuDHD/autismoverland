@@ -2,20 +2,6 @@
 
 declare(strict_types=1);
 
-ini_set(
-    'display_errors',
-    '1'
-);
-
-ini_set(
-    'display_startup_errors',
-    '1'
-);
-
-error_reporting(
-    E_ALL
-);
-
 
 /* =========================================================
    LLAMA SCOUT
@@ -37,13 +23,10 @@ require_once
     . '/app/community-profiles.php';
 
 
-/* =========================================================
-   ACCESS
-   ========================================================= */
-
 require_verified_email();
 
 start_llama_session();
+
 
 $db =
     db();
@@ -58,16 +41,16 @@ $userId =
     );
 
 
-/* =========================================================
-   RESPONSE HELPER
-   ========================================================= */
-
 header(
     'Content-Type: application/json; charset=utf-8'
 );
 
 
-function respond(
+/* =========================================================
+   RESPONSE
+   ========================================================= */
+
+function profile_image_upload_respond(
     int $status,
     array $data
 ): void {
@@ -90,15 +73,42 @@ function respond(
 
 
 /* =========================================================
+   ACCESS CHECK
+   ========================================================= */
+
+if (
+    $userId < 1
+) {
+
+    profile_image_upload_respond(
+        401,
+        [
+            'success' =>
+                false,
+
+            'message' =>
+                'You must be signed in to upload profile images.',
+        ]
+    );
+}
+
+
+/* =========================================================
    METHOD
    ========================================================= */
 
 if (
-    $_SERVER['REQUEST_METHOD']
-    !== 'POST'
+    (
+        $_SERVER[
+            'REQUEST_METHOD'
+        ]
+        ?? ''
+    )
+    !==
+    'POST'
 ) {
 
-    respond(
+    profile_image_upload_respond(
         405,
         [
             'success' =>
@@ -112,42 +122,50 @@ if (
 
 
 /* =========================================================
-   PROFILE + TABLES
+   PROFILE
    ========================================================= */
 
-llama_ensure_community_profile(
-    $db,
-    $userId
-);
+try {
+
+    llama_ensure_community_profile(
+        $db,
+        $userId
+    );
+
+
+} catch (
+    Throwable $exception
+) {
+
+    error_log(
+        'Llama Scout profile setup error during image upload: '
+        .
+        $exception->getMessage()
+    );
+
+
+    profile_image_upload_respond(
+        500,
+        [
+            'success' =>
+                false,
+
+            'message' =>
+                'Your Community Profile could not be prepared for image uploads.',
+        ]
+    );
+}
 
 
 /* =========================================================
    CSRF
    ========================================================= */
 
-if (
-    empty(
-        $_SESSION[
-            'profile_image_csrf'
-        ]
-    )
-) {
-
-    $_SESSION[
-        'profile_image_csrf'
-    ] =
-        bin2hex(
-            random_bytes(
-                32
-            )
-        );
-}
-
-
 $sessionToken =
     $_SESSION[
         'profile_image_csrf'
-    ];
+    ]
+    ?? '';
 
 $submittedToken =
     $_POST[
@@ -158,8 +176,16 @@ $submittedToken =
 
 if (
     !is_string(
+        $sessionToken
+    )
+    ||
+    $sessionToken === ''
+    ||
+    !is_string(
         $submittedToken
     )
+    ||
+    $submittedToken === ''
     ||
     !hash_equals(
         $sessionToken,
@@ -167,7 +193,7 @@ if (
     )
 ) {
 
-    respond(
+    profile_image_upload_respond(
         403,
         [
             'success' =>
@@ -184,26 +210,52 @@ if (
    CURRENT IMAGE COUNT
    ========================================================= */
 
-$stmt =
-    $db->prepare(
-        '
-        SELECT COUNT(*)
+try {
 
-        FROM community_profile_images
+    $countStmt =
+        $db->prepare(
+            '
+            SELECT COUNT(*)
 
-        WHERE user_id = ?
-        '
+            FROM community_profile_images
+
+            WHERE user_id = ?
+            '
+        );
+
+
+    $countStmt->execute([
+        $userId
+    ]);
+
+
+    $currentCount =
+        (int)
+        $countStmt->fetchColumn();
+
+
+} catch (
+    Throwable $exception
+) {
+
+    error_log(
+        'Llama Scout profile image count error: '
+        .
+        $exception->getMessage()
     );
 
 
-$stmt->execute([
-    $userId
-]);
+    profile_image_upload_respond(
+        500,
+        [
+            'success' =>
+                false,
 
-
-$currentCount =
-    (int)
-    $stmt->fetchColumn();
+            'message' =>
+                'Your existing profile images could not be checked.',
+        ]
+    );
+}
 
 
 $remainingSlots =
@@ -216,7 +268,7 @@ if (
     $remainingSlots <= 0
 ) {
 
-    respond(
+    profile_image_upload_respond(
         422,
         [
             'success' =>
@@ -246,7 +298,7 @@ if (
     )
 ) {
 
-    respond(
+    profile_image_upload_respond(
         422,
         [
             'success' =>
@@ -260,7 +312,7 @@ if (
 
 
 /* =========================================================
-   UPLOAD
+   PROCESS FILES
    ========================================================= */
 
 try {
@@ -279,29 +331,27 @@ try {
 ) {
 
     error_log(
-        'Llama Scout profile image upload error: '
+        'Llama Scout profile image processing error: '
         .
-        $exception
-            ->getMessage()
+        $exception->getMessage()
     );
 
 
-    respond(
+    profile_image_upload_respond(
         422,
         [
             'success' =>
                 false,
 
             'message' =>
-                $exception
-                    ->getMessage(),
+                $exception->getMessage(),
         ]
     );
 }
 
 
 /* =========================================================
-   SAVE DATABASE RECORDS
+   DATABASE RECORDS
    ========================================================= */
 
 $insertedImages =
@@ -314,7 +364,8 @@ try {
 
 
     /*
-     * Continue gallery order after existing images.
+     * Continue gallery ordering after the
+     * user's existing images.
      */
 
     $orderStmt =
@@ -359,3 +410,229 @@ try {
             VALUES
             (
                 ?,
+                ?,
+                ?,
+                ?
+            )
+            '
+        );
+
+
+    $displayName =
+        trim(
+            (string) (
+                $user[
+                    'display_name'
+                ]
+                ?? ''
+            )
+        );
+
+
+    foreach (
+        $savedFiles
+        as $savedFile
+    ) {
+
+        $imageSrc =
+            (string) (
+                $savedFile[
+                    'url'
+                ]
+                ?? ''
+            );
+
+
+        if (
+            $imageSrc === ''
+        ) {
+
+            throw new RuntimeException(
+                'A processed profile image did not include a storage path.'
+            );
+        }
+
+
+        $altText =
+            $displayName !== ''
+                ? $displayName
+                    . ' profile image'
+                : 'Profile image';
+
+
+        $insertStmt->execute([
+            $userId,
+            $imageSrc,
+            $altText,
+            $nextSortOrder
+        ]);
+
+
+        $imageId =
+            (int)
+            $db->lastInsertId();
+
+
+        $insertedImages[] = [
+
+            'id' =>
+                $imageId,
+
+            'image_src' =>
+                $imageSrc,
+
+            'alt_text' =>
+                $altText,
+
+            'sort_order' =>
+                $nextSortOrder,
+
+            'width' =>
+                (int) (
+                    $savedFile[
+                        'width'
+                    ]
+                    ?? 0
+                ),
+
+            'height' =>
+                (int) (
+                    $savedFile[
+                        'height'
+                    ]
+                    ?? 0
+                ),
+
+        ];
+
+
+        $nextSortOrder++;
+    }
+
+
+    $db->commit();
+
+
+} catch (
+    Throwable $exception
+) {
+
+    if (
+        $db->inTransaction()
+    ) {
+
+        $db->rollBack();
+    }
+
+
+    /*
+     * The physical images were already processed.
+     * If database storage fails, remove them so
+     * orphan files are not left behind.
+     */
+
+    foreach (
+        $savedFiles
+        as $savedFile
+    ) {
+
+        $imageSrc =
+            (string) (
+                $savedFile[
+                    'url'
+                ]
+                ?? ''
+            );
+
+
+        if (
+            $imageSrc === ''
+        ) {
+
+            continue;
+        }
+
+
+        try {
+
+            llama_delete_managed_photo(
+                $imageSrc,
+                $userId,
+                'profile-images'
+            );
+
+
+        } catch (
+            Throwable $cleanupException
+        ) {
+
+            error_log(
+                'Llama Scout profile image cleanup error: '
+                .
+                $cleanupException->getMessage()
+            );
+        }
+    }
+
+
+    error_log(
+        'Llama Scout profile image database error: '
+        .
+        $exception->getMessage()
+    );
+
+
+    profile_image_upload_respond(
+        500,
+        [
+            'success' =>
+                false,
+
+            'message' =>
+                'The photos were processed, but your profile gallery could not be updated.',
+        ]
+    );
+}
+
+
+/* =========================================================
+   SUCCESS
+   ========================================================= */
+
+$newCount =
+    $currentCount
+    +
+    count(
+        $insertedImages
+    );
+
+
+profile_image_upload_respond(
+    200,
+    [
+        'success' =>
+            true,
+
+        'message' =>
+            count(
+                $insertedImages
+            ) === 1
+                ? 'Profile image uploaded.'
+                : count(
+                    $insertedImages
+                )
+                    . ' profile images uploaded.',
+
+        'photos' =>
+            $insertedImages,
+
+        'image_count' =>
+            $newCount,
+
+        'remaining' =>
+            max(
+                0,
+                5 - $newCount
+            ),
+    ]
+);
