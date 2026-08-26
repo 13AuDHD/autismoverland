@@ -1,0 +1,603 @@
+/* =========================================================
+   LLAMA SCOUT
+   COMMUNITY / PUBLIC PROFILE
+   css/community-profile.css
+   ========================================================= */
+
+
+/* =========================================================
+   PAGE SHELL
+   ========================================================= */
+
+.community-profile-page {
+  width:
+    min(
+      100%,
+      980px
+    );
+
+  margin:
+    0
+    auto;
+
+  padding:
+    36px
+    18px
+    80px;
+}
+
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
+.community-profile-hero {
+  display: grid;
+
+  grid-template-columns:
+    180px
+    minmax(
+      0,
+      1fr
+    );
+
+  gap: 28px;
+
+  align-items: center;
+
+  padding:
+    30px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 22px;
+
+  box-shadow:
+    var(--shadow);
+}
+
+
+.community-profile-photo {
+  display: block;
+
+  width: 180px;
+  height: 180px;
+
+  object-fit: cover;
+
+  border-radius: 50%;
+
+  border:
+    2px solid
+    var(--line);
+
+  background:
+    var(--surface-soft);
+}
+
+
+.community-profile-identity {
+  min-width: 0;
+}
+
+
+.community-profile-level {
+  display: inline-flex;
+
+  align-items: center;
+
+  min-height: 32px;
+
+  padding:
+    6px
+    11px;
+
+  margin-bottom: 12px;
+
+  background:
+    var(--blue-dark);
+
+  color: #fff;
+
+  border-radius: 999px;
+
+  font-size: .78rem;
+
+  font-weight: 800;
+
+  letter-spacing: .02em;
+}
+
+
+.community-profile-identity h1 {
+  margin:
+    0
+    0
+    6px;
+
+  color:
+    var(--ink);
+
+  font-size:
+    clamp(
+      2rem,
+      6vw,
+      3.5rem
+    );
+
+  line-height: 1;
+}
+
+
+.community-profile-handle {
+  margin:
+    0
+    0
+    14px;
+
+  color:
+    var(--muted);
+
+  font-size: 1.05rem;
+
+  font-weight: 650;
+}
+
+
+.community-profile-location,
+.community-profile-joined {
+  margin:
+    6px
+    0
+    0;
+
+  color:
+    var(--muted);
+
+  line-height: 1.5;
+}
+
+
+.community-profile-location {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+}
+
+
+/* =========================================================
+   GENERAL SECTIONS
+   ========================================================= */
+
+.community-profile-section {
+  margin-top: 24px;
+
+  padding:
+    26px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 18px;
+}
+
+
+.community-profile-section h2 {
+  margin:
+    0
+    0
+    18px;
+
+  color:
+    var(--ink);
+
+  font-size: 1.35rem;
+}
+
+
+.community-profile-bio {
+  margin: 0;
+
+  color:
+    var(--ink);
+
+  line-height: 1.75;
+}
+
+
+/* =========================================================
+   STATS
+   ========================================================= */
+
+.community-profile-stats {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap: 12px;
+}
+
+
+.community-profile-stat {
+  padding:
+    18px;
+
+  background:
+    var(--surface-soft);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 13px;
+}
+
+
+.community-profile-stat strong {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color:
+    var(--ink);
+
+  font-size: 1.45rem;
+
+  line-height: 1.15;
+}
+
+
+.community-profile-stat span {
+  display: block;
+
+  color:
+    var(--muted);
+
+  font-size: .82rem;
+
+  line-height: 1.4;
+}
+
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+
+.community-profile-badges {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap: 12px;
+}
+
+
+.community-profile-badge {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 12px;
+
+  padding:
+    15px;
+
+  background:
+    var(--surface-soft);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 13px;
+}
+
+
+.community-profile-badge > i {
+  flex:
+    0
+    0
+    auto;
+
+  margin-top: 2px;
+
+  font-size: 1.2rem;
+}
+
+
+.community-profile-badge strong {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color:
+    var(--ink);
+}
+
+
+.community-profile-badge span {
+  display: block;
+
+  color:
+    var(--muted);
+
+  font-size: .82rem;
+
+  line-height: 1.45;
+}
+
+
+/* =========================================================
+   DETAILS
+   ========================================================= */
+
+.community-profile-details {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap: 12px;
+}
+
+
+.community-profile-details > div {
+  padding:
+    15px;
+
+  background:
+    var(--surface-soft);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+}
+
+
+.community-profile-details span {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color:
+    var(--muted);
+
+  font-size: .78rem;
+}
+
+
+.community-profile-details strong {
+  display: block;
+
+  color:
+    var(--ink);
+
+  line-height: 1.45;
+}
+
+
+/* =========================================================
+   LINKS
+   ========================================================= */
+
+.community-profile-links {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 10px;
+}
+
+
+.community-profile-links a {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  min-height: 42px;
+
+  padding:
+    9px
+    13px;
+
+  background:
+    var(--surface-soft);
+
+  color:
+    var(--ink);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 9px;
+
+  text-decoration: none;
+
+  font-weight: 700;
+}
+
+
+.community-profile-links a:hover,
+.community-profile-links a:focus-visible {
+  background:
+    var(--surface);
+}
+
+
+/* =========================================================
+   GALLERY
+   ========================================================= */
+
+.community-profile-gallery {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(
+        160px,
+        1fr
+      )
+    );
+
+  gap: 12px;
+}
+
+
+.community-profile-gallery img {
+  display: block;
+
+  width: 100%;
+
+  aspect-ratio:
+    1 / 1;
+
+  object-fit: cover;
+
+  border-radius: 12px;
+
+  border:
+    1px solid
+    var(--line);
+
+  background:
+    var(--surface-soft);
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (
+  max-width: 760px
+) {
+
+  .community-profile-page {
+    padding:
+      24px
+      14px
+      60px;
+  }
+
+
+  .community-profile-hero {
+    grid-template-columns:
+      1fr;
+
+    text-align: center;
+
+    padding:
+      24px;
+  }
+
+
+  .community-profile-photo {
+    width: 150px;
+    height: 150px;
+
+    margin:
+      0
+      auto;
+  }
+
+
+  .community-profile-location {
+    justify-content: center;
+  }
+
+
+  .community-profile-stats {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(
+          0,
+          1fr
+        )
+      );
+  }
+
+
+  .community-profile-badges,
+  .community-profile-details {
+    grid-template-columns:
+      1fr;
+  }
+
+}
+
+
+@media (
+  max-width: 480px
+) {
+
+  .community-profile-section {
+    padding:
+      20px;
+  }
+
+
+  .community-profile-stats {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .community-profile-links {
+    display: grid;
+
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .community-profile-links a {
+    width: 100%;
+
+    box-sizing: border-box;
+  }
+
+}
