@@ -1960,14 +1960,20 @@ require_once
             name="<?= e(
                 $fieldName
             ) ?>"
-            type="url"
+            type="<?= e(
+                $fieldData[2]
+            ) ?>"
             maxlength="500"
-            placeholder="https://"
+            placeholder="<?= e(
+                $fieldData[3]
+            ) ?>"
+            autocapitalize="none"
+            spellcheck="false"
             value="<?= e(
                 $fieldData[1]
             ) ?>"
           >
-
+            
         </div>
 
       <?php endforeach; ?>
