@@ -219,6 +219,11 @@
         );
 
 
+      const fontSizeButtons =
+        document.querySelectorAll(
+          "[data-font-size-choice]"
+        );
+       
       /*
        * Standalone pages such as login,
        * registration and password recovery
