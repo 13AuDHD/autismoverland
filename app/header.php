@@ -236,9 +236,9 @@ $adminBase =
 
 
       <a
-        href="<?= $siteBase ?>/about.php"
+        href="<?= $siteBase ?>/shop.php"
       >
-        About
+        Shop
       </a>
 
 
