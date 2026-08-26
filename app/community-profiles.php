@@ -779,10 +779,38 @@ function llama_user_badges(
     ]);
 
 
-    return
-        $stmt->fetchAll(
-            PDO::FETCH_ASSOC
+$badges =
+    $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
+
+
+foreach (
+    $badges
+    as &$badge
+) {
+
+    $badge[
+        'resolved_image_src'
+    ] =
+        llama_badge_image_url(
+            (string) (
+                $badge[
+                    'slug'
+                ]
+                ?? ''
+            )
         );
+}
+
+
+unset(
+    $badge
+);
+
+
+return
+    $badges;
 }
 
 
