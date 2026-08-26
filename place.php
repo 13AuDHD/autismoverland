@@ -2,6 +2,76 @@
 
 declare(strict_types=1);
 
+
+require_once
+    __DIR__
+    . '/app/auth.php';
+
+
+$db =
+    db();
+
+
+$requestedPlace =
+    trim(
+        (string) (
+            $_GET[
+                'place'
+            ]
+            ?? ''
+        )
+    );
+
+
+$sharePlace =
+    null;
+
+
+if (
+    $requestedPlace !== ''
+) {
+
+    $placeStmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                slug,
+                name,
+                public_summary
+
+            FROM places
+
+            WHERE
+                (
+                    slug = ?
+                    OR
+                    id = ?
+                )
+                AND status IN
+                (
+                    \'active\',
+                    \'featured\'
+                )
+
+            LIMIT 1
+            '
+        );
+
+
+    $placeStmt->execute([
+        $requestedPlace,
+        $requestedPlace
+    ]);
+
+
+    $sharePlace =
+        $placeStmt->fetch(
+            PDO::FETCH_ASSOC
+        )
+        ?: null;
+}
+
 ?>
 
 <!doctype html>
