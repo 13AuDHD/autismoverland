@@ -1108,8 +1108,14 @@ require_once
       <?php endif; ?>
 
 
-    </a>
+      <span class="community-profile-badge-name">
+        <?= profile_e(
+            $badgeName
+        ) ?>
+      </span>
 
+
+    </a>
 
   <?php endforeach; ?>
 
