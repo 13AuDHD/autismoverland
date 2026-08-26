@@ -439,6 +439,25 @@ require_once
 
       </div>
 
+
+      <div class="admin-section-actions">
+
+        <a
+          class="admin-button"
+          href="/shop-product.php"
+        >
+
+          <i
+            class="fa-solid fa-plus"
+            aria-hidden="true"
+          ></i>
+
+          Add Product
+
+        </a>
+
+      </div>
+
     </div>
 
 
