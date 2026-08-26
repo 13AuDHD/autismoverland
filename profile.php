@@ -769,6 +769,13 @@ $robots =
   content="<?= profile_e($robots) ?>"
 >
 
+<link
+  rel="canonical"
+  href="<?= profile_e(
+      $canonicalUrl
+  ) ?>"
+>
+
 <meta
   name="description"
   content="<?= profile_e(
