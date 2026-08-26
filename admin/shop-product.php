@@ -541,13 +541,10 @@ if (
 
 
         header(
-            'Location: /shop-product.php?id='
-            .
-            $productId
-            .
-            '&created=1'
+            'Location: /shop.php?created=1'
         );
 
+        
         exit;
 
 
