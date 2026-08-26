@@ -800,4 +800,8 @@
     box-sizing: border-box;
   }
 
+   .badge-detail-stats {
+  grid-template-columns:
+    1fr;
+}
 }
