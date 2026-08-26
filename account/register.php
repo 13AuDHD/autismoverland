@@ -733,6 +733,42 @@ function e(
       </div>
 
 
+      <div
+        style="
+          position:absolute;
+          left:-10000px;
+          width:1px;
+          height:1px;
+          overflow:hidden;
+        "
+        aria-hidden="true"
+      >
+        <label for="website">
+          Website
+        </label>
+
+        <input
+          id="website"
+          name="website"
+          type="text"
+          tabindex="-1"
+          autocomplete="off"
+        >
+      </div>
+
+
+      <div
+        class="cf-turnstile"
+        data-sitekey="<?= e(
+            (string) (
+                llama_config()['turnstile']['site_key']
+                ?? ''
+            )
+        ) ?>"
+        data-theme="dark"
+      ></div>
+        
+
       <button
         type="submit"
         class="account-submit"
