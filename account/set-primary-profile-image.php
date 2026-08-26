@@ -23,6 +23,7 @@ require_verified_email();
 
 start_llama_session();
 
+
 $db =
     db();
 
@@ -41,7 +42,11 @@ header(
 );
 
 
-function respond(
+/* =========================================================
+   RESPONSE
+   ========================================================= */
+
+function profile_image_primary_respond(
     int $status,
     array $data
 ): void {
@@ -64,15 +69,42 @@ function respond(
 
 
 /* =========================================================
+   ACCESS CHECK
+   ========================================================= */
+
+if (
+    $userId < 1
+) {
+
+    profile_image_primary_respond(
+        401,
+        [
+            'success' =>
+                false,
+
+            'message' =>
+                'You must be signed in to change your profile photo.',
+        ]
+    );
+}
+
+
+/* =========================================================
    METHOD
    ========================================================= */
 
 if (
-    $_SERVER['REQUEST_METHOD']
-    !== 'POST'
+    (
+        $_SERVER[
+            'REQUEST_METHOD'
+        ]
+        ?? ''
+    )
+    !==
+    'POST'
 ) {
 
-    respond(
+    profile_image_primary_respond(
         405,
         [
             'success' =>
@@ -113,13 +145,15 @@ if (
         $submittedToken
     )
     ||
+    $submittedToken === ''
+    ||
     !hash_equals(
         $sessionToken,
         $submittedToken
     )
 ) {
 
-    respond(
+    profile_image_primary_respond(
         403,
         [
             'success' =>
@@ -133,7 +167,7 @@ if (
 
 
 /* =========================================================
-   IMAGE
+   IMAGE ID
    ========================================================= */
 
 $imageId =
@@ -149,7 +183,7 @@ if (
     $imageId < 1
 ) {
 
-    respond(
+    profile_image_primary_respond(
         422,
         [
             'success' =>
@@ -162,35 +196,186 @@ if (
 }
 
 
-llama_ensure_community_profile(
-    $db,
-    $userId
-);
+/* =========================================================
+   PROFILE
+   ========================================================= */
 
+try {
 
-$stmt =
-    $db->prepare(
-        '
-        SELECT
-            id,
-            image_src
-
-        FROM community_profile_images
-
-        WHERE id = ?
-          AND user_id = ?
-
-        LIMIT 1
-        '
+    llama_ensure_community_profile(
+        $db,
+        $userId
     );
 
 
-$stmt->execute([
-    $imageId,
-    $userId
-]);
+} catch (
+    Throwable $exception
+) {
+
+    error_log(
+        'Llama Scout primary profile image setup error: '
+        .
+        $exception->getMessage()
+    );
 
 
-$image =
-    $stmt->fetch(
-       
+    profile_image_primary_respond(
+        500,
+        [
+            'success' =>
+                false,
+
+            'message' =>
+                'Your Community Profile could not be prepared.',
+        ]
+    );
+}
+
+
+/* =========================================================
+   FIND OWNED IMAGE
+   ========================================================= */
+
+try {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                image_src
+
+            FROM community_profile_images
+
+            WHERE id = ?
+              AND user_id = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $imageId,
+        $userId
+    ]);
+
+
+    $image =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+} catch (
+    Throwable $exception
+) {
+
+    error_log(
+        'Llama Scout primary profile image lookup error: '
+        .
+        $exception->getMessage()
+    );
+
+
+    profile_image_primary_respond(
+        500,
+        [
+            'success' =>
+                false,
+
+            'message' =>
+                'The selected profile image could not be checked.',
+        ]
+    );
+}
+
+
+if (
+    !$image
+) {
+
+    profile_image_primary_respond(
+        404,
+        [
+            'success' =>
+                false,
+
+            'message' =>
+                'That profile image could not be found.',
+        ]
+    );
+}
+
+
+/* =========================================================
+   SET PRIMARY
+   ========================================================= */
+
+try {
+
+    $updateStmt =
+        $db->prepare(
+            '
+            UPDATE community_profiles
+
+            SET primary_image_id = ?
+
+            WHERE user_id = ?
+            '
+        );
+
+
+    $updateStmt->execute([
+        $imageId,
+        $userId
+    ]);
+
+
+} catch (
+    Throwable $exception
+) {
+
+    error_log(
+        'Llama Scout primary profile image update error: '
+        .
+        $exception->getMessage()
+    );
+
+
+    profile_image_primary_respond(
+        500,
+        [
+            'success' =>
+                false,
+
+            'message' =>
+                'Your profile photo could not be updated.',
+        ]
+    );
+}
+
+
+/* =========================================================
+   SUCCESS
+   ========================================================= */
+
+profile_image_primary_respond(
+    200,
+    [
+        'success' =>
+            true,
+
+        'image_id' =>
+            $imageId,
+
+        'image_src' =>
+            (string)
+            $image[
+                'image_src'
+            ],
+
+        'message' =>
+            'Profile photo updated.',
+    ]
+);
