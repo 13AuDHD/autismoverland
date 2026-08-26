@@ -286,22 +286,59 @@ if (
    HOW TO EARN
    ========================================================= */
 
+/* =========================================================
+   HOW TO EARN
+   ========================================================= */
+
 $howToEarn =
     match (
-        $badge[
-            'award_type'
-        ]
-        ?? ''
+        $slug
     ) {
 
-        'automatic' =>
-            'Earned automatically when the badge requirements are met.',
+        'first-contribution' =>
+            'Make your first approved contribution to Llama Scout.',
 
-        'credential' =>
-            'Awarded for an applicable training or stewardship credential.',
+        'first-place' =>
+            'Add your first approved place to the Llama Scout community.',
+
+        'first-llama-scout' =>
+            'Complete your first approved Llama Scout field visit.',
+
+        'five-places-scouted' =>
+            'Llama Scout 5 different places.',
+
+        'ten-places-scouted' =>
+            'Llama Scout 10 different places.',
+
+        'twenty-five-places-scouted' =>
+            'Llama Scout 25 different places.',
+
+        'fifty-places-scouted' =>
+            'Llama Scout 50 different places.',
+
+        'helpful-editor' =>
+            'Submit an approved update or correction that improves an existing place.',
+
+        'master-scout' =>
+            'Earn Master Scout status in the Llama Scout community.',
 
         default =>
-            'Awarded by Llama Scout for meeting the badge requirements.',
+            match (
+                $badge[
+                    'award_type'
+                ]
+                ?? ''
+            ) {
+
+                'credential' =>
+                    'Awarded for an applicable training or stewardship credential.',
+
+                'automatic' =>
+                    'Earned automatically when the badge requirements are met.',
+
+                default =>
+                    'Awarded by Llama Scout for meeting the badge requirements.',
+            },
     };
 
 
