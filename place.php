@@ -135,16 +135,7 @@ if (
   >
 
   <title>
-
-  <meta
-    name="robots"
-    content="<?= $sharePlace
-        ? 'index, follow'
-        : 'noindex, follow'
-    ?>"
-  >
-      
-      <?php if (
+    <?php if (
         $sharePlace
     ): ?>
 
@@ -166,6 +157,14 @@ if (
     <?php endif; ?>
   </title>
 
+
+  <meta
+    name="robots"
+    content="<?= $sharePlace
+        ? 'index, follow'
+        : 'noindex, follow'
+    ?>"
+  >
 
   <meta
     name="description"
@@ -327,6 +326,15 @@ if (
         ) ?>"
       >
 
+     <meta
+        property="og:image:alt"
+        content="<?= htmlspecialchars(
+            $shareTitle . ' on Llama Scout',
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>"
+      >
+    
     <meta
         name="twitter:card"
         content="summary_large_image"
