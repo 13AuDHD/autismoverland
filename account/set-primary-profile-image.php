@@ -44,7 +44,7 @@ header(
 function respond(
     int $status,
     array $data
-): never {
+): void {
 
     http_response_code(
         $status
