@@ -2077,10 +2077,10 @@ require
           );
 
 
-      $canInvite =
-          $isCandidate;
-
-
+        $canInvite =
+            $isCandidate;
+        
+        
         $canDeleteAccount =
             !$rowIsOwner
             &&
@@ -2094,16 +2094,13 @@ require
                 $row['last_login_at']
             )
             &&
-            !$row['is_verified']
-            &&
             $row['submission_count'] === 0
             &&
             $row['approved_submission_count'] === 0;
-
         
-      $scoutFilter =
-          'none';
-
+        
+        $scoutFilter =
+            'none';
 
       if (
           $rowIsScout
