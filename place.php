@@ -143,6 +143,127 @@ if (
     content="Detailed Llama Scout place information including access, sensory conditions, connectivity, amenities, accessibility, field observations, and contribution history."
   >
 
+  <?php if (
+      $sharePlace
+  ): ?>
+
+    <?php
+
+    $shareTitle =
+        (string) (
+            $sharePlace[
+                'name'
+            ]
+            ?? 'Llama Scout Place'
+        );
+
+    $shareDescription =
+        trim(
+            (string) (
+                $sharePlace[
+                    'public_summary'
+                ]
+                ?? ''
+            )
+        );
+
+    if (
+        $shareDescription === ''
+    ) {
+
+        $shareDescription =
+            'Explore this place on Llama Scout.';
+    }
+
+
+    $shareUrl =
+        'https://llamascout.com/place.php?place='
+        .
+        rawurlencode(
+            (string) (
+                $sharePlace[
+                    'slug'
+                ]
+                ?? $requestedPlace
+            )
+        );
+
+
+    if (
+        $shareImage
+        &&
+        !preg_match(
+            '#^https?://#i',
+            (string) $shareImage
+        )
+    ) {
+
+        $shareImage =
+            'https://llamascout.com'
+            .
+            (
+                str_starts_with(
+                    (string) $shareImage,
+                    '/'
+                )
+                    ? ''
+                    : '/'
+            )
+            .
+            $shareImage;
+    }
+
+    ?>
+
+    <meta
+      property="og:title"
+      content="<?= htmlspecialchars(
+          $shareTitle,
+          ENT_QUOTES,
+          'UTF-8'
+      ) ?> | Llama Scout"
+    >
+
+    <meta
+      property="og:description"
+      content="<?= htmlspecialchars(
+          $shareDescription,
+          ENT_QUOTES,
+          'UTF-8'
+      ) ?>"
+    >
+
+    <meta
+      property="og:url"
+      content="<?= htmlspecialchars(
+          $shareUrl,
+          ENT_QUOTES,
+          'UTF-8'
+      ) ?>"
+    >
+
+    <meta
+      property="og:type"
+      content="website"
+    >
+
+    <?php if (
+        $shareImage
+    ): ?>
+
+      <meta
+        property="og:image"
+        content="<?= htmlspecialchars(
+            (string) $shareImage,
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>"
+      >
+
+    <?php endif; ?>
+
+  <?php endif; ?>
+
 
   <script src="/js/privacy.js"></script>
 
