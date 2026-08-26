@@ -27,6 +27,38 @@ $values = [
 ];
 
 
+/* =====================================================
+   TURNSTILE CONFIG
+   ===================================================== */
+
+$config =
+    llama_config();
+
+$turnstileConfig =
+    $config['turnstile']
+    ?? [];
+
+$turnstileSiteKey =
+    trim(
+        (string) (
+            $turnstileConfig['site_key']
+            ?? ''
+        )
+    );
+
+$turnstileSecretKey =
+    trim(
+        (string) (
+            $turnstileConfig['secret_key']
+            ?? ''
+        )
+    );
+
+
+/* =====================================================
+   POST
+   ===================================================== */
+
 if (
     $_SERVER['REQUEST_METHOD']
     === 'POST'
@@ -68,7 +100,6 @@ if (
             )
         );
 
-
     $password =
         (string) (
             $_POST['password']
@@ -79,6 +110,22 @@ if (
         (string) (
             $_POST['password_confirm']
             ?? ''
+        );
+
+    $turnstileToken =
+        trim(
+            (string) (
+                $_POST['cf-turnstile-response']
+                ?? ''
+            )
+        );
+
+    $honeypot =
+        trim(
+            (string) (
+                $_POST['website']
+                ?? ''
+            )
         );
 
 
@@ -96,7 +143,209 @@ if (
 
 
     /* =====================================================
-       VALIDATION
+       HONEYPOT
+       ===================================================== */
+
+    if ($honeypot !== '') {
+
+        error_log(
+            'Llama Scout registration blocked by honeypot.'
+        );
+
+        $errors[] =
+            'Unable to create account.';
+    }
+
+
+    /* =====================================================
+       TURNSTILE
+       ===================================================== */
+
+    if (
+        $turnstileSiteKey === ''
+        ||
+        $turnstileSecretKey === ''
+    ) {
+
+        error_log(
+            'Llama Scout Turnstile configuration is missing.'
+        );
+
+        $errors[] =
+            'Security verification is temporarily unavailable.';
+
+    } elseif (
+        $turnstileToken === ''
+    ) {
+
+        $errors[] =
+            'Please complete the security check.';
+
+    } else {
+
+        $curl =
+            curl_init(
+                'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+            );
+
+        if ($curl === false) {
+
+            error_log(
+                'Llama Scout could not initialize Turnstile verification.'
+            );
+
+            $errors[] =
+                'Security verification is temporarily unavailable.';
+
+        } else {
+
+            $remoteIp =
+                trim(
+                    (string) (
+                        $_SERVER['REMOTE_ADDR']
+                        ?? ''
+                    )
+                );
+
+            $postFields = [
+                'secret' =>
+                    $turnstileSecretKey,
+
+                'response' =>
+                    $turnstileToken,
+            ];
+
+            if ($remoteIp !== '') {
+                $postFields['remoteip'] =
+                    $remoteIp;
+            }
+
+
+            curl_setopt_array(
+                $curl,
+                [
+                    CURLOPT_POST =>
+                        true,
+
+                    CURLOPT_POSTFIELDS =>
+                        http_build_query(
+                            $postFields
+                        ),
+
+                    CURLOPT_RETURNTRANSFER =>
+                        true,
+
+                    CURLOPT_CONNECTTIMEOUT =>
+                        5,
+
+                    CURLOPT_TIMEOUT =>
+                        10,
+
+                    CURLOPT_HTTPHEADER =>
+                        [
+                            'Content-Type: application/x-www-form-urlencoded',
+                        ],
+                ]
+            );
+
+
+            $response =
+                curl_exec(
+                    $curl
+                );
+
+            $httpCode =
+                (int)
+                curl_getinfo(
+                    $curl,
+                    CURLINFO_HTTP_CODE
+                );
+
+            $curlError =
+                curl_error(
+                    $curl
+                );
+
+            curl_close(
+                $curl
+            );
+
+
+            if (
+                $response === false
+                ||
+                $curlError !== ''
+                ||
+                $httpCode !== 200
+            ) {
+
+                error_log(
+                    'Llama Scout Turnstile request failed. HTTP '
+                    . $httpCode
+                    . '. cURL: '
+                    . $curlError
+                );
+
+                $errors[] =
+                    'Security verification failed. Please try again.';
+
+            } else {
+
+                $verification =
+                    json_decode(
+                        $response,
+                        true
+                    );
+
+
+                if (
+                    !is_array(
+                        $verification
+                    )
+                ) {
+
+                    error_log(
+                        'Llama Scout received an invalid Turnstile response.'
+                    );
+
+                    $errors[] =
+                        'Security verification failed. Please try again.';
+
+                } elseif (
+                    empty(
+                        $verification['success']
+                    )
+                ) {
+
+                    $errorCodes =
+                        $verification['error-codes']
+                        ?? [];
+
+                    if (
+                        is_array(
+                            $errorCodes
+                        )
+                    ) {
+
+                        error_log(
+                            'Llama Scout Turnstile rejected registration: '
+                            . implode(
+                                ', ',
+                                $errorCodes
+                            )
+                        );
+                    }
+
+                    $errors[] =
+                        'Security verification failed. Please try again.';
+                }
+            }
+        }
+    }
+
+
+    /* =====================================================
+       NORMAL VALIDATION
        ===================================================== */
 
     $usernamePolicy =
@@ -162,7 +411,9 @@ if (
 
 
     if (
-        strlen($password) < 10
+        strlen(
+            $password
+        ) < 10
     ) {
 
         $errors[] =
@@ -171,7 +422,8 @@ if (
 
 
     if (
-        $password !==
+        $password
+        !==
         $passwordConfirm
     ) {
 
@@ -205,7 +457,7 @@ if (
 
         $stmt->execute([
             $username,
-            $email
+            $email,
         ]);
 
 
@@ -217,10 +469,13 @@ if (
 
             if (
                 strtolower(
-                    $existing['username']
-                    ?? ''
+                    (string) (
+                        $existing['username']
+                        ?? ''
+                    )
                 )
-                === $username
+                ===
+                $username
             ) {
 
                 $errors[] =
@@ -230,10 +485,13 @@ if (
 
             if (
                 strtolower(
-                    (string)
-                    $existing['email']
+                    (string) (
+                        $existing['email']
+                        ?? ''
+                    )
                 )
-                === $email
+                ===
+                $email
             ) {
 
                 $errors[] =
@@ -262,7 +520,8 @@ if (
 
 
             if (
-                $passwordHash === false
+                $passwordHash
+                === false
             ) {
 
                 throw new RuntimeException(
@@ -302,7 +561,7 @@ if (
                 $passwordHash,
                 $displayName,
                 $timezone,
-                'pending'
+                'pending',
             ]);
 
 
@@ -326,7 +585,7 @@ if (
 
 
             $roleStmt->execute([
-                'member'
+                'member',
             ]);
 
 
@@ -361,13 +620,15 @@ if (
 
             $assignStmt->execute([
                 $userId,
-                $memberRole['id']
+                $memberRole['id'],
             ]);
 
 
             $verificationToken =
                 bin2hex(
-                    random_bytes(32)
+                    random_bytes(
+                        32
+                    )
                 );
 
 
@@ -402,7 +663,7 @@ if (
 
             $verificationStmt->execute([
                 $userId,
-                $verificationHash
+                $verificationHash,
             ]);
 
 
@@ -458,8 +719,8 @@ if (
 
 
             error_log(
-                'Llama Scout registration error: ' .
-                $exception->getMessage()
+                'Llama Scout registration error: '
+                . $exception->getMessage()
             );
 
 
@@ -469,6 +730,10 @@ if (
     }
 }
 
+
+/* =====================================================
+   ESCAPE OUTPUT
+   ===================================================== */
 
 function e(
     string $value
@@ -523,7 +788,7 @@ function e(
   async
   defer
 ></script>
-    
+
 </head>
 
 <body class="account-auth-body">
@@ -551,7 +816,8 @@ function e(
 
       Create a Llama Scout account to
       start building your profile, save
-      places, and manage your membership.
+      places, earn badges, and manage 
+        your membership.
 
     </p>
 
@@ -565,7 +831,9 @@ function e(
         ): ?>
 
           <li>
-            <?= e($error) ?>
+            <?= e(
+                (string) $error
+            ) ?>
           </li>
 
         <?php endforeach; ?>
@@ -673,13 +941,17 @@ function e(
           ): ?>
 
             <option
-              value="<?= e($zone) ?>"
+              value="<?= e(
+                  $zone
+              ) ?>"
               <?= $values['timezone'] === $zone
                   ? 'selected'
                   : ''
               ?>
             >
-              <?= e($label) ?>
+              <?= e(
+                  $label
+              ) ?>
             </option>
 
           <?php endforeach; ?>
@@ -733,16 +1005,23 @@ function e(
       </div>
 
 
+      <!--
+          Honeypot.
+          Humans should never see or complete this field.
+      -->
+
       <div
         style="
           position:absolute;
           left:-10000px;
+          top:auto;
           width:1px;
           height:1px;
           overflow:hidden;
         "
         aria-hidden="true"
       >
+
         <label for="website">
           Website
         </label>
@@ -754,20 +1033,20 @@ function e(
           tabindex="-1"
           autocomplete="off"
         >
+
       </div>
 
+
+      <!-- Cloudflare Turnstile -->
 
       <div
         class="cf-turnstile"
         data-sitekey="<?= e(
-            (string) (
-                llama_config()['turnstile']['site_key']
-                ?? ''
-            )
+            $turnstileSiteKey
         ) ?>"
         data-theme="dark"
       ></div>
-        
+
 
       <button
         type="submit"
