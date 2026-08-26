@@ -509,6 +509,12 @@ $profileImages =
     );
 
 
+llama_sync_automatic_profile_badges(
+    $db,
+    $userId
+);
+
+
 $badges =
     llama_user_badges(
         $db,
