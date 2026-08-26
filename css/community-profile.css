@@ -729,6 +729,44 @@
   grid-template-columns:
     1fr;
 }
+
+   .badge-detail {
+  grid-template-columns:
+    1fr;
+
+  gap: 24px;
+}
+
+
+.badge-detail-art {
+  display: flex;
+
+  justify-content: center;
+}
+
+
+.badge-detail-art img,
+.badge-detail-fallback {
+  width: 190px;
+  height: 190px;
+}
+
+
+.badge-detail-content {
+  text-align: center;
+}
+
+
+.badge-detail-stats {
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(
+        0,
+        1fr
+      )
+    );
+}
 }
 
 
