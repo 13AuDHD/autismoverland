@@ -70,7 +70,8 @@ $activeAdminSection =
         'import-places.php' =>
             'import',
 
-        'shop.php' =>
+        'shop.php',
+        'shop-product.php' =>
             'shop',
         
         'site-maintenance.php' =>
