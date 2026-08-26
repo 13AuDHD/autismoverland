@@ -523,16 +523,16 @@ $adminBase =
 
       <a
         class="mobile-nav-item"
-        href="<?= $siteBase ?>/about.php"
+        href="<?= $siteBase ?>/shop.php"
       >
 
         <i
-          class="fa-solid fa-circle-info"
+          class="fa-solid fa-bag-shopping"
           aria-hidden="true"
         ></i>
 
         <span>
-          About
+          Shop
         </span>
 
       </a>
