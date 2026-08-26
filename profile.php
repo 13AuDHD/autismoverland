@@ -418,6 +418,56 @@ $profileImages =
     );
 
 
+$primaryImageId =
+    (int) (
+        $communityProfile[
+            'primary_image_id'
+        ]
+        ?? 0
+    );
+
+
+if (
+    $primaryImageId > 0
+) {
+
+    $profileImages =
+        array_values(
+            array_filter(
+                $profileImages,
+                static function (
+                    array $image
+                ) use (
+                    $primaryImageId
+                ): bool {
+
+                    return
+                        (int) (
+                            $image[
+                                'id'
+                            ]
+                            ?? 0
+                        )
+                        !==
+                        $primaryImageId;
+                }
+            )
+        );
+}
+
+
+/*
+ * Keep the public gallery compact and clean.
+ */
+
+$profileImages =
+    array_slice(
+        $profileImages,
+        0,
+        4
+    );
+
+
 $badges =
     llama_user_badges(
         $db,
