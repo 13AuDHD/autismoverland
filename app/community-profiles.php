@@ -24,7 +24,7 @@ declare(strict_types=1);
    ========================================================= */
 
 const LLAMA_DEFAULT_PROFILE_IMAGE =
-    '/images/default-llama-profile.png';
+    'https://llamascout.com/images/default-llama-profile.png';
 
 
 /* =========================================================
