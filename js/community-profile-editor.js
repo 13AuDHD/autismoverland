@@ -14,13 +14,10 @@
     window.LLAMA_PROFILE_IMAGES
     || {};
 
+
   const csrfToken =
     config.csrfToken
     || "";
-
-  const defaultImage =
-    config.defaultImage
-    || "/images/default-llama-profile.png";
 
 
   const uploadForm =
@@ -28,20 +25,24 @@
       "profile-image-upload-form"
     );
 
+
   const fileInput =
     document.getElementById(
       "profile-images"
     );
+
 
   const imageGrid =
     document.querySelector(
       "[data-profile-image-grid]"
     );
 
+
   const statusBox =
     document.querySelector(
       "[data-profile-image-status]"
     );
+
 
   const avatar =
     document.querySelector(
@@ -75,6 +76,7 @@
     statusBox.hidden =
       false;
 
+
     statusBox.textContent =
       message;
 
@@ -105,8 +107,10 @@
     statusBox.hidden =
       true;
 
+
     statusBox.textContent =
       "";
+
 
     statusBox.classList.remove(
       "account-status--success",
@@ -124,73 +128,96 @@
     formData
   ) {
 
-    const response =
-      await fetch(
-        url,
-        {
-          method:
-            "POST",
+    let response;
 
-          body:
-            formData,
 
-          credentials:
-            "include",
+    try {
 
-          cache:
-            "no-store"
-        }
+      response =
+        await fetch(
+          url,
+          {
+            method:
+              "POST",
+
+            body:
+              formData,
+
+            credentials:
+              "include",
+
+            cache:
+              "no-store"
+          }
+        );
+
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        "Profile request network failure:",
+        error
       );
+
+
+      throw new Error(
+        "The connection was interrupted. Please try again."
+      );
+    }
+
+
+    const rawResponse =
+      await response.text();
 
 
     let payload =
       null;
 
 
-const rawResponse =
-  await response.text();
+    try {
+
+      payload =
+        JSON.parse(
+          rawResponse
+        );
 
 
-try {
+    } catch (
+      error
+    ) {
 
-  payload =
-    JSON.parse(
-      rawResponse
-    );
+      console.error(
+        "Profile image request failed:",
+        {
+          status:
+            response.status,
 
-} catch (
-  error
-) {
+          statusText:
+            response.statusText,
 
-  console.error(
-    "Profile image request failed:",
-    {
-      status:
-        response.status,
+          response:
+            rawResponse
+        }
+      );
 
-      statusText:
-        response.statusText,
 
-      response:
-        rawResponse
+      if (
+        response.status >= 500
+      ) {
+
+        throw new Error(
+          "The llamas are chewing on network cords again. Please try again in a moment."
+        );
+      }
+
+
+      throw new Error(
+        "The server returned an unexpected response. Please try again."
+      );
     }
-  );
 
-
-  if (
-    response.status >= 500
-  ) {
-
-    throw new Error(
-      "The llamas are chewing on network cords again. Please try again in a moment."
-    );
-  }
-
-
-  throw new Error(
-    "The server returned an uh-oh opsie. Please try again."
-  );
-}
 
     if (
       !response.ok
@@ -213,7 +240,38 @@ try {
 
 
   /* =======================================================
-     UPLOAD
+     UPLOAD ONE PHOTO
+     ======================================================= */
+
+  async function uploadOnePhoto(
+    file
+  ) {
+
+    const formData =
+      new FormData();
+
+
+    formData.append(
+      "csrf_token",
+      csrfToken
+    );
+
+
+    formData.append(
+      "photos[]",
+      file
+    );
+
+
+    return await postForm(
+      "/upload-profile-images.php",
+      formData
+    );
+  }
+
+
+  /* =======================================================
+     SEQUENTIAL PHOTO UPLOAD
      ======================================================= */
 
   if (
@@ -230,6 +288,7 @@ try {
 
         event.preventDefault();
 
+
         clearStatus();
 
 
@@ -244,30 +303,15 @@ try {
             "error"
           );
 
+
           return;
         }
 
 
-        const formData =
-          new FormData();
-
-
-        formData.append(
-          "csrf_token",
-          csrfToken
-        );
-
-
-        for (
-          const file
-          of fileInput.files
-        ) {
-
-          formData.append(
-            "photos[]",
-            file
+        const files =
+          Array.from(
+            fileInput.files
           );
-        }
 
 
         const submitButton =
@@ -282,44 +326,151 @@ try {
 
           submitButton.disabled =
             true;
-
-          submitButton.textContent =
-            "Uploading...";
         }
+
+
+        fileInput.disabled =
+          true;
+
+
+        let uploadedCount =
+          0;
+
+
+        let failedMessage =
+          "";
 
 
         try {
 
-          const payload =
-            await postForm(
-              "/upload-profile-images.php",
-              formData
+          for (
+            let index = 0;
+            index < files.length;
+            index++
+          ) {
+
+            const fileNumber =
+              index + 1;
+
+
+            if (
+              submitButton
+            ) {
+
+              submitButton.textContent =
+                "Uploading "
+                +
+                fileNumber
+                +
+                " of "
+                +
+                files.length
+                +
+                "...";
+            }
+
+
+            showStatus(
+              "Uploading photo "
+              +
+              fileNumber
+              +
+              " of "
+              +
+              files.length
+              +
+              "...",
+              "success"
             );
 
 
-          showStatus(
-            payload.message
-            ||
-            "Profile images uploaded."
-          );
+            try {
+
+              await uploadOnePhoto(
+                files[index]
+              );
 
 
-          window.location.reload();
+              uploadedCount++;
 
 
-        } catch (
-          error
-        ) {
+            } catch (
+              error
+            ) {
 
-          showStatus(
-            error instanceof Error
-              ? error.message
-              : "The profile images could not be uploaded.",
-            "error"
-          );
+              failedMessage =
+                error instanceof Error
+                  ? error.message
+                  : "That photo could not be uploaded.";
+
+
+              break;
+            }
+          }
+
+
+          if (
+            uploadedCount ===
+            files.length
+          ) {
+
+            showStatus(
+              uploadedCount === 1
+                ? "Profile image uploaded."
+                : uploadedCount
+                    +
+                    " profile images uploaded."
+            );
+
+
+            /*
+             * Reload only after the whole queue succeeds.
+             * This refreshes the gallery and available slots.
+             */
+
+            window.location.reload();
+
+
+            return;
+          }
+
+
+          if (
+            uploadedCount > 0
+          ) {
+
+            showStatus(
+              uploadedCount
+              +
+              (
+                uploadedCount === 1
+                  ? " photo was uploaded, but the next one failed. "
+                  : " photos were uploaded, but the next one failed. "
+              )
+              +
+              failedMessage
+              +
+              " Reload the page to see the photos that were saved.",
+              "error"
+            );
+
+
+          } else {
+
+            showStatus(
+              failedMessage
+              ||
+              "The profile image could not be uploaded.",
+              "error"
+            );
+          }
 
 
         } finally {
+
+          fileInput.disabled =
+            false;
+
 
           if (
             submitButton
@@ -327,6 +478,7 @@ try {
 
             submitButton.disabled =
               false;
+
 
             submitButton.textContent =
               "Upload Photos";
@@ -346,6 +498,13 @@ try {
     async (
       event
     ) => {
+
+      if (
+        !(event.target instanceof Element)
+      ) {
+        return;
+      }
+
 
       const button =
         event.target.closest(
@@ -394,8 +553,10 @@ try {
       button.disabled =
         true;
 
+
       const oldText =
         button.textContent;
+
 
       button.textContent =
         "Updating...";
@@ -446,6 +607,7 @@ try {
         button.disabled =
           false;
 
+
         button.textContent =
           oldText;
       }
@@ -462,6 +624,13 @@ try {
     async (
       event
     ) => {
+
+      if (
+        !(event.target instanceof Element)
+      ) {
+        return;
+      }
+
 
       const button =
         event.target.closest(
@@ -529,8 +698,10 @@ try {
       button.disabled =
         true;
 
+
       const oldText =
         button.textContent;
+
 
       button.textContent =
         "Deleting...";
@@ -571,14 +742,6 @@ try {
         );
 
 
-        /*
-         * Reload so:
-         *
-         * - the primary-image button states are correct
-         * - upload controls re-enable when below five images
-         * - llama fallback is shown accurately
-         */
-
         window.location.reload();
 
 
@@ -596,6 +759,7 @@ try {
 
         button.disabled =
           false;
+
 
         button.textContent =
           oldText;
