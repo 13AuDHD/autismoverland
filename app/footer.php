@@ -150,6 +150,10 @@ $footerAccountBase =
           Membership
         </a>
 
+        <a href="<?= $footerSiteBase ?>/shop.php">
+          Shop
+        </a>
+
         <a href="<?= $footerSiteBase ?>/about.php">
           About
         </a>
