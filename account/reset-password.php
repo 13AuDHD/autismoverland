@@ -2,32 +2,204 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/auth.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/auth.php';
+
 
 start_llama_session();
 
-$db = db();
 
-$error = '';
-$success = false;
+$db =
+    db();
 
-$rawToken =
+
+$config =
+    llama_config();
+
+
+$turnstileConfig =
+    $config['turnstile']
+    ?? [];
+
+
+$turnstileSiteKey =
     trim(
         (string) (
-            $_GET['token']
-            ?? $_POST['token']
+            $turnstileConfig['site_key']
             ?? ''
         )
     );
 
 
-function e(string $value): string
-{
+$turnstileSecretKey =
+    trim(
+        (string) (
+            $turnstileConfig['secret_key']
+            ?? ''
+        )
+    );
+
+
+$error =
+    '';
+
+$success =
+    false;
+
+
+$rawToken =
+    trim(
+        (string) (
+            $_GET['token']
+            ??
+            $_POST['token']
+            ??
+            ''
+        )
+    );
+
+
+function e(
+    string $value
+): string {
+
     return htmlspecialchars(
         $value,
         ENT_QUOTES,
         'UTF-8'
     );
+}
+
+
+function verify_turnstile(
+    string $secretKey,
+    string $token
+): bool {
+
+    if (
+        $secretKey === ''
+        ||
+        $token === ''
+    ) {
+
+        return false;
+    }
+
+
+    $curl =
+        curl_init(
+            'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+        );
+
+
+    if (
+        $curl === false
+    ) {
+
+        return false;
+    }
+
+
+    $fields = [
+
+        'secret' =>
+            $secretKey,
+
+        'response' =>
+            $token,
+    ];
+
+
+    $remoteIp =
+        trim(
+            (string) (
+                $_SERVER['REMOTE_ADDR']
+                ?? ''
+            )
+        );
+
+
+    if (
+        $remoteIp !== ''
+    ) {
+
+        $fields['remoteip'] =
+            $remoteIp;
+    }
+
+
+    curl_setopt_array(
+        $curl,
+        [
+
+            CURLOPT_POST =>
+                true,
+
+            CURLOPT_POSTFIELDS =>
+                http_build_query(
+                    $fields
+                ),
+
+            CURLOPT_RETURNTRANSFER =>
+                true,
+
+            CURLOPT_CONNECTTIMEOUT =>
+                5,
+
+            CURLOPT_TIMEOUT =>
+                10,
+        ]
+    );
+
+
+    $response =
+        curl_exec(
+            $curl
+        );
+
+
+    $status =
+        (int)
+        curl_getinfo(
+            $curl,
+            CURLINFO_HTTP_CODE
+        );
+
+
+    curl_close(
+        $curl
+    );
+
+
+    if (
+        !is_string(
+            $response
+        )
+        ||
+        $status !== 200
+    ) {
+
+        return false;
+    }
+
+
+    $result =
+        json_decode(
+            $response,
+            true
+        );
+
+
+    return
+        is_array(
+            $result
+        )
+        &&
+        !empty(
+            $result['success']
+        );
 }
 
 
@@ -44,6 +216,7 @@ function valid_reset(
             $rawToken
         )
     ) {
+
         return [];
     }
 
@@ -91,7 +264,10 @@ function valid_reset(
         );
 
 
-    if (!$row) {
+    if (
+        !$row
+    ) {
+
         return [];
     }
 
@@ -106,11 +282,13 @@ function valid_reset(
             true
         )
     ) {
+
         return [];
     }
 
 
-    return $row;
+    return
+        $row;
 }
 
 
@@ -132,6 +310,7 @@ if (
             ?? ''
         );
 
+
     $confirmPassword =
         (string) (
             $_POST['confirm_password']
@@ -139,17 +318,53 @@ if (
         );
 
 
-    if (!$resetRecord) {
+    $turnstileToken =
+        trim(
+            (string) (
+                $_POST['cf-turnstile-response']
+                ?? ''
+            )
+        );
+
+
+    if (
+        !$resetRecord
+    ) {
 
         $error =
             'This password reset link is invalid or has expired.';
 
+
     } elseif (
-        strlen($password) < 10
+        $turnstileSiteKey === ''
+        ||
+        $turnstileSecretKey === ''
+    ) {
+
+        $error =
+            'Security verification is temporarily unavailable.';
+
+
+    } elseif (
+        !verify_turnstile(
+            $turnstileSecretKey,
+            $turnstileToken
+        )
+    ) {
+
+        $error =
+            'Please complete the security check and try again.';
+
+
+    } elseif (
+        strlen(
+            $password
+        ) < 10
     ) {
 
         $error =
             'Use at least 10 characters for your new password.';
+
 
     } elseif (
         $password !==
@@ -159,17 +374,13 @@ if (
         $error =
             'The passwords do not match.';
 
+
     } else {
 
         try {
 
             $db->beginTransaction();
 
-
-            /*
-             * Lock and re-check the token so two
-             * simultaneous requests cannot use it.
-             */
 
             $tokenHash =
                 hash(
@@ -210,7 +421,9 @@ if (
                 );
 
 
-            if (!$lockedReset) {
+            if (
+                !$lockedReset
+            ) {
 
                 throw new RuntimeException(
                     'Reset token is no longer valid.'
@@ -225,7 +438,9 @@ if (
                 );
 
 
-            if ($passwordHash === false) {
+            if (
+                $passwordHash === false
+            ) {
 
                 throw new RuntimeException(
                     'Password hashing failed.'
@@ -247,16 +462,9 @@ if (
 
             $passwordStmt->execute([
                 $passwordHash,
-                $lockedReset[
-                    'user_id'
-                ],
+                $lockedReset['user_id'],
             ]);
 
-
-            /*
-             * Mark every outstanding reset for this
-             * user as used. Old links stop working.
-             */
 
             $usedStmt =
                 $db->prepare(
@@ -273,16 +481,9 @@ if (
 
 
             $usedStmt->execute([
-                $lockedReset[
-                    'user_id'
-                ]
+                $lockedReset['user_id']
             ]);
 
-
-            /*
-             * Existing login sessions are invalidated
-             * after a password change.
-             */
 
             $sessionStmt =
                 $db->prepare(
@@ -295,16 +496,19 @@ if (
 
 
             $sessionStmt->execute([
-                $lockedReset[
-                    'user_id'
-                ]
+                $lockedReset['user_id']
             ]);
 
 
             $db->commit();
 
-            $success = true;
-            $resetRecord = [];
+
+            $success =
+                true;
+
+
+            $resetRecord =
+                [];
 
 
         } catch (
@@ -314,12 +518,14 @@ if (
             if (
                 $db->inTransaction()
             ) {
+
                 $db->rollBack();
             }
 
 
             error_log(
-                'Llama Scout password reset error: ' .
+                'Llama Scout password reset error: '
+                .
                 $exception->getMessage()
             );
 
@@ -343,41 +549,50 @@ $tokenValid =
 
 <head>
 
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
-<title>
-  Choose New Password | Llama Scout
-</title>
+  <title>
+    Choose New Password | Llama Scout
+  </title>
 
-<meta
-  name="robots"
-  content="noindex,nofollow"
->
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
 
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/style.css"
->
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/style.css"
+  >
 
-<link
-  rel="stylesheet"
-  href="https://llamascout.com/css/account.css"
->
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/account.css"
+  >
 
-<script
-  src="https://llamascout.com/js/accessibility.js"
-></script>
-    
+  <script
+    src="https://llamascout.com/js/accessibility.js"
+  ></script>
+
+  <script
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+    async
+    defer
+  ></script>
+
 </head>
+
 
 <body class="account-auth-body">
 
+
 <main class="account-auth">
+
 
   <a href="https://llamascout.com">
 
@@ -393,11 +608,15 @@ $tokenValid =
   <section class="account-auth-card">
 
 
-    <?php if ($success): ?>
+    <?php if (
+        $success
+    ): ?>
+
 
       <h1>
         Password changed
       </h1>
+
 
       <div
         class="account-success"
@@ -405,10 +624,10 @@ $tokenValid =
       >
 
         Your password has been updated.
-        You can now log in with your new
-        password.
+        You can now log in with your new password.
 
       </div>
+
 
       <p class="account-auth-footer">
 
@@ -419,11 +638,15 @@ $tokenValid =
       </p>
 
 
-    <?php elseif (!$tokenValid): ?>
+    <?php elseif (
+        !$tokenValid
+    ): ?>
+
 
       <h1>
         Reset link expired
       </h1>
+
 
       <div
         class="account-error"
@@ -434,6 +657,7 @@ $tokenValid =
         expired, or has already been used.
 
       </div>
+
 
       <p class="account-auth-footer">
 
@@ -446,9 +670,11 @@ $tokenValid =
 
     <?php else: ?>
 
+
       <h1>
         Choose a new password
       </h1>
+
 
       <p class="account-auth-intro">
 
@@ -459,19 +685,24 @@ $tokenValid =
       </p>
 
 
-      <?php if ($error): ?>
+      <?php if (
+          $error !== ''
+      ): ?>
 
         <div
           class="account-error"
           role="alert"
         >
-          <?= e($error) ?>
+          <?= e(
+              $error
+          ) ?>
         </div>
 
       <?php endif; ?>
 
 
       <form method="post">
+
 
         <input
           type="hidden"
@@ -518,6 +749,22 @@ $tokenValid =
         </div>
 
 
+        <?php if (
+            $turnstileSiteKey !== ''
+        ): ?>
+
+          <div
+            class="cf-turnstile"
+            data-sitekey="<?= e(
+                $turnstileSiteKey
+            ) ?>"
+            data-theme="dark"
+            style="margin:18px 0;"
+          ></div>
+
+        <?php endif; ?>
+
+
         <button
           type="submit"
           class="account-submit"
@@ -525,14 +772,18 @@ $tokenValid =
           Change Password
         </button>
 
+
       </form>
+
 
     <?php endif; ?>
 
 
   </section>
 
+
 </main>
+
 
 </body>
 
