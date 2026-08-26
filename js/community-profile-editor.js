@@ -163,31 +163,34 @@ try {
 ) {
 
   console.error(
-    "Profile image upload raw response:",
-    rawResponse
+    "Profile image request failed:",
+    {
+      status:
+        response.status,
+
+      statusText:
+        response.statusText,
+
+      response:
+        rawResponse
+    }
   );
+
+
+  if (
+    response.status >= 500
+  ) {
+
+    throw new Error(
+      "The llamas are chewing on network cords again. Please try again in a moment."
+    );
+  }
 
 
   throw new Error(
-    rawResponse.trim()
-      ? rawResponse
-          .replace(
-            /<[^>]*>/g,
-            " "
-          )
-          .replace(
-            /\s+/g,
-            " "
-          )
-          .trim()
-          .slice(
-            0,
-            300
-          )
-      : "The server returned an empty response."
+    "The server returned an uh-oh opsie. Please try again."
   );
 }
-
 
     if (
       !response.ok
