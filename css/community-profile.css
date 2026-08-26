@@ -365,6 +365,57 @@
   font-size: 1.5rem;
 }
 
+.community-profile-badge {
+  position: relative;
+}
+
+
+.community-profile-badge-name {
+  position: absolute;
+
+  left: 50%;
+  bottom: -34px;
+
+  transform:
+    translateX(-50%);
+
+  z-index: 10;
+
+  min-width: max-content;
+
+  padding:
+    6px
+    9px;
+
+  background:
+    var(--ink);
+
+  color:
+    var(--surface);
+
+  border-radius: 7px;
+
+  font-size: .72rem;
+  font-weight: 700;
+
+  line-height: 1;
+
+  opacity: 0;
+
+  pointer-events: none;
+
+  transition:
+    opacity .15s ease;
+}
+
+
+.community-profile-badge:hover
+.community-profile-badge-name,
+.community-profile-badge:focus-visible
+.community-profile-badge-name {
+  opacity: 1;
+}
+
 /* =========================================================
    DETAILS
    ========================================================= */
