@@ -1439,6 +1439,25 @@ require_once
 
         </details>
 
+          
+        <details>
+
+          <summary>
+            What do llama's eat?
+          </summary>
+
+          <p>
+            Mostly grass, hay, and other leafy plants.
+            They are surprisingly efficient eaters and
+            generally need less food than you might expect
+            for an animal their size. They also appreciate
+            the occasional carrot or apple as a treat.
+            Llama Scout, however, runs primarily on servers, maps,
+            questionable roads, and curiosity.
+          </p>
+
+        </details>
+          
       </div>
 
     </div>
