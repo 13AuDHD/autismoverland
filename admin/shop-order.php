@@ -12,6 +12,10 @@ require_once
 
 require_once
     dirname(__DIR__)
+    . '/app/shop-mail.php';
+
+require_once
+    dirname(__DIR__)
     . '/app/role-display.php';
 
 
@@ -563,6 +567,9 @@ if (
                 );
             }
 
+            $previousStatus =
+                (string)
+                $fulfillment['status'];
 
             $status =
                 trim(
@@ -934,16 +941,149 @@ if (
                 );
 
 
-            $orderUpdate->execute([
-                $newOrderStatus,
-                $orderId,
-            ]);
+$orderUpdate->execute([
+    $newOrderStatus,
+    $orderId,
+]);
 
 
-            shop_order_admin_redirect(
-                $orderId,
-                'Fulfillment updated.'
+/* =========================================================
+   CUSTOMER EMAILS
+
+   Only send when the fulfillment actually crosses into
+   Shipped or Delivered from another status.
+
+   shop-mail.php also provides its own idempotency protection.
+   ========================================================= */
+
+if (
+    $status ===
+    LLAMA_SHOP_FULFILLMENT_SHIPPED
+    &&
+    $previousStatus !==
+    LLAMA_SHOP_FULFILLMENT_SHIPPED
+) {
+
+    try {
+
+        $mailSent =
+            llama_shop_send_shipment_email(
+                $db,
+                $fulfillmentId
             );
+
+
+        if (!$mailSent) {
+
+            error_log(
+                'Llama Scout shipment email was not sent for fulfillment '
+                .
+                $fulfillmentId
+            );
+        }
+
+
+    } catch (Throwable $mailException) {
+
+        error_log(
+            'Llama Scout shipment email error for fulfillment '
+            .
+            $fulfillmentId
+            .
+            ': '
+            .
+            $mailException->getMessage()
+        );
+    }
+}
+
+
+if (
+    $status ===
+    LLAMA_SHOP_FULFILLMENT_DELIVERED
+    &&
+    $previousStatus !==
+    LLAMA_SHOP_FULFILLMENT_DELIVERED
+) {
+
+    /*
+     * If someone jumps directly from Pending/Processing
+     * to Delivered, make sure the shipment notice is sent
+     * before the delivery notice.
+     */
+
+    if (
+        !in_array(
+            $previousStatus,
+            [
+                LLAMA_SHOP_FULFILLMENT_SHIPPED,
+                LLAMA_SHOP_FULFILLMENT_DELIVERED,
+            ],
+            true
+        )
+    ) {
+
+        try {
+
+            llama_shop_send_shipment_email(
+                $db,
+                $fulfillmentId
+            );
+
+
+        } catch (Throwable $mailException) {
+
+            error_log(
+                'Llama Scout shipment email error for fulfillment '
+                .
+                $fulfillmentId
+                .
+                ': '
+                .
+                $mailException->getMessage()
+            );
+        }
+    }
+
+
+    try {
+
+        $mailSent =
+            llama_shop_send_delivery_email(
+                $db,
+                $fulfillmentId
+            );
+
+
+        if (!$mailSent) {
+
+            error_log(
+                'Llama Scout delivery email was not sent for fulfillment '
+                .
+                $fulfillmentId
+            );
+        }
+
+
+    } catch (Throwable $mailException) {
+
+        error_log(
+            'Llama Scout delivery email error for fulfillment '
+            .
+            $fulfillmentId
+            .
+            ': '
+            .
+            $mailException->getMessage()
+        );
+    }
+}
+
+
+shop_order_admin_redirect(
+    $orderId,
+    'Fulfillment updated.'
+);
         }
 
 
