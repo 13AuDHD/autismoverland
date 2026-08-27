@@ -73,7 +73,8 @@ $activeAdminSection =
         'shop.php',
         'shop-product.php',
         'orders.php',
-        'shop-order.php' =>
+        'shop-order.php',
+        'fulfillment.php' =>
             'shop',
                 
         'site-maintenance.php' =>
@@ -402,6 +403,21 @@ $canModeratePlaces =
           Orders
         </a>
 
+
+        <a
+          class="<?= llama_admin_nav_active(
+              'shop',
+              $activeAdminSection
+          ) ?>"
+          href="/fulfillment.php"
+        >
+          <i
+            class="fa-solid fa-boxes-packing"
+            aria-hidden="true"
+          ></i>
+        
+          Fulfillment
+        </a>
       
       
       <?php endif; ?>
