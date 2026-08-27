@@ -332,6 +332,33 @@ $fulfillmentFilter =
         )
     );
 
+$shippingReviewFilter =
+    strtolower(
+        trim(
+            (string) (
+                $_GET[
+                    'review'
+                ]
+                ?? 'all'
+            )
+        )
+    );
+
+
+if (
+    !in_array(
+        $shippingReviewFilter,
+        [
+            'all',
+            'required',
+        ],
+        true
+    )
+) {
+
+    $shippingReviewFilter =
+        'all';
+}
 
 $allowedOrderStatuses = [
 
@@ -503,6 +530,21 @@ $needsFulfillment =
                   \'processing\',
                   \'error\'
               )
+            '
+        )
+        ->fetchColumn();
+
+
+$shippingReviewOrders =
+    (int)
+    $db
+        ->query(
+            '
+            SELECT COUNT(*)
+
+            FROM shop_orders
+
+            WHERE shipping_needs_review = 1
             '
         )
         ->fetchColumn();
@@ -688,6 +730,14 @@ if (
         $fulfillmentFilter;
 }
 
+if (
+    $shippingReviewFilter ===
+    'required'
+) {
+
+    $where[] =
+        'o.shipping_needs_review = 1';
+}
 
 $whereSql =
     implode(
@@ -792,7 +842,13 @@ $listSql =
 
         o.customer_email,
         o.customer_name,
-
+        
+        o.shipping_needs_review,
+        o.shipping_review_reason,
+        o.shipping_quote_zip,
+        o.shipping_carrier,
+        o.shipping_service,
+        
         o.paid_at,
         o.created_at,
         o.updated_at,
@@ -919,8 +975,9 @@ function orders_admin_page_url(
     string $search,
     string $orderStatus,
     string $paymentStatus,
-    string $fulfillmentFilter
-): string {
+    string $fulfillmentFilter,
+    string $shippingReviewFilter
+): string { 
 
     $query = [
 
@@ -976,6 +1033,16 @@ function orders_admin_page_url(
             $fulfillmentFilter;
     }
 
+    if (
+    $shippingReviewFilter !==
+    'all'
+) {
+
+    $query[
+        'review'
+    ] =
+        $shippingReviewFilter;
+}
 
     return
         '/orders.php?'
@@ -1029,7 +1096,7 @@ function orders_admin_page_url(
 
 .orders-stats {
   display: grid;
-  grid-template-columns: repeat(5,minmax(0,1fr));
+  grid-template-columns: repeat(6,minmax(0,1fr));
   gap: 14px;
   margin-bottom: 28px;
 }
@@ -1376,6 +1443,24 @@ require_once
     <article class="orders-stat">
 
       <span>
+        Shipping Review
+      </span>
+    
+      <strong>
+        <a
+          href="/orders.php?review=required"
+          style="color:inherit;text-decoration:none;"
+        >
+          <?= $shippingReviewOrders ?>
+        </a>
+      </strong>
+    
+    </article>
+
+      
+    <article class="orders-stat">
+
+      <span>
         Pending Payment
       </span>
 
@@ -1642,6 +1727,42 @@ require_once
       </div>
 
 
+      <div class="orders-filter-field">
+
+        <label for="review">
+          Shipping Review
+        </label>
+
+        <select
+          id="review"
+          name="review"
+        >
+
+          <option
+            value="all"
+            <?= $shippingReviewFilter === 'all'
+                ? 'selected'
+                : ''
+            ?>
+          >
+            All
+          </option>
+
+          <option
+            value="required"
+            <?= $shippingReviewFilter === 'required'
+                ? 'selected'
+                : ''
+            ?>
+          >
+            Review Required
+          </option>
+
+        </select>
+
+      </div>
+
+        
       <div>
 
         <button
@@ -1882,6 +2003,35 @@ require_once
 
                 </div>
 
+
+                  <?php if (
+                    !empty(
+                        $order[
+                            'shipping_needs_review'
+                        ]
+                    )
+                ): ?>
+                
+                  <div style="margin-top:6px;">
+                
+                    <span
+                      class="
+                        orders-status
+                        orders-status--bad
+                      "
+                      title="<?= orders_admin_e(
+                          $order[
+                              'shipping_review_reason'
+                          ]
+                          ?? 'Shipping review required'
+                      ) ?>"
+                    >
+                      Shipping Review
+                    </span>
+                
+                  </div>
+                
+                <?php endif; ?>
 
                 <div>
 
@@ -2148,7 +2298,8 @@ require_once
                       $search,
                       $orderStatus,
                       $paymentStatus,
-                      $fulfillmentFilter
+                      $fulfillmentFilter,
+                      $shippingReviewFilter
                   )
               ) ?>"
             >
@@ -2173,7 +2324,8 @@ require_once
                       $search,
                       $orderStatus,
                       $paymentStatus,
-                      $fulfillmentFilter
+                      $fulfillmentFilter,
+                      $shippingReviewFilter
                   )
               ) ?>"
             >
