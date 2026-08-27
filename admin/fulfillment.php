@@ -12,6 +12,10 @@ require_once
 
 require_once
     dirname(__DIR__)
+    . '/app/fulfillment.php';
+
+require_once
+    dirname(__DIR__)
     . '/app/shop-mail.php';
 
 require_once
@@ -1218,6 +1222,84 @@ if (
         }
 
 
+        
+        /* =================================================
+           SUBMIT TO PROVIDER
+           ================================================= */
+
+        if (
+            $action ===
+            'submit_provider'
+        ) {
+
+            $type =
+                (string)
+                $fulfillment[
+                    'fulfillment_type'
+                ];
+
+
+            if (
+                !in_array(
+                    $type,
+                    [
+                        LLAMA_SHOP_FULFILLMENT_PRINTFUL,
+                        LLAMA_SHOP_FULFILLMENT_PRINTIFY,
+                    ],
+                    true
+                )
+            ) {
+
+                throw new RuntimeException(
+                    'This fulfillment is not configured for automatic provider submission.'
+                );
+            }
+
+
+            $updatedFulfillment =
+                llama_fulfillment_submit(
+                    $db,
+                    $fulfillmentId
+                );
+
+
+            $providerOrderId =
+                trim(
+                    (string) (
+                        $updatedFulfillment[
+                            'provider_order_id'
+                        ]
+                        ?? ''
+                    )
+                );
+
+
+            fulfillment_admin_redirect(
+                fulfillment_admin_type_label(
+                    $type,
+                    (string) (
+                        $fulfillment[
+                            'fulfillment_provider'
+                        ]
+                        ?? ''
+                    )
+                )
+                .
+                ' order submitted'
+                .
+                (
+                    $providerOrderId !== ''
+                        ? ' as #'
+                          .
+                          $providerOrderId
+                        : ''
+                )
+                .
+                '.'
+            );
+        }
+
+
         /* =================================================
            MARK SHIPPED
            ================================================= */
@@ -1326,51 +1408,51 @@ fulfillment_admin_recalculate_order(
 );
 
 
-/*
- * Send the customer their delivery notification.
- *
- * Email failure must never undo the delivery status.
- */
+            /*
+             * Send the customer their shipment email.
+             *
+             * Email failure never reverses the shipment
+             * status update.
+             */
 
-try {
+            try {
 
-    $mailSent =
-        llama_shop_send_delivery_email(
-            $db,
-            $fulfillmentId
-        );
-
-
-    if (!$mailSent) {
-
-        error_log(
-            'Llama Scout delivery email was not sent for fulfillment '
-            .
-            $fulfillmentId
-        );
-    }
+                $mailSent =
+                    llama_shop_send_shipment_email(
+                        $db,
+                        $fulfillmentId
+                    );
 
 
-} catch (Throwable $mailException) {
+                if (!$mailSent) {
 
-    error_log(
-        'Llama Scout delivery email error for fulfillment '
-        .
-        $fulfillmentId
-        .
-        ': '
-        .
-        $mailException->getMessage()
-    );
-}
+                    error_log(
+                        'Llama Scout shipment email was not sent for fulfillment '
+                        .
+                        $fulfillmentId
+                    );
+                }
 
 
-fulfillment_admin_redirect(
-    'Shipment marked delivered.'
-);
-        }
+            } catch (Throwable $mailException) {
+
+                error_log(
+                    'Llama Scout shipment email error for fulfillment '
+                    .
+                    $fulfillmentId
+                    .
+                    ': '
+                    .
+                    $mailException->getMessage()
+                );
+            }
 
 
+            fulfillment_admin_redirect(
+                'Shipment marked shipped.'
+            );
+
+            
         /* =================================================
            MARK DELIVERED
            ================================================= */
@@ -2844,6 +2926,89 @@ require_once
               >
                 Open Order
               </a>
+
+                              <?php if (
+                  in_array(
+                      $type,
+                      [
+                          LLAMA_SHOP_FULFILLMENT_PRINTFUL,
+                          LLAMA_SHOP_FULFILLMENT_PRINTIFY,
+                      ],
+                      true
+                  )
+                  &&
+                  in_array(
+                      (string)
+                      $fulfillment[
+                          'status'
+                      ],
+                      [
+                          LLAMA_SHOP_FULFILLMENT_PENDING,
+                          LLAMA_SHOP_FULFILLMENT_ERROR,
+                      ],
+                      true
+                  )
+                  &&
+                  empty(
+                      $fulfillment[
+                          'provider_order_id'
+                      ]
+                  )
+              ): ?>
+
+                <form
+                  method="post"
+                  action="/fulfillment.php"
+                >
+
+                  <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= fulfillment_admin_e(
+                        $csrfToken
+                    ) ?>"
+                  >
+
+                  <input
+                    type="hidden"
+                    name="action"
+                    value="submit_provider"
+                  >
+
+                  <input
+                    type="hidden"
+                    name="fulfillment_id"
+                    value="<?= $fulfillmentId ?>"
+                  >
+
+                  <button
+                    class="admin-button"
+                    type="submit"
+                  >
+                    <?php if (
+                        $type ===
+                        LLAMA_SHOP_FULFILLMENT_PRINTFUL
+                    ): ?>
+
+                      Submit to Printful
+
+                    <?php elseif (
+                        $type ===
+                        LLAMA_SHOP_FULFILLMENT_PRINTIFY
+                    ): ?>
+
+                      Submit to Printify
+
+                    <?php else: ?>
+
+                      Submit to Provider
+
+                    <?php endif; ?>
+                  </button>
+
+                </form>
+
+              <?php endif; ?>
 
 
               <?php if (
