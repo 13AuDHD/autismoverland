@@ -150,6 +150,45 @@ function llama_shop_table_exists(
 
 
 /* =========================================================
+   SCHEMA COLUMN HELPER
+   ========================================================= */
+
+function llama_shop_column_exists(
+    PDO $db,
+    string $table,
+    string $column
+): bool {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM information_schema.columns
+
+            WHERE table_schema = DATABASE()
+              AND table_name = ?
+              AND column_name = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $table,
+        $column,
+    ]);
+
+
+    return
+        (bool)
+        $stmt->fetchColumn();
+}
+
+
+
+/* =========================================================
    STORAGE
    ========================================================= */
 
@@ -396,7 +435,31 @@ function llama_ensure_shop_storage(
 
             shipping_cents INT UNSIGNED
                 NOT NULL DEFAULT 0,
-
+            
+            shipping_rate_key VARCHAR(255)
+                NULL,
+            
+            shipping_source VARCHAR(60)
+                NULL,
+            
+            shipping_carrier VARCHAR(100)
+                NULL,
+            
+            shipping_service VARCHAR(255)
+                NULL,
+            
+            shipping_quote_zip VARCHAR(20)
+                NULL,
+            
+            shipping_quote_data LONGTEXT
+                NULL,
+            
+            shipping_needs_review TINYINT(1)
+                NOT NULL DEFAULT 0,
+            
+            shipping_review_reason VARCHAR(500)
+                NULL,
+            
             tax_cents INT UNSIGNED
                 NOT NULL DEFAULT 0,
 
@@ -473,6 +536,76 @@ function llama_ensure_shop_storage(
         '
     );
 
+
+       /* =====================================================
+       ORDER SHIPPING METADATA MIGRATION
+
+       Existing installations need these columns added
+       separately because CREATE TABLE IF NOT EXISTS does
+       not modify an existing shop_orders table.
+       ===================================================== */
+
+    $shopOrderShippingColumns = [
+
+        'shipping_rate_key' =>
+            'VARCHAR(255) NULL',
+
+        'shipping_source' =>
+            'VARCHAR(60) NULL',
+
+        'shipping_carrier' =>
+            'VARCHAR(100) NULL',
+
+        'shipping_service' =>
+            'VARCHAR(255) NULL',
+
+        'shipping_quote_zip' =>
+            'VARCHAR(20) NULL',
+
+        'shipping_quote_data' =>
+            'LONGTEXT NULL',
+
+        'shipping_needs_review' =>
+            'TINYINT(1) NOT NULL DEFAULT 0',
+
+        'shipping_review_reason' =>
+            'VARCHAR(500) NULL',
+
+    ];
+
+
+    foreach (
+        $shopOrderShippingColumns
+        as
+        $columnName => $columnDefinition
+    ) {
+
+        if (
+            !llama_shop_column_exists(
+                $db,
+                'shop_orders',
+                $columnName
+            )
+        ) {
+
+            $db->exec(
+                'ALTER TABLE shop_orders '
+                .
+                'ADD COLUMN `'
+                .
+                str_replace(
+                    '`',
+                    '',
+                    $columnName
+                )
+                .
+                '` '
+                .
+                $columnDefinition
+            );
+        }
+    }
+   
 
     /* =====================================================
        ORDER ITEMS
