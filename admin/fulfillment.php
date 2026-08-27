@@ -12,6 +12,10 @@ require_once
 
 require_once
     dirname(__DIR__)
+    . '/app/shop-mail.php';
+
+require_once
+    dirname(__DIR__)
     . '/app/role-display.php';
 
 
