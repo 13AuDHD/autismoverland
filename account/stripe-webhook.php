@@ -14,6 +14,10 @@ require_once
     dirname(__DIR__)
     . '/app/shop.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/shop-mail.php';
+
 
 /* =========================================================
    LLAMA SCOUT STRIPE WEBHOOK
@@ -1013,22 +1017,52 @@ try {
                     );
 
 
-                if (
-                    $eventType
-                    ===
-                    'checkout.session.async_payment_succeeded'
-                    ||
-                    $paymentStatus ===
-                    'paid'
-                ) {
+if (
+    $eventType
+    ===
+    'checkout.session.async_payment_succeeded'
+    ||
+    $paymentStatus ===
+    'paid'
+) {
 
-                    llama_shop_webhook_mark_paid(
-                        $db,
-                        $shopOrderId,
-                        $session
-                    );
-                }
+    llama_shop_webhook_mark_paid(
+        $db,
+        $shopOrderId,
+        $session
+    );
 
+
+    /*
+     * Transactional email must never prevent Stripe
+     * payment processing from completing.
+     *
+     * shop-mail.php has its own email idempotency,
+     * so duplicate Stripe events will not intentionally
+     * send duplicate confirmations.
+     */
+
+    try {
+
+        llama_shop_send_order_confirmation(
+            $db,
+            $shopOrderId
+        );
+
+
+    } catch (Throwable $mailException) {
+
+        error_log(
+            'Llama Scout Shop confirmation email error for order '
+            .
+            $shopOrderId
+            .
+            ': '
+            .
+            $mailException->getMessage()
+        );
+    }
+}
 
                 llama_shop_webhook_complete(
                     $db,
