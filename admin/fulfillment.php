@@ -1319,16 +1319,55 @@ if (
             ]);
 
 
-            fulfillment_admin_recalculate_order(
-                $db,
-                (int)
-                $fulfillment['order_id']
-            );
+fulfillment_admin_recalculate_order(
+    $db,
+    (int)
+    $fulfillment['order_id']
+);
 
 
-            fulfillment_admin_redirect(
-                'Shipment marked as shipped.'
-            );
+/*
+ * Send the customer their delivery notification.
+ *
+ * Email failure must never undo the delivery status.
+ */
+
+try {
+
+    $mailSent =
+        llama_shop_send_delivery_email(
+            $db,
+            $fulfillmentId
+        );
+
+
+    if (!$mailSent) {
+
+        error_log(
+            'Llama Scout delivery email was not sent for fulfillment '
+            .
+            $fulfillmentId
+        );
+    }
+
+
+} catch (Throwable $mailException) {
+
+    error_log(
+        'Llama Scout delivery email error for fulfillment '
+        .
+        $fulfillmentId
+        .
+        ': '
+        .
+        $mailException->getMessage()
+    );
+}
+
+
+fulfillment_admin_redirect(
+    'Shipment marked delivered.'
+);
         }
 
 
