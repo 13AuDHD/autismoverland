@@ -537,6 +537,143 @@ function llama_shop_webhook_update_checkout_details(
             ->address
         ?? null;
 
+    /* =========================================================
+   SHIPPING ZIP VERIFICATION
+
+   Compare the final Stripe shipping ZIP against the ZIP
+   used when the customer selected their shipping rate.
+   ========================================================= */
+
+$finalShippingZip =
+    trim(
+        (string) (
+            $shippingAddress
+                ->postal_code
+            ?? ''
+        )
+    );
+
+
+$finalShippingZip =
+    preg_replace(
+        '/[^0-9]/',
+        '',
+        $finalShippingZip
+    )
+    ?? '';
+
+
+if (
+    strlen($finalShippingZip)
+    >= 5
+) {
+
+    $finalShippingZip =
+        substr(
+            $finalShippingZip,
+            0,
+            5
+        );
+
+} else {
+
+    $finalShippingZip =
+        '';
+}
+
+
+$quotedShippingZip = '';
+
+
+$orderShippingStmt =
+    $db->prepare(
+        '
+        SELECT shipping_quote_zip
+
+        FROM shop_orders
+
+        WHERE id = ?
+
+        LIMIT 1
+        '
+    );
+
+
+$orderShippingStmt->execute([
+    $orderId
+]);
+
+
+$quotedShippingZip =
+    trim(
+        (string) (
+            $orderShippingStmt->fetchColumn()
+            ?: ''
+        )
+    );
+
+
+$quotedShippingZip =
+    preg_replace(
+        '/[^0-9]/',
+        '',
+        $quotedShippingZip
+    )
+    ?? '';
+
+
+if (
+    strlen($quotedShippingZip)
+    >= 5
+) {
+
+    $quotedShippingZip =
+        substr(
+            $quotedShippingZip,
+            0,
+            5
+        );
+
+} else {
+
+    $quotedShippingZip =
+        '';
+}
+
+
+$shippingNeedsReview =
+    0;
+
+
+$shippingReviewReason =
+    null;
+
+
+if (
+    $quotedShippingZip !== ''
+    &&
+    $finalShippingZip !== ''
+    &&
+    $quotedShippingZip !==
+    $finalShippingZip
+) {
+
+    $shippingNeedsReview =
+        1;
+
+
+    $shippingReviewReason =
+        'Shipping ZIP changed after rate quote. Quoted for '
+        .
+        $quotedShippingZip
+        .
+        ', Stripe checkout address is '
+        .
+        $finalShippingZip
+        .
+        '.';
+}
+
 
     $subtotal =
         (int) (
@@ -594,6 +731,8 @@ function llama_shop_webhook_update_checkout_details(
                 customer_phone = ?,
                 shipping_address_data = ?,
                 billing_address_data = ?,
+                shipping_needs_review = ?,
+                shipping_review_reason = ?,
                 subtotal_cents = ?,
                 discount_cents = ?,
                 shipping_cents = ?,
@@ -647,6 +786,10 @@ function llama_shop_webhook_update_checkout_details(
             )
             : null,
 
+        $shippingNeedsReview,
+
+        $shippingReviewReason,
+                   
         $subtotal,
 
         $discount,
