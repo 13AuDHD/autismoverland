@@ -2293,6 +2293,11 @@ require_once
             ) ?>"
           >
 
+          <input
+              type="hidden"
+              name="action"
+              value="begin"
+          >
 
           <button
             class="cart-button cart-checkout"
