@@ -4752,113 +4752,379 @@ require_once
       </div>
 
 
-      <style>
+<style>
 
-      .shop-attribute-list {
-        display: grid;
-        gap: 12px;
-        margin-top: 18px;
-      }
+.shop-attribute-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  width: 100%;
+  max-width: 100%;
+}
 
-      .shop-attribute-row {
-        display: grid;
-        grid-template-columns:
-          minmax(180px,.45fr)
-          minmax(280px,1fr)
-          46px;
-        gap: 10px;
-        align-items: start;
-        padding: 14px;
-        border: 1px solid var(--border, rgba(127,127,127,.25));
-        border-radius: 14px;
-        background: var(--surface, rgba(127,127,127,.04));
-      }
+.shop-attribute-row {
+  display: grid;
 
-      .shop-attribute-row select {
-        width: 100%;
-        min-height: 44px;
-      }
+  grid-template-columns:
+    minmax(150px, 220px)
+    minmax(220px, 420px)
+    auto;
 
-      .shop-value-picker {
-        position: relative;
-      }
+  gap: 10px;
 
-      .shop-value-picker summary {
-        box-sizing: border-box;
-        min-height: 44px;
-        padding: 10px 38px 10px 12px;
-        border: 1px solid var(--border, rgba(127,127,127,.3));
-        border-radius: 9px;
-        cursor: pointer;
-        list-style: none;
-        background: var(--background, transparent);
-      }
+  align-items: end;
 
-      .shop-value-picker summary::-webkit-details-marker {
-        display: none;
-      }
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 
-      .shop-value-picker summary::after {
-        content: "▾";
-        position: absolute;
-        right: 13px;
-      }
+  padding: 12px;
 
-      .shop-value-menu {
-        position: absolute;
-        z-index: 30;
-        box-sizing: border-box;
-        width: 100%;
-        max-height: 310px;
-        overflow: auto;
-        margin-top: 5px;
-        padding: 8px;
-        border: 1px solid var(--border, rgba(127,127,127,.35));
-        border-radius: 10px;
-        background: var(--background, #111);
-        box-shadow: 0 14px 36px rgba(0,0,0,.3);
-      }
+  border:
+    1px solid
+    var(
+      --border,
+      rgba(127,127,127,.25)
+    );
 
-      .shop-value-choice {
-        display: flex;
-        gap: 9px;
-        align-items: center;
-        padding: 9px;
-        border-radius: 7px;
-        cursor: pointer;
-      }
+  border-radius: 14px;
 
-      .shop-value-choice:hover {
-        background: var(--surface, rgba(127,127,127,.1));
-      }
+  background:
+    var(
+      --surface,
+      rgba(127,127,127,.04)
+    );
+}
 
-      .shop-attribute-button {
-        width: 44px;
-        min-width: 44px;
-        min-height: 44px;
-        padding: 0;
-        font-size: 1.3rem;
-      }
 
-      .shop-attribute-actions {
-        display: flex;
-        gap: 6px;
-      }
+/* =====================================================
+   ATTRIBUTE DROPDOWN
+   ===================================================== */
 
-      @media (max-width: 760px) {
+.shop-attribute-row .admin-field {
+  min-width: 0;
+  margin: 0;
+}
 
-        .shop-attribute-row {
-          grid-template-columns: 1fr;
-        }
+.shop-attribute-row .admin-field > label {
+  margin-bottom: 6px;
+}
 
-        .shop-attribute-actions {
-          justify-content: flex-end;
-        }
+.shop-attribute-row select {
+  width: 100%;
+  max-width: 100%;
+  min-height: 42px;
+}
 
-      }
 
-      </style>
+/* =====================================================
+   VALUE PICKER
+   ===================================================== */
 
+.shop-value-picker {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
+.shop-value-picker summary {
+  position: relative;
+
+  box-sizing: border-box;
+
+  width: 100%;
+  max-width: 100%;
+
+  min-height: 42px;
+
+  padding:
+    9px
+    34px
+    9px
+    11px;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+
+  border:
+    1px solid
+    var(
+      --border,
+      rgba(127,127,127,.3)
+    );
+
+  border-radius: 9px;
+
+  cursor: pointer;
+
+  list-style: none;
+
+  background:
+    var(
+      --background,
+      transparent
+    );
+}
+
+.shop-value-picker summary::-webkit-details-marker {
+  display: none;
+}
+
+.shop-value-picker summary::after {
+  content: "▾";
+
+  position: absolute;
+
+  top: 50%;
+  right: 12px;
+
+  transform:
+    translateY(-50%);
+}
+
+
+/* =====================================================
+   VALUE DROPDOWN MENU
+   ===================================================== */
+
+.shop-value-menu {
+  position: absolute;
+
+  z-index: 30;
+
+  box-sizing: border-box;
+
+  width: 100%;
+  min-width: 220px;
+  max-width: 100%;
+
+  max-height: 300px;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  margin-top: 5px;
+
+  padding:
+    6px
+    8px;
+
+  border:
+    1px solid
+    var(
+      --border,
+      rgba(127,127,127,.35)
+    );
+
+  border-radius: 10px;
+
+  background:
+    var(
+      --background,
+      #111
+    );
+
+  box-shadow:
+    0
+    14px
+    36px
+    rgba(0,0,0,.3);
+}
+
+
+/* =====================================================
+   CHECKBOX + VALUE TEXT
+   ===================================================== */
+
+.shop-value-choice {
+  display: flex;
+
+  flex-direction: row;
+
+  align-items: center;
+
+  justify-content: flex-start;
+
+  gap: 8px;
+
+  width: 100%;
+
+  margin: 0;
+
+  padding:
+    6px
+    4px;
+
+  border-radius: 7px;
+
+  cursor: pointer;
+
+  line-height: 1.2;
+}
+
+.shop-value-choice:hover {
+  background:
+    var(
+      --surface,
+      rgba(127,127,127,.1)
+    );
+}
+
+.shop-value-choice input[type="checkbox"] {
+  flex:
+    0
+    0
+    auto;
+
+  width: 18px;
+  height: 18px;
+
+  min-width: 18px;
+
+  margin: 0;
+
+  padding: 0;
+}
+
+.shop-value-choice span {
+  display: inline;
+
+  flex:
+    0
+    1
+    auto;
+
+  margin: 0;
+
+  padding: 0;
+
+  white-space: nowrap;
+}
+
+
+/* =====================================================
+   PLUS / MINUS CONTROLS
+   ===================================================== */
+
+.shop-attribute-actions {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: flex-start;
+
+  gap: 6px;
+
+  min-width: 94px;
+
+  padding-bottom: 1px;
+}
+
+.shop-attribute-button {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  flex:
+    0
+    0
+    42px;
+
+  width: 42px;
+  height: 42px;
+
+  min-width: 42px;
+  min-height: 42px;
+
+  padding: 0;
+
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+
+/* =====================================================
+   TABLET
+   ===================================================== */
+
+@media (max-width: 900px) {
+
+  .shop-attribute-row {
+    grid-template-columns:
+      minmax(130px, 190px)
+      minmax(180px, 1fr)
+      94px;
+  }
+
+}
+
+
+/* =====================================================
+   PHONE
+   ===================================================== */
+
+@media (max-width: 640px) {
+
+  .shop-attribute-row {
+    grid-template-columns:
+      minmax(0, 1fr)
+      88px;
+
+    gap: 8px;
+
+    padding: 10px;
+  }
+
+  .shop-attribute-row .admin-field:first-child {
+    grid-column:
+      1
+      /
+      2;
+  }
+
+  .shop-attribute-row .admin-field:nth-child(2) {
+    grid-column:
+      1
+      /
+      -1;
+  }
+
+  .shop-attribute-actions {
+    grid-column:
+      2
+      /
+      3;
+
+    grid-row:
+      1;
+
+    align-self: end;
+
+    min-width: 88px;
+  }
+
+  .shop-attribute-button {
+    flex-basis: 40px;
+
+    width: 40px;
+    height: 40px;
+
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .shop-value-menu {
+    min-width: 100%;
+  }
+
+}
+
+</style>
 
       <form
         method="post"
