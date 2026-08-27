@@ -1764,6 +1764,33 @@ require_once
 
   <?php endif; ?>
 
+    <?php if (
+    !empty(
+        $order[
+            'shipping_needs_review'
+        ]
+    )
+): ?>
+
+  <div class="shop-order-warning">
+
+    <strong>
+      Shipping review required.
+    </strong>
+
+    <br><br>
+
+    <?= shop_order_admin_e(
+        $order[
+            'shipping_review_reason'
+        ]
+        ?: 'The shipping details need to be reviewed before fulfillment.'
+    ) ?>
+
+  </div>
+
+<?php endif; ?>
+
 
   <div class="shop-order-grid">
 
@@ -2634,7 +2661,194 @@ require_once
 
       </section>
 
+      <!-- SHIPPING DETAILS -->
 
+      <section class="shop-order-card">
+
+        <h2>
+          Shipping Details
+        </h2>
+
+
+        <div class="shop-order-detail-list">
+
+
+          <div class="shop-order-detail">
+
+            <span>
+              Review Status
+            </span>
+
+            <?php if (
+                !empty(
+                    $order[
+                        'shipping_needs_review'
+                    ]
+                )
+            ): ?>
+
+              <strong>
+                Review Required
+              </strong>
+
+            <?php else: ?>
+
+              No review required
+
+            <?php endif; ?>
+
+          </div>
+
+
+          <div class="shop-order-detail">
+
+            <span>
+              Quoted ZIP
+            </span>
+
+            <?= shop_order_admin_e(
+                $order[
+                    'shipping_quote_zip'
+                ]
+                ?: 'Not recorded'
+            ) ?>
+
+          </div>
+
+
+          <div class="shop-order-detail">
+
+            <span>
+              Carrier
+            </span>
+
+            <?= shop_order_admin_e(
+                !empty(
+                    $order[
+                        'shipping_carrier'
+                    ]
+                )
+                    ? strtoupper(
+                        (string)
+                        $order[
+                            'shipping_carrier'
+                        ]
+                    )
+                    : 'Not recorded'
+            ) ?>
+
+          </div>
+
+
+          <div class="shop-order-detail">
+
+            <span>
+              Service
+            </span>
+
+            <?= shop_order_admin_e(
+                $order[
+                    'shipping_service'
+                ]
+                ?: 'Not recorded'
+            ) ?>
+
+          </div>
+
+
+          <div class="shop-order-detail">
+
+            <span>
+              Rate Source
+            </span>
+
+            <?= shop_order_admin_e(
+                $order[
+                    'shipping_source'
+                ]
+                ?: 'Not recorded'
+            ) ?>
+
+          </div>
+
+
+          <div class="shop-order-detail">
+
+            <span>
+              Shipping Charge
+            </span>
+
+            <?= shop_order_admin_e(
+                shop_order_admin_money(
+                    (int)
+                    $order[
+                        'shipping_cents'
+                    ],
+                    (string)
+                    $order[
+                        'currency'
+                    ]
+                )
+            ) ?>
+
+          </div>
+
+
+          <?php if (
+              !empty(
+                  $order[
+                      'shipping_review_reason'
+                  ]
+              )
+          ): ?>
+
+            <div class="shop-order-detail">
+
+              <span>
+                Review Reason
+              </span>
+
+              <?= shop_order_admin_e(
+                  $order[
+                      'shipping_review_reason'
+                  ]
+              ) ?>
+
+            </div>
+
+          <?php endif; ?>
+
+
+          <?php if (
+              !empty(
+                  $order[
+                      'shipping_rate_key'
+                  ]
+              )
+          ): ?>
+
+            <div class="shop-order-detail">
+
+              <span>
+                Rate Key
+              </span>
+
+              <code>
+                <?= shop_order_admin_e(
+                    $order[
+                        'shipping_rate_key'
+                    ]
+                ) ?>
+              </code>
+
+            </div>
+
+          <?php endif; ?>
+
+
+        </div>
+
+      </section>
       <!-- BILLING ADDRESS -->
 
       <section class="shop-order-card">
