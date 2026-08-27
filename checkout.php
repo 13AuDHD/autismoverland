@@ -2,59 +2,34 @@
 
 declare(strict_types=1);
 
-require_once
-    __DIR__
-    . '/app/auth.php';
-
-require_once
-    __DIR__
-    . '/app/shop.php';
-
-require_once
-    __DIR__
-    . '/app/shipping.php';
-
-require_once
-    __DIR__
-    . '/app/stripe.php';
+require_once __DIR__ . '/app/auth.php';
+require_once __DIR__ . '/app/shop.php';
+require_once __DIR__ . '/app/shipping.php';
+require_once __DIR__ . '/app/stripe.php';
 
 
 start_llama_session();
 
-
-$db =
-    db();
-
-
-$user =
-    current_user();
+$db = db();
+$user = current_user();
 
 
 /* =========================================================
    STORAGE
    ========================================================= */
 
-llama_ensure_shop_storage(
-    $db
-);
-
-
-llama_ensure_shipping_storage(
-    $db
-);
+llama_ensure_shop_storage($db);
+llama_ensure_shipping_storage($db);
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-function shop_checkout_e(
-    mixed $value
-): string {
-
+function shop_checkout_e(mixed $value): string
+{
     return htmlspecialchars(
-        (string)
-        $value,
+        (string) $value,
         ENT_QUOTES,
         'UTF-8'
     );
@@ -65,126 +40,53 @@ function shop_checkout_money(
     int $cents,
     string $currency = 'usd'
 ): string {
+    $currency = strtolower($currency);
 
-    if (
-        strtolower(
-            $currency
-        )
-        ===
-        'usd'
-    ) {
-
-        return
-            '$'
-            .
-            number_format(
-                $cents / 100,
-                2
-            );
+    if ($currency === 'usd') {
+        return '$' . number_format($cents / 100, 2);
     }
 
-
-    return
-        strtoupper(
-            $currency
-        )
-        .
-        ' '
-        .
-        number_format(
-            $cents / 100,
-            2
-        );
+    return strtoupper($currency)
+        . ' '
+        . number_format($cents / 100, 2);
 }
 
 
-function shop_checkout_cart_hash(
-    array $cart
-): string {
+function shop_checkout_cart_hash(array $cart): string
+{
+    $normalized = [];
 
-    $normalized =
-        [];
+    foreach ($cart as $variantId => $quantity) {
+        $variantId = (int) $variantId;
+        $quantity = (int) $quantity;
 
-
-    foreach (
-        $cart
-        as
-        $variantId =>
-        $quantity
-    ) {
-
-        $variantId =
-            (int)
-            $variantId;
-
-
-        $quantity =
-            (int)
-            $quantity;
-
-
-        if (
-            $variantId > 0
-            &&
-            $quantity > 0
-        ) {
-
-            $normalized[
-                $variantId
-            ] =
-                $quantity;
+        if ($variantId > 0 && $quantity > 0) {
+            $normalized[$variantId] = $quantity;
         }
     }
 
+    ksort($normalized);
 
-    ksort(
-        $normalized
+    return hash(
+        'sha256',
+        json_encode($normalized) ?: ''
     );
-
-
-    return
-        hash(
-            'sha256',
-            json_encode(
-                $normalized
-            )
-            ?: ''
-        );
 }
 
 
-function shop_checkout_zip(
-    mixed $value
-): string {
+function shop_checkout_zip(mixed $value): string
+{
+    $value = preg_replace(
+        '/[^0-9]/',
+        '',
+        (string) $value
+    ) ?? '';
 
-    $value =
-        preg_replace(
-            '/[^0-9]/',
-            '',
-            (string)
-            $value
-        )
-        ?? '';
-
-
-    if (
-        strlen(
-            $value
-        )
-        <
-        5
-    ) {
-
+    if (strlen($value) < 5) {
         return '';
     }
 
-
-    return
-        substr(
-            $value,
-            0,
-            5
-        );
+    return substr($value, 0, 5);
 }
 
 
@@ -193,65 +95,29 @@ function shop_checkout_zip(
    ========================================================= */
 
 if (
-    !isset(
-        $_SESSION[
-            'shop_checkout_orders'
-        ]
-    )
+    !isset($_SESSION['shop_checkout_orders'])
     ||
-    !is_array(
-        $_SESSION[
-            'shop_checkout_orders'
-        ]
-    )
+    !is_array($_SESSION['shop_checkout_orders'])
 ) {
-
-    $_SESSION[
-        'shop_checkout_orders'
-    ] =
-        [];
+    $_SESSION['shop_checkout_orders'] = [];
 }
 
 
 if (
-    !isset(
-        $_SESSION[
-            'shop_checkout_client_secrets'
-        ]
-    )
+    !isset($_SESSION['shop_checkout_client_secrets'])
     ||
-    !is_array(
-        $_SESSION[
-            'shop_checkout_client_secrets'
-        ]
-    )
+    !is_array($_SESSION['shop_checkout_client_secrets'])
 ) {
-
-    $_SESSION[
-        'shop_checkout_client_secrets'
-    ] =
-        [];
+    $_SESSION['shop_checkout_client_secrets'] = [];
 }
 
 
 if (
-    !isset(
-        $_SESSION[
-            'shop_checkout_prepare'
-        ]
-    )
+    !isset($_SESSION['shop_checkout_prepare'])
     ||
-    !is_array(
-        $_SESSION[
-            'shop_checkout_prepare'
-        ]
-    )
+    !is_array($_SESSION['shop_checkout_prepare'])
 ) {
-
-    $_SESSION[
-        'shop_checkout_prepare'
-    ] =
-        [];
+    $_SESSION['shop_checkout_prepare'] = [];
 }
 
 
@@ -259,222 +125,144 @@ if (
    CART
    ========================================================= */
 
-$cart =
-    $_SESSION[
-        'shop_cart'
-    ]
-    ?? [];
+$cart = $_SESSION['shop_cart'] ?? [];
 
-
-if (
-    !is_array(
-        $cart
-    )
-) {
-
-    $cart =
-        [];
+if (!is_array($cart)) {
+    $cart = [];
 }
 
 
 $csrfExpected =
     (string) (
-        $_SESSION[
-            'shop_cart_csrf'
-        ]
+        $_SESSION['shop_cart_csrf']
         ?? ''
     );
 
 
 $cartHash =
-    shop_checkout_cart_hash(
-        $cart
-    );
+    shop_checkout_cart_hash($cart);
 
 
 /* =========================================================
-   LOAD CART SHIPPING DATA
+   LOAD AUTHORITATIVE CART ROWS
    ========================================================= */
 
 function shop_checkout_cart_rows(
     PDO $db,
     array $cart
 ): array {
-
-    if (
-        !$cart
-    ) {
-
+    if (!$cart) {
         return [];
     }
 
-
-    $ids =
-        array_values(
-            array_filter(
-                array_map(
-                    'intval',
-                    array_keys(
-                        $cart
-                    )
-                ),
-                static fn (
-                    int $id
-                ): bool =>
-                    $id > 0
-            )
-        );
-
-
-    if (
-        !$ids
-    ) {
-
-        return [];
-    }
-
-
-    $placeholders =
-        implode(
-            ',',
-            array_fill(
-                0,
-                count(
-                    $ids
-                ),
-                '?'
-            )
-        );
-
-
-    $stmt =
-        $db->prepare(
-            '
-            SELECT
-                v.*,
-
-                p.name AS product_name,
-                p.slug AS product_slug,
-                p.primary_image_url,
-                p.requires_shipping,
-                p.status AS product_status
-
-            FROM shop_product_variants v
-
-            INNER JOIN shop_products p
-              ON p.id = v.product_id
-
-            WHERE v.id IN (
-                '
-                .
-                $placeholders
-                .
-                '
-            )
-            '
-        );
-
-
-    $stmt->execute(
-        $ids
+    $ids = array_values(
+        array_filter(
+            array_map(
+                'intval',
+                array_keys($cart)
+            ),
+            static fn (int $id): bool =>
+                $id > 0
+        )
     );
 
-
-    $rows =
-        $stmt->fetchAll(
-            PDO::FETCH_ASSOC
-        );
-
-
-    $byId =
-        [];
-
-
-    foreach (
-        $rows
-        as
-        $row
-    ) {
-
-        $byId[
-            (int)
-            $row[
-                'id'
-            ]
-        ] =
-            $row;
+    if (!$ids) {
+        return [];
     }
 
+    $placeholders = implode(
+        ',',
+        array_fill(
+            0,
+            count($ids),
+            '?'
+        )
+    );
 
-    $result =
-        [];
+    $stmt = $db->prepare(
+        '
+        SELECT
+            v.*,
 
+            p.name AS product_name,
+            p.slug AS product_slug,
+            p.primary_image_url,
+            p.requires_shipping,
+            p.status AS product_status
 
-    foreach (
-        $cart
-        as
-        $variantId =>
-        $quantity
-    ) {
+        FROM shop_product_variants v
 
-        $variantId =
-            (int)
-            $variantId;
+        INNER JOIN shop_products p
+          ON p.id = v.product_id
 
+        WHERE v.id IN (' . $placeholders . ')
+        '
+    );
 
-        if (
-            !isset(
-                $byId[
-                    $variantId
-                ]
-            )
-        ) {
+    $stmt->execute($ids);
 
+    $rows = $stmt->fetchAll(
+        PDO::FETCH_ASSOC
+    );
+
+    $byId = [];
+
+    foreach ($rows as $row) {
+        $byId[
+            (int) $row['id']
+        ] = $row;
+    }
+
+    $result = [];
+
+    foreach ($cart as $variantId => $quantity) {
+        $variantId = (int) $variantId;
+
+        if (!isset($byId[$variantId])) {
             throw new RuntimeException(
                 'One of the cart items no longer exists.'
             );
         }
 
-
-        $row =
-            $byId[
-                $variantId
-            ];
-
+        $row = $byId[$variantId];
 
         if (
-            (string)
-            $row[
-                'product_status'
-            ]
+            (string) $row['product_status']
             !==
             LLAMA_SHOP_PRODUCT_ACTIVE
             ||
-            !(bool)
-            $row[
-                'is_active'
-            ]
+            !(bool) $row['is_active']
         ) {
-
             throw new RuntimeException(
                 'One of the cart items is no longer available.'
             );
         }
 
+        $quantity = max(
+            1,
+            (int) $quantity
+        );
 
-        $row[
-            'cart_quantity'
-        ] =
-            max(
-                1,
-                (int)
-                $quantity
+        if (
+            (bool) $row['track_inventory']
+            &&
+            !(bool) $row['allow_backorder']
+            &&
+            (int) $row['inventory_quantity']
+            <
+            $quantity
+        ) {
+            throw new RuntimeException(
+                $row['product_name']
+                .
+                ' no longer has enough inventory for that quantity.'
             );
+        }
 
+        $row['cart_quantity'] =
+            $quantity;
 
-        $row[
-            'shipping_profile'
-        ] =
+        $row['shipping_profile'] =
             llama_shipping_profile(
                 $db,
                 $variantId
@@ -484,148 +272,215 @@ function shop_checkout_cart_rows(
                 $row
             );
 
-
-        $result[] =
-            $row;
+        $result[] = $row;
     }
 
+    return $result;
+}
 
-    return
-        $result;
+
+/* =========================================================
+   TEMPORARY FALLBACK QUOTE
+   ========================================================= */
+
+function shop_checkout_fallback_rate(
+    string $carrier,
+    int $amountCents,
+    string $reason
+): array {
+    $carrierLabel =
+        $carrier !== ''
+            ? strtoupper($carrier)
+            : 'Standard';
+
+    return [
+        'carrier' =>
+            $carrier !== ''
+                ? $carrier
+                : null,
+
+        'service_code' =>
+            'temporary-flat-rate',
+
+        'service_name' =>
+            $carrierLabel
+            .
+            ' Standard Shipping',
+
+        'amount_cents' =>
+            max(
+                0,
+                $amountCents
+            ),
+
+        'currency' =>
+            'usd',
+
+        'delivery_days' =>
+            null,
+
+        'delivery_date' =>
+            null,
+
+        'source' =>
+            'fallback',
+
+        'notice' =>
+            $reason,
+
+    ];
 }
 
 
 /* =========================================================
    BUILD SHIPPING QUOTES
+
+   Live carrier rates are preferred.
+
+   If a live/provider API is unavailable, the profile's
+   flat_rate_cents becomes a deliberate temporary fallback.
+
+   The fallback is never invented by this function.
+   It must have been configured on the variant.
    ========================================================= */
 
 function shop_checkout_shipping_quotes(
     array $rows,
     string $destinationZip
 ): array {
+    $fixedCents = 0;
+    $handlingCents = 0;
 
-    $flatCents =
-        0;
+    $liveGroups = [];
 
-
-    $handlingCents =
-        0;
-
-
-    $liveGroups =
-        [];
+    $hasPhysicalItem = false;
 
 
-    foreach (
-        $rows
-        as
-        $row
-    ) {
-
-        if (
-            !(bool)
-            $row[
-                'requires_shipping'
-            ]
-        ) {
-
+    foreach ($rows as $row) {
+        if (!(bool) $row['requires_shipping']) {
             continue;
         }
 
+        $hasPhysicalItem = true;
 
         $profile =
-            $row[
-                'shipping_profile'
-            ];
-
+            $row['shipping_profile'];
 
         $strategy =
-            (string)
-            $profile[
-                'shipping_strategy'
-            ];
-
+            trim(
+                (string) (
+                    $profile['shipping_strategy']
+                    ?? ''
+                )
+            );
 
         $quantity =
             max(
                 1,
-                (int)
-                $row[
-                    'cart_quantity'
-                ]
+                (int) $row['cart_quantity']
             );
-
 
         $handlingCents +=
             max(
                 0,
                 (int) (
-                    $profile[
-                        'handling_cents'
-                    ]
+                    $profile['handling_cents']
                     ?? 0
                 )
             );
 
 
+        /* =================================================
+           FREE SHIPPING
+           ================================================= */
+
         if (
             $strategy ===
             LLAMA_SHIPPING_FREE
         ) {
-
             continue;
         }
 
+
+        /* =================================================
+           FLAT RATE
+           ================================================= */
 
         if (
             $strategy ===
             LLAMA_SHIPPING_FLAT_RATE
         ) {
+            $flat =
+                $profile['flat_rate_cents']
+                ?? null;
 
-            $flatCents +=
+            if ($flat === null) {
+                throw new RuntimeException(
+                    'A flat shipping rate is missing for '
+                    .
+                    $row['product_name']
+                    .
+                    '.'
+                );
+            }
+
+            $fixedCents +=
                 max(
                     0,
-                    (int) (
-                        $profile[
-                            'flat_rate_cents'
-                        ]
-                        ?? 0
-                    )
+                    (int) $flat
                 );
-
 
             continue;
         }
 
 
+        /* =================================================
+           PROVIDER-MANAGED
+
+           Until Printful/Printify/external carrier quoting
+           exists, a configured flat rate acts as fallback.
+           ================================================= */
+
         if (
             $strategy ===
             LLAMA_SHIPPING_PROVIDER_MANAGED
         ) {
+            $fallback =
+                $profile['flat_rate_cents']
+                ?? null;
 
-            throw new RuntimeException(
-                $row[
-                    'product_name'
-                ]
-                .
-                ' uses provider-managed shipping. '
-                .
-                'Its fulfillment provider shipping API still needs to be connected before checkout can calculate an accurate rate.'
-            );
+            if ($fallback === null) {
+                throw new RuntimeException(
+                    $row['product_name']
+                    .
+                    ' uses provider-managed shipping, but its provider shipping API is not connected yet. '
+                    .
+                    'Add a temporary Flat Shipping Rate to this variant before testing checkout.'
+                );
+            }
+
+            $fixedCents +=
+                max(
+                    0,
+                    (int) $fallback
+                );
+
+            continue;
         }
 
+
+        /* =================================================
+           LIVE RATE
+           ================================================= */
 
         if (
             $strategy !==
             LLAMA_SHIPPING_LIVE_RATES
         ) {
-
             throw new RuntimeException(
                 'A shipping method is not configured correctly for '
                 .
-                $row[
-                    'product_name'
-                ]
+                $row['product_name']
                 .
                 '.'
             );
@@ -636,25 +491,18 @@ function shop_checkout_shipping_quotes(
             strtolower(
                 trim(
                     (string) (
-                        $profile[
-                            'carrier'
-                        ]
+                        $profile['carrier']
                         ?? ''
                     )
                 )
             );
 
 
-        if (
-            $carrier === ''
-        ) {
-
+        if ($carrier === '') {
             throw new RuntimeException(
                 'A live-rate carrier is missing for '
                 .
-                $row[
-                    'product_name'
-                ]
+                $row['product_name']
                 .
                 '.'
             );
@@ -664,55 +512,42 @@ function shop_checkout_shipping_quotes(
         $originKey =
             trim(
                 (string) (
-                    $profile[
-                        'origin_key'
-                    ]
+                    $profile['origin_key']
                     ?? 'default'
                 )
             );
 
 
-        $separate =
+        if ($originKey === '') {
+            $originKey =
+                'default';
+        }
+
+
+        $shipsSeparately =
             !empty(
-                $profile[
-                    'ships_separately'
-                ]
+                $profile['ships_separately']
             );
 
 
         $groupKey =
-            $separate
-                ? $carrier
-                  .
-                  '|'
-                  .
-                  $originKey
-                  .
-                  '|variant-'
-                  .
-                  (int)
-                  $row[
-                      'id'
-                ]
-                : $carrier
-                  .
-                  '|'
-                  .
-                  $originKey;
+            $carrier
+            .
+            '|'
+            .
+            $originKey;
 
 
-        if (
-            !isset(
-                $liveGroups[
-                    $groupKey
-                ]
-            )
-        ) {
+        if ($shipsSeparately) {
+            $groupKey .=
+                '|variant-'
+                .
+                (int) $row['id'];
+        }
 
-            $liveGroups[
-                $groupKey
-            ] = [
 
+        if (!isset($liveGroups[$groupKey])) {
+            $liveGroups[$groupKey] = [
                 'carrier' =>
                     $carrier,
 
@@ -737,50 +572,79 @@ function shop_checkout_shipping_quotes(
                 'preferred_service' =>
                     trim(
                         (string) (
-                            $profile[
-                                'preferred_service'
-                            ]
+                            $profile['preferred_service']
                             ?? ''
                         )
                     ),
 
+                /*
+                 * Every live-rate group may carry a temporary
+                 * fallback amount.
+                 */
+
+                'fallback_cents' =>
+                    0,
+
+                'fallback_configured' =>
+                    false,
+
+                'products' =>
+                    [],
             ];
         }
 
 
         $weight =
             (float) (
-                $profile[
-                    'weight_oz'
-                ]
+                $profile['weight_oz']
                 ?? 0
             );
 
 
-        if (
-            $weight <= 0
-        ) {
-
+        if ($weight <= 0) {
             throw new RuntimeException(
                 'Package weight is missing for '
                 .
-                $row[
-                    'product_name'
-                ]
+                $row['product_name']
                 .
                 '.'
             );
         }
 
 
-        $liveGroups[
-            $groupKey
-        ][
-            'weight_oz'
-        ] +=
+        $liveGroups[$groupKey]['weight_oz'] +=
             $weight
             *
             $quantity;
+
+
+        /*
+         * A Flat Shipping Rate entered on a live-rate variant
+         * acts as that variant's temporary fallback.
+         */
+
+        if (
+            array_key_exists(
+                'flat_rate_cents',
+                $profile
+            )
+            &&
+            $profile['flat_rate_cents']
+            !== null
+        ) {
+            $liveGroups[$groupKey]['fallback_configured'] =
+                true;
+
+            $liveGroups[$groupKey]['fallback_cents'] +=
+                max(
+                    0,
+                    (int) $profile['flat_rate_cents']
+                );
+        }
+
+
+        $liveGroups[$groupKey]['products'][] =
+            (string) $row['product_name'];
 
 
         foreach (
@@ -793,36 +657,24 @@ function shop_checkout_shipping_quotes(
             as
             $dimension
         ) {
-
             $value =
-                $profile[
-                    $dimension
-                ]
+                $profile[$dimension]
                 ?? null;
-
 
             if (
                 $value === null
                 ||
                 $value === ''
             ) {
-
                 continue;
             }
-
 
             $value =
-                (float)
-                $value;
+                (float) $value;
 
-
-            if (
-                $value <= 0
-            ) {
-
+            if ($value <= 0) {
                 continue;
             }
-
 
             $current =
                 $liveGroups[
@@ -830,7 +682,6 @@ function shop_checkout_shipping_quotes(
                 ][
                     $dimension
                 ];
-
 
             $liveGroups[
                 $groupKey
@@ -840,30 +691,60 @@ function shop_checkout_shipping_quotes(
                 $current === null
                     ? $value
                     : max(
-                        (float)
-                        $current,
+                        (float) $current,
                         $value
                     );
         }
     }
 
 
-    /*
-     * Nothing needs a live carrier lookup.
-     */
+    /* =====================================================
+       NO PHYSICAL ITEMS
+       ===================================================== */
 
-    if (
-        !$liveGroups
-    ) {
+    if (!$hasPhysicalItem) {
+        return [[
+            'key' =>
+                'no-shipping',
 
+            'name' =>
+                'No Shipping Required',
+
+            'amount_cents' =>
+                0,
+
+            'carrier' =>
+                null,
+
+            'service_code' =>
+                null,
+
+            'delivery_days' =>
+                null,
+
+            'delivery_date' =>
+                null,
+
+            'source' =>
+                'none',
+
+            'notice' =>
+                null,
+        ]];
+    }
+
+
+    /* =====================================================
+       ONLY FIXED / FREE SHIPPING
+       ===================================================== */
+
+    if (!$liveGroups) {
         $total =
-            $flatCents
+            $fixedCents
             +
             $handlingCents;
 
-
         return [[
-
             'key' =>
                 'fixed',
 
@@ -879,7 +760,7 @@ function shop_checkout_shipping_quotes(
                 null,
 
             'service_code' =>
-                null,
+                'fixed',
 
             'delivery_days' =>
                 null,
@@ -887,12 +768,27 @@ function shop_checkout_shipping_quotes(
             'delivery_date' =>
                 null,
 
+            'source' =>
+                'fixed',
+
+            'notice' =>
+                null,
         ]];
     }
 
 
-    $groupRates =
-        [];
+    /* =====================================================
+       LIVE GROUPS
+       ===================================================== */
+
+    if ($destinationZip === '') {
+        throw new RuntimeException(
+            'A destination ZIP Code is required to calculate shipping.'
+        );
+    }
+
+
+    $groupRates = [];
 
 
     foreach (
@@ -901,326 +797,368 @@ function shop_checkout_shipping_quotes(
         $groupKey =>
         $group
     ) {
+        try {
+            $origin =
+                llama_shipping_origin(
+                    $group['origin_key']
+                );
 
-        $origin =
-            llama_shipping_origin(
-                $group[
-                    'origin_key'
-                ]
-            );
+            $originZip =
+                shop_checkout_zip(
+                    $origin['postal_code']
+                    ?? ''
+                );
 
-
-        $originZip =
-            shop_checkout_zip(
-                $origin[
-                    'postal_code'
-                ]
-                ?? ''
-            );
-
-
-        if (
-            $originZip === ''
-        ) {
-
-            throw new RuntimeException(
-                'The shipping origin ZIP Code is not configured.'
-            );
-        }
+            if ($originZip === '') {
+                throw new RuntimeException(
+                    'Shipping origin ZIP Code is unavailable.'
+                );
+            }
 
 
-        $rates =
-            llama_shipping_live_rates(
+            $rates =
+                llama_shipping_live_rates(
+                    $group['carrier'],
+                    [
+                        'origin_postal_code' =>
+                            $originZip,
 
-                $group[
-                    'carrier'
-                ],
+                        'destination_postal_code' =>
+                            $destinationZip,
 
-                [
+                        'weight_oz' =>
+                            $group['weight_oz'],
 
-                    'origin_postal_code' =>
-                        $originZip,
+                        'length_in' =>
+                            $group['length_in'],
 
-                    'destination_postal_code' =>
-                        $destinationZip,
+                        'width_in' =>
+                            $group['width_in'],
 
-                    'weight_oz' =>
-                        $group[
-                            'weight_oz'
-                        ],
+                        'height_in' =>
+                            $group['height_in'],
 
-                    'length_in' =>
-                        $group[
-                            'length_in'
-                        ],
-
-                    'width_in' =>
-                        $group[
-                            'width_in'
-                        ],
-
-                    'height_in' =>
-                        $group[
-                            'height_in'
-                        ],
-
-                    'girth_in' =>
-                        $group[
-                            'girth_in'
-                        ],
-
-                ]
-            );
-
-
-        $preferred =
-            $group[
-                'preferred_service'
-            ];
-
-
-        if (
-            $preferred !== ''
-        ) {
-
-            $filtered =
-                array_values(
-                    array_filter(
-                        $rates,
-                        static function (
-                            array $rate
-                        ) use (
-                            $preferred
-                        ): bool {
-
-                            return
-                                stripos(
-                                    (string) (
-                                        $rate[
-                                            'service_code'
-                                        ]
-                                        ?? ''
-                                    ),
-                                    $preferred
-                                )
-                                !==
-                                false
-                                ||
-                                stripos(
-                                    (string) (
-                                        $rate[
-                                            'service_name'
-                                        ]
-                                        ?? ''
-                                    ),
-                                    $preferred
-                                )
-                                !==
-                                false;
-                        }
-                    )
+                        'girth_in' =>
+                            $group['girth_in'],
+                    ]
                 );
 
 
-            if (
-                $filtered
-            ) {
+            $preferred =
+                $group['preferred_service'];
 
-                $rates =
-                    $filtered;
+
+            if ($preferred !== '') {
+                $filtered =
+                    array_values(
+                        array_filter(
+                            $rates,
+                            static function (
+                                array $rate
+                            ) use (
+                                $preferred
+                            ): bool {
+                                return
+                                    stripos(
+                                        (string) (
+                                            $rate['service_code']
+                                            ?? ''
+                                        ),
+                                        $preferred
+                                    )
+                                    !== false
+                                    ||
+                                    stripos(
+                                        (string) (
+                                            $rate['service_name']
+                                            ?? ''
+                                        ),
+                                        $preferred
+                                    )
+                                    !== false;
+                            }
+                        )
+                    );
+
+                if ($filtered) {
+                    $rates =
+                        $filtered;
+                }
             }
-        }
 
 
-        if (
-            !$rates
-        ) {
+            if (!$rates) {
+                throw new RuntimeException(
+                    'Carrier returned no usable rates.'
+                );
+            }
 
-            throw new RuntimeException(
-                'No shipping services are available for this destination.'
+
+            foreach ($rates as &$rate) {
+                $rate['source'] =
+                    'live';
+
+                $rate['notice'] =
+                    null;
+            }
+
+            unset($rate);
+
+
+            $groupRates[$groupKey] =
+                $rates;
+
+
+        } catch (Throwable $exception) {
+            /*
+             * Carrier failure is allowed only when the owner
+             * explicitly configured a fallback rate.
+             */
+
+            if (
+                !$group['fallback_configured']
+            ) {
+                throw new RuntimeException(
+                    strtoupper(
+                        $group['carrier']
+                    )
+                    .
+                    ' live shipping is temporarily unavailable for '
+                    .
+                    implode(
+                        ', ',
+                        array_unique(
+                            $group['products']
+                        )
+                    )
+                    .
+                    '. Add a temporary Flat Shipping Rate to the product variant to allow checkout while the carrier API is unavailable.'
+                );
+            }
+
+
+            error_log(
+                'Llama Scout shipping fallback used for '
+                .
+                $group['carrier']
+                .
+                ': '
+                .
+                $exception->getMessage()
             );
+
+
+            $groupRates[$groupKey] = [
+                shop_checkout_fallback_rate(
+                    $group['carrier'],
+                    (int) $group['fallback_cents'],
+                    'Live '
+                    .
+                    strtoupper(
+                        $group['carrier']
+                    )
+                    .
+                    ' rates are temporarily unavailable. This is the configured temporary shipping rate.'
+                )
+            ];
         }
-
-
-        $groupRates[
-            $groupKey
-        ] =
-            $rates;
     }
 
 
-    /*
-     * Normal case: one combined in-house package.
-     * Show all USPS/other-carrier choices.
-     */
+    /* =====================================================
+       ONE LIVE/FALLBACK PACKAGE
 
-    if (
-        count(
-            $groupRates
-        )
-        ===
-        1
-    ) {
+       Customer may choose among all available live services.
 
+       Fixed charges and handling are added to every option.
+       ===================================================== */
+
+    if (count($groupRates) === 1) {
         $rates =
             reset(
                 $groupRates
             );
 
-
-        $quotes =
-            [];
+        $quotes = [];
 
 
-        foreach (
-            $rates
-            as
-            $rate
-        ) {
-
+        foreach ($rates as $rate) {
             $amount =
-                (int)
-                $rate[
-                    'amount_cents'
-                ]
+                (int) $rate['amount_cents']
                 +
-                $flatCents
+                $fixedCents
                 +
                 $handlingCents;
 
 
-            $quotes[] = [
-
-                'key' =>
-                    strtolower(
-                        (string)
-                        $rate[
-                            'carrier'
-                        ]
+            $key =
+                strtolower(
+                    (string) (
+                        $rate['carrier']
+                        ?? 'shipping'
                     )
-                    .
-                    ':'
-                    .
-                    (string)
-                    $rate[
-                        'service_code'
-                    ],
+                )
+                .
+                ':'
+                .
+                strtolower(
+                    preg_replace(
+                        '/[^a-zA-Z0-9_-]+/',
+                        '-',
+                        (string) (
+                            $rate['service_code']
+                            ?? 'standard'
+                        )
+                    )
+                    ?? 'standard'
+                )
+                .
+                ':'
+                .
+                (string) (
+                    $rate['source']
+                    ?? 'rate'
+                );
+
+
+            $quotes[] = [
+                'key' =>
+                    $key,
 
                 'name' =>
-                    (string)
-                    $rate[
-                        'service_name'
-                    ],
+                    (string) (
+                        $rate['service_name']
+                        ?? 'Standard Shipping'
+                    ),
 
                 'amount_cents' =>
                     $amount,
 
                 'carrier' =>
-                    (string)
-                    $rate[
-                        'carrier'
-                    ],
+                    $rate['carrier']
+                    ?? null,
 
                 'service_code' =>
-                    (string)
-                    $rate[
-                        'service_code'
-                    ],
+                    $rate['service_code']
+                    ?? null,
 
                 'delivery_days' =>
-                    $rate[
-                        'delivery_days'
-                    ]
+                    $rate['delivery_days']
                     ?? null,
 
                 'delivery_date' =>
-                    $rate[
-                        'delivery_date'
-                    ]
+                    $rate['delivery_date']
                     ?? null,
 
+                'source' =>
+                    $rate['source']
+                    ?? 'live',
+
+                'notice' =>
+                    $rate['notice']
+                    ?? null,
             ];
         }
 
 
-        return
-            $quotes;
+        usort(
+            $quotes,
+            static fn (
+                array $a,
+                array $b
+            ): int =>
+                (int) $a['amount_cents']
+                <=>
+                (int) $b['amount_cents']
+        );
+
+
+        return $quotes;
     }
 
 
-    /*
-     * Multiple packages/carriers:
-     * choose the cheapest valid service for each package and
-     * combine them into one checkout shipping amount.
-     *
-     * Later we can expose multi-package service selection.
-     */
+    /* =====================================================
+       MULTIPLE PACKAGES
 
-    $combined =
-        $flatCents
+       For now choose the least expensive valid service for
+       each shipment and combine them into one rate.
+
+       This works for:
+       - multiple separate in-house packages
+       - a mix of live and temporary fallback packages
+
+       Later provider integrations can expose more choices.
+       ===================================================== */
+
+    $combinedCents =
+        $fixedCents
         +
         $handlingCents;
 
+    $serviceNames = [];
+    $usedFallback = false;
+    $fallbackNotices = [];
 
-    $parts =
-        [];
 
-
-    foreach (
-        $groupRates
-        as
-        $rates
-    ) {
-
+    foreach ($groupRates as $rates) {
         usort(
             $rates,
             static fn (
                 array $a,
                 array $b
             ): int =>
-                (int)
-                $a[
-                    'amount_cents'
-                ]
+                (int) $a['amount_cents']
                 <=>
-                (int)
-                $b[
-                    'amount_cents'
-                ]
+                (int) $b['amount_cents']
         );
 
-
         $best =
-            $rates[
-                0
-            ];
+            $rates[0];
 
+        $combinedCents +=
+            (int) $best['amount_cents'];
 
-        $combined +=
-            (int)
-            $best[
-                'amount_cents'
-            ];
+        $serviceNames[] =
+            (string) (
+                $best['service_name']
+                ?? 'Standard Shipping'
+            );
 
+        if (
+            ($best['source'] ?? '')
+            ===
+            'fallback'
+        ) {
+            $usedFallback =
+                true;
 
-        $parts[] =
-            (string)
-            $best[
-                'service_name'
-            ];
+            if (
+                !empty(
+                    $best['notice']
+                )
+            ) {
+                $fallbackNotices[] =
+                    (string) $best['notice'];
+            }
+        }
     }
 
 
     return [[
-
         'key' =>
-            'combined-best-rate',
+            'combined-best-rate'
+            .
+            (
+                $usedFallback
+                    ? '-fallback'
+                    : ''
+            ),
 
         'name' =>
             'Best Available Shipping',
 
         'amount_cents' =>
-            $combined,
+            $combinedCents,
 
         'carrier' =>
             'multiple',
@@ -1228,7 +1166,7 @@ function shop_checkout_shipping_quotes(
         'service_code' =>
             implode(
                 ' + ',
-                $parts
+                $serviceNames
             ),
 
         'delivery_days' =>
@@ -1237,6 +1175,20 @@ function shop_checkout_shipping_quotes(
         'delivery_date' =>
             null,
 
+        'source' =>
+            $usedFallback
+                ? 'mixed_fallback'
+                : 'live',
+
+        'notice' =>
+            $fallbackNotices
+                ? implode(
+                    ' ',
+                    array_unique(
+                        $fallbackNotices
+                    )
+                )
+                : null,
     ]];
 }
 
@@ -1245,15 +1197,11 @@ function shop_checkout_shipping_quotes(
    PAGE STATE
    ========================================================= */
 
-$checkoutError =
-    '';
-
+$checkoutError = '';
 
 $shippingZip =
     shop_checkout_zip(
-        $_POST[
-            'shipping_zip'
-        ]
+        $_POST['shipping_zip']
         ??
         $_SESSION[
             'shop_checkout_prepare'
@@ -1265,48 +1213,28 @@ $shippingZip =
     );
 
 
-$shippingQuotes =
-    [];
-
-
-$requiresShipping =
-    false;
-
-
-$cartRows =
-    [];
+$shippingQuotes = [];
+$requiresShipping = false;
+$cartRows = [];
 
 
 /* =========================================================
    LOAD CART
    ========================================================= */
 
-if (
-    $cart
-) {
-
+if ($cart) {
     try {
-
         $cartRows =
             shop_checkout_cart_rows(
                 $db,
                 $cart
             );
 
-
-        foreach (
-            $cartRows
-            as
-            $row
-        ) {
-
+        foreach ($cartRows as $row) {
             if (
                 (bool)
-                $row[
-                    'requires_shipping'
-                ]
+                $row['requires_shipping']
             ) {
-
                 $requiresShipping =
                     true;
 
@@ -1314,39 +1242,28 @@ if (
             }
         }
 
-
-    } catch (
-        Throwable $exception
-    ) {
-
+    } catch (Throwable $exception) {
         $checkoutError =
-            $exception
-                ->getMessage();
+            $exception->getMessage();
     }
 }
 
 
 /* =========================================================
-   POST ACTIONS
+   POST
    ========================================================= */
 
 if (
-    $_SERVER[
-        'REQUEST_METHOD'
-    ]
+    $_SERVER['REQUEST_METHOD']
     ===
     'POST'
     &&
     $checkoutError === ''
 ) {
-
     try {
-
         $csrfSubmitted =
             (string) (
-                $_POST[
-                    'csrf_token'
-                ]
+                $_POST['csrf_token']
                 ?? ''
             );
 
@@ -1361,17 +1278,13 @@ if (
                 $csrfSubmitted
             )
         ) {
-
             throw new RuntimeException(
                 'Your cart session could not be verified. Return to your cart and try again.'
             );
         }
 
 
-        if (
-            !$cart
-        ) {
-
+        if (!$cart) {
             header(
                 'Location: /cart.php'
             );
@@ -1383,9 +1296,7 @@ if (
         $action =
             trim(
                 (string) (
-                    $_POST[
-                        'action'
-                    ]
+                    $_POST['action']
                     ?? 'begin'
                 )
             );
@@ -1395,15 +1306,10 @@ if (
            BEGIN
            ================================================= */
 
-        if (
-            $action ===
-            'begin'
-        ) {
-
+        if ($action === 'begin') {
             $_SESSION[
                 'shop_checkout_prepare'
             ] = [
-
                 'cart_hash' =>
                     $cartHash,
 
@@ -1412,19 +1318,14 @@ if (
 
                 'shipping_zip' =>
                     '',
-
             ];
 
 
-            if (
-                !$requiresShipping
-            ) {
-
+            if (!$requiresShipping) {
                 $action =
                     'create_checkout';
 
             } else {
-
                 header(
                     'Location: /checkout.php?shipping=1'
                 );
@@ -1435,18 +1336,14 @@ if (
 
 
         /* =================================================
-           QUOTE SHIPPING
+           SHIPPING QUOTE
            ================================================= */
 
         if (
             $action ===
             'quote_shipping'
         ) {
-
-            if (
-                $shippingZip === ''
-            ) {
-
+            if ($shippingZip === '') {
                 throw new InvalidArgumentException(
                     'Enter a valid 5-digit shipping ZIP Code.'
                 );
@@ -1462,15 +1359,12 @@ if (
 
             if (
                 (
-                    $prepare[
-                        'cart_hash'
-                    ]
+                    $prepare['cart_hash']
                     ?? ''
                 )
                 !==
                 $cartHash
             ) {
-
                 throw new RuntimeException(
                     'Your cart changed. Return to the cart and start checkout again.'
                 );
@@ -1509,7 +1403,6 @@ if (
             $action ===
             'create_checkout'
         ) {
-
             $prepare =
                 $_SESSION[
                     'shop_checkout_prepare'
@@ -1517,21 +1410,15 @@ if (
                 ?? [];
 
 
-            if (
-                $requiresShipping
-            ) {
-
+            if ($requiresShipping) {
                 if (
                     (
-                        $prepare[
-                            'cart_hash'
-                        ]
+                        $prepare['cart_hash']
                         ?? ''
                     )
                     !==
                     $cartHash
                 ) {
-
                     throw new RuntimeException(
                         'Your cart changed. Return to the cart and start checkout again.'
                     );
@@ -1540,17 +1427,12 @@ if (
 
                 $shippingZip =
                     shop_checkout_zip(
-                        $prepare[
-                            'shipping_zip'
-                        ]
+                        $prepare['shipping_zip']
                         ?? ''
                     );
 
 
-                if (
-                    $shippingZip === ''
-                ) {
-
+                if ($shippingZip === '') {
                     throw new RuntimeException(
                         'A shipping ZIP Code is required.'
                     );
@@ -1558,8 +1440,8 @@ if (
 
 
                 /*
-                 * Recalculate rates instead of trusting anything
-                 * sent by the browser.
+                 * Recalculate server-side immediately before
+                 * Stripe. Browser totals are never trusted.
                  */
 
                 $shippingQuotes =
@@ -1572,9 +1454,7 @@ if (
                 $selectedKey =
                     trim(
                         (string) (
-                            $_POST[
-                                'shipping_rate'
-                            ]
+                            $_POST['shipping_rate']
                             ?? ''
                         )
                     );
@@ -1589,17 +1469,12 @@ if (
                     as
                     $quote
                 ) {
-
                     if (
                         hash_equals(
-                            (string)
-                            $quote[
-                                'key'
-                            ],
+                            (string) $quote['key'],
                             $selectedKey
                         )
                     ) {
-
                         $selectedQuote =
                             $quote;
 
@@ -1608,19 +1483,14 @@ if (
                 }
 
 
-                if (
-                    !$selectedQuote
-                ) {
-
+                if (!$selectedQuote) {
                     throw new InvalidArgumentException(
                         'Choose a valid shipping option.'
                     );
                 }
 
             } else {
-
                 $selectedQuote = [
-
                     'key' =>
                         'no-shipping',
 
@@ -1642,16 +1512,18 @@ if (
                     'delivery_date' =>
                         null,
 
+                    'source' =>
+                        'none',
+
+                    'notice' =>
+                        null,
                 ];
             }
 
 
             $userId =
                 $user
-                    ? (int)
-                      $user[
-                          'id'
-                      ]
+                    ? (int) $user['id']
                     : null;
 
 
@@ -1668,10 +1540,7 @@ if (
 
 
             $orderId =
-                (int)
-                $order[
-                    'id'
-                ];
+                (int) $order['id'];
 
 
             $orderItems =
@@ -1681,10 +1550,7 @@ if (
                 );
 
 
-            if (
-                !$orderItems
-            ) {
-
+            if (!$orderItems) {
                 throw new RuntimeException(
                     'The order contains no items.'
                 );
@@ -1692,7 +1558,7 @@ if (
 
 
             /* =============================================
-               STRIPE
+               STRIPE CONFIG
                ============================================= */
 
             $stripeConfig =
@@ -1715,10 +1581,7 @@ if (
                 );
 
 
-            if (
-                $publishableKey === ''
-            ) {
-
+            if ($publishableKey === '') {
                 throw new RuntimeException(
                     'Stripe publishable key is missing.'
                 );
@@ -1729,8 +1592,11 @@ if (
                 llama_stripe_client();
 
 
-            $lineItems =
-                [];
+            /* =============================================
+               MERCHANDISE LINE ITEMS
+               ============================================= */
+
+            $lineItems = [];
 
 
             foreach (
@@ -1738,88 +1604,59 @@ if (
                 as
                 $item
             ) {
-
                 $productData = [
-
                     'name' =>
-                        $item[
-                            'product_name'
-                        ]
+                        $item['product_name']
                         .
                         (
                             trim(
-                                (string)
-                                $item[
-                                    'variant_name'
-                                ]
+                                (string) $item['variant_name']
                             )
-                            !==
-                            ''
+                            !== ''
                                 ? ' - '
                                   .
-                                  $item[
-                                      'variant_name'
-                                  ]
+                                  $item['variant_name']
                                 : ''
                         ),
 
                     'metadata' => [
-
                         'llama_order_item_id' =>
-                            (string)
-                            $item[
-                                'id'
-                            ],
+                            (string) $item['id'],
 
                         'llama_product_id' =>
                             (string) (
-                                $item[
-                                    'product_id'
-                                ]
+                                $item['product_id']
                                 ?? ''
                             ),
 
                         'llama_variant_id' =>
                             (string) (
-                                $item[
-                                    'variant_id'
-                                ]
+                                $item['variant_id']
                                 ?? ''
                             ),
 
                         'sku' =>
-                            (string)
-                            $item[
-                                'sku'
-                            ],
-
+                            (string) $item['sku'],
                     ],
-
                 ];
 
 
                 $imageUrl =
                     trim(
                         (string) (
-                            $item[
-                                'image_url'
-                            ]
+                            $item['image_url']
                             ?? ''
                         )
                     );
 
 
-                if (
-                    $imageUrl !== ''
-                ) {
-
+                if ($imageUrl !== '') {
                     if (
                         str_starts_with(
                             $imageUrl,
                             '/'
                         )
                     ) {
-
                         $imageUrl =
                             'https://llamascout.com'
                             .
@@ -1833,10 +1670,7 @@ if (
                             FILTER_VALIDATE_URL
                         )
                     ) {
-
-                        $productData[
-                            'images'
-                        ] = [
+                        $productData['images'] = [
                             $imageUrl
                         ];
                     }
@@ -1844,89 +1678,75 @@ if (
 
 
                 $lineItems[] = [
-
                     'price_data' => [
-
                         'currency' =>
                             strtolower(
-                                (string)
-                                $item[
-                                    'currency'
-                                ]
+                                (string) $item['currency']
                             ),
 
                         'unit_amount' =>
-                            (int)
-                            $item[
-                                'unit_price_cents'
-                            ],
+                            (int) $item['unit_price_cents'],
 
                         'product_data' =>
                             $productData,
-
                     ],
 
                     'quantity' =>
-                        (int)
-                        $item[
-                            'quantity'
-                        ],
-
+                        (int) $item['quantity'],
                 ];
             }
 
 
-            $metadata = [
+            /* =============================================
+               METADATA
+               ============================================= */
 
+            $metadata = [
                 'llama_shop_order_id' =>
-                    (string)
-                    $orderId,
+                    (string) $orderId,
 
                 'llama_shop_order_number' =>
-                    (string)
-                    $order[
-                        'order_number'
-                    ],
+                    (string) $order['order_number'],
 
                 'shipping_rate_key' =>
-                    (string)
-                    $selectedQuote[
-                        'key'
-                    ],
+                    (string) $selectedQuote['key'],
+
+                'shipping_source' =>
+                    (string) (
+                        $selectedQuote['source']
+                        ?? ''
+                    ),
 
                 'shipping_carrier' =>
                     (string) (
-                        $selectedQuote[
-                            'carrier'
-                        ]
+                        $selectedQuote['carrier']
                         ?? ''
                     ),
 
                 'shipping_service' =>
                     (string) (
-                        $selectedQuote[
-                            'service_code'
-                        ]
+                        $selectedQuote['service_code']
                         ?? ''
                     ),
 
+                'shipping_quote_zip' =>
+                    $shippingZip,
             ];
 
 
-            if (
-                $userId !== null
-            ) {
-
+            if ($userId !== null) {
                 $metadata[
                     'llama_user_id'
                 ] =
-                    (string)
-                    $userId;
+                    (string) $userId;
             }
 
 
-            $sessionData = [
+            /* =============================================
+               STRIPE SESSION
+               ============================================= */
 
+            $sessionData = [
                 'mode' =>
                     'payment',
 
@@ -1940,22 +1760,17 @@ if (
                     $metadata,
 
                 'payment_intent_data' => [
-
                     'metadata' =>
                         $metadata,
-
                 ],
 
                 'phone_number_collection' => [
-
                     'enabled' =>
                         true,
-
                 ],
 
                 'return_url' =>
                     'https://llamascout.com/order.php?checkout=return&session_id={CHECKOUT_SESSION_ID}',
-
             ];
 
 
@@ -1976,20 +1791,12 @@ if (
                     : '';
 
 
-            if (
-                $stripeCustomerId !== ''
-            ) {
-
-                $sessionData[
-                    'customer'
-                ] =
+            if ($stripeCustomerId !== '') {
+                $sessionData['customer'] =
                     $stripeCustomerId;
 
             } else {
-
-                $sessionData[
-                    'customer_creation'
-                ] =
+                $sessionData['customer_creation'] =
                     'always';
 
 
@@ -1997,9 +1804,7 @@ if (
                     $user
                         ? trim(
                             (string) (
-                                $user[
-                                    'email'
-                                ]
+                                $user['email']
                                 ?? ''
                             )
                         )
@@ -2014,7 +1819,6 @@ if (
                         FILTER_VALIDATE_EMAIL
                     )
                 ) {
-
                     $sessionData[
                         'customer_email'
                     ] =
@@ -2024,13 +1828,10 @@ if (
 
 
             /* =============================================
-               SHIPPING ADDRESS + VERIFIED RATE
+               SHIPPING ADDRESS + SELECTED RATE
                ============================================= */
 
-            if (
-                $requiresShipping
-            ) {
-
+            if ($requiresShipping) {
                 $allowedCountries =
                     $stripeConfig[
                         'shop_allowed_countries'
@@ -2048,7 +1849,6 @@ if (
                     ||
                     !$allowedCountries
                 ) {
-
                     $allowedCountries = [
                         'US',
                     ];
@@ -2058,48 +1858,37 @@ if (
                 $sessionData[
                     'shipping_address_collection'
                 ] = [
-
                     'allowed_countries' =>
                         array_values(
                             $allowedCountries
                         ),
-
                 ];
 
 
                 $shippingRateData = [
-
                     'type' =>
                         'fixed_amount',
 
                     'fixed_amount' => [
-
                         'amount' =>
-                            (int)
-                            $selectedQuote[
+                            (int) $selectedQuote[
                                 'amount_cents'
                             ],
 
                         'currency' =>
                             strtolower(
-                                (string)
-                                $order[
+                                (string) $order[
                                     'currency'
                                 ]
                             ),
-
                     ],
 
                     'display_name' =>
                         mb_substr(
-                            (string)
-                            $selectedQuote[
-                                'name'
-                            ],
+                            (string) $selectedQuote['name'],
                             0,
                             100
                         ),
-
                 ];
 
 
@@ -2111,50 +1900,35 @@ if (
 
 
                 if (
-                    is_numeric(
-                        $deliveryDays
-                    )
+                    is_numeric($deliveryDays)
                     &&
-                    (int)
-                    $deliveryDays
-                    >
-                    0
+                    (int) $deliveryDays > 0
                 ) {
-
                     $days =
                         max(
                             1,
-                            (int)
-                            $deliveryDays
+                            (int) $deliveryDays
                         );
 
 
                     $shippingRateData[
                         'delivery_estimate'
                     ] = [
-
                         'minimum' => [
-
                             'unit' =>
                                 'business_day',
 
                             'value' =>
                                 $days,
-
                         ],
 
                         'maximum' => [
-
                             'unit' =>
                                 'business_day',
 
                             'value' =>
-                                $days
-                                +
-                                2,
-
+                                $days + 2,
                         ],
-
                     ];
                 }
 
@@ -2162,10 +1936,8 @@ if (
                 $sessionData[
                     'shipping_options'
                 ] = [[
-
                     'shipping_rate_data' =>
                         $shippingRateData,
-
                 ]];
             }
 
@@ -2181,20 +1953,17 @@ if (
                     ]
                 )
             ) {
-
                 $sessionData[
                     'automatic_tax'
                 ] = [
-
                     'enabled' =>
                         true,
-
                 ];
             }
 
 
             /* =============================================
-               CREATE SESSION
+               CREATE STRIPE SESSION
                ============================================= */
 
             $stripeSession =
@@ -2204,12 +1973,10 @@ if (
                     ->create(
                         $sessionData,
                         [
-
                             'idempotency_key' =>
                                 'llama-shop-order-'
                                 .
                                 $orderId,
-
                         ]
                     );
 
@@ -2217,8 +1984,7 @@ if (
             $stripeSessionId =
                 trim(
                     (string) (
-                        $stripeSession
-                            ->id
+                        $stripeSession->id
                         ?? ''
                     )
                 );
@@ -2227,8 +1993,7 @@ if (
             $clientSecret =
                 trim(
                     (string) (
-                        $stripeSession
-                            ->client_secret
+                        $stripeSession->client_secret
                         ?? ''
                     )
                 );
@@ -2239,7 +2004,6 @@ if (
                 ||
                 $clientSecret === ''
             ) {
-
                 throw new RuntimeException(
                     'Stripe did not return a complete Embedded Checkout session.'
                 );
@@ -2247,25 +2011,15 @@ if (
 
 
             llama_shop_attach_checkout_session(
-
                 $db,
-
                 $orderId,
-
                 $stripeSessionId,
-
-                isset(
-                    $stripeSession
-                        ->expires_at
-                )
+                isset($stripeSession->expires_at)
                 &&
                 is_numeric(
-                    $stripeSession
-                        ->expires_at
+                    $stripeSession->expires_at
                 )
-                    ? (int)
-                      $stripeSession
-                          ->expires_at
+                    ? (int) $stripeSession->expires_at
                     : null
             );
 
@@ -2304,43 +2058,24 @@ if (
         }
 
 
-    } catch (
-        Throwable $exception
-    ) {
-
+    } catch (Throwable $exception) {
         if (
-            isset(
-                $orderId
-            )
+            isset($orderId)
             &&
-            (int)
-            $orderId
-            >
-            0
+            (int) $orderId > 0
         ) {
-
             try {
-
                 llama_shop_cancel_pending_order(
-
                     $db,
-
-                    (int)
-                    $orderId,
-
+                    (int) $orderId,
                     LLAMA_SHOP_PAYMENT_FAILED
                 );
 
-
-            } catch (
-                Throwable $cleanupException
-            ) {
-
+            } catch (Throwable $cleanupException) {
                 error_log(
                     'Llama Scout checkout cleanup failed: '
                     .
-                    $cleanupException
-                        ->getMessage()
+                    $cleanupException->getMessage()
                 );
             }
         }
@@ -2349,14 +2084,12 @@ if (
         error_log(
             'Llama Scout Shop checkout error: '
             .
-            $exception
-                ->getMessage()
+            $exception->getMessage()
         );
 
 
         $checkoutError =
-            $exception
-                ->getMessage();
+            $exception->getMessage();
     }
 }
 
@@ -2367,33 +2100,18 @@ if (
 
 $orderId =
     (int) (
-        $_GET[
-            'order'
-        ]
+        $_GET['order']
         ?? 0
     );
 
 
-$order =
-    null;
+$order = null;
+$orderItems = [];
+$clientSecret = '';
+$publishableKey = '';
 
 
-$orderItems =
-    [];
-
-
-$clientSecret =
-    '';
-
-
-$publishableKey =
-    '';
-
-
-if (
-    $orderId > 0
-) {
-
+if ($orderId > 0) {
     if (
         empty(
             $_SESSION[
@@ -2403,17 +2121,12 @@ if (
             ]
         )
     ) {
-
-        http_response_code(
-            403
-        );
-
+        http_response_code(403);
 
         $checkoutError =
             'This checkout does not belong to the current browser session.';
 
     } else {
-
         $order =
             llama_shop_order_by_id(
                 $db,
@@ -2421,20 +2134,13 @@ if (
             );
 
 
-        if (
-            !$order
-        ) {
-
-            http_response_code(
-                404
-            );
-
+        if (!$order) {
+            http_response_code(404);
 
             $checkoutError =
                 'Order not found.';
 
         } else {
-
             $orderItems =
                 llama_shop_order_items(
                     $db,
@@ -2456,7 +2162,6 @@ if (
 
 
             try {
-
                 $stripeConfig =
                     llama_stripe_config();
 
@@ -2486,7 +2191,6 @@ if (
                         ]
                     )
                 ) {
-
                     $stripe =
                         llama_stripe_client();
 
@@ -2505,17 +2209,13 @@ if (
                     $clientSecret =
                         trim(
                             (string) (
-                                $stripeSession
-                                    ->client_secret
+                                $stripeSession->client_secret
                                 ?? ''
                             )
                         );
 
 
-                    if (
-                        $clientSecret !== ''
-                    ) {
-
+                    if ($clientSecret !== '') {
                         $_SESSION[
                             'shop_checkout_client_secrets'
                         ][
@@ -2526,15 +2226,11 @@ if (
                 }
 
 
-            } catch (
-                Throwable $exception
-            ) {
-
+            } catch (Throwable $exception) {
                 error_log(
                     'Llama Scout checkout reload error: '
                     .
-                    $exception
-                        ->getMessage()
+                    $exception->getMessage()
                 );
 
 
@@ -2547,23 +2243,18 @@ if (
 
 
 /* =========================================================
-   SHIPPING PREPARE STATE
+   SHIPPING STEP
    ========================================================= */
 
 $showShippingStep =
     isset(
-        $_GET[
-            'shipping'
-        ]
+        $_GET['shipping']
     )
     &&
     $orderId < 1;
 
 
-if (
-    $showShippingStep
-) {
-
+if ($showShippingStep) {
     $prepare =
         $_SESSION[
             'shop_checkout_prepare'
@@ -2573,15 +2264,12 @@ if (
 
     if (
         (
-            $prepare[
-                'cart_hash'
-            ]
+            $prepare['cart_hash']
             ?? ''
         )
         !==
         $cartHash
     ) {
-
         header(
             'Location: /cart.php'
         );
@@ -2596,9 +2284,7 @@ if (
    ========================================================= */
 
 if (
-    $_SERVER[
-        'REQUEST_METHOD'
-    ]
+    $_SERVER['REQUEST_METHOD']
     !==
     'POST'
     &&
@@ -2606,7 +2292,6 @@ if (
     &&
     !$showShippingStep
 ) {
-
     header(
         'Location: /cart.php'
     );
@@ -2616,59 +2301,61 @@ if (
 
 
 /* =========================================================
-   DISPLAY SUBTOTAL
+   DISPLAY TOTALS
    ========================================================= */
 
-$displaySubtotal =
-    0;
+$displaySubtotal = 0;
+$displayCurrency = 'usd';
 
 
-$displayCurrency =
-    'usd';
-
-
-if (
-    $order
-) {
-
+if ($order) {
     $displaySubtotal =
-        (int)
-        $order[
-            'subtotal_cents'
-        ];
-
+        (int) $order['subtotal_cents'];
 
     $displayCurrency =
-        (string)
-        $order[
-            'currency'
-        ];
+        (string) $order['currency'];
 
 } else {
-
-    foreach (
-        $cartRows
-        as
-        $row
-    ) {
-
+    foreach ($cartRows as $row) {
         $displaySubtotal +=
-            (int)
-            $row[
-                'price_cents'
-            ]
+            (int) $row['price_cents']
             *
-            (int)
-            $row[
-                'cart_quantity'
-            ];
-
+            (int) $row['cart_quantity'];
 
         $displayCurrency =
-            (string)
-            $row[
-                'currency'
-            ];
+            (string) $row['currency'];
+    }
+}
+
+
+/* =========================================================
+   FALLBACK WARNING
+   ========================================================= */
+
+$usingFallback =
+    false;
+
+
+foreach (
+    $shippingQuotes
+    as
+    $quote
+) {
+    if (
+        in_array(
+            $quote['source']
+            ?? '',
+            [
+                'fallback',
+                'mixed_fallback',
+            ],
+            true
+        )
+    ) {
+        $usingFallback =
+            true;
+
+        break;
     }
 }
 
@@ -2747,7 +2434,7 @@ if (
 }
 
 .shop-checkout-heading p {
-  max-width: 670px;
+  max-width: 680px;
   margin: 12px 0 0;
   line-height: 1.6;
   opacity: .72;
@@ -2845,13 +2532,28 @@ if (
 }
 
 .shop-rate small {
-  margin-top: 3px;
-  opacity: .65;
+  margin-top: 4px;
+  line-height: 1.4;
+  opacity: .66;
 }
 
 .shop-rate-price {
   font-weight: 850;
   white-space: nowrap;
+}
+
+.shop-fallback-notice {
+  margin: 18px 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(190,125,40,.48);
+  border-radius: 13px;
+  background: var(--surface, rgba(127,127,127,.05));
+  line-height: 1.5;
+}
+
+.shop-fallback-notice strong {
+  display: block;
+  margin-bottom: 4px;
 }
 
 .shop-checkout-button {
@@ -2930,8 +2632,7 @@ if (
 
 <?php
 
-require_once
-    __DIR__
+require_once __DIR__
     . '/app/header.php';
 
 ?>
@@ -2948,15 +2649,11 @@ require_once
 
     <h1>
 
-      <?php if (
-          $order
-      ): ?>
+      <?php if ($order): ?>
 
         Secure Checkout
 
-      <?php elseif (
-          $shippingQuotes
-      ): ?>
+      <?php elseif ($shippingQuotes): ?>
 
         Choose Shipping
 
@@ -2970,18 +2667,14 @@ require_once
 
     <p>
 
-      <?php if (
-          $order
-      ): ?>
+      <?php if ($order): ?>
 
-        Payment information is handled securely
-        by Stripe.
+        Payment information is handled securely by Stripe.
 
       <?php else: ?>
 
-        Llama Scout calculates shipping from the
-        actual package information attached to
-        the items in your cart.
+        Shipping is calculated from the fulfillment and
+        package settings attached to the products in your cart.
 
       <?php endif; ?>
 
@@ -3062,26 +2755,18 @@ require_once
 
             <strong>
               <?= shop_checkout_e(
-                  $item[
-                      'product_name'
-                  ]
+                  $item['product_name']
               ) ?>
             </strong>
 
             <small>
 
               <?= shop_checkout_e(
-                  $item[
-                      'variant_name'
-                  ]
+                  $item['variant_name']
               ) ?>
 
               ×
-              <?= (int)
-                  $item[
-                      'quantity'
-                  ]
-              ?>
+              <?= (int) $item['quantity'] ?>
 
             </small>
 
@@ -3089,12 +2774,10 @@ require_once
 
               <?= shop_checkout_e(
                   shop_checkout_money(
-                      (int)
-                      $item[
+                      (int) $item[
                           'line_total_cents'
                       ],
-                      (string)
-                      $item[
+                      (string) $item[
                           'currency'
                       ]
                   )
@@ -3126,9 +2809,8 @@ require_once
 
 
         <p class="shop-checkout-note">
-          The selected shipping rate and any
-          applicable tax are shown by Stripe
-          before payment is submitted.
+          The selected shipping charge and applicable taxes
+          are shown by Stripe before payment is submitted.
         </p>
 
       </aside>
@@ -3150,15 +2832,15 @@ require_once
             !$shippingQuotes
         ): ?>
 
-
           <h2>
             Where is it going?
           </h2>
 
           <p>
-            Enter the destination ZIP Code so
-            Llama Scout can request current
-            shipping prices.
+            Enter the destination ZIP Code. If a live carrier
+            connection is available, Llama Scout will request
+            current rates. If not, an owner-configured temporary
+            shipping rate can be used.
           </p>
 
 
@@ -3218,7 +2900,7 @@ require_once
                 ></i>
 
                 <span>
-                  Get Shipping Rates
+                  Get Shipping
                 </span>
 
               </button>
@@ -3242,14 +2924,30 @@ require_once
 
 
           <h2>
-            Shipping to <?= shop_checkout_e(
+            Shipping to
+            <?= shop_checkout_e(
                 $shippingZip
             ) ?>
           </h2>
 
-          <p>
-            Choose a current shipping option.
-          </p>
+
+          <?php if (
+              $usingFallback
+          ): ?>
+
+            <div class="shop-fallback-notice">
+
+              <strong>
+                Temporary shipping rate
+              </strong>
+
+              A live carrier connection is not available for
+              part or all of this shipment, so Llama Scout is
+              using the configured temporary shipping rate.
+
+            </div>
+
+          <?php endif; ?>
 
 
           <form
@@ -3288,9 +2986,7 @@ require_once
                     type="radio"
                     name="shipping_rate"
                     value="<?= shop_checkout_e(
-                        $quote[
-                            'key'
-                        ]
+                        $quote['key']
                     ) ?>"
                     <?= $index === 0
                         ? 'checked'
@@ -3303,9 +2999,7 @@ require_once
 
                     <strong>
                       <?= shop_checkout_e(
-                          $quote[
-                              'name'
-                          ]
+                          $quote['name']
                       ) ?>
                     </strong>
 
@@ -3349,6 +3043,21 @@ require_once
 
                     <?php endif; ?>
 
+
+                    <?php if (
+                        !empty(
+                            $quote['notice']
+                        )
+                    ): ?>
+
+                      <small>
+                        <?= shop_checkout_e(
+                            $quote['notice']
+                        ) ?>
+                      </small>
+
+                    <?php endif; ?>
+
                   </span>
 
 
@@ -3356,8 +3065,7 @@ require_once
 
                     <?= shop_checkout_e(
                         shop_checkout_money(
-                            (int)
-                            $quote[
+                            (int) $quote[
                                 'amount_cents'
                             ],
                             $displayCurrency
@@ -3436,18 +3144,14 @@ require_once
 
             <strong>
               <?= shop_checkout_e(
-                  $row[
-                      'product_name'
-                  ]
+                  $row['product_name']
               ) ?>
             </strong>
 
             <small>
 
               <?= shop_checkout_e(
-                  $row[
-                      'name'
-                  ]
+                  $row['name']
               ) ?>
 
               ×
@@ -3463,17 +3167,14 @@ require_once
 
               <?= shop_checkout_e(
                   shop_checkout_money(
-                      (int)
-                      $row[
+                      (int) $row[
                           'price_cents'
                       ]
                       *
-                      (int)
-                      $row[
+                      (int) $row[
                           'cart_quantity'
                       ],
-                      (string)
-                      $row[
+                      (string) $row[
                           'currency'
                       ]
                   )
@@ -3505,9 +3206,8 @@ require_once
 
 
         <p class="shop-checkout-note">
-          Final shipping is based on the
-          destination, package configuration,
-          carrier rate, and any handling charge.
+          Final shipping is based on each product's shipping
+          configuration. No browser-submitted price is trusted.
         </p>
 
       </aside>
@@ -3524,16 +3224,13 @@ require_once
 
 <?php
 
-require_once
-    __DIR__
+require_once __DIR__
     . '/app/footer.php';
 
 ?>
 
 
-<script
-  src="https://llamascout.com/js/header.js"
-></script>
+<script src="https://llamascout.com/js/header.js"></script>
 
 
 <?php if (
@@ -3586,13 +3283,9 @@ require_once
     );
 
 
-  } catch (
-    error
-  ) {
+  } catch (error) {
 
-    console.error(
-      error
-    );
+    console.error(error);
 
 
     container.textContent =
