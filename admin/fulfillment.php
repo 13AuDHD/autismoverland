@@ -1451,7 +1451,7 @@ fulfillment_admin_recalculate_order(
             fulfillment_admin_redirect(
                 'Shipment marked shipped.'
             );
-
+        }
             
         /* =================================================
            MARK DELIVERED
