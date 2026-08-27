@@ -12,6 +12,10 @@ require_once
 
 require_once
     __DIR__
+    . '/app/shipping.php';
+
+require_once
+    __DIR__
     . '/app/stripe.php';
 
 
@@ -24,6 +28,20 @@ $db =
 
 $user =
     current_user();
+
+
+/* =========================================================
+   STORAGE
+   ========================================================= */
+
+llama_ensure_shop_storage(
+    $db
+);
+
+
+llama_ensure_shipping_storage(
+    $db
+);
 
 
 /* =========================================================
@@ -80,48 +98,98 @@ function shop_checkout_money(
 }
 
 
-/* =========================================================
-   SHOP STORAGE
-   ========================================================= */
+function shop_checkout_cart_hash(
+    array $cart
+): string {
 
-llama_ensure_shop_storage(
-    $db
-);
-
-
-/* =========================================================
-   CART
-   ========================================================= */
-
-$cart =
-    $_SESSION[
-        'shop_cart'
-    ]
-    ?? [];
-
-
-if (
-    !is_array(
-        $cart
-    )
-) {
-
-    $cart =
+    $normalized =
         [];
-}
 
 
-$csrfExpected =
-    (string) (
-        $_SESSION[
-            'shop_cart_csrf'
-        ]
-        ?? ''
+    foreach (
+        $cart
+        as
+        $variantId =>
+        $quantity
+    ) {
+
+        $variantId =
+            (int)
+            $variantId;
+
+
+        $quantity =
+            (int)
+            $quantity;
+
+
+        if (
+            $variantId > 0
+            &&
+            $quantity > 0
+        ) {
+
+            $normalized[
+                $variantId
+            ] =
+                $quantity;
+        }
+    }
+
+
+    ksort(
+        $normalized
     );
 
 
+    return
+        hash(
+            'sha256',
+            json_encode(
+                $normalized
+            )
+            ?: ''
+        );
+}
+
+
+function shop_checkout_zip(
+    mixed $value
+): string {
+
+    $value =
+        preg_replace(
+            '/[^0-9]/',
+            '',
+            (string)
+            $value
+        )
+        ?? '';
+
+
+    if (
+        strlen(
+            $value
+        )
+        <
+        5
+    ) {
+
+        return '';
+    }
+
+
+    return
+        substr(
+            $value,
+            0,
+            5
+        );
+}
+
+
 /* =========================================================
-   CHECKOUT SESSION ACCESS
+   SESSION STATE
    ========================================================= */
 
 if (
@@ -166,13 +234,1101 @@ if (
 }
 
 
+if (
+    !isset(
+        $_SESSION[
+            'shop_checkout_prepare'
+        ]
+    )
+    ||
+    !is_array(
+        $_SESSION[
+            'shop_checkout_prepare'
+        ]
+    )
+) {
+
+    $_SESSION[
+        'shop_checkout_prepare'
+    ] =
+        [];
+}
+
+
 /* =========================================================
-   CREATE CHECKOUT
+   CART
+   ========================================================= */
+
+$cart =
+    $_SESSION[
+        'shop_cart'
+    ]
+    ?? [];
+
+
+if (
+    !is_array(
+        $cart
+    )
+) {
+
+    $cart =
+        [];
+}
+
+
+$csrfExpected =
+    (string) (
+        $_SESSION[
+            'shop_cart_csrf'
+        ]
+        ?? ''
+    );
+
+
+$cartHash =
+    shop_checkout_cart_hash(
+        $cart
+    );
+
+
+/* =========================================================
+   LOAD CART SHIPPING DATA
+   ========================================================= */
+
+function shop_checkout_cart_rows(
+    PDO $db,
+    array $cart
+): array {
+
+    if (
+        !$cart
+    ) {
+
+        return [];
+    }
+
+
+    $ids =
+        array_values(
+            array_filter(
+                array_map(
+                    'intval',
+                    array_keys(
+                        $cart
+                    )
+                ),
+                static fn (
+                    int $id
+                ): bool =>
+                    $id > 0
+            )
+        );
+
+
+    if (
+        !$ids
+    ) {
+
+        return [];
+    }
+
+
+    $placeholders =
+        implode(
+            ',',
+            array_fill(
+                0,
+                count(
+                    $ids
+                ),
+                '?'
+            )
+        );
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                v.*,
+
+                p.name AS product_name,
+                p.slug AS product_slug,
+                p.primary_image_url,
+                p.requires_shipping,
+                p.status AS product_status
+
+            FROM shop_product_variants v
+
+            INNER JOIN shop_products p
+              ON p.id = v.product_id
+
+            WHERE v.id IN (
+                '
+                .
+                $placeholders
+                .
+                '
+            )
+            '
+        );
+
+
+    $stmt->execute(
+        $ids
+    );
+
+
+    $rows =
+        $stmt->fetchAll(
+            PDO::FETCH_ASSOC
+        );
+
+
+    $byId =
+        [];
+
+
+    foreach (
+        $rows
+        as
+        $row
+    ) {
+
+        $byId[
+            (int)
+            $row[
+                'id'
+            ]
+        ] =
+            $row;
+    }
+
+
+    $result =
+        [];
+
+
+    foreach (
+        $cart
+        as
+        $variantId =>
+        $quantity
+    ) {
+
+        $variantId =
+            (int)
+            $variantId;
+
+
+        if (
+            !isset(
+                $byId[
+                    $variantId
+                ]
+            )
+        ) {
+
+            throw new RuntimeException(
+                'One of the cart items no longer exists.'
+            );
+        }
+
+
+        $row =
+            $byId[
+                $variantId
+            ];
+
+
+        if (
+            (string)
+            $row[
+                'product_status'
+            ]
+            !==
+            LLAMA_SHOP_PRODUCT_ACTIVE
+            ||
+            !(bool)
+            $row[
+                'is_active'
+            ]
+        ) {
+
+            throw new RuntimeException(
+                'One of the cart items is no longer available.'
+            );
+        }
+
+
+        $row[
+            'cart_quantity'
+        ] =
+            max(
+                1,
+                (int)
+                $quantity
+            );
+
+
+        $row[
+            'shipping_profile'
+        ] =
+            llama_shipping_profile(
+                $db,
+                $variantId
+            )
+            ??
+            llama_shipping_default_profile(
+                $row
+            );
+
+
+        $result[] =
+            $row;
+    }
+
+
+    return
+        $result;
+}
+
+
+/* =========================================================
+   BUILD SHIPPING QUOTES
+   ========================================================= */
+
+function shop_checkout_shipping_quotes(
+    array $rows,
+    string $destinationZip
+): array {
+
+    $flatCents =
+        0;
+
+
+    $handlingCents =
+        0;
+
+
+    $liveGroups =
+        [];
+
+
+    foreach (
+        $rows
+        as
+        $row
+    ) {
+
+        if (
+            !(bool)
+            $row[
+                'requires_shipping'
+            ]
+        ) {
+
+            continue;
+        }
+
+
+        $profile =
+            $row[
+                'shipping_profile'
+            ];
+
+
+        $strategy =
+            (string)
+            $profile[
+                'shipping_strategy'
+            ];
+
+
+        $quantity =
+            max(
+                1,
+                (int)
+                $row[
+                    'cart_quantity'
+                ]
+            );
+
+
+        $handlingCents +=
+            max(
+                0,
+                (int) (
+                    $profile[
+                        'handling_cents'
+                    ]
+                    ?? 0
+                )
+            );
+
+
+        if (
+            $strategy ===
+            LLAMA_SHIPPING_FREE
+        ) {
+
+            continue;
+        }
+
+
+        if (
+            $strategy ===
+            LLAMA_SHIPPING_FLAT_RATE
+        ) {
+
+            $flatCents +=
+                max(
+                    0,
+                    (int) (
+                        $profile[
+                            'flat_rate_cents'
+                        ]
+                        ?? 0
+                    )
+                );
+
+
+            continue;
+        }
+
+
+        if (
+            $strategy ===
+            LLAMA_SHIPPING_PROVIDER_MANAGED
+        ) {
+
+            throw new RuntimeException(
+                $row[
+                    'product_name'
+                ]
+                .
+                ' uses provider-managed shipping. '
+                .
+                'Its fulfillment provider shipping API still needs to be connected before checkout can calculate an accurate rate.'
+            );
+        }
+
+
+        if (
+            $strategy !==
+            LLAMA_SHIPPING_LIVE_RATES
+        ) {
+
+            throw new RuntimeException(
+                'A shipping method is not configured correctly for '
+                .
+                $row[
+                    'product_name'
+                ]
+                .
+                '.'
+            );
+        }
+
+
+        $carrier =
+            strtolower(
+                trim(
+                    (string) (
+                        $profile[
+                            'carrier'
+                        ]
+                        ?? ''
+                    )
+                )
+            );
+
+
+        if (
+            $carrier === ''
+        ) {
+
+            throw new RuntimeException(
+                'A live-rate carrier is missing for '
+                .
+                $row[
+                    'product_name'
+                ]
+                .
+                '.'
+            );
+        }
+
+
+        $originKey =
+            trim(
+                (string) (
+                    $profile[
+                        'origin_key'
+                    ]
+                    ?? 'default'
+                )
+            );
+
+
+        $separate =
+            !empty(
+                $profile[
+                    'ships_separately'
+                ]
+            );
+
+
+        $groupKey =
+            $separate
+                ? $carrier
+                  .
+                  '|'
+                  .
+                  $originKey
+                  .
+                  '|variant-'
+                  .
+                  (int)
+                  $row[
+                      'id'
+                ]
+                : $carrier
+                  .
+                  '|'
+                  .
+                  $originKey;
+
+
+        if (
+            !isset(
+                $liveGroups[
+                    $groupKey
+                ]
+            )
+        ) {
+
+            $liveGroups[
+                $groupKey
+            ] = [
+
+                'carrier' =>
+                    $carrier,
+
+                'origin_key' =>
+                    $originKey,
+
+                'weight_oz' =>
+                    0.0,
+
+                'length_in' =>
+                    null,
+
+                'width_in' =>
+                    null,
+
+                'height_in' =>
+                    null,
+
+                'girth_in' =>
+                    null,
+
+                'preferred_service' =>
+                    trim(
+                        (string) (
+                            $profile[
+                                'preferred_service'
+                            ]
+                            ?? ''
+                        )
+                    ),
+
+            ];
+        }
+
+
+        $weight =
+            (float) (
+                $profile[
+                    'weight_oz'
+                ]
+                ?? 0
+            );
+
+
+        if (
+            $weight <= 0
+        ) {
+
+            throw new RuntimeException(
+                'Package weight is missing for '
+                .
+                $row[
+                    'product_name'
+                ]
+                .
+                '.'
+            );
+        }
+
+
+        $liveGroups[
+            $groupKey
+        ][
+            'weight_oz'
+        ] +=
+            $weight
+            *
+            $quantity;
+
+
+        foreach (
+            [
+                'length_in',
+                'width_in',
+                'height_in',
+                'girth_in',
+            ]
+            as
+            $dimension
+        ) {
+
+            $value =
+                $profile[
+                    $dimension
+                ]
+                ?? null;
+
+
+            if (
+                $value === null
+                ||
+                $value === ''
+            ) {
+
+                continue;
+            }
+
+
+            $value =
+                (float)
+                $value;
+
+
+            if (
+                $value <= 0
+            ) {
+
+                continue;
+            }
+
+
+            $current =
+                $liveGroups[
+                    $groupKey
+                ][
+                    $dimension
+                ];
+
+
+            $liveGroups[
+                $groupKey
+            ][
+                $dimension
+            ] =
+                $current === null
+                    ? $value
+                    : max(
+                        (float)
+                        $current,
+                        $value
+                    );
+        }
+    }
+
+
+    /*
+     * Nothing needs a live carrier lookup.
+     */
+
+    if (
+        !$liveGroups
+    ) {
+
+        $total =
+            $flatCents
+            +
+            $handlingCents;
+
+
+        return [[
+
+            'key' =>
+                'fixed',
+
+            'name' =>
+                $total > 0
+                    ? 'Standard Shipping'
+                    : 'Free Shipping',
+
+            'amount_cents' =>
+                $total,
+
+            'carrier' =>
+                null,
+
+            'service_code' =>
+                null,
+
+            'delivery_days' =>
+                null,
+
+            'delivery_date' =>
+                null,
+
+        ]];
+    }
+
+
+    $groupRates =
+        [];
+
+
+    foreach (
+        $liveGroups
+        as
+        $groupKey =>
+        $group
+    ) {
+
+        $origin =
+            llama_shipping_origin(
+                $group[
+                    'origin_key'
+                ]
+            );
+
+
+        $originZip =
+            shop_checkout_zip(
+                $origin[
+                    'postal_code'
+                ]
+                ?? ''
+            );
+
+
+        if (
+            $originZip === ''
+        ) {
+
+            throw new RuntimeException(
+                'The shipping origin ZIP Code is not configured.'
+            );
+        }
+
+
+        $rates =
+            llama_shipping_live_rates(
+
+                $group[
+                    'carrier'
+                ],
+
+                [
+
+                    'origin_postal_code' =>
+                        $originZip,
+
+                    'destination_postal_code' =>
+                        $destinationZip,
+
+                    'weight_oz' =>
+                        $group[
+                            'weight_oz'
+                        ],
+
+                    'length_in' =>
+                        $group[
+                            'length_in'
+                        ],
+
+                    'width_in' =>
+                        $group[
+                            'width_in'
+                        ],
+
+                    'height_in' =>
+                        $group[
+                            'height_in'
+                        ],
+
+                    'girth_in' =>
+                        $group[
+                            'girth_in'
+                        ],
+
+                ]
+            );
+
+
+        $preferred =
+            $group[
+                'preferred_service'
+            ];
+
+
+        if (
+            $preferred !== ''
+        ) {
+
+            $filtered =
+                array_values(
+                    array_filter(
+                        $rates,
+                        static function (
+                            array $rate
+                        ) use (
+                            $preferred
+                        ): bool {
+
+                            return
+                                stripos(
+                                    (string) (
+                                        $rate[
+                                            'service_code'
+                                        ]
+                                        ?? ''
+                                    ),
+                                    $preferred
+                                )
+                                !==
+                                false
+                                ||
+                                stripos(
+                                    (string) (
+                                        $rate[
+                                            'service_name'
+                                        ]
+                                        ?? ''
+                                    ),
+                                    $preferred
+                                )
+                                !==
+                                false;
+                        }
+                    )
+                );
+
+
+            if (
+                $filtered
+            ) {
+
+                $rates =
+                    $filtered;
+            }
+        }
+
+
+        if (
+            !$rates
+        ) {
+
+            throw new RuntimeException(
+                'No shipping services are available for this destination.'
+            );
+        }
+
+
+        $groupRates[
+            $groupKey
+        ] =
+            $rates;
+    }
+
+
+    /*
+     * Normal case: one combined in-house package.
+     * Show all USPS/other-carrier choices.
+     */
+
+    if (
+        count(
+            $groupRates
+        )
+        ===
+        1
+    ) {
+
+        $rates =
+            reset(
+                $groupRates
+            );
+
+
+        $quotes =
+            [];
+
+
+        foreach (
+            $rates
+            as
+            $rate
+        ) {
+
+            $amount =
+                (int)
+                $rate[
+                    'amount_cents'
+                ]
+                +
+                $flatCents
+                +
+                $handlingCents;
+
+
+            $quotes[] = [
+
+                'key' =>
+                    strtolower(
+                        (string)
+                        $rate[
+                            'carrier'
+                        ]
+                    )
+                    .
+                    ':'
+                    .
+                    (string)
+                    $rate[
+                        'service_code'
+                    ],
+
+                'name' =>
+                    (string)
+                    $rate[
+                        'service_name'
+                    ],
+
+                'amount_cents' =>
+                    $amount,
+
+                'carrier' =>
+                    (string)
+                    $rate[
+                        'carrier'
+                    ],
+
+                'service_code' =>
+                    (string)
+                    $rate[
+                        'service_code'
+                    ],
+
+                'delivery_days' =>
+                    $rate[
+                        'delivery_days'
+                    ]
+                    ?? null,
+
+                'delivery_date' =>
+                    $rate[
+                        'delivery_date'
+                    ]
+                    ?? null,
+
+            ];
+        }
+
+
+        return
+            $quotes;
+    }
+
+
+    /*
+     * Multiple packages/carriers:
+     * choose the cheapest valid service for each package and
+     * combine them into one checkout shipping amount.
+     *
+     * Later we can expose multi-package service selection.
+     */
+
+    $combined =
+        $flatCents
+        +
+        $handlingCents;
+
+
+    $parts =
+        [];
+
+
+    foreach (
+        $groupRates
+        as
+        $rates
+    ) {
+
+        usort(
+            $rates,
+            static fn (
+                array $a,
+                array $b
+            ): int =>
+                (int)
+                $a[
+                    'amount_cents'
+                ]
+                <=>
+                (int)
+                $b[
+                    'amount_cents'
+                ]
+        );
+
+
+        $best =
+            $rates[
+                0
+            ];
+
+
+        $combined +=
+            (int)
+            $best[
+                'amount_cents'
+            ];
+
+
+        $parts[] =
+            (string)
+            $best[
+                'service_name'
+            ];
+    }
+
+
+    return [[
+
+        'key' =>
+            'combined-best-rate',
+
+        'name' =>
+            'Best Available Shipping',
+
+        'amount_cents' =>
+            $combined,
+
+        'carrier' =>
+            'multiple',
+
+        'service_code' =>
+            implode(
+                ' + ',
+                $parts
+            ),
+
+        'delivery_days' =>
+            null,
+
+        'delivery_date' =>
+            null,
+
+    ]];
+}
+
+
+/* =========================================================
+   PAGE STATE
    ========================================================= */
 
 $checkoutError =
     '';
 
+
+$shippingZip =
+    shop_checkout_zip(
+        $_POST[
+            'shipping_zip'
+        ]
+        ??
+        $_SESSION[
+            'shop_checkout_prepare'
+        ][
+            'shipping_zip'
+        ]
+        ??
+        ''
+    );
+
+
+$shippingQuotes =
+    [];
+
+
+$requiresShipping =
+    false;
+
+
+$cartRows =
+    [];
+
+
+/* =========================================================
+   LOAD CART
+   ========================================================= */
+
+if (
+    $cart
+) {
+
+    try {
+
+        $cartRows =
+            shop_checkout_cart_rows(
+                $db,
+                $cart
+            );
+
+
+        foreach (
+            $cartRows
+            as
+            $row
+        ) {
+
+            if (
+                (bool)
+                $row[
+                    'requires_shipping'
+                ]
+            ) {
+
+                $requiresShipping =
+                    true;
+
+                break;
+            }
+        }
+
+
+    } catch (
+        Throwable $exception
+    ) {
+
+        $checkoutError =
+            $exception
+                ->getMessage();
+    }
+}
+
+
+/* =========================================================
+   POST ACTIONS
+   ========================================================= */
 
 if (
     $_SERVER[
@@ -180,6 +1336,8 @@ if (
     ]
     ===
     'POST'
+    &&
+    $checkoutError === ''
 ) {
 
     try {
@@ -222,355 +1380,595 @@ if (
         }
 
 
-        $userId =
-            $user
-                ? (int)
-                  $user[
-                      'id'
-                  ]
-                : null;
-
-
-        /* =================================================
-           CREATE INTERNAL ORDER + RESERVE INVENTORY
-           ================================================= */
-
-        $order =
-            llama_shop_create_pending_order(
-                $db,
-                $cart,
-                $userId
-            );
-
-
-        $orderId =
-            (int)
-            $order[
-                'id'
-            ];
-
-
-        $orderItems =
-            llama_shop_order_items(
-                $db,
-                $orderId
-            );
-
-
-        if (
-            !$orderItems
-        ) {
-
-            throw new RuntimeException(
-                'The order contains no items.'
-            );
-        }
-
-
-        /* =================================================
-           STRIPE CONFIG
-           ================================================= */
-
-        $stripeConfig =
-            llama_stripe_config();
-
-
-        $publishableKey =
+        $action =
             trim(
                 (string) (
-                    $stripeConfig[
-                        'publishable_key'
+                    $_POST[
+                        'action'
                     ]
-                    ??
-                    $stripeConfig[
-                        'public_key'
-                    ]
-                    ??
-                    ''
+                    ?? 'begin'
                 )
             );
 
 
-        if (
-            $publishableKey === ''
-        ) {
-
-            throw new RuntimeException(
-                'Stripe publishable key is missing.'
-            );
-        }
-
-
-        $stripe =
-            llama_stripe_client();
-
-
         /* =================================================
-           LINE ITEMS
-
-           DB snapshots are authoritative.
-
-           Stripe Price objects are not required for store
-           merchandise. We send current immutable order prices
-           directly through price_data.
+           BEGIN
            ================================================= */
 
-        $lineItems =
-            [];
-
-
-        $requiresShipping =
-            false;
-
-
-        foreach (
-            $orderItems
-            as
-            $item
+        if (
+            $action ===
+            'begin'
         ) {
 
-            $productData = [
+            $_SESSION[
+                'shop_checkout_prepare'
+            ] = [
 
-                'name' =>
-                    $item[
-                        'product_name'
-                    ]
-                    .
-                    (
-                        trim(
-                            (string)
-                            $item[
-                                'variant_name'
-                            ]
-                        )
-                        !==
-                        ''
-                            ? ' - '
-                              .
-                              $item[
-                                  'variant_name'
-                              ]
-                            : ''
-                    ),
+                'cart_hash' =>
+                    $cartHash,
 
-                'metadata' => [
+                'started_at' =>
+                    time(),
 
-                    'llama_order_item_id' =>
-                        (string)
-                        $item[
-                            'id'
-                        ],
-
-                    'llama_product_id' =>
-                        (string) (
-                            $item[
-                                'product_id'
-                            ]
-                            ?? ''
-                        ),
-
-                    'llama_variant_id' =>
-                        (string) (
-                            $item[
-                                'variant_id'
-                            ]
-                            ?? ''
-                        ),
-
-                    'sku' =>
-                        (string)
-                        $item[
-                            'sku'
-                        ],
-
-                ],
+                'shipping_zip' =>
+                    '',
 
             ];
 
 
-            $imageUrl =
-                trim(
-                    (string) (
-                        $item[
-                            'image_url'
+            if (
+                !$requiresShipping
+            ) {
+
+                $action =
+                    'create_checkout';
+
+            } else {
+
+                header(
+                    'Location: /checkout.php?shipping=1'
+                );
+
+                exit;
+            }
+        }
+
+
+        /* =================================================
+           QUOTE SHIPPING
+           ================================================= */
+
+        if (
+            $action ===
+            'quote_shipping'
+        ) {
+
+            if (
+                $shippingZip === ''
+            ) {
+
+                throw new InvalidArgumentException(
+                    'Enter a valid 5-digit shipping ZIP Code.'
+                );
+            }
+
+
+            $prepare =
+                $_SESSION[
+                    'shop_checkout_prepare'
+                ]
+                ?? [];
+
+
+            if (
+                (
+                    $prepare[
+                        'cart_hash'
+                    ]
+                    ?? ''
+                )
+                !==
+                $cartHash
+            ) {
+
+                throw new RuntimeException(
+                    'Your cart changed. Return to the cart and start checkout again.'
+                );
+            }
+
+
+            $shippingQuotes =
+                shop_checkout_shipping_quotes(
+                    $cartRows,
+                    $shippingZip
+                );
+
+
+            $_SESSION[
+                'shop_checkout_prepare'
+            ][
+                'shipping_zip'
+            ] =
+                $shippingZip;
+
+
+            $_SESSION[
+                'shop_checkout_prepare'
+            ][
+                'quotes'
+            ] =
+                $shippingQuotes;
+        }
+
+
+        /* =================================================
+           CREATE STRIPE CHECKOUT
+           ================================================= */
+
+        if (
+            $action ===
+            'create_checkout'
+        ) {
+
+            $prepare =
+                $_SESSION[
+                    'shop_checkout_prepare'
+                ]
+                ?? [];
+
+
+            if (
+                $requiresShipping
+            ) {
+
+                if (
+                    (
+                        $prepare[
+                            'cart_hash'
                         ]
                         ?? ''
+                    )
+                    !==
+                    $cartHash
+                ) {
+
+                    throw new RuntimeException(
+                        'Your cart changed. Return to the cart and start checkout again.'
+                    );
+                }
+
+
+                $shippingZip =
+                    shop_checkout_zip(
+                        $prepare[
+                            'shipping_zip'
+                        ]
+                        ?? ''
+                    );
+
+
+                if (
+                    $shippingZip === ''
+                ) {
+
+                    throw new RuntimeException(
+                        'A shipping ZIP Code is required.'
+                    );
+                }
+
+
+                /*
+                 * Recalculate rates instead of trusting anything
+                 * sent by the browser.
+                 */
+
+                $shippingQuotes =
+                    shop_checkout_shipping_quotes(
+                        $cartRows,
+                        $shippingZip
+                    );
+
+
+                $selectedKey =
+                    trim(
+                        (string) (
+                            $_POST[
+                                'shipping_rate'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                $selectedQuote =
+                    null;
+
+
+                foreach (
+                    $shippingQuotes
+                    as
+                    $quote
+                ) {
+
+                    if (
+                        hash_equals(
+                            (string)
+                            $quote[
+                                'key'
+                            ],
+                            $selectedKey
+                        )
+                    ) {
+
+                        $selectedQuote =
+                            $quote;
+
+                        break;
+                    }
+                }
+
+
+                if (
+                    !$selectedQuote
+                ) {
+
+                    throw new InvalidArgumentException(
+                        'Choose a valid shipping option.'
+                    );
+                }
+
+            } else {
+
+                $selectedQuote = [
+
+                    'key' =>
+                        'no-shipping',
+
+                    'name' =>
+                        'No Shipping Required',
+
+                    'amount_cents' =>
+                        0,
+
+                    'carrier' =>
+                        null,
+
+                    'service_code' =>
+                        null,
+
+                    'delivery_days' =>
+                        null,
+
+                    'delivery_date' =>
+                        null,
+
+                ];
+            }
+
+
+            $userId =
+                $user
+                    ? (int)
+                      $user[
+                          'id'
+                      ]
+                    : null;
+
+
+            /* =============================================
+               INTERNAL ORDER + INVENTORY RESERVATION
+               ============================================= */
+
+            $order =
+                llama_shop_create_pending_order(
+                    $db,
+                    $cart,
+                    $userId
+                );
+
+
+            $orderId =
+                (int)
+                $order[
+                    'id'
+                ];
+
+
+            $orderItems =
+                llama_shop_order_items(
+                    $db,
+                    $orderId
+                );
+
+
+            if (
+                !$orderItems
+            ) {
+
+                throw new RuntimeException(
+                    'The order contains no items.'
+                );
+            }
+
+
+            /* =============================================
+               STRIPE
+               ============================================= */
+
+            $stripeConfig =
+                llama_stripe_config();
+
+
+            $publishableKey =
+                trim(
+                    (string) (
+                        $stripeConfig[
+                            'publishable_key'
+                        ]
+                        ??
+                        $stripeConfig[
+                            'public_key'
+                        ]
+                        ??
+                        ''
                     )
                 );
 
 
             if (
-                $imageUrl !== ''
-                &&
-                filter_var(
-                    $imageUrl,
-                    FILTER_VALIDATE_URL
-                )
+                $publishableKey === ''
             ) {
 
-                $productData[
-                    'images'
-                ] = [
-                    $imageUrl
+                throw new RuntimeException(
+                    'Stripe publishable key is missing.'
+                );
+            }
+
+
+            $stripe =
+                llama_stripe_client();
+
+
+            $lineItems =
+                [];
+
+
+            foreach (
+                $orderItems
+                as
+                $item
+            ) {
+
+                $productData = [
+
+                    'name' =>
+                        $item[
+                            'product_name'
+                        ]
+                        .
+                        (
+                            trim(
+                                (string)
+                                $item[
+                                    'variant_name'
+                                ]
+                            )
+                            !==
+                            ''
+                                ? ' - '
+                                  .
+                                  $item[
+                                      'variant_name'
+                                  ]
+                                : ''
+                        ),
+
+                    'metadata' => [
+
+                        'llama_order_item_id' =>
+                            (string)
+                            $item[
+                                'id'
+                            ],
+
+                        'llama_product_id' =>
+                            (string) (
+                                $item[
+                                    'product_id'
+                                ]
+                                ?? ''
+                            ),
+
+                        'llama_variant_id' =>
+                            (string) (
+                                $item[
+                                    'variant_id'
+                                ]
+                                ?? ''
+                            ),
+
+                        'sku' =>
+                            (string)
+                            $item[
+                                'sku'
+                            ],
+
+                    ],
+
+                ];
+
+
+                $imageUrl =
+                    trim(
+                        (string) (
+                            $item[
+                                'image_url'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                if (
+                    $imageUrl !== ''
+                ) {
+
+                    if (
+                        str_starts_with(
+                            $imageUrl,
+                            '/'
+                        )
+                    ) {
+
+                        $imageUrl =
+                            'https://llamascout.com'
+                            .
+                            $imageUrl;
+                    }
+
+
+                    if (
+                        filter_var(
+                            $imageUrl,
+                            FILTER_VALIDATE_URL
+                        )
+                    ) {
+
+                        $productData[
+                            'images'
+                        ] = [
+                            $imageUrl
+                        ];
+                    }
+                }
+
+
+                $lineItems[] = [
+
+                    'price_data' => [
+
+                        'currency' =>
+                            strtolower(
+                                (string)
+                                $item[
+                                    'currency'
+                                ]
+                            ),
+
+                        'unit_amount' =>
+                            (int)
+                            $item[
+                                'unit_price_cents'
+                            ],
+
+                        'product_data' =>
+                            $productData,
+
+                    ],
+
+                    'quantity' =>
+                        (int)
+                        $item[
+                            'quantity'
+                        ],
+
                 ];
             }
 
 
-            $lineItems[] = [
+            $metadata = [
 
-                'price_data' => [
+                'llama_shop_order_id' =>
+                    (string)
+                    $orderId,
 
-                    'currency' =>
-                        strtolower(
-                            (string)
-                            $item[
-                                'currency'
-                            ]
-                        ),
-
-                    'unit_amount' =>
-                        (int)
-                        $item[
-                            'unit_price_cents'
-                        ],
-
-                    'product_data' =>
-                        $productData,
-
-                ],
-
-                'quantity' =>
-                    (int)
-                    $item[
-                        'quantity'
+                'llama_shop_order_number' =>
+                    (string)
+                    $order[
+                        'order_number'
                     ],
+
+                'shipping_rate_key' =>
+                    (string)
+                    $selectedQuote[
+                        'key'
+                    ],
+
+                'shipping_carrier' =>
+                    (string) (
+                        $selectedQuote[
+                            'carrier'
+                        ]
+                        ?? ''
+                    ),
+
+                'shipping_service' =>
+                    (string) (
+                        $selectedQuote[
+                            'service_code'
+                        ]
+                        ?? ''
+                    ),
 
             ];
 
 
             if (
-                (bool)
-                $item[
-                    'requires_shipping'
-                ]
+                $userId !== null
             ) {
 
-                $requiresShipping =
-                    true;
+                $metadata[
+                    'llama_user_id'
+                ] =
+                    (string)
+                    $userId;
             }
-        }
 
 
-        /* =================================================
-           STRIPE SESSION
-           ================================================= */
+            $sessionData = [
 
-        $metadata = [
+                'mode' =>
+                    'payment',
 
-            'llama_shop_order_id' =>
-                (string)
-                $orderId,
+                'ui_mode' =>
+                    'embedded_page',
 
-            'llama_shop_order_number' =>
-                (string)
-                $order[
-                    'order_number'
-                ],
-
-        ];
-
-
-        if (
-            $userId !== null
-        ) {
-
-            $metadata[
-                'llama_user_id'
-            ] =
-                (string)
-                $userId;
-        }
-
-
-        $sessionData = [
-
-            'mode' =>
-                'payment',
-
-            'ui_mode' =>
-                'embedded_page',
-
-            'line_items' =>
-                $lineItems,
-
-            'metadata' =>
-                $metadata,
-
-            'payment_intent_data' => [
+                'line_items' =>
+                    $lineItems,
 
                 'metadata' =>
                     $metadata,
 
-            ],
+                'payment_intent_data' => [
 
-            'phone_number_collection' => [
+                    'metadata' =>
+                        $metadata,
 
-                'enabled' =>
-                    true,
+                ],
 
-            ],
+                'phone_number_collection' => [
 
-            'return_url' =>
-                'https://llamascout.com/order.php?checkout=return&session_id={CHECKOUT_SESSION_ID}',
+                    'enabled' =>
+                        true,
 
-        ];
+                ],
 
+                'return_url' =>
+                    'https://llamascout.com/order.php?checkout=return&session_id={CHECKOUT_SESSION_ID}',
 
-        /* =================================================
-           CUSTOMER
-
-           Logged-in members can reuse the Stripe customer
-           already attached to their membership account.
-
-           Guest shoppers still get a Stripe customer record.
-           ================================================= */
-
-        $stripeCustomerId =
-            $user
-                ? trim(
-                    (string) (
-                        $user[
-                            'stripe_customer_id'
-                        ]
-                        ?? ''
-                    )
-                )
-                : '';
+            ];
 
 
-        if (
-            $stripeCustomerId !== ''
-        ) {
+            /* =============================================
+               CUSTOMER
+               ============================================= */
 
-            $sessionData[
-                'customer'
-            ] =
-                $stripeCustomerId;
-
-        } else {
-
-            $sessionData[
-                'customer_creation'
-            ] =
-                'always';
-
-
-            $email =
+            $stripeCustomerId =
                 $user
                     ? trim(
                         (string) (
                             $user[
-                                'email'
+                                'stripe_customer_id'
                             ]
                             ?? ''
                         )
@@ -579,261 +1977,331 @@ if (
 
 
             if (
-                $email !== ''
-                &&
-                filter_var(
-                    $email,
-                    FILTER_VALIDATE_EMAIL
+                $stripeCustomerId !== ''
+            ) {
+
+                $sessionData[
+                    'customer'
+                ] =
+                    $stripeCustomerId;
+
+            } else {
+
+                $sessionData[
+                    'customer_creation'
+                ] =
+                    'always';
+
+
+                $email =
+                    $user
+                        ? trim(
+                            (string) (
+                                $user[
+                                    'email'
+                                ]
+                                ?? ''
+                            )
+                        )
+                        : '';
+
+
+                if (
+                    $email !== ''
+                    &&
+                    filter_var(
+                        $email,
+                        FILTER_VALIDATE_EMAIL
+                    )
+                ) {
+
+                    $sessionData[
+                        'customer_email'
+                    ] =
+                        $email;
+                }
+            }
+
+
+            /* =============================================
+               SHIPPING ADDRESS + VERIFIED RATE
+               ============================================= */
+
+            if (
+                $requiresShipping
+            ) {
+
+                $allowedCountries =
+                    $stripeConfig[
+                        'shop_allowed_countries'
+                    ]
+                    ??
+                    [
+                        'US',
+                    ];
+
+
+                if (
+                    !is_array(
+                        $allowedCountries
+                    )
+                    ||
+                    !$allowedCountries
+                ) {
+
+                    $allowedCountries = [
+                        'US',
+                    ];
+                }
+
+
+                $sessionData[
+                    'shipping_address_collection'
+                ] = [
+
+                    'allowed_countries' =>
+                        array_values(
+                            $allowedCountries
+                        ),
+
+                ];
+
+
+                $shippingRateData = [
+
+                    'type' =>
+                        'fixed_amount',
+
+                    'fixed_amount' => [
+
+                        'amount' =>
+                            (int)
+                            $selectedQuote[
+                                'amount_cents'
+                            ],
+
+                        'currency' =>
+                            strtolower(
+                                (string)
+                                $order[
+                                    'currency'
+                                ]
+                            ),
+
+                    ],
+
+                    'display_name' =>
+                        mb_substr(
+                            (string)
+                            $selectedQuote[
+                                'name'
+                            ],
+                            0,
+                            100
+                        ),
+
+                ];
+
+
+                $deliveryDays =
+                    $selectedQuote[
+                        'delivery_days'
+                    ]
+                    ?? null;
+
+
+                if (
+                    is_numeric(
+                        $deliveryDays
+                    )
+                    &&
+                    (int)
+                    $deliveryDays
+                    >
+                    0
+                ) {
+
+                    $days =
+                        max(
+                            1,
+                            (int)
+                            $deliveryDays
+                        );
+
+
+                    $shippingRateData[
+                        'delivery_estimate'
+                    ] = [
+
+                        'minimum' => [
+
+                            'unit' =>
+                                'business_day',
+
+                            'value' =>
+                                $days,
+
+                        ],
+
+                        'maximum' => [
+
+                            'unit' =>
+                                'business_day',
+
+                            'value' =>
+                                $days
+                                +
+                                2,
+
+                        ],
+
+                    ];
+                }
+
+
+                $sessionData[
+                    'shipping_options'
+                ] = [[
+
+                    'shipping_rate_data' =>
+                        $shippingRateData,
+
+                ]];
+            }
+
+
+            /* =============================================
+               TAX
+               ============================================= */
+
+            if (
+                !empty(
+                    $stripeConfig[
+                        'shop_automatic_tax'
+                    ]
                 )
             ) {
 
                 $sessionData[
-                    'customer_email'
-                ] =
-                    $email;
-            }
-        }
+                    'automatic_tax'
+                ] = [
 
+                    'enabled' =>
+                        true,
 
-        /* =================================================
-           SHIPPING
-
-           Countries can be changed later through private
-           Stripe config without touching this checkout page.
-
-           private/stripe.php may define:
-
-           shop_allowed_countries
-           shop_shipping_rate_ids
-           shop_automatic_tax
-           ================================================= */
-
-        if (
-            $requiresShipping
-        ) {
-
-            $allowedCountries =
-                $stripeConfig[
-                    'shop_allowed_countries'
-                ]
-                ??
-                [
-                    'US',
-                ];
-
-
-            if (
-                !is_array(
-                    $allowedCountries
-                )
-                ||
-                !$allowedCountries
-            ) {
-
-                $allowedCountries = [
-                    'US',
                 ];
             }
 
 
-            $sessionData[
-                'shipping_address_collection'
-            ] = [
+            /* =============================================
+               CREATE SESSION
+               ============================================= */
 
-                'allowed_countries' =>
-                    array_values(
-                        $allowedCountries
-                    ),
+            $stripeSession =
+                $stripe
+                    ->checkout
+                    ->sessions
+                    ->create(
+                        $sessionData,
+                        [
 
-            ];
+                            'idempotency_key' =>
+                                'llama-shop-order-'
+                                .
+                                $orderId,
 
-
-            $shippingRateIds =
-                $stripeConfig[
-                    'shop_shipping_rate_ids'
-                ]
-                ??
-                [];
-
-
-            if (
-                !is_array(
-                    $shippingRateIds
-                )
-            ) {
-
-                $shippingRateIds =
-                    [];
-            }
+                        ]
+                    );
 
 
-            $shippingRateIds =
-                array_values(
-                    array_filter(
-                        array_map(
-                            static fn (
-                                mixed $value
-                            ): string =>
-                                trim(
-                                    (string)
-                                    $value
-                                ),
-                            $shippingRateIds
-                        )
+            $stripeSessionId =
+                trim(
+                    (string) (
+                        $stripeSession
+                            ->id
+                        ?? ''
+                    )
+                );
+
+
+            $clientSecret =
+                trim(
+                    (string) (
+                        $stripeSession
+                            ->client_secret
+                        ?? ''
                     )
                 );
 
 
             if (
-                !$shippingRateIds
+                $stripeSessionId === ''
+                ||
+                $clientSecret === ''
             ) {
 
                 throw new RuntimeException(
-                    'Shop shipping rates have not been configured yet.'
+                    'Stripe did not return a complete Embedded Checkout session.'
                 );
             }
 
 
-            $sessionData[
-                'shipping_options'
+            llama_shop_attach_checkout_session(
+
+                $db,
+
+                $orderId,
+
+                $stripeSessionId,
+
+                isset(
+                    $stripeSession
+                        ->expires_at
+                )
+                &&
+                is_numeric(
+                    $stripeSession
+                        ->expires_at
+                )
+                    ? (int)
+                      $stripeSession
+                          ->expires_at
+                    : null
+            );
+
+
+            $_SESSION[
+                'shop_checkout_orders'
+            ][
+                $orderId
             ] =
-                array_map(
-                    static fn (
-                        string $shippingRateId
-                    ): array => [
-
-                        'shipping_rate' =>
-                            $shippingRateId,
-
-                    ],
-                    $shippingRateIds
-                );
-        }
+                true;
 
 
-        /* =================================================
-           STRIPE TAX
+            $_SESSION[
+                'shop_checkout_client_secrets'
+            ][
+                $orderId
+            ] =
+                $clientSecret;
 
-           Optional until enabled in private configuration.
-           ================================================= */
 
-        if (
-            !empty(
-                $stripeConfig[
-                    'shop_automatic_tax'
+            unset(
+                $_SESSION[
+                    'shop_checkout_prepare'
                 ]
-            )
-        ) {
+            );
 
-            $sessionData[
-                'automatic_tax'
-            ] = [
 
-                'enabled' =>
-                    true,
+            header(
+                'Location: /checkout.php?order='
+                .
+                $orderId
+            );
 
-            ];
+
+            exit;
         }
-
-
-        /* =================================================
-           CREATE STRIPE CHECKOUT SESSION
-           ================================================= */
-
-        $stripeSession =
-            $stripe
-                ->checkout
-                ->sessions
-                ->create(
-                    $sessionData,
-                    [
-                        'idempotency_key' =>
-                            'llama-shop-order-'
-                            .
-                            $orderId,
-                    ]
-                );
-
-
-        $stripeSessionId =
-            trim(
-                (string) (
-                    $stripeSession
-                        ->id
-                    ?? ''
-                )
-            );
-
-
-        $clientSecret =
-            trim(
-                (string) (
-                    $stripeSession
-                        ->client_secret
-                    ?? ''
-                )
-            );
-
-
-        if (
-            $stripeSessionId === ''
-            ||
-            $clientSecret === ''
-        ) {
-
-            throw new RuntimeException(
-                'Stripe did not return a complete Embedded Checkout session.'
-            );
-        }
-
-
-        llama_shop_attach_checkout_session(
-
-            $db,
-
-            $orderId,
-
-            $stripeSessionId,
-
-            isset(
-                $stripeSession
-                    ->expires_at
-            )
-            &&
-            is_numeric(
-                $stripeSession
-                    ->expires_at
-            )
-                ? (int)
-                  $stripeSession
-                      ->expires_at
-                : null
-        );
-
-
-        $_SESSION[
-            'shop_checkout_orders'
-        ][
-            $orderId
-        ] =
-            true;
-
-
-        $_SESSION[
-            'shop_checkout_client_secrets'
-        ][
-            $orderId
-        ] =
-            $clientSecret;
-
-
-        header(
-            'Location: /checkout.php?order='
-            .
-            $orderId
-        );
-
-        exit;
 
 
     } catch (
@@ -862,6 +2330,7 @@ if (
 
                     LLAMA_SHOP_PAYMENT_FAILED
                 );
+
 
             } catch (
                 Throwable $cleanupException
@@ -893,7 +2362,7 @@ if (
 
 
 /* =========================================================
-   DISPLAY EXISTING CHECKOUT
+   DISPLAY EXISTING STRIPE CHECKOUT
    ========================================================= */
 
 $orderId =
@@ -908,11 +2377,14 @@ $orderId =
 $order =
     null;
 
+
 $orderItems =
     [];
 
+
 $clientSecret =
     '';
+
 
 $publishableKey =
     '';
@@ -936,6 +2408,7 @@ if (
             403
         );
 
+
         $checkoutError =
             'This checkout does not belong to the current browser session.';
 
@@ -955,6 +2428,7 @@ if (
             http_response_code(
                 404
             );
+
 
             $checkoutError =
                 'Order not found.';
@@ -1073,7 +2547,52 @@ if (
 
 
 /* =========================================================
-   DIRECT GET WITHOUT ORDER
+   SHIPPING PREPARE STATE
+   ========================================================= */
+
+$showShippingStep =
+    isset(
+        $_GET[
+            'shipping'
+        ]
+    )
+    &&
+    $orderId < 1;
+
+
+if (
+    $showShippingStep
+) {
+
+    $prepare =
+        $_SESSION[
+            'shop_checkout_prepare'
+        ]
+        ?? [];
+
+
+    if (
+        (
+            $prepare[
+                'cart_hash'
+            ]
+            ?? ''
+        )
+        !==
+        $cartHash
+    ) {
+
+        header(
+            'Location: /cart.php'
+        );
+
+        exit;
+    }
+}
+
+
+/* =========================================================
+   DIRECT GET WITHOUT STATE
    ========================================================= */
 
 if (
@@ -1084,6 +2603,8 @@ if (
     'POST'
     &&
     $orderId < 1
+    &&
+    !$showShippingStep
 ) {
 
     header(
@@ -1095,25 +2616,61 @@ if (
 
 
 /* =========================================================
-   DISPLAY TOTALS
+   DISPLAY SUBTOTAL
    ========================================================= */
 
-$subtotalCents =
-    $order
-        ? (int)
-          $order[
-              'subtotal_cents'
-          ]
-        : 0;
+$displaySubtotal =
+    0;
 
 
-$currency =
+$displayCurrency =
+    'usd';
+
+
+if (
     $order
-        ? (string)
-          $order[
-              'currency'
-          ]
-        : 'usd';
+) {
+
+    $displaySubtotal =
+        (int)
+        $order[
+            'subtotal_cents'
+        ];
+
+
+    $displayCurrency =
+        (string)
+        $order[
+            'currency'
+        ];
+
+} else {
+
+    foreach (
+        $cartRows
+        as
+        $row
+    ) {
+
+        $displaySubtotal +=
+            (int)
+            $row[
+                'price_cents'
+            ]
+            *
+            (int)
+            $row[
+                'cart_quantity'
+            ];
+
+
+        $displayCurrency =
+            (string)
+            $row[
+                'currency'
+            ];
+    }
+}
 
 
 ?>
@@ -1186,11 +2743,11 @@ $currency =
 
 .shop-checkout-heading h1 {
   margin: 0;
-  font-size: clamp(2.2rem, 5vw, 4rem);
+  font-size: clamp(2.2rem,5vw,4rem);
 }
 
 .shop-checkout-heading p {
-  max-width: 650px;
+  max-width: 670px;
   margin: 12px 0 0;
   line-height: 1.6;
   opacity: .72;
@@ -1203,9 +2760,8 @@ $currency =
   align-items: start;
 }
 
-.shop-checkout-payment {
-  min-height: 420px;
-  padding: 20px;
+.shop-checkout-panel {
+  padding: 22px;
   border: 1px solid var(--border, rgba(127,127,127,.28));
   border-radius: 20px;
   background: var(--surface, rgba(127,127,127,.04));
@@ -1214,14 +2770,6 @@ $currency =
 .shop-checkout-summary {
   position: sticky;
   top: 110px;
-  padding: 22px;
-  border: 1px solid var(--border, rgba(127,127,127,.28));
-  border-radius: 20px;
-  background: var(--surface, rgba(127,127,127,.05));
-}
-
-.shop-checkout-summary h2 {
-  margin: 0 0 18px;
 }
 
 .shop-checkout-item {
@@ -1253,6 +2801,98 @@ $currency =
   font-weight: 850;
 }
 
+.shop-checkout-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.shop-checkout-field label {
+  font-weight: 800;
+}
+
+.shop-checkout-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, rgba(127,127,127,.35));
+  border-radius: 11px;
+  background: var(--background, transparent);
+  color: inherit;
+  font: inherit;
+}
+
+.shop-rate-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.shop-rate {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--border, rgba(127,127,127,.28));
+  border-radius: 13px;
+}
+
+.shop-rate strong,
+.shop-rate small {
+  display: block;
+}
+
+.shop-rate small {
+  margin-top: 3px;
+  opacity: .65;
+}
+
+.shop-rate-price {
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.shop-checkout-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 10px 17px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: currentColor;
+  color: var(--background, #fff);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shop-checkout-button span,
+.shop-checkout-button i {
+  color: var(--background, #fff);
+}
+
+.shop-checkout-button--secondary {
+  background: transparent;
+  color: inherit;
+}
+
+.shop-checkout-button--secondary span,
+.shop-checkout-button--secondary i {
+  color: inherit;
+}
+
+.shop-checkout-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
 .shop-checkout-note {
   margin-top: 14px;
   font-size: .8rem;
@@ -1265,25 +2905,6 @@ $currency =
   border: 1px solid rgba(180,70,70,.55);
   border-radius: 16px;
   background: var(--surface, rgba(127,127,127,.05));
-}
-
-.shop-checkout-error h2 {
-  margin-top: 0;
-}
-
-.shop-checkout-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  margin-top: 16px;
-  padding: 10px 16px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  color: inherit;
-  font-weight: 800;
-  text-decoration: none;
 }
 
 @media (max-width: 850px) {
@@ -1326,24 +2947,45 @@ require_once
     </p>
 
     <h1>
-      Secure Checkout
+
+      <?php if (
+          $order
+      ): ?>
+
+        Secure Checkout
+
+      <?php elseif (
+          $shippingQuotes
+      ): ?>
+
+        Choose Shipping
+
+      <?php else: ?>
+
+        Shipping
+
+      <?php endif; ?>
+
     </h1>
 
-    <?php if (
-        $order
-    ): ?>
+    <p>
 
-      <p>
-        Order
-        <?= shop_checkout_e(
-            $order[
-                'order_number'
-            ]
-        ) ?>.
-        Payment information is handled securely by Stripe.
-      </p>
+      <?php if (
+          $order
+      ): ?>
 
-    <?php endif; ?>
+        Payment information is handled securely
+        by Stripe.
+
+      <?php else: ?>
+
+        Llama Scout calculates shipping from the
+        actual package information attached to
+        the items in your cart.
+
+      <?php endif; ?>
+
+    </p>
 
   </header>
 
@@ -1352,11 +2994,10 @@ require_once
       $checkoutError !== ''
   ): ?>
 
-
     <section class="shop-checkout-error">
 
       <h2>
-        Checkout could not start
+        Checkout could not continue
       </h2>
 
       <p>
@@ -1366,7 +3007,10 @@ require_once
       </p>
 
       <a
-        class="shop-checkout-button"
+        class="
+          shop-checkout-button
+          shop-checkout-button--secondary
+        "
         href="/cart.php"
       >
         Return to Cart
@@ -1387,10 +3031,7 @@ require_once
     <div class="shop-checkout-layout">
 
 
-      <section
-        class="shop-checkout-payment"
-        aria-label="Secure payment"
-      >
+      <section class="shop-checkout-panel">
 
         <div id="checkout">
           Loading secure checkout...
@@ -1399,7 +3040,12 @@ require_once
       </section>
 
 
-      <aside class="shop-checkout-summary">
+      <aside
+        class="
+          shop-checkout-panel
+          shop-checkout-summary
+        "
+      >
 
         <h2>
           Order Summary
@@ -1431,7 +3077,6 @@ require_once
               ) ?>
 
               ×
-
               <?= (int)
                   $item[
                       'quantity'
@@ -1469,24 +3114,400 @@ require_once
           </span>
 
           <span>
-
             <?= shop_checkout_e(
                 shop_checkout_money(
-                    $subtotalCents,
-                    $currency
+                    $displaySubtotal,
+                    $displayCurrency
                 )
             ) ?>
-
           </span>
 
         </div>
 
 
         <p class="shop-checkout-note">
-          Shipping and applicable tax are added
-          by Stripe before payment is completed.
-          Your merchandise inventory is temporarily
-          reserved while this checkout is open.
+          The selected shipping rate and any
+          applicable tax are shown by Stripe
+          before payment is submitted.
+        </p>
+
+      </aside>
+
+
+    </div>
+
+
+  <?php else: ?>
+
+
+    <div class="shop-checkout-layout">
+
+
+      <section class="shop-checkout-panel">
+
+
+        <?php if (
+            !$shippingQuotes
+        ): ?>
+
+
+          <h2>
+            Where is it going?
+          </h2>
+
+          <p>
+            Enter the destination ZIP Code so
+            Llama Scout can request current
+            shipping prices.
+          </p>
+
+
+          <form
+            method="post"
+            action="/checkout.php?shipping=1"
+          >
+
+            <input
+              type="hidden"
+              name="csrf_token"
+              value="<?= shop_checkout_e(
+                  $csrfExpected
+              ) ?>"
+            >
+
+            <input
+              type="hidden"
+              name="action"
+              value="quote_shipping"
+            >
+
+
+            <div class="shop-checkout-field">
+
+              <label for="shipping_zip">
+                Shipping ZIP Code
+              </label>
+
+              <input
+                id="shipping_zip"
+                name="shipping_zip"
+                type="text"
+                inputmode="numeric"
+                autocomplete="postal-code"
+                maxlength="10"
+                value="<?= shop_checkout_e(
+                    $shippingZip
+                ) ?>"
+                placeholder="81301"
+                required
+              >
+
+            </div>
+
+
+            <div class="shop-checkout-actions">
+
+              <button
+                class="shop-checkout-button"
+                type="submit"
+              >
+
+                <i
+                  class="fa-solid fa-truck"
+                  aria-hidden="true"
+                ></i>
+
+                <span>
+                  Get Shipping Rates
+                </span>
+
+              </button>
+
+              <a
+                class="
+                  shop-checkout-button
+                  shop-checkout-button--secondary
+                "
+                href="/cart.php"
+              >
+                Back to Cart
+              </a>
+
+            </div>
+
+          </form>
+
+
+        <?php else: ?>
+
+
+          <h2>
+            Shipping to <?= shop_checkout_e(
+                $shippingZip
+            ) ?>
+          </h2>
+
+          <p>
+            Choose a current shipping option.
+          </p>
+
+
+          <form
+            method="post"
+            action="/checkout.php"
+          >
+
+            <input
+              type="hidden"
+              name="csrf_token"
+              value="<?= shop_checkout_e(
+                  $csrfExpected
+              ) ?>"
+            >
+
+            <input
+              type="hidden"
+              name="action"
+              value="create_checkout"
+            >
+
+
+            <div class="shop-rate-list">
+
+
+              <?php foreach (
+                  $shippingQuotes
+                  as
+                  $index =>
+                  $quote
+              ): ?>
+
+                <label class="shop-rate">
+
+                  <input
+                    type="radio"
+                    name="shipping_rate"
+                    value="<?= shop_checkout_e(
+                        $quote[
+                            'key'
+                        ]
+                    ) ?>"
+                    <?= $index === 0
+                        ? 'checked'
+                        : ''
+                    ?>
+                    required
+                  >
+
+                  <span>
+
+                    <strong>
+                      <?= shop_checkout_e(
+                          $quote[
+                              'name'
+                          ]
+                      ) ?>
+                    </strong>
+
+
+                    <?php if (
+                        !empty(
+                            $quote[
+                                'delivery_date'
+                            ]
+                        )
+                    ): ?>
+
+                      <small>
+                        Estimated delivery
+                        <?= shop_checkout_e(
+                            $quote[
+                                'delivery_date'
+                            ]
+                        ) ?>
+                      </small>
+
+                    <?php elseif (
+                        !empty(
+                            $quote[
+                                'delivery_days'
+                            ]
+                        )
+                    ): ?>
+
+                      <small>
+
+                        About
+                        <?= (int)
+                            $quote[
+                                'delivery_days'
+                            ]
+                        ?>
+                        business days
+
+                      </small>
+
+                    <?php endif; ?>
+
+                  </span>
+
+
+                  <span class="shop-rate-price">
+
+                    <?= shop_checkout_e(
+                        shop_checkout_money(
+                            (int)
+                            $quote[
+                                'amount_cents'
+                            ],
+                            $displayCurrency
+                        )
+                    ) ?>
+
+                  </span>
+
+                </label>
+
+              <?php endforeach; ?>
+
+
+            </div>
+
+
+            <div class="shop-checkout-actions">
+
+              <button
+                class="shop-checkout-button"
+                type="submit"
+              >
+
+                <i
+                  class="fa-solid fa-lock"
+                  aria-hidden="true"
+                ></i>
+
+                <span>
+                  Continue to Payment
+                </span>
+
+              </button>
+
+              <a
+                class="
+                  shop-checkout-button
+                  shop-checkout-button--secondary
+                "
+                href="/checkout.php?shipping=1"
+              >
+                Change ZIP
+              </a>
+
+            </div>
+
+
+          </form>
+
+
+        <?php endif; ?>
+
+
+      </section>
+
+
+      <aside
+        class="
+          shop-checkout-panel
+          shop-checkout-summary
+        "
+      >
+
+        <h2>
+          Cart
+        </h2>
+
+
+        <?php foreach (
+            $cartRows
+            as
+            $row
+        ): ?>
+
+          <div class="shop-checkout-item">
+
+            <strong>
+              <?= shop_checkout_e(
+                  $row[
+                      'product_name'
+                  ]
+              ) ?>
+            </strong>
+
+            <small>
+
+              <?= shop_checkout_e(
+                  $row[
+                      'name'
+                  ]
+              ) ?>
+
+              ×
+              <?= (int)
+                  $row[
+                      'cart_quantity'
+                  ]
+              ?>
+
+            </small>
+
+            <div class="shop-checkout-item-price">
+
+              <?= shop_checkout_e(
+                  shop_checkout_money(
+                      (int)
+                      $row[
+                          'price_cents'
+                      ]
+                      *
+                      (int)
+                      $row[
+                          'cart_quantity'
+                      ],
+                      (string)
+                      $row[
+                          'currency'
+                      ]
+                  )
+              ) ?>
+
+            </div>
+
+          </div>
+
+        <?php endforeach; ?>
+
+
+        <div class="shop-checkout-total">
+
+          <span>
+            Merchandise
+          </span>
+
+          <span>
+            <?= shop_checkout_e(
+                shop_checkout_money(
+                    $displaySubtotal,
+                    $displayCurrency
+                )
+            ) ?>
+          </span>
+
+        </div>
+
+
+        <p class="shop-checkout-note">
+          Final shipping is based on the
+          destination, package configuration,
+          carrier rate, and any handling charge.
         </p>
 
       </aside>
@@ -1575,7 +3596,8 @@ require_once
 
 
     container.textContent =
-      'The secure payment form could not be loaded. Please return to your cart and try again.';
+      'The secure payment form could not be loaded. Return to your cart and try again.';
+
   }
 
 })();
