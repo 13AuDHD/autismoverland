@@ -1542,6 +1542,114 @@ if (
             $orderId =
                 (int) $order['id'];
 
+           /* =============================================
+   SAVE SELECTED SHIPPING QUOTE
+
+   Preserve the exact shipping choice used when
+   the customer entered Stripe Checkout.
+   ============================================= */
+
+$shippingQuoteJson =
+    json_encode(
+        $selectedQuote,
+        JSON_UNESCAPED_SLASHES
+        |
+        JSON_UNESCAPED_UNICODE
+    );
+
+
+if ($shippingQuoteJson === false) {
+
+    throw new RuntimeException(
+        'The selected shipping quote could not be saved.'
+    );
+}
+
+
+$saveShipping =
+    $db->prepare(
+        '
+        UPDATE shop_orders
+
+        SET
+            shipping_cents = ?,
+            shipping_rate_key = ?,
+            shipping_source = ?,
+            shipping_carrier = ?,
+            shipping_service = ?,
+            shipping_quote_zip = ?,
+            shipping_quote_data = ?,
+            shipping_needs_review = 0,
+            shipping_review_reason = NULL
+
+        WHERE id = ?
+
+        LIMIT 1
+        '
+    );
+
+
+$saveShipping->execute([
+
+    max(
+        0,
+        (int) (
+            $selectedQuote[
+                'amount_cents'
+            ]
+            ?? 0
+        )
+    ),
+
+    trim(
+        (string) (
+            $selectedQuote[
+                'key'
+            ]
+            ?? ''
+        )
+    )
+    ?: null,
+
+    trim(
+        (string) (
+            $selectedQuote[
+                'source'
+            ]
+            ?? ''
+        )
+    )
+    ?: null,
+
+    trim(
+        (string) (
+            $selectedQuote[
+                'carrier'
+            ]
+            ?? ''
+        )
+    )
+    ?: null,
+
+    trim(
+        (string) (
+            $selectedQuote[
+                'service_code'
+            ]
+            ?? ''
+        )
+    )
+    ?: null,
+
+    $requiresShipping
+        ? $shippingZip
+        : null,
+
+    $shippingQuoteJson,
+
+    $orderId,
+
+]); 
 
             $orderItems =
                 llama_shop_order_items(
