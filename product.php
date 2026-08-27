@@ -10,6 +10,10 @@ require_once
     __DIR__
     . '/app/shop.php';
 
+require_once
+    __DIR__
+    . '/app/shop-catalog.php';
+
 
 start_llama_session();
 
@@ -154,56 +158,29 @@ function product_variant_max_quantity(
 }
 
 
-function product_variant_label(
+function product_variant_pairs(
     array $variant
-): string {
+): array {
 
-    $parts =
+    $pairs =
         [];
 
 
-    $name =
-        trim(
-            (string) (
-                $variant[
-                    'name'
-                ]
-                ?? ''
-            )
-        );
-
-
-    if (
-        $name !== ''
-    ) {
-
-        $parts[] =
-            $name;
-    }
-
-
-    $options = [
-
-        [
-            'option_one_name',
-            'option_one_value',
-        ],
-
-        [
-            'option_two_name',
-            'option_two_value',
-        ],
-
-        [
-            'option_three_name',
-            'option_three_value',
-        ],
-
-    ];
-
-
     foreach (
-        $options
+        [
+            [
+                'option_one_name',
+                'option_one_value',
+            ],
+            [
+                'option_two_name',
+                'option_two_value',
+            ],
+            [
+                'option_three_name',
+                'option_three_value',
+            ],
+        ]
         as
         [
             $nameKey,
@@ -211,7 +188,7 @@ function product_variant_label(
         ]
     ) {
 
-        $optionName =
+        $name =
             trim(
                 (string) (
                     $variant[
@@ -222,7 +199,7 @@ function product_variant_label(
             );
 
 
-        $optionValue =
+        $value =
             trim(
                 (string) (
                     $variant[
@@ -234,34 +211,69 @@ function product_variant_label(
 
 
         if (
-            $optionName !== ''
+            $name !== ''
             &&
-            $optionValue !== ''
+            $value !== ''
         ) {
 
-            $parts[] =
-                $optionName
-                .
-                ': '
-                .
-                $optionValue;
+            $pairs[] = [
+
+                'name' =>
+                    $name,
+
+                'value' =>
+                    $value,
+
+            ];
         }
     }
 
 
+    return
+        $pairs;
+}
+
+
+function product_variant_label(
+    array $variant
+): string {
+
+    $pairs =
+        product_variant_pairs(
+            $variant
+        );
+
+
     if (
-        !$parts
+        !$pairs
     ) {
 
         return
-            'Standard';
+            trim(
+                (string) (
+                    $variant[
+                        'name'
+                    ]
+                    ?? 'Standard'
+                )
+            )
+            ?: 'Standard';
     }
 
 
     return
         implode(
-            ' · ',
-            $parts
+            ' / ',
+            array_map(
+                static fn (
+                    array $pair
+                ): string =>
+                    (string)
+                    $pair[
+                        'value'
+                    ],
+                $pairs
+            )
         );
 }
 
@@ -318,7 +330,7 @@ $csrfToken =
 
 
 /* =========================================================
-   PRODUCT SLUG
+   PRODUCT
    ========================================================= */
 
 $slug =
@@ -350,10 +362,6 @@ if (
     );
 }
 
-
-/* =========================================================
-   LOAD PRODUCT
-   ========================================================= */
 
 $productStmt =
     $db->prepare(
@@ -403,7 +411,7 @@ $productId =
 
 
 /* =========================================================
-   LOAD ACTIVE VARIANTS
+   VARIANTS
    ========================================================= */
 
 $variantStmt =
@@ -448,10 +456,6 @@ if (
 }
 
 
-/* =========================================================
-   VARIANT LOOKUP
-   ========================================================= */
-
 $variantsById =
     [];
 
@@ -469,6 +473,252 @@ foreach (
         ]
     ] =
         $variant;
+}
+
+
+/* =========================================================
+   OPTIONS
+   ========================================================= */
+
+$productOptions =
+    [];
+
+
+if (
+    llama_shop_table_exists(
+        $db,
+        'shop_product_options'
+    )
+) {
+
+    $storedOptions =
+        llama_shop_product_options(
+            $db,
+            $productId
+        );
+
+
+    foreach (
+        $storedOptions
+        as
+        $option
+    ) {
+
+        $values =
+            [];
+
+
+        foreach (
+            $option[
+                'values'
+            ]
+            ??
+            []
+            as
+            $valueRow
+        ) {
+
+            $value =
+                trim(
+                    (string) (
+                        $valueRow[
+                            'option_value'
+                        ]
+                        ?? ''
+                    )
+                );
+
+
+            if (
+                $value !== ''
+            ) {
+
+                $values[] =
+                    $value;
+            }
+        }
+
+
+        if (
+            $values
+        ) {
+
+            $productOptions[] = [
+
+                'name' =>
+                    (string)
+                    $option[
+                        'option_name'
+                    ],
+
+                'values' =>
+                    $values,
+
+            ];
+        }
+    }
+}
+
+
+/*
+ * Backward-compatible option discovery in case variants exist
+ * before product-level option definitions were created.
+ */
+
+if (
+    !$productOptions
+) {
+
+    $discovered =
+        [];
+
+
+    foreach (
+        $variants
+        as
+        $variant
+    ) {
+
+        foreach (
+            product_variant_pairs(
+                $variant
+            )
+            as
+            $pair
+        ) {
+
+            $name =
+                $pair[
+                    'name'
+                ];
+
+
+            $value =
+                $pair[
+                    'value'
+                ];
+
+
+            if (
+                !isset(
+                    $discovered[
+                        $name
+                    ]
+                )
+            ) {
+
+                $discovered[
+                    $name
+                ] =
+                    [];
+            }
+
+
+            if (
+                !in_array(
+                    $value,
+                    $discovered[
+                        $name
+                    ],
+                    true
+                )
+            ) {
+
+                $discovered[
+                    $name
+                ][] =
+                    $value;
+            }
+        }
+    }
+
+
+    foreach (
+        $discovered
+        as
+        $name =>
+        $values
+    ) {
+
+        $productOptions[] = [
+
+            'name' =>
+                $name,
+
+            'values' =>
+                $values,
+
+        ];
+    }
+}
+
+
+/* =========================================================
+   PRODUCT GALLERY
+   ========================================================= */
+
+$productImages =
+    [];
+
+
+if (
+    llama_shop_table_exists(
+        $db,
+        'shop_product_images'
+    )
+) {
+
+    $productImages =
+        llama_shop_product_images(
+            $db,
+            $productId
+        );
+}
+
+
+/*
+ * Backward compatibility for products still using only
+ * primary_image_url.
+ */
+
+if (
+    !$productImages
+    &&
+    !empty(
+        $product[
+            'primary_image_url'
+        ]
+    )
+) {
+
+    $productImages[] = [
+
+        'id' =>
+            0,
+
+        'image_url' =>
+            $product[
+                'primary_image_url'
+            ],
+
+        'alt_text' =>
+            $product[
+                'name'
+            ],
+
+        'option_name' =>
+            null,
+
+        'option_value' =>
+            null,
+
+        'is_primary' =>
+            1,
+
+        'sort_order' =>
+            0,
+
+    ];
 }
 
 
@@ -565,7 +815,8 @@ if (
 
 
         if (
-            $action !== 'add_to_cart'
+            $action !==
+            'add_to_cart'
         ) {
 
             throw new InvalidArgumentException(
@@ -620,31 +871,25 @@ if (
 
 
         $quantity =
-            (int) (
-                $_POST[
-                    'quantity'
-                ]
-                ?? 1
+            max(
+                1,
+                (int) (
+                    $_POST[
+                        'quantity'
+                    ]
+                    ?? 1
+                )
             );
 
 
-        if (
-            $quantity < 1
-        ) {
-
-            $quantity =
-                1;
-        }
-
-
-        $maximumQuantity =
+        $maximum =
             product_variant_max_quantity(
                 $variant
             );
 
 
         if (
-            $maximumQuantity < 1
+            $maximum < 1
         ) {
 
             throw new RuntimeException(
@@ -656,7 +901,7 @@ if (
         $quantity =
             min(
                 $quantity,
-                $maximumQuantity
+                $maximum
             );
 
 
@@ -671,21 +916,17 @@ if (
             );
 
 
-        $newQuantity =
-            min(
-                $maximumQuantity,
-                $existingQuantity
-                +
-                $quantity
-            );
-
-
         $_SESSION[
             'shop_cart'
         ][
             $variantId
         ] =
-            $newQuantity;
+            min(
+                $maximum,
+                $existingQuantity
+                +
+                $quantity
+            );
 
 
         header(
@@ -697,6 +938,7 @@ if (
             .
             '&added=1'
         );
+
 
         exit;
 
@@ -738,7 +980,7 @@ foreach (
 
 
 /* =========================================================
-   PRICE RANGE
+   PRICING
    ========================================================= */
 
 $prices =
@@ -800,12 +1042,178 @@ foreach (
 
 
 /* =========================================================
-   RELATED PRODUCTS
+   JSON VARIANT DATA FOR CLIENT
    ========================================================= */
 
-$relatedProducts =
+$clientVariants =
     [];
 
+
+foreach (
+    $variants
+    as
+    $variant
+) {
+
+    $pairs =
+        product_variant_pairs(
+            $variant
+        );
+
+
+    $options =
+        [];
+
+
+    foreach (
+        $pairs
+        as
+        $pair
+    ) {
+
+        $options[
+            $pair[
+                'name'
+            ]
+        ] =
+            $pair[
+                'value'
+            ];
+    }
+
+
+    $compareAt =
+        $variant[
+            'compare_at_price_cents'
+        ]
+        !==
+        null
+            ? (int)
+              $variant[
+                  'compare_at_price_cents'
+              ]
+            : null;
+
+
+    $clientVariants[] = [
+
+        'id' =>
+            (int)
+            $variant[
+                'id'
+            ],
+
+        'name' =>
+            product_variant_label(
+                $variant
+            ),
+
+        'options' =>
+            $options,
+
+        'price' =>
+            product_public_money(
+                (int)
+                $variant[
+                    'price_cents'
+                ],
+                (string)
+                $variant[
+                    'currency'
+                ]
+            ),
+
+        'price_cents' =>
+            (int)
+            $variant[
+                'price_cents'
+            ],
+
+        'compare' =>
+            $compareAt !== null
+            &&
+            $compareAt
+            >
+            (int)
+            $variant[
+                'price_cents'
+            ]
+                ? product_public_money(
+                    $compareAt,
+                    (string)
+                    $variant[
+                        'currency'
+                    ]
+                )
+                : '',
+
+        'available' =>
+            product_variant_available(
+                $variant
+            ),
+
+        'max' =>
+            product_variant_max_quantity(
+                $variant
+            ),
+
+        'stock' =>
+            !product_variant_available(
+                $variant
+            )
+                ? 'Currently sold out'
+                : (
+                    (bool)
+                    $variant[
+                        'track_inventory'
+                    ]
+                    &&
+                    !(bool)
+                    $variant[
+                        'allow_backorder'
+                    ]
+                    &&
+                    (int)
+                    $variant[
+                        'inventory_quantity'
+                    ]
+                    <=
+                    5
+                        ? 'Only '
+                          .
+                          max(
+                              0,
+                              (int)
+                              $variant[
+                                  'inventory_quantity'
+                              ]
+                          )
+                          .
+                          ' left'
+                        : (
+                            (bool)
+                            $variant[
+                                'allow_backorder'
+                            ]
+                            &&
+                            (int)
+                            $variant[
+                                'inventory_quantity'
+                            ]
+                            <=
+                            0
+                                ? 'Available to order'
+                                : 'In stock'
+                        )
+                ),
+
+    ];
+}
+
+
+/* =========================================================
+   RELATED PRODUCTS
+   ========================================================= */
 
 $productType =
     trim(
@@ -816,6 +1224,10 @@ $productType =
             ?? ''
         )
     );
+
+
+$relatedProducts =
+    [];
 
 
 if (
@@ -831,6 +1243,9 @@ if (
                 p.name,
                 p.short_description,
                 p.primary_image_url,
+                p.is_featured,
+                p.sort_order,
+                p.created_at,
 
                 MIN(
                     v.price_cents
@@ -855,7 +1270,14 @@ if (
               AND p.id <> ?
 
             GROUP BY
-                p.id
+                p.id,
+                p.slug,
+                p.name,
+                p.short_description,
+                p.primary_image_url,
+                p.is_featured,
+                p.sort_order,
+                p.created_at
 
             ORDER BY
                 p.is_featured DESC,
@@ -897,8 +1319,7 @@ $metaDescription =
             $product[
                 'short_description'
             ]
-            ??
-            ''
+            ?? ''
         )
     );
 
@@ -930,6 +1351,33 @@ $added =
             'added'
         ]
     );
+
+
+$selectedPairs =
+    product_variant_pairs(
+        $selectedVariant
+    );
+
+
+$selectedOptions =
+    [];
+
+
+foreach (
+    $selectedPairs
+    as
+    $pair
+) {
+
+    $selectedOptions[
+        $pair[
+            'name'
+        ]
+    ] =
+        $pair[
+            'value'
+        ];
+}
 
 
 ?>
@@ -987,9 +1435,9 @@ $added =
 
 .product-breadcrumb {
   display: flex;
-  gap: 7px;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
   margin-bottom: 24px;
   font-size: .88rem;
   opacity: .72;
@@ -1001,17 +1449,16 @@ $added =
 
 .product-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(340px, .95fr);
-  gap: clamp(28px, 5vw, 64px);
+  grid-template-columns: minmax(0,1.05fr) minmax(340px,.95fr);
+  gap: clamp(30px,5vw,66px);
   align-items: start;
 }
 
 .product-media {
-  position: sticky;
-  top: 110px;
+  min-width: 0;
 }
 
-.product-image {
+.product-main-image {
   overflow: hidden;
   aspect-ratio: 1 / 1;
   border: 1px solid var(--border, rgba(127,127,127,.25));
@@ -1019,7 +1466,7 @@ $added =
   background: var(--surface, rgba(127,127,127,.06));
 }
 
-.product-image img {
+.product-main-image img {
   display: block;
   width: 100%;
   height: 100%;
@@ -1032,7 +1479,39 @@ $added =
   width: 100%;
   height: 100%;
   font-size: 5rem;
-  opacity: .25;
+  opacity: .22;
+}
+
+.product-thumbnails {
+  display: grid;
+  grid-template-columns: repeat(5,minmax(0,1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.product-thumbnail {
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 11px;
+  background: rgba(127,127,127,.08);
+  cursor: pointer;
+}
+
+.product-thumbnail[hidden] {
+  display: none;
+}
+
+.product-thumbnail.is-active {
+  border-color: currentColor;
+}
+
+.product-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .product-info {
@@ -1050,7 +1529,7 @@ $added =
 
 .product-info h1 {
   margin: 0;
-  font-size: clamp(2.1rem, 5vw, 4rem);
+  font-size: clamp(2.1rem,5vw,4rem);
   line-height: 1;
 }
 
@@ -1107,12 +1586,66 @@ $added =
 
 .product-buy {
   display: grid;
-  gap: 17px;
+  gap: 20px;
   margin-top: 28px;
   padding: 22px;
   border: 1px solid var(--border, rgba(127,127,127,.28));
   border-radius: 20px;
   background: var(--surface, rgba(127,127,127,.05));
+}
+
+.product-option-group {
+  display: grid;
+  gap: 9px;
+}
+
+.product-option-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.product-option-heading strong {
+  font-size: .9rem;
+}
+
+.product-option-heading span {
+  font-size: .8rem;
+  opacity: .62;
+}
+
+.product-option-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.product-option {
+  min-width: 52px;
+  min-height: 42px;
+  padding: 8px 13px;
+  border: 1px solid var(--border, rgba(127,127,127,.38));
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.product-option.is-selected {
+  background: currentColor;
+  color: var(--background, #fff);
+}
+
+.product-option.is-unavailable {
+  opacity: .3;
+  text-decoration: line-through;
+}
+
+.product-option[disabled] {
+  cursor: not-allowed;
 }
 
 .product-field {
@@ -1125,7 +1658,6 @@ $added =
   font-weight: 800;
 }
 
-.product-field select,
 .product-field input {
   box-sizing: border-box;
   width: 100%;
@@ -1142,10 +1674,15 @@ $added =
   max-width: 140px;
 }
 
+.product-selected-variant {
+  font-size: .83rem;
+  opacity: .68;
+}
+
 .product-actions {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
+  gap: 10px;
 }
 
 .product-button {
@@ -1233,7 +1770,7 @@ $added =
 
 .related-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
+  grid-template-columns: repeat(3,minmax(0,1fr));
   gap: 20px;
 }
 
@@ -1250,9 +1787,9 @@ $added =
 }
 
 .related-image img {
+  display: block;
   width: 100%;
   height: 100%;
-  display: block;
   object-fit: cover;
 }
 
@@ -1289,17 +1826,17 @@ $added =
     grid-template-columns: 1fr;
   }
 
-  .product-media {
-    position: static;
-  }
-
 }
 
 @media (max-width: 640px) {
 
   .product-page {
-    width: min(100% - 22px, 1180px);
+    width: min(100% - 22px,1180px);
     padding-top: 24px;
+  }
+
+  .product-thumbnails {
+    grid-template-columns: repeat(4,minmax(0,1fr));
   }
 
   .related-grid {
@@ -1332,10 +1869,6 @@ require_once
 
 <main class="product-page">
 
-
-  <!-- =====================================================
-       BREADCRUMB
-       ===================================================== -->
 
   <nav
     class="product-breadcrumb"
@@ -1389,27 +1922,26 @@ require_once
 
 
     <!-- ===================================================
-         IMAGE
+         GALLERY
          =================================================== -->
 
     <section class="product-media">
 
 
-      <div class="product-image">
+      <div class="product-main-image">
 
 
         <?php if (
-            !empty(
-                $product[
-                    'primary_image_url'
-                ]
-            )
+            $productImages
         ): ?>
 
           <img
+            data-main-product-image
             src="<?= product_public_e(
-                $product[
-                    'primary_image_url'
+                $productImages[
+                    0
+                ][
+                    'image_url'
                 ]
             ) ?>"
             alt="<?= product_public_e(
@@ -1436,33 +1968,94 @@ require_once
       </div>
 
 
+      <?php if (
+          count(
+              $productImages
+          )
+          >
+          1
+      ): ?>
+
+        <div class="product-thumbnails">
+
+
+          <?php foreach (
+              $productImages
+              as
+              $index =>
+              $image
+          ): ?>
+
+            <button
+              type="button"
+              class="
+                product-thumbnail
+                <?= $index === 0
+                    ? 'is-active'
+                    : ''
+                ?>
+              "
+              data-product-thumbnail
+              data-image="<?= product_public_e(
+                  $image[
+                      'image_url'
+                  ]
+              ) ?>"
+              data-option-name="<?= product_public_e(
+                  $image[
+                      'option_name'
+                  ]
+                  ?? ''
+              ) ?>"
+              data-option-value="<?= product_public_e(
+                  $image[
+                      'option_value'
+                  ]
+                  ?? ''
+              ) ?>"
+              aria-label="View product image <?= $index + 1 ?>"
+            >
+
+              <img
+                src="<?= product_public_e(
+                    $image[
+                        'image_url'
+                    ]
+                ) ?>"
+                alt=""
+                loading="lazy"
+              >
+
+            </button>
+
+          <?php endforeach; ?>
+
+
+        </div>
+
+      <?php endif; ?>
+
+
     </section>
 
 
     <!-- ===================================================
-         PRODUCT INFORMATION
+         PRODUCT INFO
          =================================================== -->
 
     <section class="product-info">
 
 
-      <?php if (
-          $productType !== ''
-      ): ?>
+      <p class="product-eyebrow">
 
-        <p class="product-eyebrow">
-          <?= product_public_e(
-              $productType
-          ) ?>
-        </p>
+        <?= $productType !== ''
+            ? product_public_e(
+                $productType
+            )
+            : 'Llama Scout Shop'
+        ?>
 
-      <?php else: ?>
-
-        <p class="product-eyebrow">
-          Llama Scout Shop
-        </p>
-
-      <?php endif; ?>
+      </p>
 
 
       <h1>
@@ -1493,10 +2086,6 @@ require_once
       <?php endif; ?>
 
 
-      <!-- =================================================
-           LIVE PRICE
-           ================================================= -->
-
       <div class="product-price">
 
         <span
@@ -1505,8 +2094,7 @@ require_once
         >
 
           <?php if (
-              $lowestPrice
-              ===
+              $lowestPrice ===
               $highestPrice
           ): ?>
 
@@ -1560,48 +2148,10 @@ require_once
           class="product-stock"
           data-product-stock
         >
-
-          <?php if (
-              $allSoldOut
-          ): ?>
-
-            Currently sold out
-
-          <?php elseif (
-              (bool)
-              $selectedVariant[
-                  'track_inventory'
-              ]
-              &&
-              (int)
-              $selectedVariant[
-                  'inventory_quantity'
-              ]
-              <=
-              5
-              &&
-              (int)
-              $selectedVariant[
-                  'inventory_quantity'
-              ]
-              >
-              0
-          ): ?>
-
-            Only
-            <?= (int)
-                $selectedVariant[
-                    'inventory_quantity'
-                ]
-            ?>
-            left
-
-          <?php else: ?>
-
-            In stock
-
-          <?php endif; ?>
-
+          <?= $allSoldOut
+              ? 'Currently sold out'
+              : 'In stock'
+          ?>
         </div>
 
       </div>
@@ -1656,7 +2206,6 @@ require_once
         ) ?>"
       >
 
-
         <input
           type="hidden"
           name="csrf_token"
@@ -1665,13 +2214,11 @@ require_once
           ) ?>"
         >
 
-
         <input
           type="hidden"
           name="action"
           value="add_to_cart"
         >
-
 
         <input
           type="hidden"
@@ -1681,223 +2228,142 @@ require_once
           ) ?>"
         >
 
+        <input
+          type="hidden"
+          name="variant_id"
+          value="<?= (int)
+              $selectedVariant[
+                  'id'
+              ]
+          ?>"
+          data-variant-id
+        >
 
-        <div class="product-field">
 
-          <label for="variant_id">
-            Choose an option
-          </label>
+        <?php foreach (
+            $productOptions
+            as
+            $option
+        ): ?>
+
+          <?php
+
+          $optionName =
+              $option[
+                  'name'
+              ];
 
 
-          <select
-            id="variant_id"
-            name="variant_id"
-            required
-            data-variant-select
+          $currentValue =
+              $selectedOptions[
+                  $optionName
+              ]
+              ?? '';
+
+          ?>
+
+
+          <div
+            class="product-option-group"
+            data-option-group
+            data-option-name="<?= product_public_e(
+                $optionName
+            ) ?>"
           >
 
 
-            <?php foreach (
-                $variants
-                as
-                $variant
-            ): ?>
+            <div class="product-option-heading">
 
-              <?php
-
-              $variantAvailable =
-                  product_variant_available(
-                      $variant
-                  );
-
-
-              $variantLabel =
-                  product_variant_label(
-                      $variant
-                  );
-
-
-              $variantCurrency =
-                  (string) (
-                      $variant[
-                          'currency'
-                      ]
-                      ?? 'usd'
-                  );
-
-
-              $variantPriceFormatted =
-                  product_public_money(
-                      (int)
-                      $variant[
-                          'price_cents'
-                      ],
-                      $variantCurrency
-                  );
-
-
-              $compareFormatted =
-                  '';
-
-
-              if (
-                  $variant[
-                      'compare_at_price_cents'
-                  ]
-                  !==
-                  null
-                  &&
-                  (int)
-                  $variant[
-                      'compare_at_price_cents'
-                  ]
-                  >
-                  (int)
-                  $variant[
-                      'price_cents'
-                  ]
-              ) {
-
-                  $compareFormatted =
-                      product_public_money(
-                          (int)
-                          $variant[
-                              'compare_at_price_cents'
-                          ],
-                          $variantCurrency
-                      );
-              }
-
-
-              $variantMaximum =
-                  product_variant_max_quantity(
-                      $variant
-                  );
-
-
-              $stockLabel =
-                  'In stock';
-
-
-              if (
-                  !$variantAvailable
-              ) {
-
-                  $stockLabel =
-                      'Sold out';
-
-              } elseif (
-                  (bool)
-                  $variant[
-                      'track_inventory'
-                  ]
-                  &&
-                  !(bool)
-                  $variant[
-                      'allow_backorder'
-                  ]
-                  &&
-                  (int)
-                  $variant[
-                      'inventory_quantity'
-                  ]
-                  <=
-                  5
-              ) {
-
-                  $stockLabel =
-                      'Only '
-                      .
-                      (int)
-                      $variant[
-                          'inventory_quantity'
-                      ]
-                      .
-                      ' left';
-
-              } elseif (
-                  (bool)
-                  $variant[
-                      'allow_backorder'
-                  ]
-                  &&
-                  (int)
-                  $variant[
-                      'inventory_quantity'
-                  ]
-                  <=
-                  0
-              ) {
-
-                  $stockLabel =
-                      'Available to order';
-              }
-
-              ?>
-
-
-              <option
-                value="<?= (int)
-                    $variant[
-                        'id'
-                    ]
-                ?>"
-                data-price="<?= product_public_e(
-                    $variantPriceFormatted
-                ) ?>"
-                data-compare="<?= product_public_e(
-                    $compareFormatted
-                ) ?>"
-                data-stock="<?= product_public_e(
-                    $stockLabel
-                ) ?>"
-                data-available="<?= $variantAvailable
-                    ? '1'
-                    : '0'
-                ?>"
-                data-max="<?= $variantMaximum ?>"
-                <?= (int)
-                    $selectedVariant[
-                        'id'
-                    ]
-                    ===
-                    (int)
-                    $variant[
-                        'id'
-                    ]
-                        ? 'selected'
-                        : ''
-                ?>
-                <?= !$variantAvailable
-                    ? 'disabled'
-                    : ''
-                ?>
-              >
-
+              <strong>
                 <?= product_public_e(
-                    $variantLabel
+                    $optionName
                 ) ?>
+              </strong>
 
-                ·
-
+              <span data-option-selected>
                 <?= product_public_e(
-                    $variantPriceFormatted
+                    $currentValue
                 ) ?>
+              </span>
 
-                <?= !$variantAvailable
-                    ? ' · Sold Out'
-                    : ''
-                ?>
-
-              </option>
+            </div>
 
 
-            <?php endforeach; ?>
+            <div class="product-option-values">
 
 
-          </select>
+              <?php foreach (
+                  $option[
+                      'values'
+                  ]
+                  as
+                  $value
+              ): ?>
 
-        </div>
+                <button
+                  type="button"
+                  class="
+                    product-option
+                    <?= $currentValue ===
+                        $value
+                            ? 'is-selected'
+                            : ''
+                    ?>
+                  "
+                  data-option-button
+                  data-option-name="<?= product_public_e(
+                      $optionName
+                  ) ?>"
+                  data-option-value="<?= product_public_e(
+                      $value
+                  ) ?>"
+                  aria-pressed="<?= $currentValue ===
+                      $value
+                          ? 'true'
+                          : 'false'
+                  ?>"
+                >
+
+                  <?= product_public_e(
+                      $value
+                  ) ?>
+
+                </button>
+
+              <?php endforeach; ?>
+
+
+            </div>
+
+
+          </div>
+
+
+        <?php endforeach; ?>
+
+
+        <?php if (
+            !$productOptions
+        ): ?>
+
+          <div class="product-selected-variant">
+            Standard
+          </div>
+
+        <?php else: ?>
+
+          <div
+            class="product-selected-variant"
+            data-selected-variant
+          >
+            <?= product_public_e(
+                product_variant_label(
+                    $selectedVariant
+                )
+            ) ?>
+          </div>
+
+        <?php endif; ?>
 
 
         <div class="product-field product-quantity">
@@ -1982,11 +2448,8 @@ require_once
 
 
         <div class="product-cart-note">
-
-          Your cart is saved for this browser
-          session. Shipping, taxes, and final
-          totals are calculated during checkout.
-
+          Shipping and applicable taxes are
+          calculated during secure checkout.
         </div>
 
 
@@ -1998,23 +2461,6 @@ require_once
            ================================================= -->
 
       <div class="product-details">
-
-
-        <div class="product-detail-row">
-
-          <span>
-            Product
-          </span>
-
-          <span>
-            <?= product_public_e(
-                $product[
-                    'name'
-                ]
-            ) ?>
-          </span>
-
-        </div>
 
 
         <?php if (
@@ -2038,19 +2484,29 @@ require_once
         <?php endif; ?>
 
 
-        <div class="product-detail-row">
-
-          <span>
-            Options
-          </span>
-
-          <span>
-            <?= count(
+        <?php if (
+            count(
                 $variants
-            ) ?>
-          </span>
+            )
+            >
+            1
+        ): ?>
 
-        </div>
+          <div class="product-detail-row">
+
+            <span>
+              Available Options
+            </span>
+
+            <span>
+              <?= count(
+                  $variants
+              ) ?>
+            </span>
+
+          </div>
+
+        <?php endif; ?>
 
 
         <div class="product-detail-row">
@@ -2065,7 +2521,7 @@ require_once
                 $product[
                     'requires_shipping'
                 ]
-                    ? 'Ships to you'
+                    ? 'Physical product'
                     : 'No shipping required'
             ?>
 
@@ -2076,10 +2532,6 @@ require_once
 
       </div>
 
-
-      <!-- =================================================
-           DESCRIPTION
-           ================================================= -->
 
       <?php if (
           !empty(
@@ -2119,7 +2571,7 @@ require_once
 
 
   <!-- =====================================================
-       RELATED PRODUCTS
+       RELATED
        ===================================================== -->
 
   <?php if (
@@ -2128,11 +2580,9 @@ require_once
 
     <section class="related-section">
 
-
       <p class="product-eyebrow">
         Keep wandering
       </p>
-
 
       <h2>
         More from
@@ -2264,8 +2714,7 @@ require_once
               <div class="related-price">
 
                 <?php if (
-                    $relatedLow
-                    ===
+                    $relatedLow ===
                     $relatedHigh
                 ): ?>
 
@@ -2301,7 +2750,6 @@ require_once
 
       </div>
 
-
     </section>
 
   <?php endif; ?>
@@ -2328,139 +2776,515 @@ require_once
 
 (() => {
 
-  const select =
-    document.querySelector(
-      '[data-variant-select]'
+  const variants =
+    <?= json_encode(
+        $clientVariants,
+        JSON_UNESCAPED_SLASHES
+        |
+        JSON_UNESCAPED_UNICODE
+    ) ?>;
+
+
+  const selected =
+    <?= json_encode(
+        $selectedOptions,
+        JSON_UNESCAPED_SLASHES
+        |
+        JSON_UNESCAPED_UNICODE
+    ) ?>;
+
+
+  const optionButtons =
+    Array.from(
+      document.querySelectorAll(
+        '[data-option-button]'
+      )
     );
+
+
+  const optionGroups =
+    Array.from(
+      document.querySelectorAll(
+        '[data-option-group]'
+      )
+    );
+
+
+  const variantInput =
+    document.querySelector(
+      '[data-variant-id]'
+    );
+
 
   const price =
     document.querySelector(
       '[data-product-price]'
     );
 
+
   const compare =
     document.querySelector(
       '[data-product-compare]'
     );
+
 
   const sale =
     document.querySelector(
       '[data-product-sale]'
     );
 
+
   const stock =
     document.querySelector(
       '[data-product-stock]'
     );
+
 
   const quantity =
     document.querySelector(
       '[data-product-quantity]'
     );
 
-  const button =
+
+  const addButton =
     document.querySelector(
       '[data-add-to-cart]'
     );
 
-  const buttonLabel =
+
+  const addLabel =
     document.querySelector(
       '[data-add-label]'
     );
 
 
-  if (
-    !select
-    ||
-    !price
-    ||
-    !stock
-    ||
-    !quantity
-    ||
-    !button
-    ||
-    !buttonLabel
+  const selectedVariantLabel =
+    document.querySelector(
+      '[data-selected-variant]'
+    );
+
+
+  const mainImage =
+    document.querySelector(
+      '[data-main-product-image]'
+    );
+
+
+  const thumbnails =
+    Array.from(
+      document.querySelectorAll(
+        '[data-product-thumbnail]'
+      )
+    );
+
+
+  function sameValue(
+    left,
+    right
   ) {
 
-    return;
+    return String(
+      left ?? ''
+    ).toLowerCase()
+    ===
+    String(
+      right ?? ''
+    ).toLowerCase();
+
   }
 
 
-  function updateVariant() {
+  function exactVariant() {
 
-    const option =
-      select.options[
-        select.selectedIndex
-      ];
+    return variants.find(
+      variant => {
 
+        return Object.entries(
+          selected
+        ).every(
+          ([name, value]) =>
+            sameValue(
+              variant.options[name],
+              value
+            )
+        )
+        &&
+        Object.keys(
+          variant.options
+        ).length
+        ===
+        Object.keys(
+          selected
+        ).length;
+
+      }
+    )
+    || null;
+
+  }
+
+
+  function hasPossibleVariant(
+    optionName,
+    optionValue
+  ) {
+
+    const candidate =
+      {
+        ...selected,
+        [optionName]: optionValue
+      };
+
+
+    return variants.some(
+      variant => {
+
+        return Object.entries(
+          candidate
+        ).every(
+          ([name, value]) =>
+            sameValue(
+              variant.options[name],
+              value
+            )
+        );
+
+      }
+    );
+
+  }
+
+
+  function updateOptionButtons() {
+
+    optionButtons.forEach(
+      button => {
+
+        const name =
+          button.dataset.optionName
+          || '';
+
+
+        const value =
+          button.dataset.optionValue
+          || '';
+
+
+        const isSelected =
+          sameValue(
+            selected[name],
+            value
+          );
+
+
+        const possible =
+          hasPossibleVariant(
+            name,
+            value
+          );
+
+
+        button.classList.toggle(
+          'is-selected',
+          isSelected
+        );
+
+
+        button.classList.toggle(
+          'is-unavailable',
+          !possible
+        );
+
+
+        button.setAttribute(
+          'aria-pressed',
+          isSelected
+            ? 'true'
+            : 'false'
+        );
+
+
+        button.disabled =
+          !possible;
+
+      }
+    );
+
+
+    optionGroups.forEach(
+      group => {
+
+        const name =
+          group.dataset.optionName
+          || '';
+
+
+        const label =
+          group.querySelector(
+            '[data-option-selected]'
+          );
+
+
+        if (
+          label
+        ) {
+
+          label.textContent =
+            selected[name]
+            || '';
+
+        }
+
+      }
+    );
+
+  }
+
+
+  function updateGallery() {
 
     if (
-      !option
+      !thumbnails.length
     ) {
 
       return;
     }
 
 
-    const available =
-      option.dataset.available
-      ===
-      '1';
+    let firstVisible =
+      null;
 
 
-    const max =
-      Math.max(
-        1,
-        Number(
-          option.dataset.max
-          ||
-          1
-        )
-      );
+    thumbnails.forEach(
+      thumbnail => {
+
+        const name =
+          thumbnail.dataset.optionName
+          || '';
 
 
-    price.textContent =
-      option.dataset.price
-      ||
-      '';
+        const value =
+          thumbnail.dataset.optionValue
+          || '';
 
 
-    stock.textContent =
-      option.dataset.stock
-      ||
-      '';
+        let visible =
+          true;
 
 
-    quantity.max =
-      String(
-        max
+        if (
+          name
+          &&
+          value
+        ) {
+
+          visible =
+            sameValue(
+              selected[name],
+              value
+            );
+
+        }
+
+
+        thumbnail.hidden =
+          !visible;
+
+
+        if (
+          visible
+          &&
+          !firstVisible
+        ) {
+
+          firstVisible =
+            thumbnail;
+
+        }
+
+      }
+    );
+
+
+    const currentActive =
+      thumbnails.find(
+        thumbnail =>
+          thumbnail.classList.contains(
+            'is-active'
+          )
+          &&
+          !thumbnail.hidden
       );
 
 
     if (
-      Number(
-        quantity.value
-      )
-      >
-      max
+      currentActive
     ) {
 
-      quantity.value =
-        String(
-          max
-        );
+      return;
     }
 
 
-    button.disabled =
-      !available;
+    if (
+      firstVisible
+    ) {
+
+      thumbnails.forEach(
+        thumbnail =>
+          thumbnail.classList.remove(
+            'is-active'
+          )
+      );
 
 
-    buttonLabel.textContent =
-      available
-        ? 'Add to Cart'
-        : 'Sold Out';
+      firstVisible.classList.add(
+        'is-active'
+      );
+
+
+      if (
+        mainImage
+      ) {
+
+        mainImage.src =
+          firstVisible.dataset.image
+          || mainImage.src;
+
+      }
+
+    }
+
+  }
+
+
+  function updateVariant() {
+
+    const variant =
+      exactVariant();
+
+
+    if (
+      !variant
+    ) {
+
+      if (
+        variantInput
+      ) {
+
+        variantInput.value =
+          '';
+
+      }
+
+
+      if (
+        stock
+      ) {
+
+        stock.textContent =
+          'Choose an available combination';
+
+      }
+
+
+      if (
+        addButton
+      ) {
+
+        addButton.disabled =
+          true;
+
+      }
+
+
+      if (
+        addLabel
+      ) {
+
+        addLabel.textContent =
+          'Unavailable';
+
+      }
+
+
+      return;
+    }
+
+
+    if (
+      variantInput
+    ) {
+
+      variantInput.value =
+        String(
+          variant.id
+        );
+
+    }
+
+
+    if (
+      price
+    ) {
+
+      price.textContent =
+        variant.price;
+
+    }
+
+
+    if (
+      stock
+    ) {
+
+      stock.textContent =
+        variant.stock;
+
+    }
+
+
+    if (
+      selectedVariantLabel
+    ) {
+
+      selectedVariantLabel.textContent =
+        variant.name;
+
+    }
+
+
+    if (
+      quantity
+    ) {
+
+      quantity.max =
+        String(
+          Math.max(
+            1,
+            variant.max
+          )
+        );
+
+
+      if (
+        Number(
+          quantity.value
+        )
+        >
+        variant.max
+      ) {
+
+        quantity.value =
+          String(
+            Math.max(
+              1,
+              variant.max
+            )
+          );
+
+      }
+
+    }
 
 
     if (
@@ -2469,18 +3293,12 @@ require_once
       sale
     ) {
 
-      const comparePrice =
-        option.dataset.compare
-        ||
-        '';
-
-
       if (
-        comparePrice
+        variant.compare
       ) {
 
         compare.textContent =
-          comparePrice;
+          variant.compare;
 
         compare.hidden =
           false;
@@ -2498,18 +3316,122 @@ require_once
 
         sale.hidden =
           true;
+
       }
+
     }
+
+
+    if (
+      addButton
+    ) {
+
+      addButton.disabled =
+        !variant.available;
+
+    }
+
+
+    if (
+      addLabel
+    ) {
+
+      addLabel.textContent =
+        variant.available
+          ? 'Add to Cart'
+          : 'Sold Out';
+
+    }
+
   }
 
 
-  select.addEventListener(
-    'change',
-    updateVariant
+  optionButtons.forEach(
+    button => {
+
+      button.addEventListener(
+        'click',
+        () => {
+
+          const name =
+            button.dataset.optionName
+            || '';
+
+
+          const value =
+            button.dataset.optionValue
+            || '';
+
+
+          if (
+            !name
+            ||
+            !value
+          ) {
+
+            return;
+          }
+
+
+          selected[name] =
+            value;
+
+
+          updateOptionButtons();
+
+          updateVariant();
+
+          updateGallery();
+
+        }
+      );
+
+    }
   );
 
 
+  thumbnails.forEach(
+    thumbnail => {
+
+      thumbnail.addEventListener(
+        'click',
+        () => {
+
+          thumbnails.forEach(
+            item =>
+              item.classList.remove(
+                'is-active'
+              )
+          );
+
+
+          thumbnail.classList.add(
+            'is-active'
+          );
+
+
+          if (
+            mainImage
+          ) {
+
+            mainImage.src =
+              thumbnail.dataset.image
+              || mainImage.src;
+
+          }
+
+        }
+      );
+
+    }
+  );
+
+
+  updateOptionButtons();
+
   updateVariant();
+
+  updateGallery();
 
 })();
 
