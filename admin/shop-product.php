@@ -1511,7 +1511,7 @@ if (
 
 
         /* =================================================
-           SAVE OPTIONS + GENERATE MATRIX
+           SAVE ATTRIBUTES + GENERATE VARIANTS
            ================================================= */
 
         if (
@@ -1527,6 +1527,83 @@ if (
                 );
 
 
+            /*
+             * Snapshot existing variants BEFORE replacing
+             * option definitions. Replacing product options
+             * cascades their value mappings.
+             */
+
+            $existingStmt =
+                $db->prepare(
+                    '
+                    SELECT *
+
+                    FROM shop_product_variants
+
+                    WHERE product_id = ?
+
+                    ORDER BY id ASC
+                    '
+                );
+
+
+            $existingStmt->execute([
+                $productId
+            ]);
+
+
+            $existingVariants =
+                $existingStmt->fetchAll(
+                    PDO::FETCH_ASSOC
+                );
+
+
+            $existingPairs =
+                [];
+
+
+            foreach (
+                $existingVariants
+                as
+                $existingVariant
+            ) {
+
+                $existingVariantId =
+                    (int)
+                    $existingVariant[
+                        'id'
+                    ];
+
+
+                $pairs =
+                    llama_shop_variant_values(
+                        $db,
+                        $existingVariantId
+                    );
+
+
+                if (
+                    !$pairs
+                ) {
+
+                    $pairs =
+                        shop_editor_variant_pairs(
+                            $existingVariant
+                        );
+                }
+
+
+                $existingPairs[
+                    $existingVariantId
+                ] =
+                    $pairs;
+            }
+
+
+            /* =============================================
+               READ ATTRIBUTE BUILDER
+               ============================================= */
+
             $optionDefinitions =
                 [];
 
@@ -1535,40 +1612,62 @@ if (
                 $hasOptions
             ) {
 
-                for (
-                    $position = 1;
-                    $position <= 3;
-                    $position++
+                $submittedAttributes =
+                    $_POST[
+                        'attributes'
+                    ]
+                    ?? [];
+
+
+                if (
+                    !is_array(
+                        $submittedAttributes
+                    )
                 ) {
 
-                    $optionName =
+                    throw new InvalidArgumentException(
+                        'Variant attributes are invalid.'
+                    );
+                }
+
+
+                $allowedAttributes =
+                    llama_shop_variant_attribute_names();
+
+
+                $usedAttributes =
+                    [];
+
+
+                foreach (
+                    $submittedAttributes
+                    as
+                    $attribute
+                ) {
+
+                    if (
+                        !is_array(
+                            $attribute
+                        )
+                    ) {
+
+                        continue;
+                    }
+
+
+                    $attributeName =
                         trim(
                             (string) (
-                                $_POST[
-                                    'option_name_'
-                                    .
-                                    $position
+                                $attribute[
+                                    'name'
                                 ]
                                 ?? ''
                             )
                         );
 
 
-                    $optionValues =
-                        shop_editor_csv_values(
-                            $_POST[
-                                'option_values_'
-                                .
-                                $position
-                            ]
-                            ?? ''
-                        );
-
-
                     if (
-                        $optionName === ''
-                        &&
-                        !$optionValues
+                        $attributeName === ''
                     ) {
 
                         continue;
@@ -1576,24 +1675,146 @@ if (
 
 
                     if (
-                        $optionName === ''
-                        ||
-                        !$optionValues
+                        !in_array(
+                            $attributeName,
+                            $allowedAttributes,
+                            true
+                        )
                     ) {
 
                         throw new InvalidArgumentException(
-                            'Every enabled option needs both a name and at least one value.'
+                            'Unknown variant attribute: '
+                            .
+                            $attributeName
                         );
                     }
+
+
+                    if (
+                        isset(
+                            $usedAttributes[
+                                $attributeName
+                            ]
+                        )
+                    ) {
+
+                        throw new InvalidArgumentException(
+                            $attributeName
+                            .
+                            ' can only be added once.'
+                        );
+                    }
+
+
+                    $submittedValues =
+                        $attribute[
+                            'values'
+                        ]
+                        ?? [];
+
+
+                    if (
+                        !is_array(
+                            $submittedValues
+                        )
+                    ) {
+
+                        $submittedValues =
+                            [];
+                    }
+
+
+                    $allowedValues =
+                        llama_shop_variant_attribute_values(
+                            $attributeName
+                        );
+
+
+                    $cleanValues =
+                        [];
+
+
+                    foreach (
+                        $submittedValues
+                        as
+                        $value
+                    ) {
+
+                        $value =
+                            trim(
+                                (string)
+                                $value
+                            );
+
+
+                        if (
+                            $value === ''
+                        ) {
+
+                            continue;
+                        }
+
+
+                        if (
+                            !in_array(
+                                $value,
+                                $allowedValues,
+                                true
+                            )
+                        ) {
+
+                            throw new InvalidArgumentException(
+                                'Invalid '
+                                .
+                                $attributeName
+                                .
+                                ' value: '
+                                .
+                                $value
+                            );
+                        }
+
+
+                        $cleanValues[
+                            $value
+                        ] =
+                            $value;
+                    }
+
+
+                    $cleanValues =
+                        array_values(
+                            $cleanValues
+                        );
+
+
+                    if (
+                        !$cleanValues
+                    ) {
+
+                        throw new InvalidArgumentException(
+                            'Choose at least one value for '
+                            .
+                            $attributeName
+                            .
+                            '.'
+                        );
+                    }
+
+
+                    $usedAttributes[
+                        $attributeName
+                    ] =
+                        true;
 
 
                     $optionDefinitions[] = [
 
                         'name' =>
-                            $optionName,
+                            $attributeName,
 
                         'values' =>
-                            $optionValues,
+                            $cleanValues,
 
                     ];
                 }
@@ -1604,11 +1825,15 @@ if (
                 ) {
 
                     throw new InvalidArgumentException(
-                        'Add at least one product option or turn off product options.'
+                        'Add at least one variant attribute or turn off product choices.'
                     );
                 }
             }
 
+
+            /* =============================================
+               SAVE ATTRIBUTE DEFINITIONS
+               ============================================= */
 
             llama_shop_save_product_options(
                 $db,
@@ -1649,10 +1874,6 @@ if (
             }
 
 
-            /*
-             * Build normalized option combinations.
-             */
-
             $combinations =
                 llama_shop_option_combinations(
                     $optionDefinitions
@@ -1669,30 +1890,28 @@ if (
             }
 
 
-            $existingStmt =
-                $db->prepare(
-                    '
-                    SELECT *
+            /*
+             * Protect against accidentally generating
+             * hundreds or thousands of combinations.
+             */
 
-                    FROM shop_product_variants
+            if (
+                count(
+                    $combinations
+                )
+                >
+                500
+            ) {
 
-                    WHERE product_id = ?
-
-                    ORDER BY id ASC
-                    '
+                throw new RuntimeException(
+                    'These selections would create more than 500 variants. Reduce the selected values before saving.'
                 );
+            }
 
 
-            $existingStmt->execute([
-                $productId
-            ]);
-
-
-            $existingVariants =
-                $existingStmt->fetchAll(
-                    PDO::FETCH_ASSOC
-                );
-
+            /* =============================================
+               MATCH EXISTING VARIANTS
+               ============================================= */
 
             $existingByKey =
                 [];
@@ -1704,18 +1923,37 @@ if (
                 $existingVariant
             ) {
 
-                $existingByKey[
-                    shop_editor_option_key(
-                        shop_editor_variant_pairs(
-                            $existingVariant
-                        )
-                    )
-                ] =
-                    $existingVariant;
+                $existingVariantId =
+                    (int)
+                    $existingVariant[
+                        'id'
+                    ];
+
+
+                $key =
+                    llama_shop_variant_value_key(
+                        $existingPairs[
+                            $existingVariantId
+                        ]
+                        ?? []
+                    );
+
+
+                if (
+                    $key !== ''
+                    ||
+                    !$optionDefinitions
+                ) {
+
+                    $existingByKey[
+                        $key
+                    ] =
+                        $existingVariant;
+                }
             }
 
 
-            $validKeys =
+            $validVariantIds =
                 [];
 
 
@@ -1781,15 +2019,9 @@ if (
             ) {
 
                 $key =
-                    shop_editor_option_key(
+                    llama_shop_variant_value_key(
                         $pairs
                     );
-
-
-                $validKeys[
-                    $key
-                ] =
-                    true;
 
 
                 if (
@@ -1800,9 +2032,45 @@ if (
                     )
                 ) {
 
+                    $existingVariant =
+                        $existingByKey[
+                            $key
+                        ];
+
+
+                    $variantId =
+                        (int)
+                        $existingVariant[
+                            'id'
+                        ];
+
+
+                    $validVariantIds[
+                        $variantId
+                    ] =
+                        true;
+
+
+                    /*
+                     * Rebuild mapping because option IDs were
+                     * recreated above.
+                     */
+
+                    llama_shop_set_variant_values(
+                        $db,
+                        $productId,
+                        $variantId,
+                        $pairs
+                    );
+
+
                     continue;
                 }
 
+
+                /* =========================================
+                   CREATE SKU
+                   ========================================= */
 
                 $skuParts = [
                     $skuPrefix
@@ -1901,6 +2169,12 @@ if (
                 }
 
 
+                /*
+                 * Continue populating the legacy first-three
+                 * columns so existing storefront code remains
+                 * compatible while it is migrated.
+                 */
+
                 $first =
                     $pairs[
                         0
@@ -1969,14 +2243,69 @@ if (
                     $index,
 
                 ]);
+
+
+                $variantId =
+                    (int)
+                    $db->lastInsertId();
+
+
+                llama_shop_set_variant_values(
+                    $db,
+                    $productId,
+                    $variantId,
+                    $pairs
+                );
+
+
+                $validVariantIds[
+                    $variantId
+                ] =
+                    true;
             }
 
 
-            /*
-             * Old variants that no longer belong to the current
-             * option matrix are retained for order history but
-             * automatically deactivated.
-             */
+            /* =============================================
+               REMOVE OBSOLETE UNUSED VARIANTS
+
+               Ordered variants stay for history but become
+               inactive. Unused junk is deleted completely.
+               ============================================= */
+
+            $historyCheck =
+                $db->prepare(
+                    '
+                    SELECT COUNT(*)
+
+                    FROM shop_order_items
+
+                    WHERE variant_id = ?
+                    '
+                );
+
+
+            $deleteShipping =
+                $db->prepare(
+                    '
+                    DELETE FROM shop_shipping_profiles
+
+                    WHERE variant_id = ?
+                    '
+                );
+
+
+            $deleteVariant =
+                $db->prepare(
+                    '
+                    DELETE FROM shop_product_variants
+
+                    WHERE id = ?
+                      AND product_id = ?
+
+                    LIMIT 1
+                    '
+                );
+
 
             $deactivate =
                 $db->prepare(
@@ -1999,42 +2328,70 @@ if (
                 $existingVariant
             ) {
 
-                $existingKey =
-                    shop_editor_option_key(
-                        shop_editor_variant_pairs(
-                            $existingVariant
-                        )
-                    );
+                $existingVariantId =
+                    (int)
+                    $existingVariant[
+                        'id'
+                    ];
 
 
                 if (
-                    !isset(
-                        $validKeys[
-                            $existingKey
+                    isset(
+                        $validVariantIds[
+                            $existingVariantId
                         ]
                     )
                 ) {
 
-                    $deactivate->execute([
-
-                        (int)
-                        $existingVariant[
-                            'id'
-                        ],
-
-                        $productId,
-
-                    ]);
+                    continue;
                 }
+
+
+                $historyCheck->execute([
+                    $existingVariantId
+                ]);
+
+
+                $usedInOrders =
+                    (int)
+                    $historyCheck->fetchColumn()
+                    >
+                    0;
+
+
+                if (
+                    $usedInOrders
+                ) {
+
+                    $deactivate->execute([
+                        $existingVariantId,
+                        $productId,
+                    ]);
+
+
+                    continue;
+                }
+
+
+                $deleteShipping->execute([
+                    $existingVariantId
+                ]);
+
+
+                $deleteVariant->execute([
+                    $existingVariantId,
+                    $productId,
+                ]);
             }
 
 
             shop_editor_redirect(
                 $productId,
-                'Product options saved and variant matrix updated.'
+                'Variant attributes saved and combinations rebuilt.'
             );
         }
 
+        
 
          /* =================================================
            DELETE VARIANT
@@ -4346,7 +4703,7 @@ require_once
 
 
     <!-- ===================================================
-         OPTIONS
+         VARIANT ATTRIBUTES
          =================================================== -->
 
     <section class="admin-section shop-editor-section">
@@ -4357,17 +4714,126 @@ require_once
         <div>
 
           <h2>
-            3. Product Options
+            3. Variant Builder
           </h2>
 
           <p>
-            Tell Llama Scout which choices
-            create separate sellable variants.
+            Choose the attributes and values that apply to
+            this product. Llama Scout will build the sellable
+            combinations automatically.
           </p>
 
         </div>
 
       </div>
+
+
+      <style>
+
+      .shop-attribute-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .shop-attribute-row {
+        display: grid;
+        grid-template-columns:
+          minmax(180px,.45fr)
+          minmax(280px,1fr)
+          46px;
+        gap: 10px;
+        align-items: start;
+        padding: 14px;
+        border: 1px solid var(--border, rgba(127,127,127,.25));
+        border-radius: 14px;
+        background: var(--surface, rgba(127,127,127,.04));
+      }
+
+      .shop-attribute-row select {
+        width: 100%;
+        min-height: 44px;
+      }
+
+      .shop-value-picker {
+        position: relative;
+      }
+
+      .shop-value-picker summary {
+        box-sizing: border-box;
+        min-height: 44px;
+        padding: 10px 38px 10px 12px;
+        border: 1px solid var(--border, rgba(127,127,127,.3));
+        border-radius: 9px;
+        cursor: pointer;
+        list-style: none;
+        background: var(--background, transparent);
+      }
+
+      .shop-value-picker summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .shop-value-picker summary::after {
+        content: "▾";
+        position: absolute;
+        right: 13px;
+      }
+
+      .shop-value-menu {
+        position: absolute;
+        z-index: 30;
+        box-sizing: border-box;
+        width: 100%;
+        max-height: 310px;
+        overflow: auto;
+        margin-top: 5px;
+        padding: 8px;
+        border: 1px solid var(--border, rgba(127,127,127,.35));
+        border-radius: 10px;
+        background: var(--background, #111);
+        box-shadow: 0 14px 36px rgba(0,0,0,.3);
+      }
+
+      .shop-value-choice {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        padding: 9px;
+        border-radius: 7px;
+        cursor: pointer;
+      }
+
+      .shop-value-choice:hover {
+        background: var(--surface, rgba(127,127,127,.1));
+      }
+
+      .shop-attribute-button {
+        width: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0;
+        font-size: 1.3rem;
+      }
+
+      .shop-attribute-actions {
+        display: flex;
+        gap: 6px;
+      }
+
+      @media (max-width: 760px) {
+
+        .shop-attribute-row {
+          grid-template-columns: 1fr;
+        }
+
+        .shop-attribute-actions {
+          justify-content: flex-end;
+        }
+
+      }
+
+      </style>
 
 
       <form
@@ -4420,9 +4886,8 @@ require_once
             <br>
 
             <small>
-              Use this for shirts with sizes/colors,
-              hats with colors, multiple patterns,
-              materials, capacities, etc.
+              Examples include sex, size, color,
+              pattern, and length.
             </small>
 
           </span>
@@ -4438,203 +4903,290 @@ require_once
           ?>
         >
 
-
-          <?php for (
-              $position = 1;
-              $position <= 3;
-              $position++
-          ): ?>
+          <div
+            class="shop-attribute-list"
+            data-attribute-list
+          >
 
             <?php
 
-            $option =
-                $editorOptions[
-                    $position - 1
-                ]
-                ?? null;
-
-
-            $optionName =
-                $option[
-                    'name'
-                ]
-                ?? '';
-
-
-            $optionValues =
-                $option
-                    ? implode(
-                        ', ',
-                        $option[
-                            'values'
+            $rowsToRender =
+                $editorOptions
+                    ?: [
+                        [
+                            'name' => '',
+                            'values' => [],
                         ]
-                    )
-                    : '';
+                    ];
 
             ?>
 
 
-            <div class="shop-option-box">
+            <?php foreach (
+                $rowsToRender
+                as
+                $rowIndex =>
+                $editorOption
+            ): ?>
 
-              <h3>
-                Option <?= $position ?>
-              </h3>
+              <?php
+
+              $selectedName =
+                  (string) (
+                      $editorOption[
+                          'name'
+                      ]
+                      ?? ''
+                  );
 
 
-              <div class="shop-option-fields">
+              $selectedValues =
+                  $editorOption[
+                      'values'
+                  ]
+                  ?? [];
 
+
+              $availableValues =
+                  $selectedName !== ''
+                      ? llama_shop_variant_attribute_values(
+                          $selectedName
+                      )
+                      : [];
+
+              ?>
+
+
+              <div
+                class="shop-attribute-row"
+                data-attribute-row
+              >
 
                 <div class="admin-field">
 
-                  <label
-                    for="option_name_<?= $position ?>"
-                  >
-                    Option Name
+                  <label>
+                    Attribute
                   </label>
 
-                  <input
-                    id="option_name_<?= $position ?>"
-                    name="option_name_<?= $position ?>"
-                    type="text"
-                    maxlength="100"
-                    value="<?= shop_editor_e(
-                        $optionName
-                    ) ?>"
-                    placeholder="<?= $position === 1
-                        ? 'Color'
-                        : (
-                            $position === 2
-                                ? 'Size'
-                                : 'Pattern'
-                        )
-                    ?>"
+                  <select
+                    name="attributes[<?= $rowIndex ?>][name]"
+                    data-attribute-name
+                    required
                   >
+
+                    <option value="">
+                      Choose attribute
+                    </option>
+
+                    <?php foreach (
+                        llama_shop_variant_attribute_names()
+                        as
+                        $attributeName
+                    ): ?>
+
+                      <option
+                        value="<?= shop_editor_e(
+                            $attributeName
+                        ) ?>"
+                        <?= $selectedName === $attributeName
+                            ? 'selected'
+                            : ''
+                        ?>
+                      >
+                        <?= shop_editor_e(
+                            $attributeName
+                        ) ?>
+                      </option>
+
+                    <?php endforeach; ?>
+
+                  </select>
 
                 </div>
 
 
                 <div class="admin-field">
 
-                  <label
-                    for="option_values_<?= $position ?>"
-                  >
+                  <label>
                     Values
                   </label>
 
-                  <input
-                    id="option_values_<?= $position ?>"
-                    name="option_values_<?= $position ?>"
-                    type="text"
-                    value="<?= shop_editor_e(
-                        $optionValues
-                    ) ?>"
-                    placeholder="<?= $position === 1
-                        ? 'Black, Gray, Forest Green'
-                        : (
-                            $position === 2
-                                ? 'S, M, L, XL, 2XL'
-                                : 'Solid, Topographic'
-                        )
-                    ?>"
+                  <details
+                    class="shop-value-picker"
+                    data-value-picker
                   >
 
-                  <p class="shop-editor-help">
-                    Separate values with commas.
-                  </p>
+                    <summary data-value-summary>
+                      <?= $selectedValues
+                          ? shop_editor_e(
+                              implode(
+                                  ', ',
+                                  $selectedValues
+                              )
+                          )
+                          : 'Choose values'
+                      ?>
+                    </summary>
+
+                    <div
+                      class="shop-value-menu"
+                      data-value-menu
+                    >
+
+                      <?php foreach (
+                          $availableValues
+                          as
+                          $value
+                      ): ?>
+
+                        <label class="shop-value-choice">
+
+                          <input
+                            type="checkbox"
+                            name="attributes[<?= $rowIndex ?>][values][]"
+                            value="<?= shop_editor_e(
+                                $value
+                            ) ?>"
+                            <?= in_array(
+                                $value,
+                                $selectedValues,
+                                true
+                            )
+                                ? 'checked'
+                                : ''
+                            ?>
+                          >
+
+                          <span>
+                            <?= shop_editor_e(
+                                $value
+                            ) ?>
+                          </span>
+
+                        </label>
+
+                      <?php endforeach; ?>
+
+                    </div>
+
+                  </details>
 
                 </div>
 
 
+                <div class="shop-attribute-actions">
+
+                  <button
+                    class="
+                      admin-button
+                      admin-button--secondary
+                      shop-attribute-button
+                    "
+                    type="button"
+                    data-remove-attribute
+                    title="Remove attribute"
+                    aria-label="Remove attribute"
+                  >
+                    −
+                  </button>
+
+                  <button
+                    class="
+                      admin-button
+                      shop-attribute-button
+                    "
+                    type="button"
+                    data-add-attribute
+                    title="Add another attribute"
+                    aria-label="Add another attribute"
+                  >
+                    +
+                  </button>
+
+                </div>
+
               </div>
 
-
-            </div>
-
-
-          <?php endfor; ?>
-
-
-        </div>
-
-
-        <div
-          class="shop-option-box"
-          style="margin-top:20px;"
-        >
-
-          <h3>
-            New Variant Defaults
-          </h3>
-
-          <p class="shop-editor-help">
-            These values are used only when
-            Llama Scout creates combinations that
-            do not already exist.
-          </p>
-
-
-          <div class="shop-editor-grid">
-
-
-            <div class="admin-field">
-
-              <label for="default_price">
-                Starting Price
-              </label>
-
-              <input
-                id="default_price"
-                name="default_price"
-                type="number"
-                min="0"
-                step="0.01"
-                value="<?= $variants
-                    ? shop_editor_e(
-                        shop_editor_money_input(
-                            (int)
-                            $variants[
-                                0
-                            ][
-                                'price_cents'
-                            ]
-                        )
-                    )
-                    : '0.00'
-                ?>"
-              >
-
-            </div>
-
-
-            <div class="admin-field">
-
-              <label for="sku_prefix">
-                SKU Prefix
-              </label>
-
-              <input
-                id="sku_prefix"
-                name="sku_prefix"
-                type="text"
-                value="<?= shop_editor_e(
-                    shop_editor_sku_piece(
-                        $slug
-                    )
-                ) ?>"
-                placeholder="LS-TEE"
-              >
-
-              <p class="shop-editor-help">
-                Llama Scout adds option values
-                automatically. Example:
-                LOGO-TEE-BLACK-M.
-              </p>
-
-            </div>
+            <?php endforeach; ?>
 
 
           </div>
 
+
+          <div
+            class="shop-option-box"
+            style="margin-top:20px;"
+          >
+
+            <h3>
+              New Variant Defaults
+            </h3>
+
+            <p class="shop-editor-help">
+              These values are used only for newly created
+              combinations.
+            </p>
+
+
+            <div class="shop-editor-grid">
+
+              <div class="admin-field">
+
+                <label for="default_price">
+                  Starting Price
+                </label>
+
+                <input
+                  id="default_price"
+                  name="default_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value="<?= $variants
+                      ? shop_editor_e(
+                          shop_editor_money_input(
+                              (int)
+                              $variants[
+                                  0
+                              ][
+                                  'price_cents'
+                              ]
+                          )
+                      )
+                      : '0.00'
+                  ?>"
+                >
+
+              </div>
+
+
+              <div class="admin-field">
+
+                <label for="sku_prefix">
+                  SKU Prefix
+                </label>
+
+                <input
+                  id="sku_prefix"
+                  name="sku_prefix"
+                  type="text"
+                  value="<?= shop_editor_e(
+                      shop_editor_sku_piece(
+                          $slug
+                      )
+                  ) ?>"
+                  placeholder="LS-TEE"
+                >
+
+                <p class="shop-editor-help">
+                  Attribute values are appended automatically.
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
 
         </div>
 
@@ -4651,7 +5203,7 @@ require_once
               aria-hidden="true"
             ></i>
 
-            Save Options & Build Variants
+            Save & Build Variants
 
           </button>
 
@@ -4661,8 +5213,548 @@ require_once
       </form>
 
 
-    </section>
+      <script>
 
+      (() => {
+
+        const definitions =
+          <?= json_encode(
+              llama_shop_variant_attribute_definitions(),
+              JSON_UNESCAPED_SLASHES
+              |
+              JSON_UNESCAPED_UNICODE
+          ) ?>;
+
+
+        const toggle =
+          document.querySelector(
+            '[data-has-options]'
+          );
+
+
+        const controls =
+          document.querySelector(
+            '[data-option-controls]'
+          );
+
+
+        const list =
+          document.querySelector(
+            '[data-attribute-list]'
+          );
+
+
+        if (
+          !toggle
+          ||
+          !controls
+          ||
+          !list
+        ) {
+
+          return;
+        }
+
+
+        let nextIndex =
+          list.querySelectorAll(
+            '[data-attribute-row]'
+          ).length;
+
+
+        function escapeHtml(value) {
+
+          const div =
+            document.createElement('div');
+
+          div.textContent =
+            value;
+
+          return div.innerHTML;
+        }
+
+
+        function updateToggle() {
+
+          controls.hidden =
+            !toggle.checked;
+        }
+
+
+        function updateSummary(row) {
+
+          const checked =
+            [
+              ...row.querySelectorAll(
+                '[data-value-menu] input:checked'
+              )
+            ];
+
+
+          const summary =
+            row.querySelector(
+              '[data-value-summary]'
+            );
+
+
+          if (!summary) {
+            return;
+          }
+
+
+          if (!checked.length) {
+
+            summary.textContent =
+              'Choose values';
+
+            return;
+          }
+
+
+          const values =
+            checked.map(
+              input => input.value
+            );
+
+
+          summary.textContent =
+            values.join(', ');
+        }
+
+
+        function rebuildValues(row) {
+
+          const select =
+            row.querySelector(
+              '[data-attribute-name]'
+            );
+
+
+          const menu =
+            row.querySelector(
+              '[data-value-menu]'
+            );
+
+
+          if (
+            !select
+            ||
+            !menu
+          ) {
+
+            return;
+          }
+
+
+          const index =
+            row.dataset.index;
+
+
+          const values =
+            definitions[
+              select.value
+            ]
+            || [];
+
+
+          menu.innerHTML =
+            values.map(
+              value => `
+                <label class="shop-value-choice">
+                  <input
+                    type="checkbox"
+                    name="attributes[${index}][values][]"
+                    value="${escapeHtml(value)}"
+                  >
+                  <span>${escapeHtml(value)}</span>
+                </label>
+              `
+            ).join('');
+
+
+          updateSummary(row);
+        }
+
+
+        function updateAvailableAttributes() {
+
+          const rows =
+            [
+              ...list.querySelectorAll(
+                '[data-attribute-row]'
+              )
+            ];
+
+
+          const selected =
+            rows
+              .map(
+                row =>
+                  row.querySelector(
+                    '[data-attribute-name]'
+                  )?.value
+              )
+              .filter(Boolean);
+
+
+          rows.forEach(
+            row => {
+
+              const select =
+                row.querySelector(
+                  '[data-attribute-name]'
+                );
+
+
+              if (!select) {
+                return;
+              }
+
+
+              const own =
+                select.value;
+
+
+              [
+                ...select.options
+              ].forEach(
+                option => {
+
+                  if (
+                    option.value === ''
+                    ||
+                    option.value === own
+                  ) {
+
+                    option.disabled =
+                      false;
+
+                    return;
+                  }
+
+
+                  option.disabled =
+                    selected.includes(
+                      option.value
+                    );
+                }
+              );
+            }
+          );
+        }
+
+
+        function wireRow(row) {
+
+          if (
+            !row.dataset.index
+          ) {
+
+            row.dataset.index =
+              String(
+                nextIndex++
+              );
+          }
+
+
+          const select =
+            row.querySelector(
+              '[data-attribute-name]'
+            );
+
+
+          if (select) {
+
+            select.addEventListener(
+              'change',
+              () => {
+
+                rebuildValues(row);
+
+                updateAvailableAttributes();
+              }
+            );
+          }
+
+
+          row.addEventListener(
+            'change',
+            event => {
+
+              if (
+                event.target.matches(
+                  '[data-value-menu] input'
+                )
+              ) {
+
+                updateSummary(row);
+              }
+            }
+          );
+
+
+          const add =
+            row.querySelector(
+              '[data-add-attribute]'
+            );
+
+
+          if (add) {
+
+            add.addEventListener(
+              'click',
+              addRow
+            );
+          }
+
+
+          const remove =
+            row.querySelector(
+              '[data-remove-attribute]'
+            );
+
+
+          if (remove) {
+
+            remove.addEventListener(
+              'click',
+              () => {
+
+                const rows =
+                  list.querySelectorAll(
+                    '[data-attribute-row]'
+                  );
+
+
+                if (
+                  rows.length === 1
+                ) {
+
+                  select.value =
+                    '';
+
+                  rebuildValues(row);
+
+                  updateAvailableAttributes();
+
+                  return;
+                }
+
+
+                row.remove();
+
+                updateAvailableAttributes();
+              }
+            );
+          }
+        }
+
+
+        function addRow() {
+
+          const available =
+            Object.keys(
+              definitions
+            );
+
+
+          const current =
+            [
+              ...list.querySelectorAll(
+                '[data-attribute-name]'
+              )
+            ]
+            .map(
+              select => select.value
+            )
+            .filter(Boolean);
+
+
+          const remaining =
+            available.filter(
+              name =>
+                !current.includes(name)
+            );
+
+
+          if (
+            !remaining.length
+          ) {
+
+            return;
+          }
+
+
+          const index =
+            nextIndex++;
+
+
+          const row =
+            document.createElement(
+              'div'
+            );
+
+
+          row.className =
+            'shop-attribute-row';
+
+
+          row.dataset.attributeRow =
+            '';
+
+
+          row.dataset.index =
+            String(index);
+
+
+          row.innerHTML = `
+            <div class="admin-field">
+
+              <label>
+                Attribute
+              </label>
+
+              <select
+                name="attributes[${index}][name]"
+                data-attribute-name
+                required
+              >
+
+                <option value="">
+                  Choose attribute
+                </option>
+
+                ${available.map(
+                  name => `
+                    <option value="${escapeHtml(name)}">
+                      ${escapeHtml(name)}
+                    </option>
+                  `
+                ).join('')}
+
+              </select>
+
+            </div>
+
+
+            <div class="admin-field">
+
+              <label>
+                Values
+              </label>
+
+              <details
+                class="shop-value-picker"
+                data-value-picker
+              >
+
+                <summary data-value-summary>
+                  Choose values
+                </summary>
+
+                <div
+                  class="shop-value-menu"
+                  data-value-menu
+                ></div>
+
+              </details>
+
+            </div>
+
+
+            <div class="shop-attribute-actions">
+
+              <button
+                class="
+                  admin-button
+                  admin-button--secondary
+                  shop-attribute-button
+                "
+                type="button"
+                data-remove-attribute
+                aria-label="Remove attribute"
+              >
+                −
+              </button>
+
+              <button
+                class="
+                  admin-button
+                  shop-attribute-button
+                "
+                type="button"
+                data-add-attribute
+                aria-label="Add another attribute"
+              >
+                +
+              </button>
+
+            </div>
+          `;
+
+
+          list.appendChild(
+            row
+          );
+
+
+          wireRow(
+            row
+          );
+
+
+          const select =
+            row.querySelector(
+              '[data-attribute-name]'
+            );
+
+
+          select.value =
+            remaining[0];
+
+
+          rebuildValues(
+            row
+          );
+
+
+          updateAvailableAttributes();
+        }
+
+
+        [
+          ...list.querySelectorAll(
+            '[data-attribute-row]'
+          )
+        ].forEach(
+          (row, index) => {
+
+            row.dataset.index =
+              String(index);
+
+            wireRow(row);
+
+            updateSummary(row);
+          }
+        );
+
+
+        toggle.addEventListener(
+          'change',
+          updateToggle
+        );
+
+
+        updateToggle();
+
+        updateAvailableAttributes();
+
+      })();
+
+      </script>
+
+
+    </section>
 
     <!-- ===================================================
          VARIANT MATRIX
@@ -4827,9 +5919,21 @@ require_once
 
 
                 $pairs =
-                    shop_editor_variant_pairs(
-                        $variant
-                    );
+                    $variant[
+                        '_attribute_pairs'
+                    ]
+                    ?? [];
+                
+                
+                if (
+                    !$pairs
+                ) {
+                
+                    $pairs =
+                        shop_editor_variant_pairs(
+                            $variant
+                        );
+                }
 
                 ?>
 
