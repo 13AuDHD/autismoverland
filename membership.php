@@ -1299,7 +1299,7 @@ require_once
           Payments are securely processed by Stripe.
         </strong>
 
-        Llama Scout does not collect or store your complete
+        Llama Scout does not collect or store your 
         payment card information. For membership or billing
         assistance, contact
         <a href="mailto:billing@llamascout.com">
@@ -1363,7 +1363,8 @@ require_once
 
           <p>
             Exact locations are part of the complete place
-            report. Paid membership supports the work involved
+            report. A lot of work goes into maintaining 
+            Llama Scout. Paid membership supports the work involved
             in finding, documenting, maintaining, and presenting
             detailed information about individual locations.
           </p>
@@ -1399,8 +1400,8 @@ require_once
             Paid membership unlocks the complete place report,
             including exact location and coordinates, sensory
             conditions, road and vehicle access, connectivity,
-            privacy, crowds, noise, complete warnings, and other
-            site-specific planning information.
+            privacy, crowds, noise, complete warnings, extended 
+            weather and other site-specific planning information.
           </p>
 
         </details>
@@ -1434,7 +1435,9 @@ require_once
             billing assistance, contact
             <a href="mailto:billing@llamascout.com">
               billing@llamascout.com
-            </a>.
+            </a> and we will do our best to help, but unfortunately
+              most problems require reaching out to Stripe or
+              your financial institution. 
           </p>
 
         </details>
