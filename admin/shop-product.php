@@ -2036,6 +2036,185 @@ if (
         }
 
 
+         /* =================================================
+           DELETE VARIANT
+           ================================================= */
+
+        if (
+            $action ===
+            'delete_variant'
+        ) {
+
+            if (
+                $productId < 1
+            ) {
+
+                throw new InvalidArgumentException(
+                    'Invalid product.'
+                );
+            }
+
+
+            $variantId =
+                (int) (
+                    $_POST[
+                        'variant_id'
+                    ]
+                    ?? 0
+                );
+
+
+            if (
+                $variantId < 1
+            ) {
+
+                throw new InvalidArgumentException(
+                    'Invalid variant.'
+                );
+            }
+
+
+            /* ---------------------------------------------
+               VERIFY VARIANT BELONGS TO THIS PRODUCT
+               --------------------------------------------- */
+
+            $variantStmt =
+                $db->prepare(
+                    '
+                    SELECT
+                        id,
+                        name,
+                        sku
+
+                    FROM shop_product_variants
+
+                    WHERE id = ?
+                      AND product_id = ?
+
+                    LIMIT 1
+                    '
+                );
+
+
+            $variantStmt->execute([
+                $variantId,
+                $productId,
+            ]);
+
+
+            $variantToDelete =
+                $variantStmt->fetch(
+                    PDO::FETCH_ASSOC
+                );
+
+
+            if (
+                !$variantToDelete
+            ) {
+
+                throw new RuntimeException(
+                    'Variant not found.'
+                );
+            }
+
+
+            /* ---------------------------------------------
+               DO NOT DELETE ORDER HISTORY
+               --------------------------------------------- */
+
+            $historyStmt =
+                $db->prepare(
+                    '
+                    SELECT COUNT(*)
+
+                    FROM shop_order_items
+
+                    WHERE variant_id = ?
+                    '
+                );
+
+
+            $historyStmt->execute([
+                $variantId
+            ]);
+
+
+            $orderUsage =
+                (int)
+                $historyStmt->fetchColumn();
+
+
+            if (
+                $orderUsage > 0
+            ) {
+
+                throw new RuntimeException(
+                    'This variant cannot be deleted because it has already been used in an order. Deactivate it instead.'
+                );
+            }
+
+
+            /* ---------------------------------------------
+               REMOVE SHIPPING PROFILE FIRST
+
+               This keeps deletion safe even if the shipping
+               table does not use cascading foreign keys.
+               --------------------------------------------- */
+
+            if (
+                llama_shop_table_exists(
+                    $db,
+                    'shop_shipping_profiles'
+                )
+            ) {
+
+                $shippingDelete =
+                    $db->prepare(
+                        '
+                        DELETE FROM shop_shipping_profiles
+
+                        WHERE variant_id = ?
+                        '
+                    );
+
+
+                $shippingDelete->execute([
+                    $variantId
+                ]);
+            }
+
+
+            /* ---------------------------------------------
+               DELETE VARIANT
+               --------------------------------------------- */
+
+            $deleteStmt =
+                $db->prepare(
+                    '
+                    DELETE FROM shop_product_variants
+
+                    WHERE id = ?
+                      AND product_id = ?
+
+                    LIMIT 1
+                    '
+                );
+
+
+            $deleteStmt->execute([
+                $variantId,
+                $productId,
+            ]);
+
+
+            shop_editor_redirect(
+                $productId,
+                'Variant deleted.'
+            );
+        }
+
+
+
         /* =================================================
            SAVE VARIANT MATRIX
            ================================================= */
@@ -5557,6 +5736,68 @@ require_once
                       </span>
 
                     </label>
+
+
+                      <form
+                          method="post"
+                          action="/shop-product.php?id=<?= $productId ?>"
+                          style="margin-top:10px;"
+                          onsubmit="return confirm(
+                            'Delete <?= shop_editor_e(
+                                $variant[
+                                    'name'
+                                ]
+                            ) ?>? This cannot be undone.'
+                          );"
+                        >
+                        
+                          <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="<?= shop_editor_e(
+                                $csrfToken
+                            ) ?>"
+                          >
+                        
+                          <input
+                            type="hidden"
+                            name="action"
+                            value="delete_variant"
+                          >
+                        
+                          <input
+                            type="hidden"
+                            name="product_id"
+                            value="<?= $productId ?>"
+                          >
+                        
+                          <input
+                            type="hidden"
+                            name="variant_id"
+                            value="<?= $variantId ?>"
+                          >
+                        
+                          <button
+                            type="submit"
+                            class="
+                              admin-button
+                              admin-button--secondary
+                            "
+                            style="
+                              border-color:rgba(185,70,70,.65);
+                              padding:6px 10px;
+                              min-height:auto;
+                            "
+                          >
+                            <i
+                              class="fa-solid fa-trash"
+                              aria-hidden="true"
+                            ></i>
+                        
+                            Delete
+                          </button>
+                        
+                        </form>
 
                   </td>
 
