@@ -3439,6 +3439,30 @@ if (
         $stmt->fetchAll(
             PDO::FETCH_ASSOC
         );
+
+
+    foreach (
+        $variants
+        as
+        &$variant
+    ) {
+
+        $variant[
+            '_attribute_pairs'
+        ] =
+            llama_shop_variant_values(
+                $db,
+                (int)
+                $variant[
+                    'id'
+                ]
+            );
+    }
+
+
+    unset(
+        $variant
+    );
 }
 
 
