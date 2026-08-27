@@ -31,13 +31,12 @@ declare(strict_types=1);
 
 function llama_printful_config(): array
 {
-    $path =
-        dirname(
-            __DIR__,
-            2
-        )
-        . '/private/printful.php';
-
+$path =
+    dirname(
+        __DIR__,
+        3
+    )
+    . '/private/printful.php';
 
     if (
         !is_file(
