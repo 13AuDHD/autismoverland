@@ -12,6 +12,18 @@ require_once
 
 require_once
     dirname(__DIR__)
+    . '/app/shop-catalog.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/shipping.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/photo-upload.php';
+
+require_once
+    dirname(__DIR__)
     . '/app/role-display.php';
 
 
@@ -47,8 +59,33 @@ if (
 
 $ownerId =
     (int)
-    $user['id'];
+    $user[
+        'id'
+    ];
 
+
+/* =========================================================
+   STORAGE
+   ========================================================= */
+
+llama_ensure_shop_storage(
+    $db
+);
+
+
+llama_ensure_shop_catalog_storage(
+    $db
+);
+
+
+llama_ensure_shipping_storage(
+    $db
+);
+
+
+/* =========================================================
+   ROLE DISPLAY
+   ========================================================= */
 
 $primaryRoleLabel =
     llama_primary_role_label(
@@ -60,11 +97,6 @@ $primaryRoleIcon =
     llama_primary_role_icon(
         $ownerId
     );
-
-
-llama_ensure_shop_storage(
-    $db
-);
 
 
 /* =========================================================
@@ -101,7 +133,7 @@ $csrfToken =
    HELPERS
    ========================================================= */
 
-function e(
+function shop_editor_e(
     mixed $value
 ): string {
 
@@ -114,36 +146,7 @@ function e(
 }
 
 
-function shop_product_slug(
-    string $value
-): string {
-
-    $value =
-        strtolower(
-            trim(
-                $value
-            )
-        );
-
-
-    $value =
-        preg_replace(
-            '/[^a-z0-9]+/',
-            '-',
-            $value
-        )
-        ?? '';
-
-
-    return
-        trim(
-            $value,
-            '-'
-        );
-}
-
-
-function shop_product_csrf(
+function shop_editor_csrf(
     string $expected
 ): void {
 
@@ -174,46 +177,65 @@ function shop_product_csrf(
 }
 
 
-function shop_optional(
-    mixed $value,
-    int $maxLength = 255
-): ?string {
+function shop_editor_slug(
+    string $value
+): string {
 
     $value =
-        trim(
-            (string)
-            $value
+        strtolower(
+            trim(
+                $value
+            )
         );
 
 
-    if (
-        $value === ''
-    ) {
-
-        return null;
-    }
-
-
-    if (
-        mb_strlen(
+    $value =
+        preg_replace(
+            '/[^a-z0-9]+/',
+            '-',
             $value
         )
-        >
-        $maxLength
-    ) {
-
-        throw new InvalidArgumentException(
-            'One of the submitted values is too long.'
-        );
-    }
+        ?? '';
 
 
     return
-        $value;
+        trim(
+            $value,
+            '-'
+        );
 }
 
 
-function shop_money_to_cents(
+function shop_editor_sku_piece(
+    string $value
+): string {
+
+    $value =
+        strtoupper(
+            trim(
+                $value
+            )
+        );
+
+
+    $value =
+        preg_replace(
+            '/[^A-Z0-9]+/',
+            '-',
+            $value
+        )
+        ?? '';
+
+
+    return
+        trim(
+            $value,
+            '-'
+        );
+}
+
+
+function shop_editor_money_to_cents(
     mixed $value
 ): int {
 
@@ -235,55 +257,67 @@ function shop_money_to_cents(
     if (
         $value === ''
         ||
-        !is_numeric(
+        !preg_match(
+            '/^\d+(?:\.\d{1,2})?$/',
             $value
         )
     ) {
 
         throw new InvalidArgumentException(
-            'Enter a valid price.'
+            'Enter a valid price with no more than two decimal places.'
         );
     }
 
 
-    $amount =
-        (float)
-        $value;
-
-
-    if (
-        $amount < 0
-    ) {
-
-        throw new InvalidArgumentException(
-            'Price cannot be negative.'
+    [
+        $whole,
+        $decimal,
+    ] =
+        array_pad(
+            explode(
+                '.',
+                $value,
+                2
+            ),
+            2,
+            ''
         );
-    }
+
+
+    $decimal =
+        str_pad(
+            $decimal,
+            2,
+            '0'
+        );
 
 
     return
+        ((int)
+        $whole
+        *
+        100)
+        +
         (int)
-        round(
-            $amount
-            *
-            100
+        substr(
+            $decimal,
+            0,
+            2
         );
 }
 
 
-function shop_optional_money_to_cents(
+function shop_editor_optional_money_to_cents(
     mixed $value
 ): ?int {
 
-    $value =
+    if (
         trim(
             (string)
             $value
-        );
-
-
-    if (
-        $value === ''
+        )
+        ===
+        ''
     ) {
 
         return null;
@@ -291,13 +325,13 @@ function shop_optional_money_to_cents(
 
 
     return
-        shop_money_to_cents(
+        shop_editor_money_to_cents(
             $value
         );
 }
 
 
-function shop_cents_input(
+function shop_editor_money_input(
     ?int $cents
 ): string {
 
@@ -319,39 +353,354 @@ function shop_cents_input(
 }
 
 
-function shop_currency(
+function shop_editor_csv_values(
     mixed $value
+): array {
+
+    $parts =
+        preg_split(
+            '/[\r\n,]+/',
+            (string)
+            $value
+        )
+        ?:
+        [];
+
+
+    $clean =
+        [];
+
+
+    foreach (
+        $parts
+        as
+        $part
+    ) {
+
+        $part =
+            trim(
+                $part
+            );
+
+
+        if (
+            $part === ''
+        ) {
+
+            continue;
+        }
+
+
+        $key =
+            mb_strtolower(
+                $part
+            );
+
+
+        $clean[
+            $key
+        ] =
+            $part;
+    }
+
+
+    return
+        array_values(
+            $clean
+        );
+}
+
+
+function shop_editor_option_key(
+    array $pairs
 ): string {
 
-    $value =
-        strtolower(
+    $parts =
+        [];
+
+
+    foreach (
+        $pairs
+        as
+        $pair
+    ) {
+
+        $name =
+            mb_strtolower(
+                trim(
+                    (string) (
+                        $pair[
+                            'name'
+                        ]
+                        ?? ''
+                    )
+                )
+            );
+
+
+        $value =
+            mb_strtolower(
+                trim(
+                    (string) (
+                        $pair[
+                            'value'
+                        ]
+                        ?? ''
+                    )
+                )
+            );
+
+
+        if (
+            $name !== ''
+            ||
+            $value !== ''
+        ) {
+
+            $parts[] =
+                $name
+                .
+                '='
+                .
+                $value;
+        }
+    }
+
+
+    return
+        implode(
+            '|',
+            $parts
+        );
+}
+
+
+function shop_editor_variant_pairs(
+    array $variant
+): array {
+
+    $pairs =
+        [];
+
+
+    foreach (
+        [
+            [
+                'option_one_name',
+                'option_one_value',
+            ],
+            [
+                'option_two_name',
+                'option_two_value',
+            ],
+            [
+                'option_three_name',
+                'option_three_value',
+            ],
+        ]
+        as
+        [
+            $nameKey,
+            $valueKey,
+        ]
+    ) {
+
+        $name =
             trim(
-                (string)
-                $value
+                (string) (
+                    $variant[
+                        $nameKey
+                    ]
+                    ?? ''
+                )
+            );
+
+
+        $value =
+            trim(
+                (string) (
+                    $variant[
+                        $valueKey
+                    ]
+                    ?? ''
+                )
+            );
+
+
+        if (
+            $name !== ''
+            &&
+            $value !== ''
+        ) {
+
+            $pairs[] = [
+
+                'name' =>
+                    $name,
+
+                'value' =>
+                    $value,
+
+            ];
+        }
+    }
+
+
+    return
+        $pairs;
+}
+
+
+function shop_editor_variant_name(
+    array $pairs
+): string {
+
+    $values =
+        [];
+
+
+    foreach (
+        $pairs
+        as
+        $pair
+    ) {
+
+        $value =
+            trim(
+                (string) (
+                    $pair[
+                        'value'
+                    ]
+                    ?? ''
+                )
+            );
+
+
+        if (
+            $value !== ''
+        ) {
+
+            $values[] =
+                $value;
+        }
+    }
+
+
+    return
+        $values
+            ? implode(
+                ' / ',
+                $values
+            )
+            : 'Standard';
+}
+
+
+function shop_editor_delete_uploaded_file(
+    string $url
+): void {
+
+    $url =
+        trim(
+            $url
+        );
+
+
+    if (
+        !str_starts_with(
+            $url,
+            '/uploads/shop-products/'
+        )
+    ) {
+
+        return;
+    }
+
+
+    $absolute =
+        dirname(
+            __DIR__
+        )
+        .
+        $url;
+
+
+    $uploadRoot =
+        realpath(
+            dirname(
+                __DIR__
+            )
+            .
+            '/uploads/shop-products'
+        );
+
+
+    if (
+        $uploadRoot === false
+    ) {
+
+        return;
+    }
+
+
+    $directory =
+        realpath(
+            dirname(
+                $absolute
             )
         );
 
 
     if (
-        !preg_match(
-            '/^[a-z]{3}$/',
-            $value
+        $directory === false
+        ||
+        !str_starts_with(
+            $directory,
+            $uploadRoot
         )
     ) {
 
-        throw new InvalidArgumentException(
-            'Currency must be a three-letter code such as USD.'
-        );
+        return;
     }
 
 
-    return
-        $value;
+    if (
+        is_file(
+            $absolute
+        )
+    ) {
+
+        @unlink(
+            $absolute
+        );
+    }
+}
+
+
+function shop_editor_redirect(
+    int $productId,
+    string $notice
+): never {
+
+    header(
+        'Location: /shop-product.php?id='
+        .
+        $productId
+        .
+        '&notice='
+        .
+        rawurlencode(
+            $notice
+        )
+    );
+
+
+    exit;
 }
 
 
 /* =========================================================
-   PRODUCT ID / MODE
+   PRODUCT
    ========================================================= */
 
 $productId =
@@ -372,64 +721,6 @@ $isEditing =
     $productId > 0;
 
 
-/* =========================================================
-   PRODUCT DEFAULTS
-   ========================================================= */
-
-$name =
-    '';
-
-$slug =
-    '';
-
-$shortDescription =
-    '';
-
-$description =
-    '';
-
-$productType =
-    '';
-
-$primaryImageUrl =
-    '';
-
-$status =
-    LLAMA_SHOP_PRODUCT_DRAFT;
-
-$isFeatured =
-    false;
-
-$requiresShipping =
-    true;
-
-$sortOrder =
-    0;
-
-
-/* =========================================================
-   PAGE STATE
-   ========================================================= */
-
-$error =
-    '';
-
-$success =
-    '';
-
-$variantEditingId =
-    (int) (
-        $_GET[
-            'variant'
-        ]
-        ?? 0
-    );
-
-
-/* =========================================================
-   LOAD PRODUCT
-   ========================================================= */
-
 $product =
     null;
 
@@ -438,7 +729,7 @@ if (
     $isEditing
 ) {
 
-    $productStmt =
+    $stmt =
         $db->prepare(
             '
             SELECT *
@@ -452,13 +743,13 @@ if (
         );
 
 
-    $productStmt->execute([
+    $stmt->execute([
         $productId
     ]);
 
 
     $product =
-        $productStmt->fetch(
+        $stmt->fetch(
             PDO::FETCH_ASSOC
         );
 
@@ -475,89 +766,104 @@ if (
             'Product not found.'
         );
     }
-
-
-    $name =
-        (string)
-        $product[
-            'name'
-        ];
-
-
-    $slug =
-        (string)
-        $product[
-            'slug'
-        ];
-
-
-    $shortDescription =
-        (string) (
-            $product[
-                'short_description'
-            ]
-            ?? ''
-        );
-
-
-    $description =
-        (string) (
-            $product[
-                'description'
-            ]
-            ?? ''
-        );
-
-
-    $productType =
-        (string) (
-            $product[
-                'product_type'
-            ]
-            ?? ''
-        );
-
-
-    $primaryImageUrl =
-        (string) (
-            $product[
-                'primary_image_url'
-            ]
-            ?? ''
-        );
-
-
-    $status =
-        (string)
-        $product[
-            'status'
-        ];
-
-
-    $isFeatured =
-        (bool)
-        $product[
-            'is_featured'
-        ];
-
-
-    $requiresShipping =
-        (bool)
-        $product[
-            'requires_shipping'
-        ];
-
-
-    $sortOrder =
-        (int)
-        $product[
-            'sort_order'
-        ];
 }
 
 
 /* =========================================================
-   POST ACTIONS
+   DEFAULT PRODUCT FORM
+   ========================================================= */
+
+$name =
+    $product[
+        'name'
+    ]
+    ?? '';
+
+
+$slug =
+    $product[
+        'slug'
+    ]
+    ?? '';
+
+
+$shortDescription =
+    $product[
+        'short_description'
+    ]
+    ?? '';
+
+
+$description =
+    $product[
+        'description'
+    ]
+    ?? '';
+
+
+$productType =
+    $product[
+        'product_type'
+    ]
+    ?? '';
+
+
+$status =
+    $product[
+        'status'
+    ]
+    ??
+    LLAMA_SHOP_PRODUCT_DRAFT;
+
+
+$isFeatured =
+    !empty(
+        $product[
+            'is_featured'
+        ]
+    );
+
+
+$requiresShipping =
+    !isset(
+        $product[
+            'requires_shipping'
+        ]
+    )
+    ||
+    !empty(
+        $product[
+            'requires_shipping'
+        ]
+    );
+
+
+$sortOrder =
+    (int) (
+        $product[
+            'sort_order'
+        ]
+        ?? 0
+    );
+
+
+$error =
+    '';
+
+
+$notice =
+    trim(
+        (string) (
+            $_GET[
+                'notice'
+            ]
+            ?? ''
+        )
+    );
+
+
+/* =========================================================
+   POST
    ========================================================= */
 
 if (
@@ -570,7 +876,7 @@ if (
 
     try {
 
-        shop_product_csrf(
+        shop_editor_csrf(
             $csrfToken
         );
 
@@ -587,11 +893,12 @@ if (
 
 
         /* =================================================
-           SAVE PRODUCT
+           SAVE PRODUCT BASICS
            ================================================= */
 
         if (
-            $action === 'save_product'
+            $action ===
+            'save_product'
         ) {
 
             $name =
@@ -617,7 +924,7 @@ if (
 
 
             $slug =
-                shop_product_slug(
+                shop_editor_slug(
                     $submittedSlug !== ''
                         ? $submittedSlug
                         : $name
@@ -657,24 +964,14 @@ if (
                 );
 
 
-            $primaryImageUrl =
-                trim(
-                    (string) (
-                        $_POST[
-                            'primary_image_url'
-                        ]
-                        ?? ''
-                    )
-                );
-
-
             $status =
                 trim(
                     (string) (
                         $_POST[
                             'status'
                         ]
-                        ?? LLAMA_SHOP_PRODUCT_DRAFT
+                        ??
+                        LLAMA_SHOP_PRODUCT_DRAFT
                     )
                 );
 
@@ -730,16 +1027,10 @@ if (
 
             if (
                 $slug === ''
-                ||
-                mb_strlen(
-                    $slug
-                )
-                >
-                160
             ) {
 
                 throw new InvalidArgumentException(
-                    'Enter a valid product slug.'
+                    'Product slug could not be created.'
                 );
             }
 
@@ -758,21 +1049,14 @@ if (
             }
 
 
-            $allowedStatuses = [
-
-                LLAMA_SHOP_PRODUCT_DRAFT,
-
-                LLAMA_SHOP_PRODUCT_ACTIVE,
-
-                LLAMA_SHOP_PRODUCT_ARCHIVED,
-
-            ];
-
-
             if (
                 !in_array(
                     $status,
-                    $allowedStatuses,
+                    [
+                        LLAMA_SHOP_PRODUCT_DRAFT,
+                        LLAMA_SHOP_PRODUCT_ACTIVE,
+                        LLAMA_SHOP_PRODUCT_ARCHIVED,
+                    ],
                     true
                 )
             ) {
@@ -783,71 +1067,51 @@ if (
             }
 
 
-            if (
-                $primaryImageUrl !== ''
-                &&
-                filter_var(
-                    $primaryImageUrl,
-                    FILTER_VALIDATE_URL
-                )
-                ===
-                false
-            ) {
+            $slugSql =
+                '
+                SELECT id
 
-                throw new InvalidArgumentException(
-                    'Primary image must be a valid URL.'
-                );
-            }
+                FROM shop_products
+
+                WHERE slug = ?
+                ';
+
+
+            $slugParams = [
+                $slug
+            ];
 
 
             if (
                 $isEditing
             ) {
 
-                $slugCheck =
-                    $db->prepare(
-                        '
-                        SELECT id
-
-                        FROM shop_products
-
-                        WHERE slug = ?
-                          AND id <> ?
-
-                        LIMIT 1
-                        '
-                    );
+                $slugSql .=
+                    ' AND id <> ?';
 
 
-                $slugCheck->execute([
-                    $slug,
-                    $productId,
-                ]);
-
-            } else {
-
-                $slugCheck =
-                    $db->prepare(
-                        '
-                        SELECT id
-
-                        FROM shop_products
-
-                        WHERE slug = ?
-
-                        LIMIT 1
-                        '
-                    );
-
-
-                $slugCheck->execute([
-                    $slug
-                ]);
+                $slugParams[] =
+                    $productId;
             }
 
 
+            $slugSql .=
+                ' LIMIT 1';
+
+
+            $slugStmt =
+                $db->prepare(
+                    $slugSql
+                );
+
+
+            $slugStmt->execute(
+                $slugParams
+            );
+
+
             if (
-                $slugCheck->fetchColumn()
+                $slugStmt->fetchColumn()
             ) {
 
                 throw new InvalidArgumentException(
@@ -860,7 +1124,7 @@ if (
                 $isEditing
             ) {
 
-                $update =
+                $stmt =
                     $db->prepare(
                         '
                         UPDATE shop_products
@@ -872,7 +1136,6 @@ if (
                             description = ?,
                             status = ?,
                             product_type = ?,
-                            primary_image_url = ?,
                             is_featured = ?,
                             requires_shipping = ?,
                             sort_order = ?
@@ -884,7 +1147,7 @@ if (
                     );
 
 
-                $update->execute([
+                $stmt->execute([
 
                     $slug,
 
@@ -904,10 +1167,6 @@ if (
                         ? $productType
                         : null,
 
-                    $primaryImageUrl !== ''
-                        ? $primaryImageUrl
-                        : null,
-
                     $isFeatured
                         ? 1
                         : 0,
@@ -923,19 +1182,14 @@ if (
                 ]);
 
 
-                header(
-                    'Location: /shop-product.php?id='
-                    .
-                    $productId
-                    .
-                    '&saved=1'
+                shop_editor_redirect(
+                    $productId,
+                    'Product details saved.'
                 );
-
-                exit;
             }
 
 
-            $insert =
+            $stmt =
                 $db->prepare(
                     '
                     INSERT INTO shop_products
@@ -946,14 +1200,13 @@ if (
                         description,
                         status,
                         product_type,
-                        primary_image_url,
                         is_featured,
                         requires_shipping,
                         sort_order
                     )
+
                     VALUES
                     (
-                        ?,
                         ?,
                         ?,
                         ?,
@@ -968,7 +1221,7 @@ if (
                 );
 
 
-            $insert->execute([
+            $stmt->execute([
 
                 $slug,
 
@@ -988,10 +1241,6 @@ if (
                     ? $productType
                     : null,
 
-                $primaryImageUrl !== ''
-                    ? $primaryImageUrl
-                    : null,
-
                 $isFeatured
                     ? 1
                     : 0,
@@ -1005,551 +1254,472 @@ if (
             ]);
 
 
-            $newProductId =
+            $productId =
                 (int)
                 $db->lastInsertId();
 
 
-            header(
-                'Location: /shop-product.php?id='
-                .
-                $newProductId
-                .
-                '&created=1'
+            shop_editor_redirect(
+                $productId,
+                'Product created. Add photos, options, and pricing below.'
             );
-
-            exit;
         }
 
 
         /* =================================================
-           SAVE VARIANT
+           ALL OTHER ACTIONS REQUIRE PRODUCT
            ================================================= */
 
         if (
-            $action === 'save_variant'
+            !$isEditing
+        ) {
+
+            throw new RuntimeException(
+                'Create the product first.'
+            );
+        }
+
+
+        /* =================================================
+           UPLOAD PHOTOS
+           ================================================= */
+
+        if (
+            $action ===
+            'upload_photos'
         ) {
 
             if (
-                !$isEditing
+                empty(
+                    $_FILES[
+                        'product_photos'
+                    ]
+                )
+                ||
+                !is_array(
+                    $_FILES[
+                        'product_photos'
+                    ]
+                )
             ) {
 
-                throw new RuntimeException(
-                    'Save the product before adding variants.'
+                throw new InvalidArgumentException(
+                    'Choose one or more product photos.'
                 );
             }
 
 
-            $variantId =
-                (int) (
-                    $_POST[
-                        'variant_id'
-                    ]
-                    ?? 0
-                );
-
-
-            $sku =
+            $association =
                 trim(
                     (string) (
                         $_POST[
-                            'sku'
+                            'photo_association'
                         ]
                         ?? ''
                     )
                 );
 
 
-            $variantName =
-                trim(
-                    (string) (
-                        $_POST[
-                            'variant_name'
-                        ]
-                        ?? ''
-                    )
-                );
+            $optionName =
+                null;
 
 
-            $optionOneName =
-                shop_optional(
-                    $_POST[
-                        'option_one_name'
-                    ]
-                    ?? '',
-                    100
-                );
-
-
-            $optionOneValue =
-                shop_optional(
-                    $_POST[
-                        'option_one_value'
-                    ]
-                    ?? '',
-                    150
-                );
-
-
-            $optionTwoName =
-                shop_optional(
-                    $_POST[
-                        'option_two_name'
-                    ]
-                    ?? '',
-                    100
-                );
-
-
-            $optionTwoValue =
-                shop_optional(
-                    $_POST[
-                        'option_two_value'
-                    ]
-                    ?? '',
-                    150
-                );
-
-
-            $optionThreeName =
-                shop_optional(
-                    $_POST[
-                        'option_three_name'
-                    ]
-                    ?? '',
-                    100
-                );
-
-
-            $optionThreeValue =
-                shop_optional(
-                    $_POST[
-                        'option_three_value'
-                    ]
-                    ?? '',
-                    150
-                );
-
-
-            $priceCents =
-                shop_money_to_cents(
-                    $_POST[
-                        'price'
-                    ]
-                    ?? ''
-                );
-
-
-            $compareAtPriceCents =
-                shop_optional_money_to_cents(
-                    $_POST[
-                        'compare_at_price'
-                    ]
-                    ?? ''
-                );
-
-
-            $currency =
-                shop_currency(
-                    $_POST[
-                        'currency'
-                    ]
-                    ?? 'usd'
-                );
-
-
-            $trackInventory =
-                isset(
-                    $_POST[
-                        'track_inventory'
-                    ]
-                );
-
-
-            $inventoryQuantity =
-                (int) (
-                    $_POST[
-                        'inventory_quantity'
-                    ]
-                    ?? 0
-                );
-
-
-            $allowBackorder =
-                isset(
-                    $_POST[
-                        'allow_backorder'
-                    ]
-                );
-
-
-            $fulfillmentType =
-                trim(
-                    (string) (
-                        $_POST[
-                            'fulfillment_type'
-                        ]
-                        ?? LLAMA_SHOP_FULFILLMENT_MANUAL
-                    )
-                );
-
-
-            $allowedFulfillmentTypes = [
-
-                LLAMA_SHOP_FULFILLMENT_MANUAL,
-
-                LLAMA_SHOP_FULFILLMENT_PRINTFUL,
-
-                LLAMA_SHOP_FULFILLMENT_PRINTIFY,
-
-                LLAMA_SHOP_FULFILLMENT_EXTERNAL,
-
-            ];
+            $optionValue =
+                null;
 
 
             if (
-                !in_array(
-                    $fulfillmentType,
-                    $allowedFulfillmentTypes,
-                    true
-                )
+                $association !== ''
             ) {
 
-                throw new InvalidArgumentException(
-                    'Invalid fulfillment type.'
-                );
-            }
-
-
-            $fulfillmentProvider =
-                shop_optional(
-                    $_POST[
-                        'fulfillment_provider'
-                    ]
-                    ?? '',
-                    100
-                );
-
-
-            $fulfillmentProductId =
-                shop_optional(
-                    $_POST[
-                        'fulfillment_product_id'
-                    ]
-                    ?? '',
-                    255
-                );
-
-
-            $fulfillmentVariantId =
-                shop_optional(
-                    $_POST[
-                        'fulfillment_variant_id'
-                    ]
-                    ?? '',
-                    255
-                );
-
-
-            $stripeProductId =
-                shop_optional(
-                    $_POST[
-                        'stripe_product_id'
-                    ]
-                    ?? '',
-                    255
-                );
-
-
-            $stripePriceId =
-                shop_optional(
-                    $_POST[
-                        'stripe_price_id'
-                    ]
-                    ?? '',
-                    255
-                );
-
-
-            $variantActive =
-                isset(
-                    $_POST[
-                        'is_active'
-                    ]
-                );
-
-
-            $variantSortOrder =
-                (int) (
-                    $_POST[
-                        'variant_sort_order'
-                    ]
-                    ?? 0
-                );
-
-
-            if (
-                $sku === ''
-            ) {
-
-                throw new InvalidArgumentException(
-                    'SKU is required.'
-                );
-            }
-
-
-            if (
-                mb_strlen(
-                    $sku
-                )
-                >
-                120
-            ) {
-
-                throw new InvalidArgumentException(
-                    'SKU is too long.'
-                );
-            }
-
-
-            if (
-                $variantName === ''
-            ) {
-
-                throw new InvalidArgumentException(
-                    'Variant name is required.'
-                );
-            }
-
-
-            if (
-                mb_strlen(
-                    $variantName
-                )
-                >
-                200
-            ) {
-
-                throw new InvalidArgumentException(
-                    'Variant name is too long.'
-                );
-            }
-
-
-            if (
-                $compareAtPriceCents !== null
-                &&
-                $compareAtPriceCents
-                <
-                $priceCents
-            ) {
-
-                throw new InvalidArgumentException(
-                    'Compare-at price cannot be lower than the selling price.'
-                );
-            }
-
-
-            if (
-                $variantId > 0
-            ) {
-
-                $variantCheck =
-                    $db->prepare(
-                        '
-                        SELECT id
-
-                        FROM shop_product_variants
-
-                        WHERE id = ?
-                          AND product_id = ?
-
-                        LIMIT 1
-                        '
+                $decoded =
+                    json_decode(
+                        $association,
+                        true
                     );
-
-
-                $variantCheck->execute([
-                    $variantId,
-                    $productId,
-                ]);
 
 
                 if (
-                    !$variantCheck->fetchColumn()
+                    is_array(
+                        $decoded
+                    )
                 ) {
 
-                    throw new RuntimeException(
-                        'Variant not found.'
-                    );
+                    $optionName =
+                        trim(
+                            (string) (
+                                $decoded[
+                                    'name'
+                                ]
+                                ?? ''
+                            )
+                        );
+
+
+                    $optionValue =
+                        trim(
+                            (string) (
+                                $decoded[
+                                    'value'
+                                ]
+                                ?? ''
+                            )
+                        );
+
+
+                    if (
+                        $optionName === ''
+                        ||
+                        $optionValue === ''
+                    ) {
+
+                        $optionName =
+                            null;
+
+                        $optionValue =
+                            null;
+                    }
+                }
+            }
+
+
+            $photos =
+                llama_store_uploaded_photos(
+
+                    $_FILES[
+                        'product_photos'
+                    ],
+
+                    $ownerId,
+
+                    'shop-products',
+
+                    20
+                );
+
+
+            llama_shop_add_product_images(
+
+                $db,
+
+                $productId,
+
+                $photos,
+
+                $optionName,
+
+                $optionValue
+            );
+
+
+            shop_editor_redirect(
+                $productId,
+                count(
+                    $photos
+                )
+                .
+                ' product photo'
+                .
+                (
+                    count(
+                        $photos
+                    )
+                    ===
+                    1
+                        ? ''
+                        : 's'
+                )
+                .
+                ' uploaded.'
+            );
+        }
+
+
+        /* =================================================
+           PRIMARY IMAGE
+           ================================================= */
+
+        if (
+            $action ===
+            'set_primary_image'
+        ) {
+
+            $imageId =
+                (int) (
+                    $_POST[
+                        'image_id'
+                    ]
+                    ?? 0
+                );
+
+
+            llama_shop_set_primary_image(
+                $db,
+                $productId,
+                $imageId
+            );
+
+
+            shop_editor_redirect(
+                $productId,
+                'Primary product image changed.'
+            );
+        }
+
+
+        /* =================================================
+           DELETE IMAGE
+           ================================================= */
+
+        if (
+            $action ===
+            'delete_image'
+        ) {
+
+            $imageId =
+                (int) (
+                    $_POST[
+                        'image_id'
+                    ]
+                    ?? 0
+                );
+
+
+            $deletedUrl =
+                llama_shop_delete_product_image(
+                    $db,
+                    $productId,
+                    $imageId
+                );
+
+
+            if (
+                $deletedUrl !== null
+            ) {
+
+                shop_editor_delete_uploaded_file(
+                    $deletedUrl
+                );
+            }
+
+
+            shop_editor_redirect(
+                $productId,
+                'Product photo deleted.'
+            );
+        }
+
+
+        /* =================================================
+           SAVE OPTIONS + GENERATE MATRIX
+           ================================================= */
+
+        if (
+            $action ===
+            'save_options'
+        ) {
+
+            $hasOptions =
+                isset(
+                    $_POST[
+                        'has_options'
+                    ]
+                );
+
+
+            $optionDefinitions =
+                [];
+
+
+            if (
+                $hasOptions
+            ) {
+
+                for (
+                    $position = 1;
+                    $position <= 3;
+                    $position++
+                ) {
+
+                    $optionName =
+                        trim(
+                            (string) (
+                                $_POST[
+                                    'option_name_'
+                                    .
+                                    $position
+                                ]
+                                ?? ''
+                            )
+                        );
+
+
+                    $optionValues =
+                        shop_editor_csv_values(
+                            $_POST[
+                                'option_values_'
+                                .
+                                $position
+                            ]
+                            ?? ''
+                        );
+
+
+                    if (
+                        $optionName === ''
+                        &&
+                        !$optionValues
+                    ) {
+
+                        continue;
+                    }
+
+
+                    if (
+                        $optionName === ''
+                        ||
+                        !$optionValues
+                    ) {
+
+                        throw new InvalidArgumentException(
+                            'Every enabled option needs both a name and at least one value.'
+                        );
+                    }
+
+
+                    $optionDefinitions[] = [
+
+                        'name' =>
+                            $optionName,
+
+                        'values' =>
+                            $optionValues,
+
+                    ];
                 }
 
 
-                $skuCheck =
-                    $db->prepare(
-                        '
-                        SELECT id
+                if (
+                    !$optionDefinitions
+                ) {
 
-                        FROM shop_product_variants
-
-                        WHERE sku = ?
-                          AND id <> ?
-
-                        LIMIT 1
-                        '
+                    throw new InvalidArgumentException(
+                        'Add at least one product option or turn off product options.'
                     );
-
-
-                $skuCheck->execute([
-                    $sku,
-                    $variantId,
-                ]);
-
-            } else {
-
-                $skuCheck =
-                    $db->prepare(
-                        '
-                        SELECT id
-
-                        FROM shop_product_variants
-
-                        WHERE sku = ?
-
-                        LIMIT 1
-                        '
-                    );
-
-
-                $skuCheck->execute([
-                    $sku
-                ]);
+                }
             }
+
+
+            llama_shop_save_product_options(
+                $db,
+                $productId,
+                $optionDefinitions
+            );
+
+
+            $defaultPrice =
+                shop_editor_money_to_cents(
+                    $_POST[
+                        'default_price'
+                    ]
+                    ?? '0'
+                );
+
+
+            $skuPrefix =
+                shop_editor_sku_piece(
+                    (string) (
+                        $_POST[
+                            'sku_prefix'
+                        ]
+                        ??
+                        $slug
+                    )
+                );
 
 
             if (
-                $skuCheck->fetchColumn()
+                $skuPrefix === ''
             ) {
 
-                throw new InvalidArgumentException(
-                    'That SKU is already in use.'
-                );
+                $skuPrefix =
+                    'LS-'
+                    .
+                    $productId;
             }
+
+
+            /*
+             * Build normalized option combinations.
+             */
+
+            $combinations =
+                llama_shop_option_combinations(
+                    $optionDefinitions
+                );
 
 
             if (
-                $variantId > 0
+                !$combinations
             ) {
 
-                $updateVariant =
-                    $db->prepare(
-                        '
-                        UPDATE shop_product_variants
-
-                        SET
-                            sku = ?,
-                            name = ?,
-                            option_one_name = ?,
-                            option_one_value = ?,
-                            option_two_name = ?,
-                            option_two_value = ?,
-                            option_three_name = ?,
-                            option_three_value = ?,
-                            price_cents = ?,
-                            compare_at_price_cents = ?,
-                            currency = ?,
-                            track_inventory = ?,
-                            inventory_quantity = ?,
-                            allow_backorder = ?,
-                            fulfillment_type = ?,
-                            fulfillment_provider = ?,
-                            fulfillment_product_id = ?,
-                            fulfillment_variant_id = ?,
-                            stripe_product_id = ?,
-                            stripe_price_id = ?,
-                            is_active = ?,
-                            sort_order = ?
-
-                        WHERE id = ?
-                          AND product_id = ?
-
-                        LIMIT 1
-                        '
-                    );
-
-
-                $updateVariant->execute([
-
-                    $sku,
-
-                    $variantName,
-
-                    $optionOneName,
-
-                    $optionOneValue,
-
-                    $optionTwoName,
-
-                    $optionTwoValue,
-
-                    $optionThreeName,
-
-                    $optionThreeValue,
-
-                    $priceCents,
-
-                    $compareAtPriceCents,
-
-                    $currency,
-
-                    $trackInventory
-                        ? 1
-                        : 0,
-
-                    $inventoryQuantity,
-
-                    $allowBackorder
-                        ? 1
-                        : 0,
-
-                    $fulfillmentType,
-
-                    $fulfillmentProvider,
-
-                    $fulfillmentProductId,
-
-                    $fulfillmentVariantId,
-
-                    $stripeProductId,
-
-                    $stripePriceId,
-
-                    $variantActive
-                        ? 1
-                        : 0,
-
-                    $variantSortOrder,
-
-                    $variantId,
-
-                    $productId,
-
-                ]);
-
-
-                header(
-                    'Location: /shop-product.php?id='
-                    .
-                    $productId
-                    .
-                    '&variant_saved=1'
-                );
-
-                exit;
+                $combinations = [
+                    []
+                ];
             }
 
 
-            $insertVariant =
+            $existingStmt =
+                $db->prepare(
+                    '
+                    SELECT *
+
+                    FROM shop_product_variants
+
+                    WHERE product_id = ?
+
+                    ORDER BY id ASC
+                    '
+                );
+
+
+            $existingStmt->execute([
+                $productId
+            ]);
+
+
+            $existingVariants =
+                $existingStmt->fetchAll(
+                    PDO::FETCH_ASSOC
+                );
+
+
+            $existingByKey =
+                [];
+
+
+            foreach (
+                $existingVariants
+                as
+                $existingVariant
+            ) {
+
+                $existingByKey[
+                    shop_editor_option_key(
+                        shop_editor_variant_pairs(
+                            $existingVariant
+                        )
+                    )
+                ] =
+                    $existingVariant;
+            }
+
+
+            $validKeys =
+                [];
+
+
+            $insert =
                 $db->prepare(
                     '
                     INSERT INTO shop_product_variants
@@ -1557,27 +1727,28 @@ if (
                         product_id,
                         sku,
                         name,
+
                         option_one_name,
                         option_one_value,
+
                         option_two_name,
                         option_two_value,
+
                         option_three_name,
                         option_three_value,
+
                         price_cents,
-                        compare_at_price_cents,
                         currency,
+
                         track_inventory,
                         inventory_quantity,
                         allow_backorder,
+
                         fulfillment_type,
-                        fulfillment_provider,
-                        fulfillment_product_id,
-                        fulfillment_variant_id,
-                        stripe_product_id,
-                        stripe_price_id,
                         is_active,
                         sort_order
                     )
+
                     VALUES
                     (
                         ?,
@@ -1590,134 +1761,229 @@ if (
                         ?,
                         ?,
                         ?,
+                        \'usd\',
+                        0,
+                        0,
+                        0,
                         ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
-                        ?,
+                        1,
                         ?
                     )
                     '
                 );
 
 
-            $insertVariant->execute([
-
-                $productId,
-
-                $sku,
-
-                $variantName,
-
-                $optionOneName,
-
-                $optionOneValue,
-
-                $optionTwoName,
-
-                $optionTwoValue,
-
-                $optionThreeName,
-
-                $optionThreeValue,
-
-                $priceCents,
-
-                $compareAtPriceCents,
-
-                $currency,
-
-                $trackInventory
-                    ? 1
-                    : 0,
-
-                $inventoryQuantity,
-
-                $allowBackorder
-                    ? 1
-                    : 0,
-
-                $fulfillmentType,
-
-                $fulfillmentProvider,
-
-                $fulfillmentProductId,
-
-                $fulfillmentVariantId,
-
-                $stripeProductId,
-
-                $stripePriceId,
-
-                $variantActive
-                    ? 1
-                    : 0,
-
-                $variantSortOrder,
-
-            ]);
-
-
-            header(
-                'Location: /shop-product.php?id='
-                .
-                $productId
-                .
-                '&variant_created=1'
-            );
-
-            exit;
-        }
-
-
-        /* =================================================
-           DELETE VARIANT
-           ================================================= */
-
-        if (
-            $action === 'delete_variant'
-        ) {
-
-            if (
-                !$isEditing
+            foreach (
+                $combinations
+                as
+                $index =>
+                $pairs
             ) {
 
-                throw new RuntimeException(
-                    'Product not found.'
-                );
-            }
+                $key =
+                    shop_editor_option_key(
+                        $pairs
+                    );
 
 
-            $variantId =
-                (int) (
-                    $_POST[
-                        'variant_id'
+                $validKeys[
+                    $key
+                ] =
+                    true;
+
+
+                if (
+                    isset(
+                        $existingByKey[
+                            $key
+                        ]
+                    )
+                ) {
+
+                    continue;
+                }
+
+
+                $skuParts = [
+                    $skuPrefix
+                ];
+
+
+                foreach (
+                    $pairs
+                    as
+                    $pair
+                ) {
+
+                    $piece =
+                        shop_editor_sku_piece(
+                            (string)
+                            $pair[
+                                'value'
+                            ]
+                        );
+
+
+                    if (
+                        $piece !== ''
+                    ) {
+
+                        $skuParts[] =
+                            $piece;
+                    }
+                }
+
+
+                if (
+                    !$pairs
+                ) {
+
+                    $skuParts[] =
+                        'STD';
+                }
+
+
+                $baseSku =
+                    implode(
+                        '-',
+                        $skuParts
+                    );
+
+
+                $candidateSku =
+                    $baseSku;
+
+
+                $suffix =
+                    2;
+
+
+                while (
+                    true
+                ) {
+
+                    $skuCheck =
+                        $db->prepare(
+                            '
+                            SELECT id
+
+                            FROM shop_product_variants
+
+                            WHERE sku = ?
+
+                            LIMIT 1
+                            '
+                        );
+
+
+                    $skuCheck->execute([
+                        $candidateSku
+                    ]);
+
+
+                    if (
+                        !$skuCheck->fetchColumn()
+                    ) {
+
+                        break;
+                    }
+
+
+                    $candidateSku =
+                        $baseSku
+                        .
+                        '-'
+                        .
+                        $suffix;
+
+
+                    $suffix++;
+                }
+
+
+                $first =
+                    $pairs[
+                        0
                     ]
-                    ?? 0
-                );
+                    ?? [];
 
 
-            if (
-                $variantId < 1
-            ) {
+                $second =
+                    $pairs[
+                        1
+                    ]
+                    ?? [];
 
-                throw new InvalidArgumentException(
-                    'Invalid variant.'
-                );
+
+                $third =
+                    $pairs[
+                        2
+                    ]
+                    ?? [];
+
+
+                $insert->execute([
+
+                    $productId,
+
+                    $candidateSku,
+
+                    shop_editor_variant_name(
+                        $pairs
+                    ),
+
+                    $first[
+                        'name'
+                    ]
+                    ?? null,
+
+                    $first[
+                        'value'
+                    ]
+                    ?? null,
+
+                    $second[
+                        'name'
+                    ]
+                    ?? null,
+
+                    $second[
+                        'value'
+                    ]
+                    ?? null,
+
+                    $third[
+                        'name'
+                    ]
+                    ?? null,
+
+                    $third[
+                        'value'
+                    ]
+                    ?? null,
+
+                    $defaultPrice,
+
+                    LLAMA_SHOP_FULFILLMENT_MANUAL,
+
+                    $index,
+
+                ]);
             }
 
 
-            $deleteVariant =
+            /*
+             * Old variants that no longer belong to the current
+             * option matrix are retained for order history but
+             * automatically deactivated.
+             */
+
+            $deactivate =
                 $db->prepare(
                     '
-                    DELETE FROM shop_product_variants
+                    UPDATE shop_product_variants
+
+                    SET is_active = 0
 
                     WHERE id = ?
                       AND product_id = ?
@@ -1727,21 +1993,652 @@ if (
                 );
 
 
-            $deleteVariant->execute([
-                $variantId,
+            foreach (
+                $existingVariants
+                as
+                $existingVariant
+            ) {
+
+                $existingKey =
+                    shop_editor_option_key(
+                        shop_editor_variant_pairs(
+                            $existingVariant
+                        )
+                    );
+
+
+                if (
+                    !isset(
+                        $validKeys[
+                            $existingKey
+                        ]
+                    )
+                ) {
+
+                    $deactivate->execute([
+
+                        (int)
+                        $existingVariant[
+                            'id'
+                        ],
+
+                        $productId,
+
+                    ]);
+                }
+            }
+
+
+            shop_editor_redirect(
                 $productId,
-            ]);
-
-
-            header(
-                'Location: /shop-product.php?id='
-                .
-                $productId
-                .
-                '&variant_deleted=1'
+                'Product options saved and variant matrix updated.'
             );
+        }
 
-            exit;
+
+        /* =================================================
+           SAVE VARIANT MATRIX
+           ================================================= */
+
+        if (
+            $action ===
+            'save_variants'
+        ) {
+
+            $submitted =
+                $_POST[
+                    'variants'
+                ]
+                ?? [];
+
+
+            if (
+                !is_array(
+                    $submitted
+                )
+            ) {
+
+                throw new InvalidArgumentException(
+                    'Variant data is invalid.'
+                );
+            }
+
+
+            $variantLookup =
+                $db->prepare(
+                    '
+                    SELECT *
+
+                    FROM shop_product_variants
+
+                    WHERE id = ?
+                      AND product_id = ?
+
+                    LIMIT 1
+                    '
+                );
+
+
+            $skuLookup =
+                $db->prepare(
+                    '
+                    SELECT id
+
+                    FROM shop_product_variants
+
+                    WHERE sku = ?
+                      AND id <> ?
+
+                    LIMIT 1
+                    '
+                );
+
+
+            $update =
+                $db->prepare(
+                    '
+                    UPDATE shop_product_variants
+
+                    SET
+                        sku = ?,
+                        name = ?,
+                        price_cents = ?,
+                        compare_at_price_cents = ?,
+                        currency = ?,
+
+                        track_inventory = ?,
+                        inventory_quantity = ?,
+                        allow_backorder = ?,
+
+                        fulfillment_type = ?,
+                        fulfillment_provider = ?,
+                        fulfillment_product_id = ?,
+                        fulfillment_variant_id = ?,
+
+                        stripe_product_id = ?,
+                        stripe_price_id = ?,
+
+                        is_active = ?,
+                        sort_order = ?
+
+                    WHERE id = ?
+                      AND product_id = ?
+
+                    LIMIT 1
+                    '
+                );
+
+
+            foreach (
+                $submitted
+                as
+                $variantIdString =>
+                $values
+            ) {
+
+                $variantId =
+                    (int)
+                    $variantIdString;
+
+
+                if (
+                    $variantId < 1
+                    ||
+                    !is_array(
+                        $values
+                    )
+                ) {
+
+                    continue;
+                }
+
+
+                $variantLookup->execute([
+                    $variantId,
+                    $productId,
+                ]);
+
+
+                $current =
+                    $variantLookup->fetch(
+                        PDO::FETCH_ASSOC
+                    );
+
+
+                if (
+                    !$current
+                ) {
+
+                    continue;
+                }
+
+
+                $sku =
+                    trim(
+                        (string) (
+                            $values[
+                                'sku'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                $variantName =
+                    trim(
+                        (string) (
+                            $values[
+                                'name'
+                            ]
+                            ??
+                            $current[
+                                'name'
+                            ]
+                        )
+                    );
+
+
+                if (
+                    $sku === ''
+                ) {
+
+                    throw new InvalidArgumentException(
+                        'Every variant needs a SKU.'
+                    );
+                }
+
+
+                if (
+                    $variantName === ''
+                ) {
+
+                    throw new InvalidArgumentException(
+                        'Every variant needs a name.'
+                    );
+                }
+
+
+                $skuLookup->execute([
+                    $sku,
+                    $variantId,
+                ]);
+
+
+                if (
+                    $skuLookup->fetchColumn()
+                ) {
+
+                    throw new InvalidArgumentException(
+                        'Duplicate SKU: '
+                        .
+                        $sku
+                    );
+                }
+
+
+                $price =
+                    shop_editor_money_to_cents(
+                        $values[
+                            'price'
+                        ]
+                        ?? ''
+                    );
+
+
+                $compareAt =
+                    shop_editor_optional_money_to_cents(
+                        $values[
+                            'compare_at_price'
+                        ]
+                        ?? ''
+                    );
+
+
+                if (
+                    $compareAt !== null
+                    &&
+                    $compareAt < $price
+                ) {
+
+                    throw new InvalidArgumentException(
+                        'Compare-at price cannot be lower than the selling price for '
+                        .
+                        $sku
+                        .
+                        '.'
+                    );
+                }
+
+
+                $currency =
+                    strtolower(
+                        trim(
+                            (string) (
+                                $values[
+                                    'currency'
+                                ]
+                                ?? 'usd'
+                            )
+                        )
+                    );
+
+
+                if (
+                    !preg_match(
+                        '/^[a-z]{3}$/',
+                        $currency
+                    )
+                ) {
+
+                    throw new InvalidArgumentException(
+                        'Invalid currency for '
+                        .
+                        $sku
+                        .
+                        '.'
+                    );
+                }
+
+
+                $trackInventory =
+                    !empty(
+                        $values[
+                            'track_inventory'
+                        ]
+                    );
+
+
+                $inventory =
+                    max(
+                        0,
+                        (int) (
+                            $values[
+                                'inventory_quantity'
+                            ]
+                            ?? 0
+                        )
+                    );
+
+
+                $allowBackorder =
+                    !empty(
+                        $values[
+                            'allow_backorder'
+                        ]
+                    );
+
+
+                $fulfillmentType =
+                    trim(
+                        (string) (
+                            $values[
+                                'fulfillment_type'
+                            ]
+                            ??
+                            LLAMA_SHOP_FULFILLMENT_MANUAL
+                        )
+                    );
+
+
+                if (
+                    !in_array(
+                        $fulfillmentType,
+                        [
+                            LLAMA_SHOP_FULFILLMENT_MANUAL,
+                            LLAMA_SHOP_FULFILLMENT_PRINTFUL,
+                            LLAMA_SHOP_FULFILLMENT_PRINTIFY,
+                            LLAMA_SHOP_FULFILLMENT_EXTERNAL,
+                        ],
+                        true
+                    )
+                ) {
+
+                    throw new InvalidArgumentException(
+                        'Invalid fulfillment type for '
+                        .
+                        $sku
+                        .
+                        '.'
+                    );
+                }
+
+
+                $fulfillmentProvider =
+                    trim(
+                        (string) (
+                            $values[
+                                'fulfillment_provider'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                $fulfillmentProductId =
+                    trim(
+                        (string) (
+                            $values[
+                                'fulfillment_product_id'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                $fulfillmentVariantId =
+                    trim(
+                        (string) (
+                            $values[
+                                'fulfillment_variant_id'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                $stripeProductId =
+                    trim(
+                        (string) (
+                            $values[
+                                'stripe_product_id'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                $stripePriceId =
+                    trim(
+                        (string) (
+                            $values[
+                                'stripe_price_id'
+                            ]
+                            ?? ''
+                        )
+                    );
+
+
+                $active =
+                    !empty(
+                        $values[
+                            'is_active'
+                        ]
+                    );
+
+
+                $variantSort =
+                    (int) (
+                        $values[
+                            'sort_order'
+                        ]
+                        ?? 0
+                    );
+
+
+                $update->execute([
+
+                    $sku,
+
+                    $variantName,
+
+                    $price,
+
+                    $compareAt,
+
+                    $currency,
+
+                    $trackInventory
+                        ? 1
+                        : 0,
+
+                    $inventory,
+
+                    $allowBackorder
+                        ? 1
+                        : 0,
+
+                    $fulfillmentType,
+
+                    $fulfillmentProvider !== ''
+                        ? $fulfillmentProvider
+                        : null,
+
+                    $fulfillmentProductId !== ''
+                        ? $fulfillmentProductId
+                        : null,
+
+                    $fulfillmentVariantId !== ''
+                        ? $fulfillmentVariantId
+                        : null,
+
+                    $stripeProductId !== ''
+                        ? $stripeProductId
+                        : null,
+
+                    $stripePriceId !== ''
+                        ? $stripePriceId
+                        : null,
+
+                    $active
+                        ? 1
+                        : 0,
+
+                    $variantSort,
+
+                    $variantId,
+
+                    $productId,
+
+                ]);
+
+
+                /* =========================================
+                   SHIPPING PROFILE
+                   ========================================= */
+
+                if (
+                    $requiresShipping
+                ) {
+
+                    $shippingStrategy =
+                        trim(
+                            (string) (
+                                $values[
+                                    'shipping_strategy'
+                                ]
+                                ??
+                                LLAMA_SHIPPING_PROVIDER_MANAGED
+                            )
+                        );
+
+
+                    $flatRate =
+                        shop_editor_optional_money_to_cents(
+                            $values[
+                                'flat_rate'
+                            ]
+                            ?? ''
+                        );
+
+
+                    $handling =
+                        shop_editor_optional_money_to_cents(
+                            $values[
+                                'handling'
+                            ]
+                            ?? ''
+                        )
+                        ??
+                        0;
+
+
+                    llama_shipping_save_profile(
+
+                        $db,
+
+                        $variantId,
+
+                        [
+
+                            'shipping_strategy' =>
+                                $shippingStrategy,
+
+                            'carrier' =>
+                                trim(
+                                    (string) (
+                                        $values[
+                                            'carrier'
+                                        ]
+                                        ?? ''
+                                    )
+                                ),
+
+                            'preferred_service' =>
+                                trim(
+                                    (string) (
+                                        $values[
+                                            'preferred_service'
+                                        ]
+                                        ?? ''
+                                    )
+                                ),
+
+                            'package_type' =>
+                                trim(
+                                    (string) (
+                                        $values[
+                                            'package_type'
+                                        ]
+                                        ?? 'custom_package'
+                                    )
+                                ),
+
+                            'weight_oz' =>
+                                $values[
+                                    'weight_oz'
+                                ]
+                                ?? '',
+
+                            'length_in' =>
+                                $values[
+                                    'length_in'
+                                ]
+                                ?? '',
+
+                            'width_in' =>
+                                $values[
+                                    'width_in'
+                                ]
+                                ?? '',
+
+                            'height_in' =>
+                                $values[
+                                    'height_in'
+                                ]
+                                ?? '',
+
+                            'girth_in' =>
+                                $values[
+                                    'girth_in'
+                                ]
+                                ?? '',
+
+                            'ships_separately' =>
+                                !empty(
+                                    $values[
+                                        'ships_separately'
+                                    ]
+                                ),
+
+                            'flat_rate_cents' =>
+                                $flatRate,
+
+                            'handling_cents' =>
+                                $handling,
+
+                            'origin_key' =>
+                                trim(
+                                    (string) (
+                                        $values[
+                                            'origin_key'
+                                        ]
+                                        ?? 'default'
+                                    )
+                                ),
+
+                            'is_active' =>
+                                true,
+
+                        ]
+                    );
+                }
+            }
+
+
+            shop_editor_redirect(
+                $productId,
+                'Variant pricing, inventory, fulfillment, and shipping saved.'
+            );
         }
 
 
@@ -1762,14 +2659,14 @@ if (
 
 
 /* =========================================================
-   RELOAD PRODUCT AFTER POST ERROR
+   RELOAD PRODUCT
    ========================================================= */
 
 if (
-    $isEditing
+    $productId > 0
 ) {
 
-    $productStmt =
+    $stmt =
         $db->prepare(
             '
             SELECT *
@@ -1783,20 +2680,194 @@ if (
         );
 
 
-    $productStmt->execute([
+    $stmt->execute([
         $productId
     ]);
 
 
     $product =
-        $productStmt->fetch(
+        $stmt->fetch(
             PDO::FETCH_ASSOC
         );
+
+
+    if (
+        $product
+    ) {
+
+        $isEditing =
+            true;
+
+
+        $name =
+            (string)
+            $product[
+                'name'
+            ];
+
+
+        $slug =
+            (string)
+            $product[
+                'slug'
+            ];
+
+
+        $shortDescription =
+            (string) (
+                $product[
+                    'short_description'
+                ]
+                ?? ''
+            );
+
+
+        $description =
+            (string) (
+                $product[
+                    'description'
+                ]
+                ?? ''
+            );
+
+
+        $productType =
+            (string) (
+                $product[
+                    'product_type'
+                ]
+                ?? ''
+            );
+
+
+        $status =
+            (string)
+            $product[
+                'status'
+            ];
+
+
+        $isFeatured =
+            (bool)
+            $product[
+                'is_featured'
+            ];
+
+
+        $requiresShipping =
+            (bool)
+            $product[
+                'requires_shipping'
+            ];
+
+
+        $sortOrder =
+            (int)
+            $product[
+                'sort_order'
+            ];
+    }
 }
 
 
 /* =========================================================
-   LOAD VARIANTS
+   CATALOG DATA
+   ========================================================= */
+
+$productOptions =
+    $isEditing
+        ? llama_shop_product_options(
+            $db,
+            $productId
+        )
+        : [];
+
+
+$productImages =
+    $isEditing
+        ? llama_shop_product_images(
+            $db,
+            $productId
+        )
+        : [];
+
+
+/*
+ * Normalize stored option rows into editor shape.
+ */
+
+$editorOptions =
+    [];
+
+
+foreach (
+    $productOptions
+    as
+    $option
+) {
+
+    $values =
+        [];
+
+
+    foreach (
+        $option[
+            'values'
+        ]
+        ??
+        []
+        as
+        $value
+    ) {
+
+        if (
+            is_array(
+                $value
+            )
+        ) {
+
+            $value =
+                $value[
+                    'option_value'
+                ]
+                ?? '';
+        }
+
+
+        $value =
+            trim(
+                (string)
+                $value
+            );
+
+
+        if (
+            $value !== ''
+        ) {
+
+            $values[] =
+                $value;
+        }
+    }
+
+
+    $editorOptions[] = [
+
+        'name' =>
+            (string)
+            $option[
+                'option_name'
+            ],
+
+        'values' =>
+            $values,
+
+    ];
+}
+
+
+/* =========================================================
+   VARIANTS
    ========================================================= */
 
 $variants =
@@ -1807,7 +2878,7 @@ if (
     $isEditing
 ) {
 
-    $variantStmt =
+    $stmt =
         $db->prepare(
             '
             SELECT *
@@ -1823,217 +2894,98 @@ if (
         );
 
 
-    $variantStmt->execute([
+    $stmt->execute([
         $productId
     ]);
 
 
     $variants =
-        $variantStmt->fetchAll(
+        $stmt->fetchAll(
             PDO::FETCH_ASSOC
         );
 }
 
 
 /* =========================================================
-   VARIANT FORM DEFAULTS
+   SHIPPING PROFILES
    ========================================================= */
 
-$variantForm = [
-
-    'id' =>
-        0,
-
-    'sku' =>
-        '',
-
-    'name' =>
-        '',
-
-    'option_one_name' =>
-        '',
-
-    'option_one_value' =>
-        '',
-
-    'option_two_name' =>
-        '',
-
-    'option_two_value' =>
-        '',
-
-    'option_three_name' =>
-        '',
-
-    'option_three_value' =>
-        '',
-
-    'price_cents' =>
-        0,
-
-    'compare_at_price_cents' =>
-        null,
-
-    'currency' =>
-        'usd',
-
-    'track_inventory' =>
-        0,
-
-    'inventory_quantity' =>
-        0,
-
-    'allow_backorder' =>
-        0,
-
-    'fulfillment_type' =>
-        LLAMA_SHOP_FULFILLMENT_MANUAL,
-
-    'fulfillment_provider' =>
-        '',
-
-    'fulfillment_product_id' =>
-        '',
-
-    'fulfillment_variant_id' =>
-        '',
-
-    'stripe_product_id' =>
-        '',
-
-    'stripe_price_id' =>
-        '',
-
-    'is_active' =>
-        1,
-
-    'sort_order' =>
-        0,
-
-];
+$shippingProfiles =
+    [];
 
 
-/* =========================================================
-   LOAD VARIANT FOR EDITING
-   ========================================================= */
-
-if (
-    $isEditing
-    &&
-    $variantEditingId > 0
+foreach (
+    $variants
+    as
+    $variant
 ) {
 
-    $variantEditStmt =
-        $db->prepare(
-            '
-            SELECT *
-
-            FROM shop_product_variants
-
-            WHERE id = ?
-              AND product_id = ?
-
-            LIMIT 1
-            '
-        );
+    $variantId =
+        (int)
+        $variant[
+            'id'
+        ];
 
 
-    $variantEditStmt->execute([
-        $variantEditingId,
-        $productId,
-    ]);
-
-
-    $variantEditing =
-        $variantEditStmt->fetch(
-            PDO::FETCH_ASSOC
+    $profile =
+        llama_shipping_profile(
+            $db,
+            $variantId
         );
 
 
     if (
-        $variantEditing
+        !$profile
     ) {
 
-        $variantForm =
-            array_merge(
-                $variantForm,
-                $variantEditing
+        $profile =
+            llama_shipping_default_profile(
+                $variant
             );
-
-    } else {
-
-        $variantEditingId =
-            0;
     }
+
+
+    $shippingProfiles[
+        $variantId
+    ] =
+        $profile;
 }
 
 
 /* =========================================================
-   SUCCESS MESSAGES
+   PHOTO ASSOCIATION OPTIONS
    ========================================================= */
 
-if (
-    isset(
-        $_GET[
-            'created'
-        ]
-    )
+$photoAssociations =
+    [];
+
+
+foreach (
+    $editorOptions
+    as
+    $option
 ) {
 
-    $success =
-        'Product created. You can add pricing and fulfillment variants below.';
-}
-
-
-if (
-    isset(
-        $_GET[
-            'saved'
+    foreach (
+        $option[
+            'values'
         ]
-    )
-) {
+        as
+        $value
+    ) {
 
-    $success =
-        'Product changes saved.';
-}
+        $photoAssociations[] = [
 
+            'name' =>
+                $option[
+                    'name'
+                ],
 
-if (
-    isset(
-        $_GET[
-            'variant_created'
-        ]
-    )
-) {
+            'value' =>
+                $value,
 
-    $success =
-        'Variant created.';
-}
-
-
-if (
-    isset(
-        $_GET[
-            'variant_saved'
-        ]
-    )
-) {
-
-    $success =
-        'Variant changes saved.';
-}
-
-
-if (
-    isset(
-        $_GET[
-            'variant_deleted'
-        ]
-    )
-) {
-
-    $success =
-        'Variant deleted.';
+        ];
+    }
 }
 
 
@@ -2047,19 +2999,6 @@ $pageTitle =
         : 'Add Product';
 
 
-$productFormAction =
-    $isEditing
-        ? '/shop-product.php?id='
-            . $productId
-        : '/shop-product.php';
-
-
-$variantFormAction =
-    '/shop-product.php?id='
-    .
-    $productId;
-
-
 ?>
 <!doctype html>
 
@@ -2067,38 +3006,247 @@ $variantFormAction =
 
 <head>
 
-  <meta charset="utf-8">
+<meta charset="utf-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1"
+>
 
-  <title>
-    <?= e(
-        $pageTitle
-    ) ?> | Shop | Llama Scout
-  </title>
+<title>
+  <?= shop_editor_e(
+      $pageTitle
+  ) ?>
+  | Shop | Llama Scout
+</title>
 
-  <meta
-    name="robots"
-    content="noindex,nofollow"
-  >
+<meta
+  name="robots"
+  content="noindex,nofollow"
+>
 
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-  >
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+>
 
-  <link
-    rel="stylesheet"
-    href="https://llamascout.com/css/style.css"
-  >
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/style.css"
+>
 
-  <link
-    rel="stylesheet"
-    href="https://llamascout.com/css/admin.css"
-  >
+<link
+  rel="stylesheet"
+  href="https://llamascout.com/css/admin.css"
+>
+
+
+<style>
+
+.shop-editor-section {
+  margin-bottom: 28px;
+}
+
+.shop-editor-card {
+  padding: 22px;
+  border: 1px solid var(--border, rgba(127,127,127,.25));
+  border-radius: 18px;
+  background: var(--surface, rgba(127,127,127,.04));
+}
+
+.shop-editor-help {
+  margin: 7px 0 0;
+  font-size: .82rem;
+  line-height: 1.5;
+  opacity: .68;
+}
+
+.shop-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 16px;
+}
+
+.shop-editor-grid--3 {
+  grid-template-columns: repeat(3,minmax(0,1fr));
+}
+
+.shop-editor-full {
+  grid-column: 1 / -1;
+}
+
+.shop-editor-check {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+}
+
+.shop-editor-check input {
+  margin-top: 3px;
+}
+
+.shop-photo-upload {
+  padding: 18px;
+  border: 1px dashed var(--border, rgba(127,127,127,.4));
+  border-radius: 14px;
+}
+
+.shop-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 15px;
+  margin-top: 18px;
+}
+
+.shop-photo-card {
+  overflow: hidden;
+  border: 1px solid var(--border, rgba(127,127,127,.25));
+  border-radius: 14px;
+}
+
+.shop-photo-image {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: rgba(127,127,127,.08);
+}
+
+.shop-photo-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shop-photo-primary {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.78);
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 800;
+}
+
+.shop-photo-info {
+  padding: 11px;
+}
+
+.shop-photo-info small {
+  display: block;
+  opacity: .68;
+  margin-bottom: 8px;
+}
+
+.shop-photo-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.shop-option-box {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border, rgba(127,127,127,.22));
+  border-radius: 14px;
+}
+
+.shop-option-box h3 {
+  margin-top: 0;
+}
+
+.shop-option-fields {
+  display: grid;
+  grid-template-columns: minmax(180px,.4fr) minmax(0,1fr);
+  gap: 12px;
+}
+
+.shop-variant-table {
+  min-width: 980px;
+}
+
+.shop-variant-name {
+  min-width: 160px;
+}
+
+.shop-variant-price {
+  width: 100px;
+}
+
+.shop-variant-stock {
+  width: 90px;
+}
+
+.shop-variant-advanced {
+  margin-top: 12px;
+}
+
+.shop-variant-advanced summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.shop-variant-panel {
+  margin-top: 13px;
+  padding: 15px;
+  border: 1px solid var(--border, rgba(127,127,127,.2));
+  border-radius: 12px;
+  background: var(--surface, rgba(127,127,127,.04));
+}
+
+.shop-shipping-grid {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 12px;
+}
+
+.shop-action-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  pointer-events: none;
+}
+
+.shop-action-bar > * {
+  pointer-events: auto;
+  box-shadow: 0 8px 30px rgba(0,0,0,.16);
+}
+
+.shop-editor-callout {
+  padding: 16px;
+  border: 1px solid var(--border, rgba(127,127,127,.28));
+  border-radius: 14px;
+  background: var(--surface, rgba(127,127,127,.06));
+}
+
+@media (max-width: 900px) {
+
+  .shop-photo-grid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+
+  .shop-editor-grid,
+  .shop-editor-grid--3,
+  .shop-option-fields,
+  .shop-shipping-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (max-width: 560px) {
+
+  .shop-photo-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+</style>
 
 </head>
 
@@ -2128,7 +3276,7 @@ require_once
         <p class="admin-eyebrow">
 
           <i
-            class="<?= e(
+            class="<?= shop_editor_e(
                 $primaryRoleIcon
             ) ?>"
             aria-hidden="true"
@@ -2140,7 +3288,7 @@ require_once
 
 
         <h1>
-          <?= e(
+          <?= shop_editor_e(
               $pageTitle
           ) ?>
         </h1>
@@ -2152,15 +3300,16 @@ require_once
               $isEditing
           ): ?>
 
-            Manage the storefront information,
-            pricing, inventory, and fulfillment
-            configuration for this product.
+            Build the product, photography,
+            options, sellable variants,
+            inventory, fulfillment, and shipping.
 
           <?php else: ?>
 
-            Create the storefront product first.
-            Pricing and fulfillment variants can
-            be added immediately afterward.
+            Start with the basic product.
+            After it is created, the photo,
+            option, variant, and shipping tools
+            will appear on this page.
 
           <?php endif; ?>
 
@@ -2184,9 +3333,40 @@ require_once
             aria-hidden="true"
           ></i>
 
-          Back to Shop
+          Shop Dashboard
 
         </a>
+
+
+        <?php if (
+            $isEditing
+            &&
+            $status ===
+            LLAMA_SHOP_PRODUCT_ACTIVE
+        ): ?>
+
+          <a
+            class="
+              admin-button
+              admin-button--secondary
+            "
+            href="https://llamascout.com/product.php?slug=<?= rawurlencode(
+                $slug
+            ) ?>"
+            target="_blank"
+            rel="noopener"
+          >
+
+            <i
+              class="fa-solid fa-arrow-up-right-from-square"
+              aria-hidden="true"
+            ></i>
+
+            View Product
+
+          </a>
+
+        <?php endif; ?>
 
       </div>
 
@@ -2206,13 +3386,13 @@ require_once
 
 
   <?php if (
-      $success !== ''
+      $notice !== ''
   ): ?>
 
     <div class="admin-alert admin-alert--success">
 
-      <?= e(
-          $success
+      <?= shop_editor_e(
+          $notice
       ) ?>
 
     </div>
@@ -2226,7 +3406,7 @@ require_once
 
     <div class="admin-alert admin-alert--error">
 
-      <?= e(
+      <?= shop_editor_e(
           $error
       ) ?>
 
@@ -2236,10 +3416,10 @@ require_once
 
 
   <!-- =====================================================
-       PRODUCT DETAILS
+       BASIC PRODUCT
        ===================================================== -->
 
-  <section class="admin-section">
+  <section class="admin-section shop-editor-section">
 
 
     <div class="admin-section-header">
@@ -2247,12 +3427,12 @@ require_once
       <div>
 
         <h2>
-          Product Details
+          1. Product
         </h2>
 
         <p>
-          Customer-facing information and
-          storefront visibility.
+          The information customers see
+          regardless of size, color, or option.
         </p>
 
       </div>
@@ -2262,28 +3442,28 @@ require_once
 
     <form
       method="post"
-      action="<?= e(
-          $productFormAction
-      ) ?>"
+      action="<?= $isEditing
+          ? '/shop-product.php?id='
+            .
+            $productId
+          : '/shop-product.php'
+      ?>"
       class="admin-form"
     >
-
 
       <input
         type="hidden"
         name="csrf_token"
-        value="<?= e(
+        value="<?= shop_editor_e(
             $csrfToken
         ) ?>"
       >
-
 
       <input
         type="hidden"
         name="action"
         value="save_product"
       >
-
 
       <input
         type="hidden"
@@ -2292,7 +3472,7 @@ require_once
       >
 
 
-      <div class="admin-form-grid">
+      <div class="shop-editor-grid">
 
 
         <div class="admin-field">
@@ -2307,11 +3487,36 @@ require_once
             type="text"
             maxlength="200"
             required
-            value="<?= e(
+            value="<?= shop_editor_e(
                 $name
             ) ?>"
             placeholder="Llama Scout Logo Tee"
           >
+
+        </div>
+
+
+        <div class="admin-field">
+
+          <label for="product_type">
+            Category / Product Type
+          </label>
+
+          <input
+            id="product_type"
+            name="product_type"
+            type="text"
+            maxlength="60"
+            value="<?= shop_editor_e(
+                $productType
+            ) ?>"
+            placeholder="Apparel"
+          >
+
+          <p class="shop-editor-help">
+            Examples: Apparel, Headwear,
+            Stickers, Trail Gear, Sensory Camp.
+          </p>
 
         </div>
 
@@ -2327,35 +3532,16 @@ require_once
             name="slug"
             type="text"
             maxlength="160"
-            value="<?= e(
+            value="<?= shop_editor_e(
                 $slug
             ) ?>"
             placeholder="llama-scout-logo-tee"
           >
 
-          <small>
-            Leave blank to create one automatically.
-          </small>
-
-        </div>
-
-
-        <div class="admin-field">
-
-          <label for="product_type">
-            Product Type
-          </label>
-
-          <input
-            id="product_type"
-            name="product_type"
-            type="text"
-            maxlength="60"
-            value="<?= e(
-                $productType
-            ) ?>"
-            placeholder="Apparel"
-          >
+          <p class="shop-editor-help">
+            Leave blank when creating a product
+            and Llama Scout will generate it.
+          </p>
 
         </div>
 
@@ -2363,7 +3549,7 @@ require_once
         <div class="admin-field">
 
           <label for="status">
-            Status
+            Storefront Status
           </label>
 
           <select
@@ -2406,6 +3592,48 @@ require_once
         </div>
 
 
+        <div class="admin-field shop-editor-full">
+
+          <label for="short_description">
+            Short Description
+          </label>
+
+          <input
+            id="short_description"
+            name="short_description"
+            type="text"
+            maxlength="500"
+            value="<?= shop_editor_e(
+                $shortDescription
+            ) ?>"
+            placeholder="A comfortable everyday tee with the Llama Scout logo."
+          >
+
+          <p class="shop-editor-help">
+            Used on Shop cards and previews.
+          </p>
+
+        </div>
+
+
+        <div class="admin-field shop-editor-full">
+
+          <label for="description">
+            Full Description
+          </label>
+
+          <textarea
+            id="description"
+            name="description"
+            rows="8"
+            placeholder="Materials, fit, product story, care instructions, and other useful details."
+          ><?= shop_editor_e(
+              $description
+          ) ?></textarea>
+
+        </div>
+
+
         <div class="admin-field">
 
           <label for="sort_order">
@@ -2420,106 +3648,16 @@ require_once
             value="<?= $sortOrder ?>"
           >
 
-          <small>
+          <p class="shop-editor-help">
             Lower numbers appear first.
-          </small>
+          </p>
 
         </div>
-
-
-        <div class="admin-field admin-field--full">
-
-          <label for="short_description">
-            Short Description
-          </label>
-
-          <input
-            id="short_description"
-            name="short_description"
-            type="text"
-            maxlength="500"
-            value="<?= e(
-                $shortDescription
-            ) ?>"
-            placeholder="A short description for product cards."
-          >
-
-        </div>
-
-
-        <div class="admin-field admin-field--full">
-
-          <label for="description">
-            Full Description
-          </label>
-
-          <textarea
-            id="description"
-            name="description"
-            rows="8"
-          ><?= e(
-              $description
-          ) ?></textarea>
-
-        </div>
-
-
-        <div class="admin-field admin-field--full">
-
-          <label for="primary_image_url">
-            Primary Image URL
-          </label>
-
-          <input
-            id="primary_image_url"
-            name="primary_image_url"
-            type="url"
-            maxlength="500"
-            value="<?= e(
-                $primaryImageUrl
-            ) ?>"
-            placeholder="https://llamascout.com/images/shop/example.jpg"
-          >
-
-        </div>
-
-
-        <?php if (
-            $primaryImageUrl !== ''
-        ): ?>
-
-          <div class="admin-field admin-field--full">
-
-            <label>
-              Current Image
-            </label>
-
-            <div>
-
-              <img
-                src="<?= e(
-                    $primaryImageUrl
-                ) ?>"
-                alt=""
-                style="
-                  display:block;
-                  max-width:260px;
-                  width:100%;
-                  height:auto;
-                  border-radius:12px;
-                "
-              >
-
-            </div>
-
-          </div>
-
-        <?php endif; ?>
 
 
         <div class="admin-field">
 
-          <label>
+          <label class="shop-editor-check">
 
             <input
               type="checkbox"
@@ -2531,7 +3669,18 @@ require_once
               ?>
             >
 
-            Featured Product
+            <span>
+              <strong>
+                Featured product
+              </strong>
+
+              <br>
+
+              <small>
+                Give this product priority
+                on the Shop homepage.
+              </small>
+            </span>
 
           </label>
 
@@ -2540,7 +3689,7 @@ require_once
 
         <div class="admin-field">
 
-          <label>
+          <label class="shop-editor-check">
 
             <input
               type="checkbox"
@@ -2552,7 +3701,17 @@ require_once
               ?>
             >
 
-            Requires Shipping
+            <span>
+              <strong>
+                Physical product
+              </strong>
+
+              <br>
+
+              <small>
+                Requires shipping to the customer.
+              </small>
+            </span>
 
           </label>
 
@@ -2570,15 +3729,12 @@ require_once
         >
 
           <i
-            class="<?= $isEditing
-                ? 'fa-solid fa-floppy-disk'
-                : 'fa-solid fa-plus'
-            ?>"
+            class="fa-solid fa-floppy-disk"
             aria-hidden="true"
           ></i>
 
           <?= $isEditing
-              ? 'Save Changes'
+              ? 'Save Product'
               : 'Create Product'
           ?>
 
@@ -2599,10 +3755,10 @@ require_once
 
 
     <!-- ===================================================
-         EXISTING VARIANTS
+         PHOTOS
          =================================================== -->
 
-    <section class="admin-section">
+    <section class="admin-section shop-editor-section">
 
 
       <div class="admin-section-header">
@@ -2610,13 +3766,13 @@ require_once
         <div>
 
           <h2>
-            Variants
+            2. Photos
           </h2>
 
           <p>
-            Every sellable size, color,
-            configuration, or version has
-            its own price and fulfillment route.
+            Upload the actual product gallery.
+            Photos can also represent a specific
+            color, pattern, or other option.
           </p>
 
         </div>
@@ -2624,323 +3780,325 @@ require_once
       </div>
 
 
-      <?php if (
-          !$variants
-      ): ?>
-
-        <div class="admin-empty-state">
-
-          <i
-            class="fa-solid fa-tags"
-            aria-hidden="true"
-          ></i>
-
-          <h3>
-            No variants yet
-          </h3>
-
-          <p>
-            Add at least one variant before
-            this product can be sold.
-          </p>
-
-        </div>
-
-      <?php else: ?>
+      <div class="shop-photo-upload">
 
 
-        <div class="admin-table-wrap">
+        <form
+          method="post"
+          enctype="multipart/form-data"
+          action="/shop-product.php?id=<?= $productId ?>"
+          class="admin-form"
+        >
 
-          <table class="admin-table">
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= shop_editor_e(
+                $csrfToken
+            ) ?>"
+          >
 
-            <thead>
+          <input
+            type="hidden"
+            name="action"
+            value="upload_photos"
+          >
 
-              <tr>
-
-                <th>
-                  Variant
-                </th>
-
-                <th>
-                  SKU
-                </th>
-
-                <th>
-                  Price
-                </th>
-
-                <th>
-                  Inventory
-                </th>
-
-                <th>
-                  Fulfillment
-                </th>
-
-                <th>
-                  Status
-                </th>
-
-                <th>
-                  Actions
-                </th>
-
-              </tr>
-
-            </thead>
+          <input
+            type="hidden"
+            name="product_id"
+            value="<?= $productId ?>"
+          >
 
 
-            <tbody>
+          <div class="shop-editor-grid">
 
 
-            <?php foreach (
-                $variants
-                as $variant
-            ): ?>
+            <div class="admin-field">
+
+              <label for="product_photos">
+                Product Photos
+              </label>
+
+              <input
+                id="product_photos"
+                name="product_photos[]"
+                type="file"
+                accept="image/*"
+                multiple
+                required
+              >
+
+              <p class="shop-editor-help">
+                Up to 20 at once. Phone photos
+                are processed through the existing
+                Llama Scout image uploader.
+              </p>
+
+            </div>
 
 
-              <tr>
+            <div class="admin-field">
 
-                <td>
+              <label for="photo_association">
+                These photos show
+              </label>
 
-                  <strong>
-                    <?= e(
-                        $variant[
-                            'name'
-                        ]
-                    ) ?>
-                  </strong>
+              <select
+                id="photo_association"
+                name="photo_association"
+              >
+
+                <option value="">
+                  Entire product / all options
+                </option>
+
+
+                <?php foreach (
+                    $photoAssociations
+                    as
+                    $association
+                ): ?>
 
                   <?php
 
-                  $optionParts =
-                      [];
+                  $associationJson =
+                      json_encode(
+                          [
+                              'name' =>
+                                  $association[
+                                      'name'
+                                  ],
 
-
-                  foreach (
-                      [
-                          1,
-                          2,
-                          3,
-                      ]
-                      as
-                      $optionNumber
-                  ) {
-
-                      $nameKey =
-                          match (
-                              $optionNumber
-                          ) {
-
-                              1 =>
-                                  'option_one_name',
-
-                              2 =>
-                                  'option_two_name',
-
-                              default =>
-                                  'option_three_name',
-                          };
-
-
-                      $valueKey =
-                          match (
-                              $optionNumber
-                          ) {
-
-                              1 =>
-                                  'option_one_value',
-
-                              2 =>
-                                  'option_two_value',
-
-                              default =>
-                                  'option_three_value',
-                          };
-
-
-                      if (
-                          !empty(
-                              $variant[
-                                  $nameKey
-                              ]
-                          )
-                          &&
-                          !empty(
-                              $variant[
-                                  $valueKey
-                              ]
-                          )
-                      ) {
-
-                          $optionParts[] =
-                              $variant[
-                                  $nameKey
-                              ]
-                              .
-                              ': '
-                              .
-                              $variant[
-                                  $valueKey
-                              ];
-                      }
-                  }
+                              'value' =>
+                                  $association[
+                                      'value'
+                                  ],
+                          ],
+                          JSON_UNESCAPED_SLASHES
+                          |
+                          JSON_UNESCAPED_UNICODE
+                      );
 
                   ?>
 
-
-                  <?php if (
-                      $optionParts
-                  ): ?>
-
-                    <br>
-
-                    <small>
-                      <?= e(
-                          implode(
-                              ' · ',
-                              $optionParts
-                          )
-                      ) ?>
-                    </small>
-
-                  <?php endif; ?>
-
-                </td>
-
-
-                <td>
-                  <?= e(
-                      $variant[
-                          'sku'
-                      ]
-                  ) ?>
-                </td>
-
-
-                <td>
-
-                  <?= e(
-                      strtoupper(
-                          (string)
-                          $variant[
-                              'currency'
-                          ]
-                      )
-                  ) ?>
-
-                  $
-
-                  <?= e(
-                      number_format(
-                          (int)
-                          $variant[
-                              'price_cents'
-                          ]
-                          /
-                          100,
-                          2
-                      )
-                  ) ?>
-
-                </td>
-
-
-                <td>
-
-                  <?php if (
-                      (bool)
-                      $variant[
-                          'track_inventory'
-                      ]
-                  ): ?>
-
-                    <?= (int)
-                        $variant[
-                            'inventory_quantity'
-                        ]
-                    ?>
-
-                    <?php if (
-                        (bool)
-                        $variant[
-                            'allow_backorder'
-                        ]
-                    ): ?>
-
-                      <small>
-                        Backorders allowed
-                      </small>
-
-                    <?php endif; ?>
-
-                  <?php else: ?>
-
-                    Not tracked
-
-                  <?php endif; ?>
-
-                </td>
-
-
-                <td>
-                  <?= e(
-                      ucfirst(
-                          (string)
-                          $variant[
-                              'fulfillment_type'
-                          ]
-                      )
-                  ) ?>
-                </td>
-
-
-                <td>
-
-                  <?= (bool)
-                      $variant[
-                          'is_active'
-                      ]
-                      ? 'Active'
-                      : 'Inactive'
-                  ?>
-
-                </td>
-
-
-                <td>
-
-                  <a
-                    class="
-                      admin-button
-                      admin-button--secondary
-                    "
-                    href="/shop-product.php?id=<?= $productId ?>&variant=<?= (int)
-                        $variant[
-                            'id'
-                        ]
-                    ?>"
+                  <option
+                    value="<?= shop_editor_e(
+                        $associationJson
+                    ) ?>"
                   >
-                    Edit
-                  </a>
+
+                    <?= shop_editor_e(
+                        $association[
+                            'name'
+                        ]
+                    ) ?>:
+                    <?= shop_editor_e(
+                        $association[
+                            'value'
+                        ]
+                    ) ?>
+
+                  </option>
+
+                <?php endforeach; ?>
+
+
+              </select>
+
+              <p class="shop-editor-help">
+                Example: associate black-shirt
+                photography with Color: Black.
+                Every black size can then share it.
+              </p>
+
+            </div>
+
+
+          </div>
+
+
+          <div class="admin-form-actions">
+
+            <button
+              class="admin-button"
+              type="submit"
+            >
+
+              <i
+                class="fa-solid fa-cloud-arrow-up"
+                aria-hidden="true"
+              ></i>
+
+              Upload Photos
+
+            </button>
+
+          </div>
+
+
+        </form>
+
+
+      </div>
+
+
+      <?php if (
+          $productImages
+      ): ?>
+
+        <div class="shop-photo-grid">
+
+
+          <?php foreach (
+              $productImages
+              as
+              $image
+          ): ?>
+
+            <article class="shop-photo-card">
+
+
+              <div class="shop-photo-image">
+
+                <img
+                  src="<?= shop_editor_e(
+                      $image[
+                          'image_url'
+                      ]
+                  ) ?>"
+                  alt=""
+                >
+
+
+                <?php if (
+                    (bool)
+                    $image[
+                        'is_primary'
+                    ]
+                ): ?>
+
+                  <span class="shop-photo-primary">
+                    Primary
+                  </span>
+
+                <?php endif; ?>
+
+              </div>
+
+
+              <div class="shop-photo-info">
+
+
+                <?php if (
+                    !empty(
+                        $image[
+                            'option_name'
+                        ]
+                    )
+                    &&
+                    !empty(
+                        $image[
+                            'option_value'
+                        ]
+                    )
+                ): ?>
+
+                  <small>
+
+                    <?= shop_editor_e(
+                        $image[
+                            'option_name'
+                        ]
+                    ) ?>:
+
+                    <?= shop_editor_e(
+                        $image[
+                            'option_value'
+                        ]
+                    ) ?>
+
+                  </small>
+
+                <?php else: ?>
+
+                  <small>
+                    All options
+                  </small>
+
+                <?php endif; ?>
+
+
+                <div class="shop-photo-actions">
+
+
+                  <?php if (
+                      !(bool)
+                      $image[
+                          'is_primary'
+                      ]
+                  ): ?>
+
+                    <form
+                      method="post"
+                      action="/shop-product.php?id=<?= $productId ?>"
+                    >
+
+                      <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="<?= shop_editor_e(
+                            $csrfToken
+                        ) ?>"
+                      >
+
+                      <input
+                        type="hidden"
+                        name="action"
+                        value="set_primary_image"
+                      >
+
+                      <input
+                        type="hidden"
+                        name="product_id"
+                        value="<?= $productId ?>"
+                      >
+
+                      <input
+                        type="hidden"
+                        name="image_id"
+                        value="<?= (int)
+                            $image[
+                                'id'
+                            ]
+                        ?>"
+                      >
+
+                      <button
+                        class="
+                          admin-button
+                          admin-button--secondary
+                        "
+                        type="submit"
+                      >
+                        Make Primary
+                      </button>
+
+                    </form>
+
+                  <?php endif; ?>
 
 
                   <form
                     method="post"
-                    action="<?= e(
-                        $variantFormAction
-                    ) ?>"
-                    style="
-                      display:inline-block;
-                      margin-left:6px;
-                    "
-                    onsubmit="return confirm('Delete this variant?');"
+                    action="/shop-product.php?id=<?= $productId ?>"
+                    onsubmit="return confirm('Delete this product photo?');"
                   >
 
                     <input
                       type="hidden"
                       name="csrf_token"
-                      value="<?= e(
+                      value="<?= shop_editor_e(
                           $csrfToken
                       ) ?>"
                     >
@@ -2948,7 +4106,7 @@ require_once
                     <input
                       type="hidden"
                       name="action"
-                      value="delete_variant"
+                      value="delete_image"
                     >
 
                     <input
@@ -2959,9 +4117,9 @@ require_once
 
                     <input
                       type="hidden"
-                      name="variant_id"
+                      name="image_id"
                       value="<?= (int)
-                          $variant[
+                          $image[
                               'id'
                           ]
                       ?>"
@@ -2979,20 +4137,28 @@ require_once
 
                   </form>
 
-                </td>
 
-              </tr>
-
-
-            <?php endforeach; ?>
+                </div>
 
 
-            </tbody>
+              </div>
 
-          </table>
+
+            </article>
+
+          <?php endforeach; ?>
+
 
         </div>
 
+      <?php else: ?>
+
+        <div
+          class="shop-editor-callout"
+          style="margin-top:18px;"
+        >
+          No product photos uploaded yet.
+        </div>
 
       <?php endif; ?>
 
@@ -3001,10 +4167,10 @@ require_once
 
 
     <!-- ===================================================
-         ADD / EDIT VARIANT
+         OPTIONS
          =================================================== -->
 
-    <section class="admin-section">
+    <section class="admin-section shop-editor-section">
 
 
       <div class="admin-section-header">
@@ -3012,71 +4178,39 @@ require_once
         <div>
 
           <h2>
-
-            <?= $variantEditingId > 0
-                ? 'Edit Variant'
-                : 'Add Variant'
-            ?>
-
+            3. Product Options
           </h2>
 
           <p>
-            Configure pricing, inventory,
-            Stripe references, and the service
-            responsible for fulfilling this item.
+            Tell Llama Scout which choices
+            create separate sellable variants.
           </p>
 
         </div>
-
-
-        <?php if (
-            $variantEditingId > 0
-        ): ?>
-
-          <div class="admin-section-actions">
-
-            <a
-              class="
-                admin-button
-                admin-button--secondary
-              "
-              href="/shop-product.php?id=<?= $productId ?>"
-            >
-              Cancel Edit
-            </a>
-
-          </div>
-
-        <?php endif; ?>
-
 
       </div>
 
 
       <form
         method="post"
-        action="<?= e(
-            $variantFormAction
-        ) ?>"
+        action="/shop-product.php?id=<?= $productId ?>"
         class="admin-form"
+        data-options-form
       >
-
 
         <input
           type="hidden"
           name="csrf_token"
-          value="<?= e(
+          value="<?= shop_editor_e(
               $csrfToken
           ) ?>"
         >
 
-
         <input
           type="hidden"
           name="action"
-          value="save_variant"
+          value="save_options"
         >
-
 
         <input
           type="hidden"
@@ -3085,562 +4219,240 @@ require_once
         >
 
 
-        <input
-          type="hidden"
-          name="variant_id"
-          value="<?= (int)
-              $variantForm[
-                  'id'
-              ]
-          ?>"
+        <label class="shop-editor-check">
+
+          <input
+            type="checkbox"
+            name="has_options"
+            value="1"
+            data-has-options
+            <?= $editorOptions
+                ? 'checked'
+                : ''
+            ?>
+          >
+
+          <span>
+
+            <strong>
+              This product has choices
+            </strong>
+
+            <br>
+
+            <small>
+              Use this for shirts with sizes/colors,
+              hats with colors, multiple patterns,
+              materials, capacities, etc.
+            </small>
+
+          </span>
+
+        </label>
+
+
+        <div
+          data-option-controls
+          <?= !$editorOptions
+              ? 'hidden'
+              : ''
+          ?>
         >
 
 
-        <div class="admin-form-grid">
+          <?php for (
+              $position = 1;
+              $position <= 3;
+              $position++
+          ): ?>
+
+            <?php
+
+            $option =
+                $editorOptions[
+                    $position - 1
+                ]
+                ?? null;
 
 
-          <div class="admin-field">
-
-            <label for="variant_name">
-              Variant Name
-            </label>
-
-            <input
-              id="variant_name"
-              name="variant_name"
-              type="text"
-              maxlength="200"
-              required
-              value="<?= e(
-                  $variantForm[
-                      'name'
-                  ]
-              ) ?>"
-              placeholder="Black / Medium"
-            >
-
-          </div>
+            $optionName =
+                $option[
+                    'name'
+                ]
+                ?? '';
 
 
-          <div class="admin-field">
+            $optionValues =
+                $option
+                    ? implode(
+                        ', ',
+                        $option[
+                            'values'
+                        ]
+                    )
+                    : '';
 
-            <label for="sku">
-              SKU
-            </label>
-
-            <input
-              id="sku"
-              name="sku"
-              type="text"
-              maxlength="120"
-              required
-              value="<?= e(
-                  $variantForm[
-                      'sku'
-                  ]
-              ) ?>"
-              placeholder="LS-TEE-BLK-M"
-            >
-
-          </div>
+            ?>
 
 
-          <div class="admin-field">
+            <div class="shop-option-box">
 
-            <label for="price">
-              Price
-            </label>
-
-            <input
-              id="price"
-              name="price"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              value="<?= e(
-                  shop_cents_input(
-                      (int)
-                      $variantForm[
-                          'price_cents'
-                      ]
-                  )
-              ) ?>"
-              placeholder="29.00"
-            >
-
-          </div>
+              <h3>
+                Option <?= $position ?>
+              </h3>
 
 
-          <div class="admin-field">
-
-            <label for="compare_at_price">
-              Compare-at Price
-            </label>
-
-            <input
-              id="compare_at_price"
-              name="compare_at_price"
-              type="number"
-              min="0"
-              step="0.01"
-              value="<?= e(
-                  shop_cents_input(
-                      $variantForm[
-                          'compare_at_price_cents'
-                      ]
-                      !==
-                      null
-                          ? (int)
-                              $variantForm[
-                                  'compare_at_price_cents'
-                              ]
-                          : null
-                  )
-              ) ?>"
-              placeholder="35.00"
-            >
-
-          </div>
+              <div class="shop-option-fields">
 
 
-          <div class="admin-field">
+                <div class="admin-field">
 
-            <label for="currency">
-              Currency
-            </label>
+                  <label
+                    for="option_name_<?= $position ?>"
+                  >
+                    Option Name
+                  </label>
 
-            <input
-              id="currency"
-              name="currency"
-              type="text"
-              maxlength="3"
-              required
-              value="<?= e(
-                  strtoupper(
-                      (string)
-                      $variantForm[
-                          'currency'
-                      ]
-                  )
-              ) ?>"
-            >
+                  <input
+                    id="option_name_<?= $position ?>"
+                    name="option_name_<?= $position ?>"
+                    type="text"
+                    maxlength="100"
+                    value="<?= shop_editor_e(
+                        $optionName
+                    ) ?>"
+                    placeholder="<?= $position === 1
+                        ? 'Color'
+                        : (
+                            $position === 2
+                                ? 'Size'
+                                : 'Pattern'
+                        )
+                    ?>"
+                  >
 
-          </div>
-
-
-          <div class="admin-field">
-
-            <label for="variant_sort_order">
-              Sort Order
-            </label>
-
-            <input
-              id="variant_sort_order"
-              name="variant_sort_order"
-              type="number"
-              step="1"
-              value="<?= (int)
-                  $variantForm[
-                      'sort_order'
-                  ]
-              ?>"
-            >
-
-          </div>
+                </div>
 
 
-          <div class="admin-field">
+                <div class="admin-field">
 
-            <label for="option_one_name">
-              Option 1 Name
-            </label>
+                  <label
+                    for="option_values_<?= $position ?>"
+                  >
+                    Values
+                  </label>
 
-            <input
-              id="option_one_name"
-              name="option_one_name"
-              type="text"
-              maxlength="100"
-              value="<?= e(
-                  $variantForm[
-                      'option_one_name'
-                  ]
-              ) ?>"
-              placeholder="Color"
-            >
+                  <input
+                    id="option_values_<?= $position ?>"
+                    name="option_values_<?= $position ?>"
+                    type="text"
+                    value="<?= shop_editor_e(
+                        $optionValues
+                    ) ?>"
+                    placeholder="<?= $position === 1
+                        ? 'Black, Gray, Forest Green'
+                        : (
+                            $position === 2
+                                ? 'S, M, L, XL, 2XL'
+                                : 'Solid, Topographic'
+                        )
+                    ?>"
+                  >
 
-          </div>
+                  <p class="shop-editor-help">
+                    Separate values with commas.
+                  </p>
 
-
-          <div class="admin-field">
-
-            <label for="option_one_value">
-              Option 1 Value
-            </label>
-
-            <input
-              id="option_one_value"
-              name="option_one_value"
-              type="text"
-              maxlength="150"
-              value="<?= e(
-                  $variantForm[
-                      'option_one_value'
-                  ]
-              ) ?>"
-              placeholder="Black"
-            >
-
-          </div>
+                </div>
 
 
-          <div class="admin-field">
-
-            <label for="option_two_name">
-              Option 2 Name
-            </label>
-
-            <input
-              id="option_two_name"
-              name="option_two_name"
-              type="text"
-              maxlength="100"
-              value="<?= e(
-                  $variantForm[
-                      'option_two_name'
-                  ]
-              ) ?>"
-              placeholder="Size"
-            >
-
-          </div>
+              </div>
 
 
-          <div class="admin-field">
-
-            <label for="option_two_value">
-              Option 2 Value
-            </label>
-
-            <input
-              id="option_two_value"
-              name="option_two_value"
-              type="text"
-              maxlength="150"
-              value="<?= e(
-                  $variantForm[
-                      'option_two_value'
-                  ]
-              ) ?>"
-              placeholder="Medium"
-            >
-
-          </div>
+            </div>
 
 
-          <div class="admin-field">
-
-            <label for="option_three_name">
-              Option 3 Name
-            </label>
-
-            <input
-              id="option_three_name"
-              name="option_three_name"
-              type="text"
-              maxlength="100"
-              value="<?= e(
-                  $variantForm[
-                      'option_three_name'
-                  ]
-              ) ?>"
-            >
-
-          </div>
+          <?php endfor; ?>
 
 
-          <div class="admin-field">
-
-            <label for="option_three_value">
-              Option 3 Value
-            </label>
-
-            <input
-              id="option_three_value"
-              name="option_three_value"
-              type="text"
-              maxlength="150"
-              value="<?= e(
-                  $variantForm[
-                      'option_three_value'
-                  ]
-              ) ?>"
-            >
-
-          </div>
+        </div>
 
 
-          <div class="admin-field">
+        <div
+          class="shop-option-box"
+          style="margin-top:20px;"
+        >
 
-            <label>
+          <h3>
+            New Variant Defaults
+          </h3>
+
+          <p class="shop-editor-help">
+            These values are used only when
+            Llama Scout creates combinations that
+            do not already exist.
+          </p>
+
+
+          <div class="shop-editor-grid">
+
+
+            <div class="admin-field">
+
+              <label for="default_price">
+                Starting Price
+              </label>
 
               <input
-                type="checkbox"
-                name="track_inventory"
-                value="1"
-                <?= (bool)
-                    $variantForm[
-                        'track_inventory'
-                    ]
-                    ? 'checked'
-                    : ''
-                ?>
+                id="default_price"
+                name="default_price"
+                type="number"
+                min="0"
+                step="0.01"
+                value="<?= $variants
+                    ? shop_editor_e(
+                        shop_editor_money_input(
+                            (int)
+                            $variants[
+                                0
+                            ][
+                                'price_cents'
+                            ]
+                        )
+                    )
+                    : '0.00'
+                ?>"
               >
 
-              Track Inventory
-
-            </label>
-
-          </div>
+            </div>
 
 
-          <div class="admin-field">
+            <div class="admin-field">
 
-            <label for="inventory_quantity">
-              Inventory Quantity
-            </label>
-
-            <input
-              id="inventory_quantity"
-              name="inventory_quantity"
-              type="number"
-              step="1"
-              value="<?= (int)
-                  $variantForm[
-                      'inventory_quantity'
-                  ]
-              ?>"
-            >
-
-          </div>
-
-
-          <div class="admin-field">
-
-            <label>
+              <label for="sku_prefix">
+                SKU Prefix
+              </label>
 
               <input
-                type="checkbox"
-                name="allow_backorder"
-                value="1"
-                <?= (bool)
-                    $variantForm[
-                        'allow_backorder'
-                    ]
-                    ? 'checked'
-                    : ''
-                ?>
+                id="sku_prefix"
+                name="sku_prefix"
+                type="text"
+                value="<?= shop_editor_e(
+                    shop_editor_sku_piece(
+                        $slug
+                    )
+                ) ?>"
+                placeholder="LS-TEE"
               >
 
-              Allow Backorders
+              <p class="shop-editor-help">
+                Llama Scout adds option values
+                automatically. Example:
+                LOGO-TEE-BLACK-M.
+              </p>
 
-            </label>
+            </div>
 
-          </div>
-
-
-          <div class="admin-field">
-
-            <label>
-
-              <input
-                type="checkbox"
-                name="is_active"
-                value="1"
-                <?= (bool)
-                    $variantForm[
-                        'is_active'
-                    ]
-                    ? 'checked'
-                    : ''
-                ?>
-              >
-
-              Variant Active
-
-            </label>
-
-          </div>
-
-
-          <div class="admin-field">
-
-            <label for="fulfillment_type">
-              Fulfillment Type
-            </label>
-
-            <select
-              id="fulfillment_type"
-              name="fulfillment_type"
-            >
-
-              <option
-                value="manual"
-                <?= $variantForm[
-                    'fulfillment_type'
-                ] === 'manual'
-                    ? 'selected'
-                    : ''
-                ?>
-              >
-                Manual
-              </option>
-
-              <option
-                value="printful"
-                <?= $variantForm[
-                    'fulfillment_type'
-                ] === 'printful'
-                    ? 'selected'
-                    : ''
-                ?>
-              >
-                Printful
-              </option>
-
-              <option
-                value="printify"
-                <?= $variantForm[
-                    'fulfillment_type'
-                ] === 'printify'
-                    ? 'selected'
-                    : ''
-                ?>
-              >
-                Printify
-              </option>
-
-              <option
-                value="external"
-                <?= $variantForm[
-                    'fulfillment_type'
-                ] === 'external'
-                    ? 'selected'
-                    : ''
-                ?>
-              >
-                External
-              </option>
-
-            </select>
-
-          </div>
-
-
-          <div class="admin-field">
-
-            <label for="fulfillment_provider">
-              Provider Name
-            </label>
-
-            <input
-              id="fulfillment_provider"
-              name="fulfillment_provider"
-              type="text"
-              maxlength="100"
-              value="<?= e(
-                  $variantForm[
-                      'fulfillment_provider'
-                  ]
-              ) ?>"
-              placeholder="Printful"
-            >
-
-          </div>
-
-
-          <div class="admin-field">
-
-            <label for="fulfillment_product_id">
-              Provider Product ID
-            </label>
-
-            <input
-              id="fulfillment_product_id"
-              name="fulfillment_product_id"
-              type="text"
-              maxlength="255"
-              value="<?= e(
-                  $variantForm[
-                      'fulfillment_product_id'
-                  ]
-              ) ?>"
-            >
-
-          </div>
-
-
-          <div class="admin-field">
-
-            <label for="fulfillment_variant_id">
-              Provider Variant ID
-            </label>
-
-            <input
-              id="fulfillment_variant_id"
-              name="fulfillment_variant_id"
-              type="text"
-              maxlength="255"
-              value="<?= e(
-                  $variantForm[
-                      'fulfillment_variant_id'
-                  ]
-              ) ?>"
-            >
-
-          </div>
-
-
-          <div class="admin-field">
-
-            <label for="stripe_product_id">
-              Stripe Product ID
-            </label>
-
-            <input
-              id="stripe_product_id"
-              name="stripe_product_id"
-              type="text"
-              maxlength="255"
-              value="<?= e(
-                  $variantForm[
-                      'stripe_product_id'
-                  ]
-              ) ?>"
-              placeholder="prod_..."
-            >
-
-          </div>
-
-
-          <div class="admin-field">
-
-            <label for="stripe_price_id">
-              Stripe Price ID
-            </label>
-
-            <input
-              id="stripe_price_id"
-              name="stripe_price_id"
-              type="text"
-              maxlength="255"
-              value="<?= e(
-                  $variantForm[
-                      'stripe_price_id'
-                  ]
-              ) ?>"
-              placeholder="price_..."
-            >
 
           </div>
 
@@ -3656,14 +4468,11 @@ require_once
           >
 
             <i
-              class="fa-solid fa-floppy-disk"
+              class="fa-solid fa-table-cells"
               aria-hidden="true"
             ></i>
 
-            <?= $variantEditingId > 0
-                ? 'Save Variant'
-                : 'Add Variant'
-            ?>
+            Save Options & Build Variants
 
           </button>
 
@@ -3671,6 +4480,1123 @@ require_once
 
 
       </form>
+
+
+    </section>
+
+
+    <!-- ===================================================
+         VARIANT MATRIX
+         =================================================== -->
+
+    <section class="admin-section shop-editor-section">
+
+
+      <div class="admin-section-header">
+
+        <div>
+
+          <h2>
+            4. Variants
+          </h2>
+
+          <p>
+
+            <?= count(
+                $variants
+            ) ?>
+
+            sellable
+            <?= count(
+                $variants
+            )
+            ===
+            1
+                ? 'variant'
+                : 'variants'
+            ?>.
+
+            Each combination has its own
+            price, SKU, inventory,
+            fulfillment, and shipping settings.
+
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <?php if (
+          !$variants
+      ): ?>
+
+        <div class="shop-editor-callout">
+
+          <strong>
+            Build the variant matrix first.
+          </strong>
+
+          <p>
+            For a simple one-size product,
+            leave “This product has choices”
+            unchecked and click
+            <strong>
+              Save Options & Build Variants
+            </strong>.
+            Llama Scout will create one
+            Standard variant.
+          </p>
+
+        </div>
+
+
+      <?php else: ?>
+
+
+        <form
+          method="post"
+          action="/shop-product.php?id=<?= $productId ?>"
+          class="admin-form"
+        >
+
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= shop_editor_e(
+                $csrfToken
+            ) ?>"
+          >
+
+          <input
+            type="hidden"
+            name="action"
+            value="save_variants"
+          >
+
+          <input
+            type="hidden"
+            name="product_id"
+            value="<?= $productId ?>"
+          >
+
+
+          <div class="admin-table-wrap">
+
+            <table
+              class="
+                admin-table
+                shop-variant-table
+              "
+            >
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Variant
+                  </th>
+
+                  <th>
+                    SKU
+                  </th>
+
+                  <th>
+                    Price
+                  </th>
+
+                  <th>
+                    Sale / Compare
+                  </th>
+
+                  <th>
+                    Inventory
+                  </th>
+
+                  <th>
+                    Active
+                  </th>
+
+                </tr>
+
+              </thead>
+
+
+              <tbody>
+
+
+              <?php foreach (
+                  $variants
+                  as
+                  $variant
+              ): ?>
+
+                <?php
+
+                $variantId =
+                    (int)
+                    $variant[
+                        'id'
+                    ];
+
+
+                $shipping =
+                    $shippingProfiles[
+                        $variantId
+                    ];
+
+
+                $pairs =
+                    shop_editor_variant_pairs(
+                        $variant
+                    );
+
+                ?>
+
+
+                <tr>
+
+                  <td class="shop-variant-name">
+
+
+                    <input
+                      type="hidden"
+                      name="variants[<?= $variantId ?>][sort_order]"
+                      value="<?= (int)
+                          $variant[
+                              'sort_order'
+                          ]
+                      ?>"
+                    >
+
+
+                    <input
+                      type="text"
+                      name="variants[<?= $variantId ?>][name]"
+                      value="<?= shop_editor_e(
+                          $variant[
+                              'name'
+                          ]
+                      ) ?>"
+                      required
+                    >
+
+
+                    <?php if (
+                        $pairs
+                    ): ?>
+
+                      <small>
+
+                        <?php foreach (
+                            $pairs
+                            as
+                            $index =>
+                            $pair
+                        ): ?>
+
+                          <?= $index > 0
+                              ? ' · '
+                              : ''
+                          ?>
+
+                          <?= shop_editor_e(
+                              $pair[
+                                  'name'
+                              ]
+                          ) ?>:
+
+                          <?= shop_editor_e(
+                              $pair[
+                                  'value'
+                              ]
+                          ) ?>
+
+                        <?php endforeach; ?>
+
+                      </small>
+
+                    <?php endif; ?>
+
+
+                    <details class="shop-variant-advanced">
+
+                      <summary>
+                        Fulfillment & Shipping
+                      </summary>
+
+
+                      <div class="shop-variant-panel">
+
+
+                        <div class="shop-editor-grid">
+
+
+                          <div class="admin-field">
+
+                            <label>
+                              Fulfillment
+                            </label>
+
+                            <select
+                              name="variants[<?= $variantId ?>][fulfillment_type]"
+                              data-fulfillment-select
+                            >
+
+                              <option
+                                value="manual"
+                                <?= $variant[
+                                    'fulfillment_type'
+                                ]
+                                ===
+                                'manual'
+                                    ? 'selected'
+                                    : ''
+                                ?>
+                              >
+                                Llama Scout / In-house
+                              </option>
+
+                              <option
+                                value="printful"
+                                <?= $variant[
+                                    'fulfillment_type'
+                                ]
+                                ===
+                                'printful'
+                                    ? 'selected'
+                                    : ''
+                                ?>
+                              >
+                                Printful
+                              </option>
+
+                              <option
+                                value="printify"
+                                <?= $variant[
+                                    'fulfillment_type'
+                                ]
+                                ===
+                                'printify'
+                                    ? 'selected'
+                                    : ''
+                                ?>
+                              >
+                                Printify
+                              </option>
+
+                              <option
+                                value="external"
+                                <?= $variant[
+                                    'fulfillment_type'
+                                ]
+                                ===
+                                'external'
+                                    ? 'selected'
+                                    : ''
+                                ?>
+                              >
+                                Other / External
+                              </option>
+
+                            </select>
+
+                          </div>
+
+
+                          <div class="admin-field">
+
+                            <label>
+                              Provider Name
+                            </label>
+
+                            <input
+                              type="text"
+                              name="variants[<?= $variantId ?>][fulfillment_provider]"
+                              value="<?= shop_editor_e(
+                                  $variant[
+                                      'fulfillment_provider'
+                                  ]
+                                  ?? ''
+                              ) ?>"
+                              placeholder="Printful, local printer..."
+                            >
+
+                          </div>
+
+
+                          <div class="admin-field">
+
+                            <label>
+                              Provider Product ID
+                            </label>
+
+                            <input
+                              type="text"
+                              name="variants[<?= $variantId ?>][fulfillment_product_id]"
+                              value="<?= shop_editor_e(
+                                  $variant[
+                                      'fulfillment_product_id'
+                                  ]
+                                  ?? ''
+                              ) ?>"
+                            >
+
+                          </div>
+
+
+                          <div class="admin-field">
+
+                            <label>
+                              Provider Variant ID
+                            </label>
+
+                            <input
+                              type="text"
+                              name="variants[<?= $variantId ?>][fulfillment_variant_id]"
+                              value="<?= shop_editor_e(
+                                  $variant[
+                                      'fulfillment_variant_id'
+                                  ]
+                                  ?? ''
+                              ) ?>"
+                            >
+
+                          </div>
+
+
+                        </div>
+
+
+                        <?php if (
+                            $requiresShipping
+                        ): ?>
+
+                          <hr>
+
+
+                          <h4>
+                            Shipping & Package
+                          </h4>
+
+
+                          <div class="shop-shipping-grid">
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Shipping Method
+                              </label>
+
+                              <select
+                                name="variants[<?= $variantId ?>][shipping_strategy]"
+                              >
+
+                                <option
+                                  value="provider_managed"
+                                  <?= $shipping[
+                                      'shipping_strategy'
+                                  ]
+                                  ===
+                                  'provider_managed'
+                                      ? 'selected'
+                                      : ''
+                                  ?>
+                                >
+                                  Fulfillment Provider Handles It
+                                </option>
+
+                                <option
+                                  value="live_rates"
+                                  <?= $shipping[
+                                      'shipping_strategy'
+                                  ]
+                                  ===
+                                  'live_rates'
+                                      ? 'selected'
+                                      : ''
+                                  ?>
+                                >
+                                  Live Carrier Rates
+                                </option>
+
+                                <option
+                                  value="flat_rate"
+                                  <?= $shipping[
+                                      'shipping_strategy'
+                                  ]
+                                  ===
+                                  'flat_rate'
+                                      ? 'selected'
+                                      : ''
+                                  ?>
+                                >
+                                  Flat Rate
+                                </option>
+
+                                <option
+                                  value="free"
+                                  <?= $shipping[
+                                      'shipping_strategy'
+                                  ]
+                                  ===
+                                  'free'
+                                      ? 'selected'
+                                      : ''
+                                  ?>
+                                >
+                                  Free Shipping
+                                </option>
+
+                              </select>
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Carrier
+                              </label>
+
+                              <select
+                                name="variants[<?= $variantId ?>][carrier]"
+                              >
+
+                                <option value="">
+                                  Automatic / None
+                                </option>
+
+                                <option
+                                  value="usps"
+                                  <?= (
+                                      $shipping[
+                                          'carrier'
+                                      ]
+                                      ?? ''
+                                  )
+                                  ===
+                                  'usps'
+                                      ? 'selected'
+                                      : ''
+                                  ?>
+                                >
+                                  USPS
+                                </option>
+
+                                <option
+                                  value="ups"
+                                  <?= (
+                                      $shipping[
+                                          'carrier'
+                                      ]
+                                      ?? ''
+                                  )
+                                  ===
+                                  'ups'
+                                      ? 'selected'
+                                      : ''
+                                  ?>
+                                >
+                                  UPS
+                                </option>
+
+                                <option
+                                  value="fedex"
+                                  <?= (
+                                      $shipping[
+                                          'carrier'
+                                      ]
+                                      ?? ''
+                                  )
+                                  ===
+                                  'fedex'
+                                      ? 'selected'
+                                      : ''
+                                  ?>
+                                >
+                                  FedEx
+                                </option>
+
+                              </select>
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Preferred Service
+                              </label>
+
+                              <input
+                                type="text"
+                                name="variants[<?= $variantId ?>][preferred_service]"
+                                value="<?= shop_editor_e(
+                                    $shipping[
+                                        'preferred_service'
+                                    ]
+                                    ?? ''
+                                ) ?>"
+                                placeholder="Optional"
+                              >
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Package Type
+                              </label>
+
+                              <select
+                                name="variants[<?= $variantId ?>][package_type]"
+                              >
+
+                                <?php
+
+                                $packageType =
+                                    $shipping[
+                                        'package_type'
+                                    ]
+                                    ??
+                                    'custom_package';
+
+                                ?>
+
+                                <option
+                                  value="custom_package"
+                                  <?= $packageType ===
+                                      'custom_package'
+                                          ? 'selected'
+                                          : ''
+                                  ?>
+                                >
+                                  Custom Package
+                                </option>
+
+                                <option
+                                  value="envelope"
+                                  <?= $packageType ===
+                                      'envelope'
+                                          ? 'selected'
+                                          : ''
+                                  ?>
+                                >
+                                  Envelope / Mailer
+                                </option>
+
+                                <option
+                                  value="carrier_package"
+                                  <?= $packageType ===
+                                      'carrier_package'
+                                          ? 'selected'
+                                          : ''
+                                  ?>
+                                >
+                                  Carrier Supplied Package
+                                </option>
+
+                              </select>
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Weight (oz)
+                              </label>
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                name="variants[<?= $variantId ?>][weight_oz]"
+                                value="<?= shop_editor_e(
+                                    $shipping[
+                                        'weight_oz'
+                                    ]
+                                    ?? ''
+                                ) ?>"
+                              >
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Length (in)
+                              </label>
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                name="variants[<?= $variantId ?>][length_in]"
+                                value="<?= shop_editor_e(
+                                    $shipping[
+                                        'length_in'
+                                    ]
+                                    ?? ''
+                                ) ?>"
+                              >
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Width (in)
+                              </label>
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                name="variants[<?= $variantId ?>][width_in]"
+                                value="<?= shop_editor_e(
+                                    $shipping[
+                                        'width_in'
+                                    ]
+                                    ?? ''
+                                ) ?>"
+                              >
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Height (in)
+                              </label>
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                name="variants[<?= $variantId ?>][height_in]"
+                                value="<?= shop_editor_e(
+                                    $shipping[
+                                        'height_in'
+                                    ]
+                                    ?? ''
+                                ) ?>"
+                              >
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Girth (in)
+                              </label>
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                name="variants[<?= $variantId ?>][girth_in]"
+                                value="<?= shop_editor_e(
+                                    $shipping[
+                                        'girth_in'
+                                    ]
+                                    ?? ''
+                                ) ?>"
+                              >
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Flat Shipping Rate
+                              </label>
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                name="variants[<?= $variantId ?>][flat_rate]"
+                                value="<?= shop_editor_e(
+                                    shop_editor_money_input(
+                                        isset(
+                                            $shipping[
+                                                'flat_rate_cents'
+                                            ]
+                                        )
+                                        &&
+                                        $shipping[
+                                            'flat_rate_cents'
+                                        ]
+                                        !==
+                                        null
+                                            ? (int)
+                                              $shipping[
+                                                  'flat_rate_cents'
+                                              ]
+                                            : null
+                                    )
+                                ) ?>"
+                              >
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Handling Charge
+                              </label>
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                name="variants[<?= $variantId ?>][handling]"
+                                value="<?= shop_editor_e(
+                                    shop_editor_money_input(
+                                        (int) (
+                                            $shipping[
+                                                'handling_cents'
+                                            ]
+                                            ?? 0
+                                        )
+                                    )
+                                ) ?>"
+                              >
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label>
+                                Origin
+                              </label>
+
+                              <input
+                                type="text"
+                                name="variants[<?= $variantId ?>][origin_key]"
+                                value="<?= shop_editor_e(
+                                    $shipping[
+                                        'origin_key'
+                                    ]
+                                    ?? 'default'
+                                ) ?>"
+                              >
+
+                              <p class="shop-editor-help">
+                                Usually “default”.
+                              </p>
+
+                            </div>
+
+
+                            <div class="admin-field">
+
+                              <label class="shop-editor-check">
+
+                                <input
+                                  type="checkbox"
+                                  name="variants[<?= $variantId ?>][ships_separately]"
+                                  value="1"
+                                  <?= !empty(
+                                      $shipping[
+                                          'ships_separately'
+                                      ]
+                                  )
+                                      ? 'checked'
+                                      : ''
+                                  ?>
+                                >
+
+                                <span>
+                                  Ships separately
+                                </span>
+
+                              </label>
+
+                            </div>
+
+
+                          </div>
+
+                        <?php endif; ?>
+
+
+                        <hr>
+
+
+                        <h4>
+                          Stripe References
+                        </h4>
+
+
+                        <div class="shop-editor-grid">
+
+
+                          <div class="admin-field">
+
+                            <label>
+                              Stripe Product ID
+                            </label>
+
+                            <input
+                              type="text"
+                              name="variants[<?= $variantId ?>][stripe_product_id]"
+                              value="<?= shop_editor_e(
+                                  $variant[
+                                      'stripe_product_id'
+                                  ]
+                                  ?? ''
+                              ) ?>"
+                              placeholder="prod_..."
+                            >
+
+                          </div>
+
+
+                          <div class="admin-field">
+
+                            <label>
+                              Stripe Price ID
+                            </label>
+
+                            <input
+                              type="text"
+                              name="variants[<?= $variantId ?>][stripe_price_id]"
+                              value="<?= shop_editor_e(
+                                  $variant[
+                                      'stripe_price_id'
+                                  ]
+                                  ?? ''
+                              ) ?>"
+                              placeholder="price_..."
+                            >
+
+                          </div>
+
+
+                        </div>
+
+
+                      </div>
+
+                    </details>
+
+
+                  </td>
+
+
+                  <td>
+
+                    <input
+                      type="text"
+                      name="variants[<?= $variantId ?>][sku]"
+                      value="<?= shop_editor_e(
+                          $variant[
+                              'sku'
+                          ]
+                      ) ?>"
+                      required
+                    >
+
+                  </td>
+
+
+                  <td>
+
+                    <input
+                      class="shop-variant-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      name="variants[<?= $variantId ?>][price]"
+                      value="<?= shop_editor_e(
+                          shop_editor_money_input(
+                              (int)
+                              $variant[
+                                  'price_cents'
+                              ]
+                          )
+                      ) ?>"
+                      required
+                    >
+
+                    <input
+                      type="hidden"
+                      name="variants[<?= $variantId ?>][currency]"
+                      value="<?= shop_editor_e(
+                          $variant[
+                              'currency'
+                          ]
+                      ) ?>"
+                    >
+
+                  </td>
+
+
+                  <td>
+
+                    <input
+                      class="shop-variant-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      name="variants[<?= $variantId ?>][compare_at_price]"
+                      value="<?= shop_editor_e(
+                          shop_editor_money_input(
+                              $variant[
+                                  'compare_at_price_cents'
+                              ]
+                              !==
+                              null
+                                  ? (int)
+                                    $variant[
+                                        'compare_at_price_cents'
+                                    ]
+                                  : null
+                          )
+                      ) ?>"
+                      placeholder="Optional"
+                    >
+
+                  </td>
+
+
+                  <td>
+
+                    <label class="shop-editor-check">
+
+                      <input
+                        type="checkbox"
+                        name="variants[<?= $variantId ?>][track_inventory]"
+                        value="1"
+                        <?= (bool)
+                            $variant[
+                                'track_inventory'
+                            ]
+                                ? 'checked'
+                                : ''
+                        ?>
+                      >
+
+                      <span>
+                        Track
+                      </span>
+
+                    </label>
+
+
+                    <input
+                      class="shop-variant-stock"
+                      type="number"
+                      min="0"
+                      step="1"
+                      name="variants[<?= $variantId ?>][inventory_quantity]"
+                      value="<?= (int)
+                          $variant[
+                              'inventory_quantity'
+                          ]
+                      ?>"
+                    >
+
+
+                    <label class="shop-editor-check">
+
+                      <input
+                        type="checkbox"
+                        name="variants[<?= $variantId ?>][allow_backorder]"
+                        value="1"
+                        <?= (bool)
+                            $variant[
+                                'allow_backorder'
+                            ]
+                                ? 'checked'
+                                : ''
+                        ?>
+                      >
+
+                      <span>
+                        Backorder
+                      </span>
+
+                    </label>
+
+                  </td>
+
+
+                  <td>
+
+                    <label class="shop-editor-check">
+
+                      <input
+                        type="checkbox"
+                        name="variants[<?= $variantId ?>][is_active]"
+                        value="1"
+                        <?= (bool)
+                            $variant[
+                                'is_active'
+                            ]
+                                ? 'checked'
+                                : ''
+                        ?>
+                      >
+
+                      <span>
+                        Active
+                      </span>
+
+                    </label>
+
+                  </td>
+
+
+                </tr>
+
+
+              <?php endforeach; ?>
+
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+
+          <div class="shop-action-bar">
+
+            <button
+              class="admin-button"
+              type="submit"
+            >
+
+              <i
+                class="fa-solid fa-floppy-disk"
+                aria-hidden="true"
+              ></i>
+
+              Save All Variants
+
+            </button>
+
+          </div>
+
+
+        </form>
+
+
+      <?php endif; ?>
 
 
     </section>
@@ -3694,6 +5620,50 @@ require_once
 <script
   src="https://llamascout.com/js/header.js"
 ></script>
+
+
+<script>
+
+(() => {
+
+  const toggle =
+    document.querySelector(
+      '[data-has-options]'
+    );
+
+
+  const controls =
+    document.querySelector(
+      '[data-option-controls]'
+    );
+
+
+  if (
+    toggle
+    &&
+    controls
+  ) {
+
+    function updateOptions() {
+
+      controls.hidden =
+        !toggle.checked;
+
+    }
+
+
+    toggle.addEventListener(
+      'change',
+      updateOptions
+    );
+
+
+    updateOptions();
+  }
+
+})();
+
+</script>
 
 
 </body>
