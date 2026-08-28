@@ -127,7 +127,11 @@ require_once
 
         <p>
           Llama Scout does not store your account password in readable form.
-          Passwords are stored using one-way password hashing.
+          Passwords are stored using one-way password hashing. We will never 
+          ask you to send us your password, authentication codes, recovery 
+          codes, or other secret login credentials by email, chat, or phone. 
+          If someone claiming to represent Llama Scout asks for this 
+          information, do not provide it.
         </p>
 
         <h3>
