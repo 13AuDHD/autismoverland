@@ -322,7 +322,7 @@ $alreadyVerified =
 
       <p class="account-auth-intro">
         Your email address is verified.
-        Your Llama Scout account is ready to use.
+        You're officially part of the herd.
       </p>
 
 
@@ -339,10 +339,20 @@ $alreadyVerified =
     ): ?>
 
 
-      <p class="account-auth-intro">
-        Check your inbox for the verification
-        link we sent you.
-      </p>
+    <p class="account-auth-intro">
+      Check your inbox for the verification
+      link we sent you.
+    </p>
+    
+    <p class="account-auth-intro">
+      <strong>
+        If you do not see the email within a few minutes,
+        check your Spam, Junk, or Promotions folder.
+      </strong>
+      Verification emails can occasionally be filtered there
+      by your email provider. Add "hi@llamascout.com" to your 
+      address book to help prevent future bounced messages.
+    </p>
 
 
       <a
