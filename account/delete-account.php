@@ -1645,7 +1645,7 @@ require_once
         <li>
           Your username, display name, email address, profile,
           profile photos, saved Places, authentication data,
-          and other personal account information are removed,
+          and any other personal account information are removed,
           replaced, or anonymized where appropriate.
         </li>
 
@@ -1655,13 +1655,13 @@ require_once
           remain part of Llama Scout's historical community
           record and are attributed to an anonymous account
           such as
-          <strong>
+          "<strong>
             <?= delete_account_e(
                 delete_account_anonymous_username(
                     $userId
                 )
             ) ?>
-          </strong>
+          </strong>"
           or Deleted User.
         </li>
 
@@ -1715,7 +1715,7 @@ require_once
     >
 
       <h2>
-        Final confirmation
+        So this is it...
       </h2>
 
       <p>
@@ -1923,7 +1923,7 @@ require_once
             ?>
             onclick="
               return confirm(
-                'Delete and anonymize your Llama Scout account now? This is immediate and cannot be undone.'
+                'Delete and anonymize your Llama Scout account now? This is immediate and cannot be undone. The herd is really going to miss you.'
               );
             "
           >
