@@ -3373,6 +3373,94 @@ require
       </section>
 
 
+              <?php if (
+          $currentAdminIsOwner
+      ): ?>
+
+        <!-- ===============================================
+             OWNER SECURITY
+             =============================================== -->
+
+        <section class="admin-panel">
+
+          <div class="admin-panel-header">
+
+            <div>
+
+              <h2>
+                Owner Security
+              </h2>
+
+              <p>
+                Owner access is managed separately from
+                ordinary account roles.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="admin-form">
+
+            <p class="admin-field-help">
+
+              <i
+                class="fa-solid fa-crown"
+                aria-hidden="true"
+              ></i>
+
+              <?php if (
+                  $managedUserIsOwner
+              ): ?>
+
+                This account currently has Owner authority.
+                Removing it requires your password and a
+                fresh MFA code.
+
+              <?php else: ?>
+
+                Promoting this account grants the highest
+                level of Llama Scout authority and requires
+                your password and a fresh MFA code.
+
+              <?php endif; ?>
+
+            </p>
+
+
+            <div class="admin-form-actions">
+
+              <a
+                class="
+                  admin-button
+                  admin-button--secondary
+                "
+                href="/owner-access.php?id=<?= $userId ?>"
+              >
+
+                <i
+                  class="fa-solid fa-shield-halved"
+                  aria-hidden="true"
+                ></i>
+
+                <?= $managedUserIsOwner
+                    ? 'Manage Owner Access'
+                    : 'Owner Security'
+                ?>
+
+              </a>
+
+            </div>
+
+          </div>
+
+        </section>
+
+      <?php endif; ?>
+
+
+        
       <!-- ===============================================
            QUICK LINKS
            =============================================== -->
