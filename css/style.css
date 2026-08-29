@@ -9671,26 +9671,30 @@ details:last-child {
 
 .safety-page {
   min-height: 100vh;
+  min-height: 100dvh;
 
   margin: 0;
 
+  padding-top: 0;
+
   background:
-    var(--background);
+    var(--paper);
 
   color:
-    var(--text);
+    var(--ink);
 }
 
 
 .safety-main {
   min-height: 100vh;
+  min-height: 100dvh;
 
   display: grid;
 
   place-items: center;
 
   padding:
-    0px
+    28px
     18px;
 }
 
@@ -9703,7 +9707,6 @@ details:last-child {
     );
 
   padding:
-     0px
     34px;
 
   background:
@@ -9711,7 +9714,7 @@ details:last-child {
 
   border:
     1px solid
-    var(--border);
+    var(--line);
 
   border-radius:
     18px;
@@ -9772,6 +9775,9 @@ details:last-child {
     0
     14px;
 
+  color:
+    var(--ink);
+
   font-size:
     clamp(
       1.75rem,
@@ -9811,7 +9817,7 @@ details:last-child {
 
   border:
     1px solid
-    var(--border);
+    var(--line);
 
   border-radius:
     12px;
@@ -9852,6 +9858,9 @@ details:last-child {
 
   align-items:
     baseline;
+
+  color:
+    var(--ink);
 }
 
 
@@ -9911,16 +9920,30 @@ details:last-child {
 }
 
 
+.safety-button--primary:hover,
+.safety-button--primary:focus-visible {
+  background:
+    var(--blue-dark);
+}
+
+
 .safety-button--secondary {
   background:
     var(--surface-soft);
 
   color:
-    var(--text);
+    var(--ink);
 
   border:
     1px solid
-    var(--border);
+    var(--line);
+}
+
+
+.safety-button--secondary:hover,
+.safety-button--secondary:focus-visible {
+  background:
+    var(--surface);
 }
 
 
@@ -9938,7 +9961,7 @@ details:last-child {
 
   border-top:
     1px solid
-    var(--border);
+    var(--line);
 
   font-size:
     .9rem;
@@ -9949,6 +9972,13 @@ details:last-child {
 
 
 @media (max-width: 560px) {
+
+  .safety-main {
+    padding:
+      20px
+      18px;
+  }
+
 
   .safety-card {
     padding:
