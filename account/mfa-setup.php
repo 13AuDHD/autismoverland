@@ -8,11 +8,17 @@ declare(strict_types=1);
    MFA ENROLLMENT
    account/mfa-setup.php
 
-   Used by:
-   - an already signed-in Owner/Admin configuring MFA
-   - a future forced MFA enrollment during privileged login
+   First-time MFA enrollment for Owner/Admin accounts.
 
-   MFA is required only for Owner and Admin roles.
+   During forced privileged login:
+   1. Password has already been verified by login.php.
+   2. The pending user enrolls an authenticator.
+   3. The first valid TOTP enables MFA.
+   4. That same successful TOTP completes the MFA requirement
+      for this sign-in.
+   5. The authenticated session is created only after MFA
+      enrollment succeeds.
+   6. Recovery codes are shown once before continuing.
    ========================================================= */
 
 
@@ -50,12 +56,36 @@ function mfa_setup_e(
 
 
 /* =========================================================
-   RESOLVE USER
+   RESOLVE ENROLLMENT CONTEXT
    ========================================================= */
 
 
 $pendingUserId =
     llama_mfa_pending_user_id();
+
+
+/*
+ * Capture pending-login values BEFORE any successful MFA
+ * completion clears them from the session.
+ */
+
+$pendingRemember =
+    !empty(
+        $_SESSION[
+            'mfa_pending_remember'
+        ]
+    );
+
+
+$pendingReturnUrl =
+    llama_safe_return_url(
+        (string) (
+            $_SESSION[
+                'mfa_pending_return'
+            ]
+            ?? ''
+        )
+    );
 
 
 $currentUser =
@@ -65,7 +95,9 @@ $currentUser =
 $currentUserId =
     $currentUser
         ? (int)
-          $currentUser['id']
+          $currentUser[
+              'id'
+          ]
         : 0;
 
 
@@ -88,8 +120,7 @@ if (
 
 
 /*
- * A signed-in user may only configure their own MFA.
- * A pending MFA login is also scoped to that same user ID.
+ * If both contexts exist, they must refer to the same user.
  */
 
 if (
@@ -105,10 +136,16 @@ if (
         403
     );
 
+
     exit(
         'MFA enrollment session mismatch.'
     );
 }
+
+
+/* =========================================================
+   LOAD TARGET ACCOUNT
+   ========================================================= */
 
 
 $stmt =
@@ -143,9 +180,13 @@ $user =
 
 if (!$user) {
 
+    llama_mfa_clear_session_state();
+
+
     http_response_code(
         404
     );
+
 
     exit(
         'Account not found.'
@@ -156,7 +197,9 @@ if (!$user) {
 if (
     in_array(
         (string) (
-            $user['status']
+            $user[
+                'status'
+            ]
             ?? ''
         ),
         [
@@ -167,14 +210,23 @@ if (
     )
 ) {
 
+    llama_mfa_clear_session_state();
+
+
     http_response_code(
         403
     );
+
 
     exit(
         'This account cannot configure MFA.'
     );
 }
+
+
+/* =========================================================
+   PRIVILEGED ROLE REQUIREMENT
+   ========================================================= */
 
 
 if (
@@ -184,9 +236,13 @@ if (
     )
 ) {
 
+    llama_mfa_clear_session_state();
+
+
     http_response_code(
         403
     );
+
 
     exit(
         'MFA enrollment is currently reserved for Llama Scout Owner and Admin accounts.'
@@ -238,6 +294,10 @@ $recoveryCodes =
     [];
 
 
+$justEnabled =
+    false;
+
+
 $enabled =
     llama_mfa_is_enabled(
         $userId,
@@ -253,8 +313,43 @@ $provisioningUri =
     null;
 
 
+$continueUrl =
+    $pendingReturnUrl
+    ?:
+    'https://account.llamascout.com/';
+
+
 /* =========================================================
-   EXISTING / NEW ENROLLMENT
+   EXISTING MFA
+   ========================================================= */
+
+
+if (
+    $enabled
+    &&
+    $pendingUserId > 0
+    &&
+    !llama_mfa_session_is_verified(
+        $userId
+    )
+) {
+
+    /*
+     * This account completed enrollment previously, so a
+     * pending login belongs on the normal MFA challenge.
+     */
+
+    header(
+        'Location: /mfa-challenge.php'
+    );
+
+
+    exit;
+}
+
+
+/* =========================================================
+   NEW / INCOMPLETE ENROLLMENT
    ========================================================= */
 
 
@@ -344,12 +439,14 @@ try {
         .
         ': '
         .
-        $exception->getMessage()
+        $exception
+            ->getMessage()
     );
 
 
     $error =
-        $exception->getMessage();
+        $exception
+            ->getMessage();
 }
 
 
@@ -421,19 +518,123 @@ if (
                 true;
 
 
+            $justEnabled =
+                true;
+
+
             /*
-             * A forced-login enrollment now satisfies MFA
-             * for this browser session.
+             * Successful enrollment proves possession of the
+             * authenticator, so the SAME valid code satisfies
+             * MFA for this sign-in.
+             *
+             * The authenticated session does not exist until
+             * this point.
              */
+
+            session_regenerate_id(
+                true
+            );
+
+
+            $_SESSION[
+                'user_id'
+            ] =
+                $userId;
+
+
+            $_SESSION[
+                'logged_in_at'
+            ] =
+                time();
+
 
             llama_mfa_mark_session_verified(
                 $userId
             );
 
 
+            /*
+             * Privileged Remember Me tokens are deliberately
+             * not created. auth.php rejects them for Owner and
+             * Admin accounts.
+             *
+             * Clear any stale tokens that may predate the
+             * account's privileged role.
+             */
+
+            llama_mfa_invalidate_remember_tokens(
+                $userId,
+                $db
+            );
+
+
+            if (
+                $pendingRemember
+            ) {
+
+                /*
+                 * Kept intentionally as documentation of the
+                 * user's login choice. create_remember_token()
+                 * itself refuses privileged accounts.
+                 */
+
+                create_remember_token(
+                    $userId
+                );
+            }
+
+
+            $loginStmt =
+                $db->prepare(
+                    '
+                    UPDATE users
+
+                    SET
+                        last_login_at =
+                            CURRENT_TIMESTAMP,
+
+                        dormancy_notice_sent_at =
+                            NULL
+
+                    WHERE id = ?
+                    '
+                );
+
+
+            $loginStmt->execute([
+                $userId
+            ]);
+
+
+            /*
+             * Rotate the setup CSRF token after successful
+             * enrollment. Recovery codes remain in memory only
+             * for this response and are not persisted in plain
+             * text.
+             */
+
+            unset(
+                $_SESSION[
+                    'mfa_setup_csrf'
+                ]
+            );
+
+
         } catch (
             Throwable $exception
         ) {
+
+            error_log(
+                'Llama Scout MFA enrollment confirmation error for user #'
+                .
+                $userId
+                .
+                ': '
+                .
+                $exception
+                    ->getMessage()
+            );
+
 
             $error =
                 $exception
@@ -569,17 +770,23 @@ $displayName =
         MFA Enabled
       </p>
 
+
       <h1>
         Save your recovery codes
       </h1>
 
+
       <p class="account-auth-intro">
+
         <?= mfa_setup_e(
             $displayName
-        ) ?> now has multi-factor authentication enabled.
+        ) ?>
+
+        now has multi-factor authentication enabled.
         Store these recovery codes somewhere separate from
         your authenticator device and away from the rest of
         the herd.
+
       </p>
 
 
@@ -597,7 +804,7 @@ $displayName =
         <p>
           Each recovery code works once. Llama Scout stores
           only a one-way hash of each code, so these exact
-          codes CANNOT be shown again later.
+          codes cannot be shown again later.
         </p>
 
       </div>
@@ -624,27 +831,14 @@ $displayName =
 
       <div class="mfa-actions">
 
-        <?php if (
-            $pendingUserId > 0
-        ): ?>
-
-          <a
-            href="/mfa-challenge.php"
-            class="primary-button"
-          >
-            Continue Sign In
-          </a>
-
-        <?php else: ?>
-
-          <a
-            href="/"
-            class="primary-button"
-          >
-            Return to My Account
-          </a>
-
-        <?php endif; ?>
+        <a
+          href="<?= mfa_setup_e(
+              $continueUrl
+          ) ?>"
+          class="primary-button"
+        >
+          Continue
+        </a>
 
       </div>
 
@@ -658,9 +852,11 @@ $displayName =
         Security
       </p>
 
+
       <h1>
         MFA is already enabled
       </h1>
+
 
       <p class="account-auth-intro">
         This privileged account is already protected with
@@ -681,7 +877,7 @@ $displayName =
 
         <p>
           A valid authenticator code or unused recovery code
-          will be required during privileged sign-in.
+          is required during privileged sign-in.
         </p>
 
       </div>
@@ -690,7 +886,7 @@ $displayName =
       <div class="mfa-actions">
 
         <a
-          href="/"
+          href="https://account.llamascout.com/"
           class="primary-button"
         >
           Return to My Account
@@ -706,9 +902,11 @@ $displayName =
         Required Security
       </p>
 
+
       <h1>
         Set up multi-factor authentication
       </h1>
+
 
       <p class="account-auth-intro">
         Owner and Admin accounts require an authenticator
@@ -765,6 +963,11 @@ $displayName =
             authenticator to confirm enrollment.
           </li>
 
+          <li>
+            Save the recovery codes shown after verification.
+            They are displayed only once.
+          </li>
+
         </ol>
 
 
@@ -791,14 +994,18 @@ $displayName =
               Manual setup key
             </span>
 
+
             <code class="mfa-secret">
               <?= mfa_setup_e(
                   $secret
               ) ?>
             </code>
 
+
             <p>
+
               Account:
+
               <strong>
                 <?= mfa_setup_e(
                     (string) (
@@ -812,17 +1019,31 @@ $displayName =
                     )
                 ) ?>
               </strong>
+
             </p>
 
+
             <p>
+
               Type:
-              <strong>Time based</strong>
+              <strong>
+                Time based
+              </strong>
+
               <br>
+
               Digits:
-              <strong>6</strong>
+              <strong>
+                6
+              </strong>
+
               <br>
+
               Period:
-              <strong>30 seconds</strong>
+              <strong>
+                30 seconds
+              </strong>
+
             </p>
 
           </div>
@@ -851,6 +1072,7 @@ $displayName =
             <label for="totp_code">
               6-digit authentication code
             </label>
+
 
             <input
               id="totp_code"
