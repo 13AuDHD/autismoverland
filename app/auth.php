@@ -2,37 +2,148 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/scout-maintenance.php';
-require_once __DIR__ . '/memberships.php';
+
+/* =========================================================
+   LLAMA SCOUT
+   AUTHENTICATION
+   app/auth.php
+
+   Authentication rules:
+   - Member / Scout accounts may use normal session and
+     Remember Me authentication.
+   - Owner / Admin accounts require MFA.
+   - Privileged Remember Me tokens never restore a session.
+   - A role promotion immediately invalidates any ordinary
+     session on the next authenticated request unless MFA
+     has been completed for that session.
+   ========================================================= */
+
+
+require_once
+    __DIR__
+    . '/database.php';
+
+require_once
+    __DIR__
+    . '/scout-maintenance.php';
+
+require_once
+    __DIR__
+    . '/memberships.php';
+
+require_once
+    __DIR__
+    . '/mfa.php';
+
+
+/* =========================================================
+   CONSTANTS
+   ========================================================= */
+
+
+const LLAMA_REMEMBER_DAYS =
+    30;
+
+
+const LLAMA_REMEMBER_COOKIE =
+    'llamascout_remember';
+
+
+/* =========================================================
+   SESSION SETUP
+   ========================================================= */
+
+
+function start_llama_session(): void {
+
+    if (
+        session_status()
+        ===
+        PHP_SESSION_ACTIVE
+    ) {
+
+        return;
+    }
+
+
+    session_name(
+        'llamascout_session'
+    );
+
+
+    session_set_cookie_params([
+        'lifetime' =>
+            0,
+
+        'path' =>
+            '/',
+
+        'domain' =>
+            '.llamascout.com',
+
+        'secure' =>
+            true,
+
+        'httponly' =>
+            true,
+
+        'samesite' =>
+            'Lax',
+    ]);
+
+
+    session_start();
+}
 
 
 /* =========================================================
    REMEMBER ME
    ========================================================= */
 
-const LLAMA_REMEMBER_DAYS = 30;
-const LLAMA_REMEMBER_COOKIE = 'llamascout_remember';
-
 
 function create_remember_token(
     int $userId
 ): void {
 
-    if ($userId < 1) {
+    if (
+        $userId < 1
+    ) {
+
+        return;
+    }
+
+
+    /*
+     * Privileged accounts must complete MFA whenever a new
+     * authenticated browser session is established.
+     *
+     * We therefore do not create long-lived Remember Me
+     * authentication for Owner/Admin accounts.
+     */
+
+    if (
+        llama_mfa_role_requires_mfa(
+            $userId
+        )
+    ) {
+
         return;
     }
 
 
     $selector =
         bin2hex(
-            random_bytes(16)
+            random_bytes(
+                16
+            )
         );
 
 
     $validator =
         bin2hex(
-            random_bytes(32)
+            random_bytes(
+                32
+            )
         );
 
 
@@ -43,12 +154,27 @@ function create_remember_token(
         );
 
 
+    if (
+        !is_string(
+            $tokenHash
+        )
+        ||
+        $tokenHash === ''
+    ) {
+
+        throw new RuntimeException(
+            'Remember Me token could not be secured.'
+        );
+    }
+
+
     $expires =
         time()
         +
         (
             LLAMA_REMEMBER_DAYS
-            * 86400
+            *
+            86400
         );
 
 
@@ -58,10 +184,6 @@ function create_remember_token(
             $expires
         );
 
-
-    /*
-     * Remove expired tokens for this user.
-     */
 
     $cleanup =
         db()->prepare(
@@ -79,10 +201,6 @@ function create_remember_token(
     ]);
 
 
-    /*
-     * Store only the hash of the secret validator.
-     */
-
     $stmt =
         db()->prepare(
             '
@@ -96,7 +214,10 @@ function create_remember_token(
 
             VALUES
             (
-                ?, ?, ?, ?
+                ?,
+                ?,
+                ?,
+                ?
             )
             '
         );
@@ -106,21 +227,17 @@ function create_remember_token(
         $userId,
         $selector,
         $tokenHash,
-        $expiresSql
+        $expiresSql,
     ]);
 
 
-    /*
-     * Cookie contains:
-     *
-     * selector:validator
-     *
-     * The raw validator exists only in the browser.
-     */
-
     setcookie(
         LLAMA_REMEMBER_COOKIE,
-        $selector . ':' . $validator,
+        $selector
+        .
+        ':'
+        .
+        $validator,
         [
             'expires' =>
                 $expires,
@@ -141,13 +258,13 @@ function create_remember_token(
                 'Lax',
         ]
     );
-
 }
 
 
 /* =========================================================
    CLEAR REMEMBER ME
    ========================================================= */
+
 
 function clear_remember_cookie(): void {
 
@@ -175,7 +292,11 @@ function clear_remember_cookie(): void {
 
 
         if (
-            count($parts) === 2
+            count(
+                $parts
+            )
+            ===
+            2
         ) {
 
             $selector =
@@ -199,11 +320,8 @@ function clear_remember_cookie(): void {
                 $stmt->execute([
                     $selector
                 ]);
-
             }
-
         }
-
     }
 
 
@@ -212,7 +330,9 @@ function clear_remember_cookie(): void {
         '',
         [
             'expires' =>
-                time() - 3600,
+                time()
+                -
+                3600,
 
             'path' =>
                 '/',
@@ -231,12 +351,19 @@ function clear_remember_cookie(): void {
         ]
     );
 
+
+    unset(
+        $_COOKIE[
+            LLAMA_REMEMBER_COOKIE
+        ]
+    );
 }
 
 
 /* =========================================================
    REMEMBERED LOGIN
    ========================================================= */
+
 
 function attempt_remembered_login(): bool {
 
@@ -249,7 +376,6 @@ function attempt_remembered_login(): bool {
     ) {
 
         return false;
-
     }
 
 
@@ -269,20 +395,24 @@ function attempt_remembered_login(): bool {
 
 
     if (
-        count($parts) !== 2
+        count(
+            $parts
+        )
+        !==
+        2
     ) {
 
         clear_remember_cookie();
 
         return false;
-
     }
 
 
     [
         $selector,
         $validator
-    ] = $parts;
+    ] =
+        $parts;
 
 
     if (
@@ -294,7 +424,6 @@ function attempt_remembered_login(): bool {
         clear_remember_cookie();
 
         return false;
-
     }
 
 
@@ -311,7 +440,7 @@ function attempt_remembered_login(): bool {
             FROM user_remember_tokens rt
 
             INNER JOIN users u
-                ON u.id = rt.user_id
+              ON u.id = rt.user_id
 
             WHERE rt.selector = ?
 
@@ -336,8 +465,14 @@ function attempt_remembered_login(): bool {
         clear_remember_cookie();
 
         return false;
-
     }
+
+
+    $userId =
+        (int)
+        $remember[
+            'user_id'
+        ];
 
 
     if (
@@ -346,24 +481,26 @@ function attempt_remembered_login(): bool {
             $remember[
                 'expires_at'
             ]
-        ) <= time()
+        )
+        <=
+        time()
     ) {
 
         clear_remember_cookie();
 
         return false;
-
     }
 
 
     if (
         in_array(
+            (string)
             $remember[
                 'status'
             ],
             [
                 'suspended',
-                'disabled'
+                'disabled',
             ],
             true
         )
@@ -372,13 +509,13 @@ function attempt_remembered_login(): bool {
         clear_remember_cookie();
 
         return false;
-
     }
 
 
     if (
         !password_verify(
             $validator,
+            (string)
             $remember[
                 'token_hash'
             ]
@@ -388,7 +525,30 @@ function attempt_remembered_login(): bool {
         clear_remember_cookie();
 
         return false;
+    }
 
+
+    /*
+     * A token created while an account was still an ordinary
+     * member must never become an MFA bypass after the account
+     * is promoted to Admin or Owner.
+     */
+
+    if (
+        llama_mfa_role_requires_mfa(
+            $userId
+        )
+    ) {
+
+        llama_mfa_invalidate_remember_tokens(
+            $userId
+        );
+
+
+        clear_remember_cookie();
+
+
+        return false;
     }
 
 
@@ -403,10 +563,7 @@ function attempt_remembered_login(): bool {
     $_SESSION[
         'user_id'
     ] =
-        (int)
-        $remember[
-            'user_id'
-        ];
+        $userId;
 
 
     $_SESSION[
@@ -414,10 +571,6 @@ function attempt_remembered_login(): bool {
     ] =
         time();
 
-
-    /*
-     * Record activity.
-     */
 
     $update =
         db()->prepare(
@@ -440,42 +593,6 @@ function attempt_remembered_login(): bool {
 
 
     return true;
-
-}
-
-
-/* =========================================================
-   SESSION SETUP
-   ========================================================= */
-
-function start_llama_session(): void
-{
-    if (
-        session_status()
-        === PHP_SESSION_ACTIVE
-    ) {
-
-        return;
-
-    }
-
-
-    session_name(
-        'llamascout_session'
-    );
-
-
-    session_set_cookie_params([
-        'lifetime' => 0,
-        'path' => '/',
-        'domain' => '.llamascout.com',
-        'secure' => true,
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
-
-
-    session_start();
 }
 
 
@@ -483,42 +600,42 @@ function start_llama_session(): void
    CURRENT USER
    ========================================================= */
 
-function current_user(): ?array
-{
+
+function current_user(): ?array {
+
     start_llama_session();
 
 
     $userId =
-        $_SESSION[
-            'user_id'
-        ]
-        ?? null;
+        (int) (
+            $_SESSION[
+                'user_id'
+            ]
+            ?? 0
+        );
 
-
-    /*
-     * PHP session disappeared, but the user selected
-     * Remember Me during login.
-     */
 
     if (
-        !$userId
+        $userId < 1
         &&
         attempt_remembered_login()
     ) {
 
         $userId =
-            $_SESSION[
-                'user_id'
-            ]
-            ?? null;
-
+            (int) (
+                $_SESSION[
+                    'user_id'
+                ]
+                ?? 0
+            );
     }
 
 
-    if (!$userId) {
+    if (
+        $userId < 1
+    ) {
 
         return null;
-
     }
 
 
@@ -556,7 +673,9 @@ function current_user(): ?array
 
 
     $user =
-        $stmt->fetch();
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
 
 
     if (!$user) {
@@ -564,121 +683,173 @@ function current_user(): ?array
         logout_user();
 
         return null;
-
     }
 
 
-if (
-    in_array(
-        $user[
-            'status'
-        ],
-        [
-            'suspended',
-            'disabled'
-        ],
-        true
-    )
-) {
+    if (
+        in_array(
+            (string)
+            $user[
+                'status'
+            ],
+            [
+                'suspended',
+                'disabled',
+            ],
+            true
+        )
+    ) {
 
-    logout_user();
+        logout_user();
 
-    return null;
-
-}
-
-
-/* =========================================================
-   DAILY APPLICATION MAINTENANCE
-
-   The first authenticated request after the maintenance
-   interval expires runs Scout renewal maintenance.
-
-   Failures are logged but must NEVER prevent someone from
-   accessing their account.
-   ========================================================= */
-
-try {
-
-    llama_run_scout_renewal_maintenance(
-        db()
-    );
-
-} catch (
-    Throwable $exception
-) {
-
-    error_log(
-        'Llama Scout daily maintenance bootstrap error: '
-        .
-        $exception
-            ->getMessage()
-    );
-
-}
+        return null;
+    }
 
 
-/*
- * Scout maintenance can change this user's membership state
- * during the same request.
- *
- * Reload the account after maintenance so access checks never
- * continue using a stale complimentary or membership status.
- */
+    /*
+     * GLOBAL MFA ENFORCEMENT
+     *
+     * This catches:
+     * - an old pre-MFA Owner/Admin session
+     * - an account promoted to Admin while already signed in
+     * - any code path that accidentally establishes an
+     *   ordinary authenticated session for a privileged user
+     *
+     * We intentionally do not destroy the whole PHP session,
+     * because a pending MFA challenge may need other session
+     * state. We only remove authenticated-user state.
+     */
 
-$refreshStmt =
-    db()->prepare(
-        '
-        SELECT
-            id,
-            email,
-            username,
-            display_name,
-            timezone,
-            status,
-            email_verified_at,
-            stripe_customer_id,
-            stripe_subscription_id,
-            membership_status,
-            membership_interval,
-            membership_started_at,
-            membership_ends_at,
-            created_at
+    if (
+        llama_mfa_role_requires_mfa(
+            $userId
+        )
+        &&
+        !llama_mfa_session_is_verified(
+            $userId
+        )
+    ) {
 
-        FROM users
-
-        WHERE id = ?
-
-        LIMIT 1
-        '
-    );
+        unset(
+            $_SESSION[
+                'user_id'
+            ],
+            $_SESSION[
+                'logged_in_at'
+            ]
+        );
 
 
-$refreshStmt->execute([
-    $userId
-]);
+        llama_mfa_invalidate_remember_tokens(
+            $userId
+        );
 
 
-$refreshedUser =
-    $refreshStmt->fetch();
+        clear_remember_cookie();
 
 
-if (
-    !$refreshedUser
-) {
-
-    logout_user();
-
-    return null;
-}
+        return null;
+    }
 
 
-$user =
-    $refreshedUser;
+    /* =====================================================
+       DAILY APPLICATION MAINTENANCE
+       ===================================================== */
+
+    try {
+
+        llama_run_scout_renewal_maintenance(
+            db()
+        );
 
 
-return $user;
+    } catch (
+        Throwable $exception
+    ) {
 
+        error_log(
+            'Llama Scout daily maintenance bootstrap error: '
+            .
+            $exception
+                ->getMessage()
+        );
+    }
+
+
+    /*
+     * Scout maintenance can change membership state during
+     * the request, so reload the user before returning it.
+     */
+
+    $refreshStmt =
+        db()->prepare(
+            '
+            SELECT
+                id,
+                email,
+                username,
+                display_name,
+                timezone,
+                status,
+                email_verified_at,
+                stripe_customer_id,
+                stripe_subscription_id,
+                membership_status,
+                membership_interval,
+                membership_started_at,
+                membership_ends_at,
+                created_at
+
+            FROM users
+
+            WHERE id = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $refreshStmt->execute([
+        $userId
+    ]);
+
+
+    $refreshedUser =
+        $refreshStmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    if (!$refreshedUser) {
+
+        logout_user();
+
+        return null;
+    }
+
+
+    if (
+        in_array(
+            (string)
+            $refreshedUser[
+                'status'
+            ],
+            [
+                'suspended',
+                'disabled',
+            ],
+            true
+        )
+    ) {
+
+        logout_user();
+
+        return null;
+    }
+
+
+    return
+        $refreshedUser;
 }
 
 
@@ -686,17 +857,20 @@ return $user;
    LOGIN STATUS
    ========================================================= */
 
-function is_logged_in(): bool
-{
+
+function is_logged_in(): bool {
+
     return
         current_user()
-        !== null;
+        !==
+        null;
 }
 
 
 /* =========================================================
    LOGIN
    ========================================================= */
+
 
 function attempt_login_result(
     string $login,
@@ -729,27 +903,27 @@ function attempt_login_result(
 
     $stmt->execute([
         $login,
-        $login
+        $login,
     ]);
 
 
     $user =
-        $stmt->fetch();
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
 
 
-    if (
-        !$user
-    ) {
+    if (!$user) {
 
         return
             'invalid_credentials';
-
     }
 
 
     if (
         !password_verify(
             $password,
+            (string)
             $user[
                 'password_hash'
             ]
@@ -758,7 +932,6 @@ function attempt_login_result(
 
         return
             'invalid_credentials';
-
     }
 
 
@@ -778,7 +951,6 @@ function attempt_login_result(
 
         return
             'suspended';
-
     }
 
 
@@ -789,7 +961,48 @@ function attempt_login_result(
 
         return
             'disabled';
+    }
 
+
+    $userId =
+        (int)
+        $user[
+            'id'
+        ];
+
+
+    /*
+     * Defense in depth:
+     * no caller may accidentally complete a password-only
+     * login for an Owner/Admin account.
+     */
+
+    if (
+        llama_mfa_role_requires_mfa(
+            $userId
+        )
+    ) {
+
+        start_llama_session();
+
+
+        llama_mfa_clear_session_state();
+
+
+        llama_mfa_begin_login_challenge(
+            $userId,
+            $remember,
+            null
+        );
+
+
+        llama_mfa_invalidate_remember_tokens(
+            $userId
+        );
+
+
+        return
+            'mfa_required';
     }
 
 
@@ -804,10 +1017,7 @@ function attempt_login_result(
     $_SESSION[
         'user_id'
     ] =
-        (int)
-        $user[
-            'id'
-        ];
+        $userId;
 
 
     $_SESSION[
@@ -834,23 +1044,15 @@ function attempt_login_result(
 
 
     $loginStmt->execute([
-        $user[
-            'id'
-        ]
+        $userId
     ]);
 
 
-    if (
-        $remember
-    ) {
+    if ($remember) {
 
         create_remember_token(
-            (int)
-            $user[
-                'id'
-            ]
+            $userId
         );
-
     }
 
 
@@ -873,22 +1075,27 @@ function attempt_login(
         )
         ===
         'success';
-
 }
+
 
 /* =========================================================
    LOGOUT
    ========================================================= */
 
-function logout_user(): void
-{
+
+function logout_user(): void {
+
     start_llama_session();
 
 
     clear_remember_cookie();
 
 
-    $_SESSION = [];
+    llama_mfa_clear_session_state();
+
+
+    $_SESSION =
+        [];
 
 
     if (
@@ -904,13 +1111,41 @@ function logout_user(): void
         setcookie(
             session_name(),
             '',
-            time() - 42000,
-            $params['path'],
-            $params['domain'],
-            $params['secure'],
-            $params['httponly']
-        );
+            [
+                'expires' =>
+                    time()
+                    -
+                    42000,
 
+                'path' =>
+                    $params[
+                        'path'
+                    ],
+
+                'domain' =>
+                    $params[
+                        'domain'
+                    ],
+
+                'secure' =>
+                    (bool)
+                    $params[
+                        'secure'
+                    ],
+
+                'httponly' =>
+                    (bool)
+                    $params[
+                        'httponly'
+                    ],
+
+                'samesite' =>
+                    $params[
+                        'samesite'
+                    ]
+                    ?? 'Lax',
+            ]
+        );
     }
 
 
@@ -921,6 +1156,7 @@ function logout_user(): void
 /* =========================================================
    SAFE LOGIN RETURN URL
    ========================================================= */
+
 
 function llama_safe_return_url(
     ?string $url
@@ -938,7 +1174,6 @@ function llama_safe_return_url(
     ) {
 
         return null;
-
     }
 
 
@@ -955,7 +1190,6 @@ function llama_safe_return_url(
     ) {
 
         return null;
-
     }
 
 
@@ -987,7 +1221,6 @@ function llama_safe_return_url(
     ) {
 
         return null;
-
     }
 
 
@@ -1002,7 +1235,6 @@ function llama_safe_return_url(
     ) {
 
         return null;
-
     }
 
 
@@ -1011,8 +1243,7 @@ function llama_safe_return_url(
 }
 
 
-function llama_current_request_url(): string
-{
+function llama_current_request_url(): string {
 
     $host =
         trim(
@@ -1023,6 +1254,32 @@ function llama_current_request_url(): string
                 ?? 'llamascout.com'
             )
         );
+
+
+    /*
+     * Prevent a malicious Host header from influencing an
+     * authentication redirect.
+     */
+
+    $hostLower =
+        strtolower(
+            $host
+        );
+
+
+    if (
+        $hostLower !==
+        'llamascout.com'
+        &&
+        !str_ends_with(
+            $hostLower,
+            '.llamascout.com'
+        )
+    ) {
+
+        $host =
+            'llamascout.com';
+    }
 
 
     $uri =
@@ -1043,20 +1300,18 @@ function llama_current_request_url(): string
 }
 
 
-
 /* =========================================================
    REQUIRE LOGIN
    ========================================================= */
 
-function require_login(): void
-{
+
+function require_login(): void {
 
     if (
         is_logged_in()
     ) {
 
         return;
-
     }
 
 
@@ -1081,24 +1336,24 @@ function require_login(): void
    EMAIL VERIFICATION
    ========================================================= */
 
+
 function is_email_verified(
     ?array $user = null
 ): bool {
 
     if (
-        $user === null
+        $user ===
+        null
     ) {
 
         $user =
             current_user();
-
     }
 
 
     if (!$user) {
 
         return false;
-
     }
 
 
@@ -1111,8 +1366,8 @@ function is_email_verified(
 }
 
 
-function require_verified_email(): void
-{
+function require_verified_email(): void {
+
     require_login();
 
 
@@ -1127,7 +1382,6 @@ function require_verified_email(): void
     ) {
 
         return;
-
     }
 
 
@@ -1144,43 +1398,46 @@ function require_verified_email(): void
    MEMBERSHIP ACCESS
    ========================================================= */
 
+
 function membership_status(
     ?array $user = null
 ): string {
 
     if (
-        $user === null
+        $user ===
+        null
     ) {
 
         $user =
             current_user();
-
     }
 
 
     if (!$user) {
 
-        return 'none';
-
+        return
+            'none';
     }
 
 
-    return strtolower(
-        trim(
-            (string) (
-                $user[
-                    'membership_status'
-                ]
-                ?? 'none'
+    return
+        strtolower(
+            trim(
+                (string) (
+                    $user[
+                        'membership_status'
+                    ]
+                    ?? 'none'
+                )
             )
-        )
-    );
+        );
 }
 
 
 /* =========================================================
    ACTIVE MEMBERSHIP
    ========================================================= */
+
 
 function user_has_membership(
     ?array $user = null
@@ -1193,7 +1450,6 @@ function user_has_membership(
     ) {
 
         return true;
-
     }
 
 
@@ -1208,6 +1464,7 @@ function user_has_membership(
    PAID MEMBERSHIP
    ========================================================= */
 
+
 function user_has_paid_membership(
     ?array $user = null
 ): bool {
@@ -1218,43 +1475,35 @@ function user_has_paid_membership(
         );
 
 
-    /*
-     * past_due keeps access temporarily while Stripe
-     * retries payment.
-     */
-
-    return in_array(
-        $status,
-        [
-            'active',
-            'trialing',
-            'past_due',
-        ],
-        true
-    );
+    return
+        in_array(
+            $status,
+            [
+                'active',
+                'trialing',
+                'past_due',
+            ],
+            true
+        );
 }
 
 
 /* =========================================================
    COMPLIMENTARY MEMBERSHIP
-
-   New complimentary access comes from membership_grants.
-
-   Legacy users.membership_status=complimentary remains
-   recognized temporarily during migration.
    ========================================================= */
+
 
 function user_has_complimentary_membership(
     ?array $user = null
 ): bool {
 
     if (
-        $user === null
+        $user ===
+        null
     ) {
 
         $user =
             current_user();
-
     }
 
 
@@ -1269,15 +1518,8 @@ function user_has_complimentary_membership(
     ) {
 
         return false;
-
     }
 
-
-    /*
-     * Backward compatibility for any existing account that
-     * still carries the former single-status complimentary
-     * value.
-     */
 
     if (
         membership_status(
@@ -1288,7 +1530,6 @@ function user_has_complimentary_membership(
     ) {
 
         return true;
-
     }
 
 
@@ -1303,15 +1544,10 @@ function user_has_complimentary_membership(
                 ]
             );
 
+
     } catch (
         Throwable $exception
     ) {
-
-        /*
-         * Access checks fail closed if grant storage cannot
-         * be read. Log the problem rather than accidentally
-         * exposing protected member data.
-         */
 
         error_log(
             'Llama Scout complimentary membership lookup error for user #'
@@ -1329,106 +1565,22 @@ function user_has_complimentary_membership(
 
 
         return false;
-
     }
 }
 
-/* =========================================================
-   REQUIRE MEMBERSHIP
-   ========================================================= */
-
-function require_membership(): void
-{
-    require_login();
-
-
-    $user =
-        current_user();
-
-
-    /*
-     * Owners and Admins always have full access
-     * while those roles are assigned.
-     */
-
-if (
-    user_has_role(
-        'owner'
-    )
-    ||
-    user_has_role(
-        'admin'
-    )
-) {
-
-    return;
-}
-
-
-if (
-    user_has_role(
-        'scout'
-    )
-) {
-
-    $scoutStmt =
-        db()->prepare(
-            '
-            SELECT 1
-
-            FROM scout_profiles
-
-            WHERE user_id = ?
-              AND status = \'active\'
-
-            LIMIT 1
-            '
-        );
-
-
-    $scoutStmt->execute([
-        (int) $user['id']
-    ]);
-
-
-    if (
-        $scoutStmt->fetchColumn()
-    ) {
-
-        return;
-    }
-}
-
-
-    if (
-        user_has_membership(
-            $user
-        )
-    ) {
-
-        return;
-
-    }
-
-
-    header(
-        'Location: https://account.llamascout.com/membership.php'
-    );
-
-
-    exit;
-}
 
 /* =========================================================
    USER ROLES
    ========================================================= */
+
 
 function user_roles(
     ?int $userId = null
 ): array {
 
     if (
-        $userId === null
+        $userId ===
+        null
     ) {
 
         $user =
@@ -1438,7 +1590,6 @@ function user_roles(
         if (!$user) {
 
             return [];
-
         }
 
 
@@ -1447,7 +1598,14 @@ function user_roles(
             $user[
                 'id'
             ];
+    }
 
+
+    if (
+        $userId < 1
+    ) {
+
+        return [];
     }
 
 
@@ -1460,7 +1618,7 @@ function user_roles(
             FROM roles r
 
             INNER JOIN user_roles ur
-                ON ur.role_id = r.id
+              ON ur.role_id = r.id
 
             WHERE ur.user_id = ?
 
@@ -1474,18 +1632,20 @@ function user_roles(
     ]);
 
 
-    return array_column(
-        $stmt->fetchAll(
-            PDO::FETCH_ASSOC
-        ),
-        'slug'
-    );
+    return
+        array_column(
+            $stmt->fetchAll(
+                PDO::FETCH_ASSOC
+            ),
+            'slug'
+        );
 }
 
 
 /* =========================================================
    ROLE CHECK
    ========================================================= */
+
 
 function user_has_role(
     string $role,
@@ -1498,10 +1658,6 @@ function user_has_role(
         );
 
 
-    /*
-     * Exact role match.
-     */
-
     if (
         in_array(
             $role,
@@ -1511,20 +1667,17 @@ function user_has_role(
     ) {
 
         return true;
-
     }
 
 
     /*
-     * MASTER SCOUT LEGACY SLUG
-     *
-     * Older accounts may still use master_scout.
-     * Treat it exactly like master-scout.
+     * Master Scout legacy slug compatibility.
      */
 
     if (
         (
-            $role === 'master-scout'
+            $role ===
+            'master-scout'
             &&
             in_array(
                 'master_scout',
@@ -1534,7 +1687,8 @@ function user_has_role(
         )
         ||
         (
-            $role === 'master_scout'
+            $role ===
+            'master_scout'
             &&
             in_array(
                 'master-scout',
@@ -1545,21 +1699,16 @@ function user_has_role(
     ) {
 
         return true;
-
     }
 
-   
+
     /*
-     * OWNER INHERITANCE
-     *
-     * Owner automatically satisfies anything requiring
-     * the Admin role.
-     *
-     * An Admin does NOT satisfy anything requiring Owner.
+     * Owner inherits Admin.
      */
 
     if (
-        $role === 'admin'
+        $role ===
+        'admin'
         &&
         in_array(
             'owner',
@@ -1569,74 +1718,171 @@ function user_has_role(
     ) {
 
         return true;
-
     }
 
 
-   if (
-    $role === 'scout'
-    &&
-    (
-        in_array(
-            'master-scout',
-            $roles,
-            true
-        )
-        ||
-        in_array(
-            'master_scout',
-            $roles,
-            true
-        )
-    )
-) {
+    /*
+     * Master Scout inherits Scout.
+     */
 
-    return true;
-}
+    if (
+        $role ===
+        'scout'
+        &&
+        (
+            in_array(
+                'master-scout',
+                $roles,
+                true
+            )
+            ||
+            in_array(
+                'master_scout',
+                $roles,
+                true
+            )
+        )
+    ) {
 
-   
+        return true;
+    }
+
+
     return false;
 }
 
 
 /* =========================================================
-   OWNER CHECK
+   OWNER / ADMIN CHECKS
    ========================================================= */
+
 
 function user_is_owner(
     ?int $userId = null
 ): bool {
 
-    return user_has_role(
-        'owner',
-        $userId
-    );
+    return
+        user_has_role(
+            'owner',
+            $userId
+        );
 }
 
-
-/* =========================================================
-   ADMIN CHECK
-   ========================================================= */
 
 function user_is_admin(
     ?int $userId = null
 ): bool {
 
+    return
+        user_has_role(
+            'admin',
+            $userId
+        );
+}
+
+
+/* =========================================================
+   REQUIRE MEMBERSHIP
+   ========================================================= */
+
+
+function require_membership(): void {
+
+    require_login();
+
+
+    $user =
+        current_user();
+
+
+    if (!$user) {
+
+        require_login();
+
+        return;
+    }
+
+
     /*
-     * Because Owner inherits Admin,
-     * this returns true for both Admins and Owners.
+     * Owner/Admin access is safe here because current_user()
+     * has already enforced MFA for privileged roles.
      */
 
-    return user_has_role(
-        'admin',
-        $userId
+    if (
+        user_has_role(
+            'owner'
+        )
+        ||
+        user_has_role(
+            'admin'
+        )
+    ) {
+
+        return;
+    }
+
+
+    if (
+        user_has_role(
+            'scout'
+        )
+    ) {
+
+        $scoutStmt =
+            db()->prepare(
+                '
+                SELECT 1
+
+                FROM scout_profiles
+
+                WHERE user_id = ?
+                  AND status = \'active\'
+
+                LIMIT 1
+                '
+            );
+
+
+        $scoutStmt->execute([
+            (int)
+            $user[
+                'id'
+            ]
+        ]);
+
+
+        if (
+            $scoutStmt->fetchColumn()
+        ) {
+
+            return;
+        }
+    }
+
+
+    if (
+        user_has_membership(
+            $user
+        )
+    ) {
+
+        return;
+    }
+
+
+    header(
+        'Location: https://account.llamascout.com/membership.php'
     );
+
+
+    exit;
 }
 
 
 /* =========================================================
    REQUIRE ROLE
    ========================================================= */
+
 
 function require_role(
     string $role
@@ -1652,11 +1898,12 @@ function require_role(
     ) {
 
         return;
-
     }
 
 
-    http_response_code(403);
+    http_response_code(
+        403
+    );
 
 
     exit(
