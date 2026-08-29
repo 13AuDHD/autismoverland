@@ -19,6 +19,7 @@
   --surface-soft: #f7f4ed;
 
   --line: #d8cec1;
+  --placeholder: #aeb5b0;
 
   --blue: #2f819e;
   --blue-dark: #22667f;
@@ -85,6 +86,7 @@ html[data-theme="dark"] {
   --surface-soft: #1d2722;
 
   --line: #34433b;
+  --placeholder: #68716c;
 
    --blue: #315b86;
    --blue-dark: #1d3b5c;
@@ -237,6 +239,22 @@ a {
 img {
   display: block;
   max-width: 100%;
+}
+
+
+
+/* =========================================================
+   FORM PLACEHOLDERS
+   ========================================================= */
+
+input::placeholder,
+textarea::placeholder,
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder,
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  color: var(--placeholder);
+  opacity: 1;
 }
 
 
