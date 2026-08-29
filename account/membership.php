@@ -2434,6 +2434,72 @@ require_once
   <?php endif; ?>
 
 
+  <!-- =====================================================
+       ACCOUNT DELETION
+       ===================================================== -->
+
+  <section
+    class="
+      membership-card
+      membership-account-delete
+    "
+  >
+
+    <span class="membership-account-delete-icon">
+
+      <i
+        class="fa-solid fa-user-slash"
+        aria-hidden="true"
+      ></i>
+
+    </span>
+
+    <div class="membership-account-delete-copy">
+
+      <h2>
+        Delete Your Account
+      </h2>
+
+      <p>
+        Permanently delete and anonymize your Llama Scout
+        account. Published Places and approved contributions
+        may remain as part of Llama Scout's historical record,
+        but your personal account identity will be removed.
+      </p>
+
+      <p>
+        Account deletion also immediately forfeits memberships,
+        badges, points, Scout status, Master Scout status, and
+        other account access or recognition.
+      </p>
+
+    </div>
+
+
+    <div class="membership-actions">
+
+      <a
+        href="delete-account.php"
+        class="
+          membership-button
+          membership-button--delete-account
+        "
+      >
+
+        <i
+          class="fa-solid fa-trash-can"
+          aria-hidden="true"
+        ></i>
+
+        Delete My Account
+
+      </a>
+
+    </div>
+
+  </section>
+
+    
 </main>
 
 
