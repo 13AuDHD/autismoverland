@@ -2,6 +2,17 @@
 
 declare(strict_types=1);
 
+
+/* =========================================================
+   LLAMA SCOUT
+   ADMIN USER ACCOUNT
+   admin/user-account.php
+
+   Account editing + email/password assistance + owner-only
+   account cleanup in one place.
+   ========================================================= */
+
+
 require_once
     dirname(__DIR__)
     . '/app/auth.php';
@@ -22,17 +33,37 @@ require_once
     dirname(__DIR__)
     . '/app/role-display.php';
 
+require_once
+    dirname(__DIR__)
+    . '/app/stripe.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/memberships.php';
+
 
 require_role(
     'admin'
 );
 
 
+start_llama_session();
+
+
 $adminUser =
     current_user();
 
 
-start_llama_session();
+if (!$adminUser) {
+
+    http_response_code(
+        401
+    );
+
+    exit(
+        'Authentication required.'
+    );
+}
 
 
 $db =
@@ -42,6 +73,7 @@ $db =
 /* =========================================================
    CURRENT ADMIN AUTHORITY
    ========================================================= */
+
 
 $currentAdminId =
     (int)
@@ -67,8 +99,9 @@ $primaryRoleIcon =
 
 
 /* =========================================================
-   HELPERS
+   GENERAL HELPERS
    ========================================================= */
+
 
 function e(
     mixed $value
@@ -99,7 +132,17 @@ function fetch_user(
                 status,
                 email_verified_at,
                 created_at,
-                last_login_at
+                last_login_at,
+                dormancy_notice_sent_at,
+
+                stripe_customer_id,
+                stripe_subscription_id,
+                stripe_cancel_at_period_end,
+
+                membership_status,
+                membership_interval,
+                membership_started_at,
+                membership_ends_at
 
             FROM users
 
@@ -151,18 +194,20 @@ function fetch_role_slugs(
     ]);
 
 
-    return array_column(
-        $stmt->fetchAll(
-            PDO::FETCH_ASSOC
-        ),
-        'slug'
-    );
+    return
+        array_column(
+            $stmt->fetchAll(
+                PDO::FETCH_ASSOC
+            ),
+            'slug'
+        );
 }
 
 
 /* =========================================================
    CREATE EMAIL VERIFICATION
    ========================================================= */
+
 
 function create_verification(
     PDO $db,
@@ -173,11 +218,6 @@ function create_verification(
 
 
     try {
-
-        /*
-         * Expire any unused verification links
-         * already associated with this account.
-         */
 
         $stmt =
             $db->prepare(
@@ -245,10 +285,11 @@ function create_verification(
         $db->commit();
 
 
-        return send_verification_email(
-            $user,
-            $token
-        );
+        return
+            send_verification_email(
+                $user,
+                $token
+            );
 
 
     } catch (
@@ -263,7 +304,8 @@ function create_verification(
         }
 
 
-        throw $exception;
+        throw
+            $exception;
     }
 }
 
@@ -271,6 +313,7 @@ function create_verification(
 /* =========================================================
    CREATE PASSWORD RESET
    ========================================================= */
+
 
 function create_password_reset(
     PDO $db,
@@ -281,10 +324,6 @@ function create_password_reset(
 
 
     try {
-
-        /*
-         * Expire any unused reset links first.
-         */
 
         $expireStmt =
             $db->prepare(
@@ -378,7 +417,7 @@ function create_password_reset(
             'Reset your Llama Scout password';
 
 
-        $message =
+        $mailMessage =
             "Hi {$name},\n\n"
             .
             "Llama Scout support sent you a secure password reset link.\n\n"
@@ -396,13 +435,14 @@ function create_password_reset(
             "Llama Scout";
 
 
-        return send_llama_mail(
-            $user[
-                'email'
-            ],
-            $subject,
-            $message
-        );
+        return
+            send_llama_mail(
+                $user[
+                    'email'
+                ],
+                $subject,
+                $mailMessage
+            );
 
 
     } catch (
@@ -417,14 +457,1176 @@ function create_password_reset(
         }
 
 
-        throw $exception;
+        throw
+            $exception;
     }
+}
+
+
+/* =========================================================
+   ACCOUNT CLEANUP HELPERS
+   ========================================================= */
+
+
+function admin_cleanup_table_exists(
+    PDO $db,
+    string $table
+): bool {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM information_schema.tables
+
+            WHERE table_schema = DATABASE()
+              AND table_name = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $table
+    ]);
+
+
+    return
+        (bool)
+        $stmt->fetchColumn();
+}
+
+
+function admin_cleanup_column_exists(
+    PDO $db,
+    string $table,
+    string $column
+): bool {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM information_schema.columns
+
+            WHERE table_schema = DATABASE()
+              AND table_name = ?
+              AND column_name = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $table,
+        $column,
+    ]);
+
+
+    return
+        (bool)
+        $stmt->fetchColumn();
+}
+
+
+function admin_cleanup_delete_by_user_id(
+    PDO $db,
+    string $table,
+    int $userId
+): int {
+
+    if (
+        !preg_match(
+            '/^[a-zA-Z0-9_]+$/',
+            $table
+        )
+    ) {
+
+        throw new RuntimeException(
+            'Unsafe table identifier.'
+        );
+    }
+
+
+    if (
+        !admin_cleanup_table_exists(
+            $db,
+            $table
+        )
+        ||
+        !admin_cleanup_column_exists(
+            $db,
+            $table,
+            'user_id'
+        )
+    ) {
+
+        return 0;
+    }
+
+
+    $stmt =
+        $db->prepare(
+            'DELETE FROM `'
+            .
+            $table
+            .
+            '` WHERE user_id = ?'
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    return
+        $stmt->rowCount();
+}
+
+
+function admin_cleanup_has_scout_profile(
+    PDO $db,
+    int $userId
+): bool {
+
+    if (
+        !admin_cleanup_table_exists(
+            $db,
+            'scout_profiles'
+        )
+        ||
+        !admin_cleanup_column_exists(
+            $db,
+            'scout_profiles',
+            'user_id'
+        )
+    ) {
+
+        return false;
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT 1
+
+            FROM scout_profiles
+
+            WHERE user_id = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    return
+        (bool)
+        $stmt->fetchColumn();
+}
+
+
+function admin_cleanup_published_place_count(
+    PDO $db,
+    int $userId
+): int {
+
+    if (
+        !admin_cleanup_table_exists(
+            $db,
+            'place_submissions'
+        )
+        ||
+        !admin_cleanup_column_exists(
+            $db,
+            'place_submissions',
+            'user_id'
+        )
+        ||
+        !admin_cleanup_column_exists(
+            $db,
+            'place_submissions',
+            'place_id'
+        )
+    ) {
+
+        return 0;
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT COUNT(*)
+
+            FROM place_submissions
+
+            WHERE user_id = ?
+              AND place_id IS NOT NULL
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    return
+        (int)
+        $stmt->fetchColumn();
+}
+
+
+function admin_cleanup_approved_update_count(
+    PDO $db,
+    int $userId
+): int {
+
+    if (
+        !admin_cleanup_table_exists(
+            $db,
+            'place_update_submissions'
+        )
+        ||
+        !admin_cleanup_column_exists(
+            $db,
+            'place_update_submissions',
+            'user_id'
+        )
+        ||
+        !admin_cleanup_column_exists(
+            $db,
+            'place_update_submissions',
+            'status'
+        )
+    ) {
+
+        return 0;
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT COUNT(*)
+
+            FROM place_update_submissions
+
+            WHERE user_id = ?
+              AND status = \'approved\'
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    return
+        (int)
+        $stmt->fetchColumn();
+}
+
+
+function admin_cleanup_deleted_username(
+    int $userId
+): string {
+
+    return
+        'user_'
+        .
+        str_pad(
+            (string) $userId,
+            4,
+            '0',
+            STR_PAD_LEFT
+        );
+}
+
+
+function admin_cleanup_deleted_email(
+    int $userId
+): string {
+
+    return
+        'deleted+'
+        .
+        str_pad(
+            (string) $userId,
+            4,
+            '0',
+            STR_PAD_LEFT
+        )
+        .
+        '@llamascout.invalid';
+}
+
+
+function admin_cleanup_random_password_hash(): string {
+
+    $hash =
+        password_hash(
+            bin2hex(
+                random_bytes(
+                    64
+                )
+            ),
+            PASSWORD_DEFAULT
+        );
+
+
+    if (
+        !is_string(
+            $hash
+        )
+        ||
+        $hash === ''
+    ) {
+
+        throw new RuntimeException(
+            'Unable to replace account credentials.'
+        );
+    }
+
+
+    return
+        $hash;
+}
+
+
+function admin_cleanup_assign_member_role(
+    PDO $db,
+    int $userId
+): void {
+
+    admin_cleanup_delete_by_user_id(
+        $db,
+        'user_roles',
+        $userId
+    );
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT id
+
+            FROM roles
+
+            WHERE slug = \'member\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute();
+
+
+    $roleId =
+        (int)
+        $stmt->fetchColumn();
+
+
+    if (
+        $roleId < 1
+    ) {
+
+        throw new RuntimeException(
+            'The Member role is missing.'
+        );
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            INSERT INTO user_roles
+            (
+                user_id,
+                role_id
+            )
+
+            VALUES
+            (
+                ?,
+                ?
+            )
+            '
+        );
+
+
+    $stmt->execute([
+        $userId,
+        $roleId,
+    ]);
+}
+
+
+function admin_cleanup_stripe_is_test_mode(): bool {
+
+    try {
+
+        $config =
+            llama_stripe_config();
+
+
+        $secret =
+            trim(
+                (string) (
+                    $config[
+                        'secret_key'
+                    ]
+                    ?? ''
+                )
+            );
+
+
+        return
+            str_starts_with(
+                $secret,
+                'sk_test_'
+            );
+
+
+    } catch (
+        Throwable
+    ) {
+
+        return false;
+    }
+}
+
+
+function admin_cleanup_stripe_test_customer(
+    ?string $subscriptionId,
+    ?string $customerId
+): array {
+
+    $subscriptionId =
+        trim(
+            (string)
+            $subscriptionId
+        );
+
+
+    $customerId =
+        trim(
+            (string)
+            $customerId
+        );
+
+
+    if (
+        $subscriptionId === ''
+        &&
+        $customerId === ''
+    ) {
+
+        return [
+            'subscription_canceled' =>
+                false,
+
+            'customer_deleted' =>
+                false,
+        ];
+    }
+
+
+    if (
+        !admin_cleanup_stripe_is_test_mode()
+    ) {
+
+        throw new RuntimeException(
+            'This account contains live Stripe billing data. Resolve live billing before using administrative Account Cleanup.'
+        );
+    }
+
+
+    $stripe =
+        llama_stripe_client();
+
+
+    $subscriptionCanceled =
+        false;
+
+
+    $customerDeleted =
+        false;
+
+
+    if (
+        $subscriptionId !== ''
+    ) {
+
+        try {
+
+            $stripe
+                ->subscriptions
+                ->cancel(
+                    $subscriptionId,
+                    []
+                );
+
+
+            $subscriptionCanceled =
+                true;
+
+
+        } catch (
+            Throwable $exception
+        ) {
+
+            $text =
+                strtolower(
+                    $exception
+                        ->getMessage()
+                );
+
+
+            if (
+                !str_contains(
+                    $text,
+                    'no such subscription'
+                )
+                &&
+                !str_contains(
+                    $text,
+                    'resource_missing'
+                )
+                &&
+                !str_contains(
+                    $text,
+                    'already canceled'
+                )
+            ) {
+
+                throw
+                    $exception;
+            }
+        }
+    }
+
+
+    if (
+        $customerId !== ''
+    ) {
+
+        try {
+
+            $stripe
+                ->customers
+                ->delete(
+                    $customerId,
+                    []
+                );
+
+
+            $customerDeleted =
+                true;
+
+
+        } catch (
+            Throwable $exception
+        ) {
+
+            $text =
+                strtolower(
+                    $exception
+                        ->getMessage()
+                );
+
+
+            if (
+                !str_contains(
+                    $text,
+                    'no such customer'
+                )
+                &&
+                !str_contains(
+                    $text,
+                    'resource_missing'
+                )
+            ) {
+
+                throw
+                    $exception;
+            }
+        }
+    }
+
+
+    return [
+        'subscription_canceled' =>
+            $subscriptionCanceled,
+
+        'customer_deleted' =>
+            $customerDeleted,
+    ];
+}
+
+
+function admin_cleanup_reset_membership_columns(
+    PDO $db,
+    int $userId
+): void {
+
+    $values = [
+        'stripe_customer_id' => null,
+        'stripe_subscription_id' => null,
+        'stripe_cancel_at_period_end' => 0,
+        'membership_status' => 'none',
+        'membership_interval' => null,
+        'membership_started_at' => null,
+        'membership_ends_at' => null,
+    ];
+
+
+    $assignments = [];
+
+    $params = [];
+
+
+    foreach (
+        $values
+        as
+        $column => $value
+    ) {
+
+        if (
+            admin_cleanup_column_exists(
+                $db,
+                'users',
+                $column
+            )
+        ) {
+
+            $assignments[] =
+                '`'
+                .
+                $column
+                .
+                '` = ?';
+
+
+            $params[] =
+                $value;
+        }
+    }
+
+
+    if (!$assignments) {
+
+        return;
+    }
+
+
+    $params[] =
+        $userId;
+
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE users
+
+            SET
+                '
+                .
+                implode(
+                    ",
+                ",
+                    $assignments
+                )
+                .
+            '
+
+            WHERE id = ?
+            '
+        );
+
+
+    $stmt->execute(
+        $params
+    );
+}
+
+
+function admin_cleanup_delete_unpublished_content(
+    PDO $db,
+    int $userId
+): void {
+
+    if (
+        admin_cleanup_table_exists(
+            $db,
+            'place_submissions'
+        )
+        &&
+        admin_cleanup_column_exists(
+            $db,
+            'place_submissions',
+            'user_id'
+        )
+        &&
+        admin_cleanup_column_exists(
+            $db,
+            'place_submissions',
+            'place_id'
+        )
+    ) {
+
+        $stmt =
+            $db->prepare(
+                '
+                DELETE FROM place_submissions
+
+                WHERE user_id = ?
+                  AND place_id IS NULL
+                '
+            );
+
+
+        $stmt->execute([
+            $userId
+        ]);
+    }
+
+
+    if (
+        admin_cleanup_table_exists(
+            $db,
+            'place_update_submissions'
+        )
+        &&
+        admin_cleanup_column_exists(
+            $db,
+            'place_update_submissions',
+            'user_id'
+        )
+        &&
+        admin_cleanup_column_exists(
+            $db,
+            'place_update_submissions',
+            'status'
+        )
+    ) {
+
+        $stmt =
+            $db->prepare(
+                '
+                DELETE FROM place_update_submissions
+
+                WHERE user_id = ?
+                  AND (
+                      status IS NULL
+                      OR status <> \'approved\'
+                  )
+                '
+            );
+
+
+        $stmt->execute([
+            $userId
+        ]);
+    }
+}
+
+
+function admin_cleanup_remove_profile_files(
+    PDO $db,
+    int $userId
+): void {
+
+    if (
+        !admin_cleanup_table_exists(
+            $db,
+            'community_profile_images'
+        )
+        ||
+        !admin_cleanup_column_exists(
+            $db,
+            'community_profile_images',
+            'user_id'
+        )
+        ||
+        !admin_cleanup_column_exists(
+            $db,
+            'community_profile_images',
+            'image_src'
+        )
+    ) {
+
+        return;
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT image_src
+
+            FROM community_profile_images
+
+            WHERE user_id = ?
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    $documentRoot =
+        realpath(
+            dirname(__DIR__)
+        );
+
+
+    foreach (
+        $stmt->fetchAll(
+            PDO::FETCH_COLUMN
+        )
+        as
+        $imageSrc
+    ) {
+
+        if (
+            !is_string(
+                $imageSrc
+            )
+            ||
+            trim(
+                $imageSrc
+            ) === ''
+            ||
+            !is_string(
+                $documentRoot
+            )
+        ) {
+
+            continue;
+        }
+
+
+        $path =
+            parse_url(
+                $imageSrc,
+                PHP_URL_PATH
+            );
+
+
+        if (
+            !is_string(
+                $path
+            )
+            ||
+            !str_starts_with(
+                $path,
+                '/uploads/'
+            )
+        ) {
+
+            continue;
+        }
+
+
+        $candidate =
+            dirname(__DIR__)
+            .
+            '/'
+            .
+            ltrim(
+                $path,
+                '/'
+            );
+
+
+        $realCandidate =
+            realpath(
+                $candidate
+            );
+
+
+        if (
+            $realCandidate !== false
+            &&
+            str_starts_with(
+                $realCandidate,
+                $documentRoot
+                .
+                DIRECTORY_SEPARATOR
+                .
+                'uploads'
+                .
+                DIRECTORY_SEPARATOR
+            )
+            &&
+            is_file(
+                $realCandidate
+            )
+        ) {
+
+            @unlink(
+                $realCandidate
+            );
+        }
+    }
+}
+
+
+function admin_cleanup_reset_community_profile(
+    PDO $db,
+    int $userId
+): void {
+
+    admin_cleanup_remove_profile_files(
+        $db,
+        $userId
+    );
+
+
+    admin_cleanup_delete_by_user_id(
+        $db,
+        'community_profile_images',
+        $userId
+    );
+
+
+    if (
+        !admin_cleanup_table_exists(
+            $db,
+            'community_profiles'
+        )
+        ||
+        !admin_cleanup_column_exists(
+            $db,
+            'community_profiles',
+            'user_id'
+        )
+    ) {
+
+        return;
+    }
+
+
+    $values = [
+        'is_public' => 0,
+        'bio' => null,
+        'location' => null,
+        'squad' => null,
+        'website_url' => null,
+        'instagram_url' => null,
+        'facebook_url' => null,
+        'bluesky_url' => null,
+        'youtube_url' => null,
+        'tiktok_url' => null,
+        'other_social_url' => null,
+        'camping_style' => null,
+        'favorite_places' => null,
+        'favorite_camping_music' => null,
+        'primary_image_id' => null,
+    ];
+
+
+    $assignments = [];
+
+    $params = [];
+
+
+    foreach (
+        $values
+        as
+        $column => $value
+    ) {
+
+        if (
+            admin_cleanup_column_exists(
+                $db,
+                'community_profiles',
+                $column
+            )
+        ) {
+
+            $assignments[] =
+                '`'
+                .
+                $column
+                .
+                '` = ?';
+
+
+            $params[] =
+                $value;
+        }
+    }
+
+
+    if (!$assignments) {
+
+        return;
+    }
+
+
+    $params[] =
+        $userId;
+
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE community_profiles
+
+            SET
+                '
+                .
+                implode(
+                    ",
+                ",
+                    $assignments
+                )
+                .
+            '
+
+            WHERE user_id = ?
+            '
+        );
+
+
+    $stmt->execute(
+        $params
+    );
+}
+
+
+function admin_cleanup_anonymize_user(
+    PDO $db,
+    int $userId
+): string {
+
+    $anonymousUsername =
+        admin_cleanup_deleted_username(
+            $userId
+        );
+
+
+    $values = [
+        'email' =>
+            admin_cleanup_deleted_email(
+                $userId
+            ),
+
+        'username' =>
+            $anonymousUsername,
+
+        'display_name' =>
+            'Deleted User',
+
+        'password_hash' =>
+            admin_cleanup_random_password_hash(),
+
+        'timezone' =>
+            'America/Denver',
+
+        'status' =>
+            'disabled',
+
+        'email_verified_at' =>
+            null,
+
+        'last_login_at' =>
+            null,
+
+        'dormancy_notice_sent_at' =>
+            null,
+    ];
+
+
+    $assignments = [];
+
+    $params = [];
+
+
+    foreach (
+        $values
+        as
+        $column => $value
+    ) {
+
+        if (
+            admin_cleanup_column_exists(
+                $db,
+                'users',
+                $column
+            )
+        ) {
+
+            $assignments[] =
+                '`'
+                .
+                $column
+                .
+                '` = ?';
+
+
+            $params[] =
+                $value;
+        }
+    }
+
+
+    $params[] =
+        $userId;
+
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE users
+
+            SET
+                '
+                .
+                implode(
+                    ",
+                ",
+                    $assignments
+                )
+                .
+            '
+
+            WHERE id = ?
+            '
+        );
+
+
+    $stmt->execute(
+        $params
+    );
+
+
+    return
+        $anonymousUsername;
 }
 
 
 /* =========================================================
    USER ID
    ========================================================= */
+
 
 $userId =
     (int) (
@@ -459,6 +1661,7 @@ if (
    LOAD TARGET USER
    ========================================================= */
 
+
 $managedUser =
     fetch_user(
         $db,
@@ -485,6 +1688,7 @@ if (
    TARGET AUTHORITY
    ========================================================= */
 
+
 $managedRoleSlugs =
     fetch_role_slugs(
         $db,
@@ -508,18 +1712,6 @@ $managedUserIsAdmin =
     );
 
 
-/* =========================================================
-   OWNER ACCOUNT PROTECTION
-
-   Owner accounts cannot be edited through the administrative
-   account editor at all.
-
-   This applies even when the current user is also an Owner.
-
-   Owner account identity and credentials should be changed
-   only through the Owner's own account/security controls.
-   ========================================================= */
-
 if (
     $managedUserIsOwner
 ) {
@@ -534,12 +1726,6 @@ if (
     );
 }
 
-
-/* =========================================================
-   ADMIN ACCOUNT PROTECTION
-
-   Only an Owner may edit an Admin account.
-   ========================================================= */
 
 if (
     $managedUserIsAdmin
@@ -562,6 +1748,7 @@ if (
    CSRF
    ========================================================= */
 
+
 if (
     empty(
         $_SESSION[
@@ -582,6 +1769,7 @@ if (
 
 
 $csrfToken =
+    (string)
     $_SESSION[
         'admin_user_account_csrf'
     ];
@@ -591,6 +1779,7 @@ $csrfToken =
    POST ACTIONS
    ========================================================= */
 
+
 $message =
     '';
 
@@ -599,18 +1788,15 @@ $error =
     '';
 
 
+$deleted =
+    false;
+
+
 if (
     $_SERVER[
         'REQUEST_METHOD'
     ] === 'POST'
 ) {
-
-    /*
-     * Re-check the target roles on every POST.
-     *
-     * Someone could have been promoted after this page
-     * originally loaded.
-     */
 
     $managedRoleSlugs =
         fetch_role_slugs(
@@ -818,10 +2004,6 @@ if (
             }
 
 
-            /* =============================================
-               USERNAME UNIQUENESS
-               ============================================= */
-
             if (
                 $error === ''
             ) {
@@ -857,10 +2039,6 @@ if (
             }
 
 
-            /* =============================================
-               EMAIL UNIQUENESS
-               ============================================= */
-
             if (
                 $error === ''
             ) {
@@ -895,10 +2073,6 @@ if (
                 }
             }
 
-
-            /* =============================================
-               SAVE ACCOUNT
-               ============================================= */
 
             if (
                 $error === ''
@@ -1116,6 +2290,529 @@ if (
             }
 
 
+        /* =================================================
+           RESET MEMBERSHIP TEST
+           OWNER ONLY
+           ================================================= */
+
+        } elseif (
+            $action ===
+            'reset_membership_test'
+        ) {
+
+            if (
+                !$currentAdminIsOwner
+                ||
+                $managedUserIsAdmin
+            ) {
+
+                $error =
+                    'Only an Owner can use Account Cleanup on this account.';
+
+
+            } else {
+
+                try {
+
+                    $stripeResult =
+                        admin_cleanup_stripe_test_customer(
+                            $managedUser[
+                                'stripe_subscription_id'
+                            ]
+                            ?? null,
+                            $managedUser[
+                                'stripe_customer_id'
+                            ]
+                            ?? null
+                        );
+
+
+                    $db->beginTransaction();
+
+
+                    admin_cleanup_reset_membership_columns(
+                        $db,
+                        $userId
+                    );
+
+
+                    admin_cleanup_delete_by_user_id(
+                        $db,
+                        'membership_grants',
+                        $userId
+                    );
+
+
+                    if (
+                        isset(
+                            $_POST[
+                                'clear_saved_places'
+                            ]
+                        )
+                    ) {
+
+                        admin_cleanup_delete_by_user_id(
+                            $db,
+                            'user_saved_places',
+                            $userId
+                        );
+
+
+                        admin_cleanup_delete_by_user_id(
+                            $db,
+                            'saved_places',
+                            $userId
+                        );
+                    }
+
+
+                    if (
+                        isset(
+                            $_POST[
+                                'clear_unpublished_submissions'
+                            ]
+                        )
+                    ) {
+
+                        admin_cleanup_delete_unpublished_content(
+                            $db,
+                            $userId
+                        );
+                    }
+
+
+                    llama_membership_audit(
+                        $db,
+                        $currentAdminId,
+                        'membership_test_reset',
+                        'user',
+                        $userId,
+                        [
+                            'stripe_test_mode' =>
+                                admin_cleanup_stripe_is_test_mode(),
+
+                            'stripe_subscription_canceled' =>
+                                $stripeResult[
+                                    'subscription_canceled'
+                                ],
+
+                            'stripe_customer_deleted' =>
+                                $stripeResult[
+                                    'customer_deleted'
+                                ],
+                        ]
+                    );
+
+
+                    $db->commit();
+
+
+                    $message =
+                        'Membership test state was reset successfully.';
+
+
+                } catch (
+                    Throwable $exception
+                ) {
+
+                    if (
+                        $db->inTransaction()
+                    ) {
+
+                        $db->rollBack();
+                    }
+
+
+                    error_log(
+                        'Llama Scout membership reset error for user #'
+                        .
+                        $userId
+                        .
+                        ': '
+                        .
+                        $exception
+                            ->getMessage()
+                    );
+
+
+                    $error =
+                        $exception
+                            ->getMessage();
+                }
+            }
+
+
+        /* =================================================
+           ANONYMIZE ACCOUNT
+           OWNER ONLY
+           ================================================= */
+
+        } elseif (
+            $action ===
+            'anonymize_account'
+        ) {
+
+            if (
+                !$currentAdminIsOwner
+                ||
+                $managedUserIsAdmin
+            ) {
+
+                $error =
+                    'Only an Owner can anonymize this account.';
+
+
+            } elseif (
+                !isset(
+                    $_POST[
+                        'understand_anonymize'
+                    ]
+                )
+            ) {
+
+                $error =
+                    'Confirm that you understand anonymization permanently removes the account identity and privileges.';
+
+
+            } else {
+
+                try {
+
+                    admin_cleanup_stripe_test_customer(
+                        $managedUser[
+                            'stripe_subscription_id'
+                        ]
+                        ?? null,
+                        $managedUser[
+                            'stripe_customer_id'
+                        ]
+                        ?? null
+                    );
+
+
+                    $db->beginTransaction();
+
+
+                    foreach (
+                        [
+                            'user_remember_tokens',
+                            'email_verifications',
+                            'password_resets',
+                            'membership_grants',
+                            'user_saved_places',
+                            'saved_places',
+                            'user_badges',
+                            'scout_profiles',
+                            'scout_applications',
+                        ]
+                        as
+                        $table
+                    ) {
+
+                        admin_cleanup_delete_by_user_id(
+                            $db,
+                            $table,
+                            $userId
+                        );
+                    }
+
+
+                    admin_cleanup_reset_community_profile(
+                        $db,
+                        $userId
+                    );
+
+
+                    admin_cleanup_delete_unpublished_content(
+                        $db,
+                        $userId
+                    );
+
+
+                    admin_cleanup_assign_member_role(
+                        $db,
+                        $userId
+                    );
+
+
+                    admin_cleanup_reset_membership_columns(
+                        $db,
+                        $userId
+                    );
+
+
+                    $anonymousUsername =
+                        admin_cleanup_anonymize_user(
+                            $db,
+                            $userId
+                        );
+
+
+                    llama_membership_audit(
+                        $db,
+                        $currentAdminId,
+                        'account_anonymized',
+                        'user',
+                        $userId,
+                        [
+                            'replacement_username' =>
+                                $anonymousUsername,
+
+                            'initiated_by' =>
+                                'owner_account_editor',
+                        ]
+                    );
+
+
+                    $db->commit();
+
+
+                    $message =
+                        'The account was anonymized. Historical contribution provenance was preserved.';
+
+
+                } catch (
+                    Throwable $exception
+                ) {
+
+                    if (
+                        $db->inTransaction()
+                    ) {
+
+                        $db->rollBack();
+                    }
+
+
+                    error_log(
+                        'Llama Scout account anonymization error for user #'
+                        .
+                        $userId
+                        .
+                        ': '
+                        .
+                        $exception
+                            ->getMessage()
+                    );
+
+
+                    $error =
+                        $exception
+                            ->getMessage();
+                }
+            }
+
+
+        /* =================================================
+           PERMANENT DELETE
+           OWNER ONLY
+           ================================================= */
+
+        } elseif (
+            $action ===
+            'permanently_delete_account'
+        ) {
+
+            if (
+                !$currentAdminIsOwner
+                ||
+                $managedUserIsAdmin
+            ) {
+
+                $error =
+                    'Only an Owner can permanently delete this account.';
+
+
+            } elseif (
+                !isset(
+                    $_POST[
+                        'understand_delete'
+                    ]
+                )
+            ) {
+
+                $error =
+                    'Confirm that you understand permanent deletion cannot be undone.';
+
+
+            } else {
+
+                try {
+
+                    $publishedPlaces =
+                        admin_cleanup_published_place_count(
+                            $db,
+                            $userId
+                        );
+
+
+                    $approvedUpdates =
+                        admin_cleanup_approved_update_count(
+                            $db,
+                            $userId
+                        );
+
+
+                    $hasScoutProfile =
+                        admin_cleanup_has_scout_profile(
+                            $db,
+                            $userId
+                        );
+
+
+                    if (
+                        $publishedPlaces > 0
+                        ||
+                        $approvedUpdates > 0
+                        ||
+                        $hasScoutProfile
+                        ||
+                        in_array(
+                            'scout',
+                            $managedRoleSlugs,
+                            true
+                        )
+                        ||
+                        in_array(
+                            'master-scout',
+                            $managedRoleSlugs,
+                            true
+                        )
+                        ||
+                        in_array(
+                            'master_scout',
+                            $managedRoleSlugs,
+                            true
+                        )
+                    ) {
+
+                        throw new RuntimeException(
+                            'This account has historical contribution or Scout provenance. Anonymize it instead of permanently deleting it.'
+                        );
+                    }
+
+
+                    admin_cleanup_stripe_test_customer(
+                        $managedUser[
+                            'stripe_subscription_id'
+                        ]
+                        ?? null,
+                        $managedUser[
+                            'stripe_customer_id'
+                        ]
+                        ?? null
+                    );
+
+
+                    $db->beginTransaction();
+
+
+                    admin_cleanup_remove_profile_files(
+                        $db,
+                        $userId
+                    );
+
+
+                    foreach (
+                        [
+                            'user_remember_tokens',
+                            'user_saved_places',
+                            'saved_places',
+                            'membership_grants',
+                            'community_profile_images',
+                            'community_profiles',
+                            'user_badges',
+                            'scout_profiles',
+                            'scout_applications',
+                            'place_update_submissions',
+                            'email_verifications',
+                            'password_resets',
+                            'place_submissions',
+                            'user_roles',
+                        ]
+                        as
+                        $table
+                    ) {
+
+                        admin_cleanup_delete_by_user_id(
+                            $db,
+                            $table,
+                            $userId
+                        );
+                    }
+
+
+                    $stmt =
+                        $db->prepare(
+                            '
+                            DELETE FROM users
+
+                            WHERE id = ?
+                            '
+                        );
+
+
+                    $stmt->execute([
+                        $userId
+                    ]);
+
+
+                    if (
+                        $stmt->rowCount()
+                        !== 1
+                    ) {
+
+                        throw new RuntimeException(
+                            'The user record could not be deleted.'
+                        );
+                    }
+
+
+                    $db->commit();
+
+
+                    header(
+                        'Location: /users.php?notice='
+                        .
+                        rawurlencode(
+                            'Account permanently deleted.'
+                        )
+                    );
+
+
+                    exit;
+
+
+                } catch (
+                    Throwable $exception
+                ) {
+
+                    if (
+                        $db->inTransaction()
+                    ) {
+
+                        $db->rollBack();
+                    }
+
+
+                    error_log(
+                        'Llama Scout permanent deletion error for user #'
+                        .
+                        $userId
+                        .
+                        ': '
+                        .
+                        $exception
+                            ->getMessage()
+                    );
+
+
+                    $error =
+                        $exception
+                            ->getMessage();
+                }
+            }
+
+
         } else {
 
             $error =
@@ -1129,11 +2826,102 @@ if (
    REFRESH USER AFTER ACTIONS
    ========================================================= */
 
+
 $managedUser =
     fetch_user(
         $db,
         $userId
     );
+
+
+if (!$managedUser) {
+
+    header(
+        'Location: /users.php'
+    );
+
+
+    exit;
+}
+
+
+$managedRoleSlugs =
+    fetch_role_slugs(
+        $db,
+        $userId
+    );
+
+
+$managedUserIsAdmin =
+    in_array(
+        'admin',
+        $managedRoleSlugs,
+        true
+    );
+
+
+$hasScoutProfile =
+    admin_cleanup_has_scout_profile(
+        $db,
+        $userId
+    );
+
+
+$hasScoutIdentity =
+    $hasScoutProfile
+    ||
+    in_array(
+        'scout',
+        $managedRoleSlugs,
+        true
+    )
+    ||
+    in_array(
+        'master-scout',
+        $managedRoleSlugs,
+        true
+    )
+    ||
+    in_array(
+        'master_scout',
+        $managedRoleSlugs,
+        true
+    );
+
+
+$publishedPlaceCount =
+    admin_cleanup_published_place_count(
+        $db,
+        $userId
+    );
+
+
+$approvedUpdateCount =
+    admin_cleanup_approved_update_count(
+        $db,
+        $userId
+    );
+
+
+$stripeTestMode =
+    admin_cleanup_stripe_is_test_mode();
+
+
+$isAnonymized =
+    str_starts_with(
+        (string)
+        $managedUser[
+            'username'
+        ],
+        'user_'
+    )
+    &&
+    (
+        $managedUser[
+            'status'
+        ]
+        ?? ''
+    ) === 'disabled';
 
 
 $displayHeading =
@@ -1261,10 +3049,6 @@ require_once
 <main class="admin-main">
 
 
-  <!-- =====================================================
-       PAGE INTRO
-       ===================================================== -->
-
   <section class="admin-intro">
 
     <div class="admin-intro-row">
@@ -1346,10 +3130,6 @@ require_once
   </section>
 
 
-<!-- =====================================================
-     BASECAMP NAVIGATION
-     ===================================================== -->
-
 <?php
 
 require
@@ -1358,10 +3138,6 @@ require
 
 ?>
 
-
-  <!-- =====================================================
-       NOTICES
-       ===================================================== -->
 
   <?php if (
       $managedUserIsAdmin
@@ -1484,7 +3260,6 @@ require
 
 
       <div class="admin-form-grid">
-
 
         <div class="admin-field">
 
@@ -1612,7 +3387,6 @@ require
 
         </div>
 
-
       </div>
 
 
@@ -1675,9 +3449,7 @@ require
             admin-badge--success
           "
         >
-
           Verified
-
         </span>
 
       <?php else: ?>
@@ -1688,9 +3460,7 @@ require
             admin-badge--warning
           "
         >
-
           Verification Required
-
         </span>
 
       <?php endif; ?>
@@ -1699,7 +3469,6 @@ require
 
 
     <div class="admin-detail-list">
-
 
       <div class="admin-detail-row">
 
@@ -1728,34 +3497,28 @@ require
 
         <div class="admin-detail-value">
 
-          <?php if (
-              !empty(
-                  $managedUser[
-                      'email_verified_at'
-                  ]
-              )
-          ): ?>
-
-            Verified
-
-          <?php else: ?>
-
-            Not yet verified
-
-          <?php endif; ?>
+          <?= !empty(
+              $managedUser[
+                  'email_verified_at'
+              ]
+          )
+              ? 'Verified'
+              : 'Not yet verified'
+          ?>
 
         </div>
 
       </div>
-
 
     </div>
 
 
     <form
       method="post"
-      class="admin-form"
-      style="margin-top: 20px;"
+      class="
+        admin-form
+        admin-form--spaced
+      "
     >
 
       <input
@@ -1896,8 +3659,544 @@ require
 
 
   <!-- =====================================================
-       QUICK LINKS
+       ACCOUNT CLEANUP
        ===================================================== -->
+
+  <section
+    class="
+      admin-panel
+      admin-account-cleanup
+    "
+  >
+
+    <div class="admin-panel-header">
+
+      <div>
+
+        <h2>
+          Account Cleanup
+        </h2>
+
+        <p>
+          Owner-only account reset, anonymization,
+          and disposable-account removal tools.
+        </p>
+
+      </div>
+
+      <?php if (
+          $currentAdminIsOwner
+      ): ?>
+
+        <span
+          class="
+            admin-badge
+            admin-badge--warning
+          "
+        >
+          Owner Only
+        </span>
+
+      <?php endif; ?>
+
+    </div>
+
+
+    <?php if (
+        !$currentAdminIsOwner
+    ): ?>
+
+      <div
+        class="
+          admin-notice
+          admin-notice--info
+        "
+      >
+
+        <p>
+          Account Cleanup is restricted to a Llama Scout Owner.
+        </p>
+
+      </div>
+
+    <?php elseif (
+        $managedUserIsAdmin
+    ): ?>
+
+      <div
+        class="
+          admin-notice
+          admin-notice--warning
+        "
+      >
+
+        <p>
+          Administrator accounts are protected from Account
+          Cleanup. Remove Admin access through the normal
+          role-management workflow first.
+        </p>
+
+      </div>
+
+    <?php else: ?>
+
+
+      <div class="admin-cleanup-summary">
+
+        <div>
+
+          <span>
+            Published Places
+          </span>
+
+          <strong>
+            <?= $publishedPlaceCount ?>
+          </strong>
+
+        </div>
+
+
+        <div>
+
+          <span>
+            Approved Updates
+          </span>
+
+          <strong>
+            <?= $approvedUpdateCount ?>
+          </strong>
+
+        </div>
+
+
+        <div>
+
+          <span>
+            Scout History
+          </span>
+
+          <strong>
+            <?= $hasScoutIdentity
+                ? 'Yes'
+                : 'No'
+            ?>
+          </strong>
+
+        </div>
+
+
+        <div>
+
+          <span>
+            Stripe Mode
+          </span>
+
+          <strong>
+            <?= $stripeTestMode
+                ? 'Test'
+                : 'Live / unavailable'
+            ?>
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <?php if (
+          $isAnonymized
+      ): ?>
+
+        <div
+          class="
+            admin-notice
+            admin-notice--info
+            admin-cleanup-notice
+          "
+        >
+
+          <p>
+            This account has already been anonymized as
+            <strong>
+              <?= e(
+                  $managedUser[
+                      'username'
+                  ]
+              ) ?>
+            </strong>.
+          </p>
+
+        </div>
+
+      <?php endif; ?>
+
+
+      <!-- ===============================================
+           RESET TEST STATE
+           =============================================== -->
+
+      <article class="admin-cleanup-card">
+
+        <div>
+
+          <h3>
+            Reset Membership Test
+          </h3>
+
+          <p>
+            Keep the account but remove reusable membership
+            test state so it can go through membership testing
+            again.
+          </p>
+
+        </div>
+
+
+        <form
+          method="post"
+          class="admin-form"
+        >
+
+          <input
+            type="hidden"
+            name="action"
+            value="reset_membership_test"
+          >
+
+          <input
+            type="hidden"
+            name="user_id"
+            value="<?= $userId ?>"
+          >
+
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= e(
+                $csrfToken
+            ) ?>"
+          >
+
+
+          <div class="admin-cleanup-checks">
+
+            <label class="admin-cleanup-check">
+
+              <input
+                type="checkbox"
+                name="clear_saved_places"
+                value="1"
+                checked
+              >
+
+              <span>
+                Clear Saved Places
+              </span>
+
+            </label>
+
+
+            <label class="admin-cleanup-check">
+
+              <input
+                type="checkbox"
+                name="clear_unpublished_submissions"
+                value="1"
+              >
+
+              <span>
+                Clear draft and non-approved submissions
+              </span>
+
+            </label>
+
+          </div>
+
+
+          <div class="admin-form-actions">
+
+            <button
+              type="submit"
+              class="admin-button"
+              <?= $isAnonymized
+                  ? 'disabled'
+                  : ''
+              ?>
+            >
+
+              <i
+                class="fa-solid fa-rotate-left"
+                aria-hidden="true"
+              ></i>
+
+              Reset Membership Test
+
+            </button>
+
+          </div>
+
+        </form>
+
+      </article>
+
+
+      <!-- ===============================================
+           ANONYMIZE
+           =============================================== -->
+
+      <article
+        class="
+          admin-cleanup-card
+          admin-cleanup-card--warning
+        "
+      >
+
+        <div>
+
+          <h3>
+            Anonymize Deleted Account
+          </h3>
+
+          <p>
+            Remove the user's personal identity, profile,
+            badges, membership access, and Scout privileges
+            while preserving published contribution history.
+          </p>
+
+          <p class="admin-field-help">
+            The retained account becomes
+            <strong>
+              <?= e(
+                  admin_cleanup_deleted_username(
+                      $userId
+                  )
+              ) ?>
+            </strong>
+            / Deleted User and is disabled from logging in.
+          </p>
+
+        </div>
+
+
+        <form
+          method="post"
+          class="admin-form"
+        >
+
+          <input
+            type="hidden"
+            name="action"
+            value="anonymize_account"
+          >
+
+          <input
+            type="hidden"
+            name="user_id"
+            value="<?= $userId ?>"
+          >
+
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= e(
+                $csrfToken
+            ) ?>"
+          >
+
+
+          <label class="admin-cleanup-check">
+
+            <input
+              type="checkbox"
+              name="understand_anonymize"
+              value="1"
+              required
+            >
+
+            <span>
+              I understand this permanently removes the
+              account identity, badges, membership access,
+              profile data, and Scout privileges.
+            </span>
+
+          </label>
+
+
+          <div class="admin-form-actions">
+
+            <button
+              type="submit"
+              class="
+                admin-button
+                admin-button--cleanup-warning
+              "
+              <?= $isAnonymized
+                  ? 'disabled'
+                  : ''
+              ?>
+              onclick="
+                return confirm(
+                  'Anonymize this account now? This permanently removes the user identity and privileges while preserving historical contribution records.'
+                );
+              "
+            >
+
+              <i
+                class="fa-solid fa-user-shield"
+                aria-hidden="true"
+              ></i>
+
+              Anonymize Account
+
+            </button>
+
+          </div>
+
+        </form>
+
+      </article>
+
+
+      <!-- ===============================================
+           PERMANENT DELETE
+           =============================================== -->
+
+      <article
+        class="
+          admin-cleanup-card
+          admin-cleanup-card--danger
+        "
+      >
+
+        <div>
+
+          <h3>
+            Permanently Delete Disposable Account
+          </h3>
+
+          <p>
+            Permanently remove the user row and disposable
+            account-owned data. This is only available when
+            there is no historical Place, approved update,
+            or Scout provenance to preserve.
+          </p>
+
+        </div>
+
+
+        <?php if (
+            $publishedPlaceCount > 0
+            ||
+            $approvedUpdateCount > 0
+            ||
+            $hasScoutIdentity
+        ): ?>
+
+          <div
+            class="
+              admin-notice
+              admin-notice--warning
+              admin-cleanup-notice
+            "
+          >
+
+            <p>
+              Permanent deletion is blocked for this account.
+              Use <strong>Anonymize Account</strong> instead.
+            </p>
+
+          </div>
+
+        <?php endif; ?>
+
+
+        <form
+          method="post"
+          class="admin-form"
+        >
+
+          <input
+            type="hidden"
+            name="action"
+            value="permanently_delete_account"
+          >
+
+          <input
+            type="hidden"
+            name="user_id"
+            value="<?= $userId ?>"
+          >
+
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= e(
+                $csrfToken
+            ) ?>"
+          >
+
+
+          <label class="admin-cleanup-check">
+
+            <input
+              type="checkbox"
+              name="understand_delete"
+              value="1"
+              required
+            >
+
+            <span>
+              I understand permanent deletion cannot be undone.
+            </span>
+
+          </label>
+
+
+          <div class="admin-form-actions">
+
+            <button
+              type="submit"
+              class="
+                admin-button
+                admin-button--cleanup-danger
+              "
+              <?= (
+                  $publishedPlaceCount > 0
+                  ||
+                  $approvedUpdateCount > 0
+                  ||
+                  $hasScoutIdentity
+              )
+                  ? 'disabled'
+                  : ''
+              ?>
+              onclick="
+                return confirm(
+                  'Permanently delete this disposable account? This cannot be undone.'
+                );
+              "
+            >
+
+              <i
+                class="fa-solid fa-trash-can"
+                aria-hidden="true"
+              ></i>
+
+              Permanently Delete Account
+
+            </button>
+
+          </div>
+
+        </form>
+
+      </article>
+
+
+    <?php endif; ?>
+
+  </section>
+
 
   <div class="admin-foot-actions">
 
