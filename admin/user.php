@@ -1437,6 +1437,34 @@ $canEditStatus =
     !$managedUserIsOwner;
 
 
+/* =========================================================
+   MFA STATUS
+   ========================================================= */
+
+$managedUserIsPrivileged =
+    $managedUserIsOwner
+    ||
+    $managedUserIsAdmin;
+
+
+$managedUserMfaEnabled =
+    $managedUserIsPrivileged
+        ? llama_mfa_is_enabled(
+            $userId,
+            $db
+        )
+        : false;
+
+
+$managedUserRecoveryCodeCount =
+    $managedUserMfaEnabled
+        ? llama_mfa_recovery_code_count(
+            $userId,
+            $db
+        )
+        : 0;
+
+
 ?>
 <!doctype html>
 
@@ -3373,7 +3401,7 @@ require
       </section>
 
 
-              <?php if (
+      <?php if (
           $currentAdminIsOwner
       ): ?>
 
@@ -3388,12 +3416,11 @@ require
             <div>
 
               <h2>
-                Owner Security
+                Privileged Security
               </h2>
 
               <p>
-                Owner access is managed separately from
-                ordinary account roles.
+                Owner access and MFA security for this account.
               </p>
 
             </div>
@@ -3403,33 +3430,155 @@ require
 
           <div class="admin-form">
 
-            <p class="admin-field-help">
 
-              <i
-                class="fa-solid fa-crown"
-                aria-hidden="true"
-              ></i>
+            <?php if (
+                $managedUserIsPrivileged
+            ): ?>
 
-              <?php if (
-                  $managedUserIsOwner
-              ): ?>
+              <div class="admin-detail-list">
 
-                This account currently has Owner authority.
-                Removing it requires your password and a
-                fresh MFA code.
 
-              <?php else: ?>
+                <div class="admin-detail-row">
 
-                Promoting this account grants the highest
-                level of Llama Scout authority and requires
-                your password and a fresh MFA code.
+                  <div class="admin-detail-label">
+                    Privileged Role
+                  </div>
 
-              <?php endif; ?>
+                  <div class="admin-detail-value">
 
-            </p>
+                    <span
+                      class="
+                        admin-user-badge
+                        admin-user-role
+                        admin-user-role--admin
+                      "
+                    >
+
+                      <i
+                        class="<?= $managedUserIsOwner
+                            ? 'fa-solid fa-crown'
+                            : 'fa-solid fa-shield-halved'
+                        ?>"
+                        aria-hidden="true"
+                      ></i>
+
+                      <?= $managedUserIsOwner
+                          ? 'Owner'
+                          : 'Admin'
+                      ?>
+
+                    </span>
+
+                  </div>
+
+                </div>
+
+
+                <div class="admin-detail-row">
+
+                  <div class="admin-detail-label">
+                    MFA
+                  </div>
+
+                  <div class="admin-detail-value">
+
+                    <?php if (
+                        $managedUserMfaEnabled
+                    ): ?>
+
+                      <span
+                        class="
+                          admin-badge
+                          admin-badge--success
+                        "
+                      >
+                        Enabled
+                      </span>
+
+                    <?php else: ?>
+
+                      <span
+                        class="
+                          admin-badge
+                          admin-badge--warning
+                        "
+                      >
+                        Enrollment Required
+                      </span>
+
+                    <?php endif; ?>
+
+                  </div>
+
+                </div>
+
+
+                <div class="admin-detail-row">
+
+                  <div class="admin-detail-label">
+                    Recovery Codes
+                  </div>
+
+                  <div class="admin-detail-value">
+
+                    <?php if (
+                        $managedUserMfaEnabled
+                    ): ?>
+
+                      <?= $managedUserRecoveryCodeCount ?>
+                      unused
+
+                    <?php else: ?>
+
+                      None
+
+                    <?php endif; ?>
+
+                  </div>
+
+                </div>
+
+
+              </div>
+
+            <?php else: ?>
+
+              <p class="admin-field-help">
+
+                This account does not currently have Admin or
+                Owner access, so privileged MFA is not required.
+
+              </p>
+
+            <?php endif; ?>
 
 
             <div class="admin-form-actions">
+
+
+              <?php if (
+                  $managedUserIsPrivileged
+              ): ?>
+
+                <a
+                  class="
+                    admin-button
+                    admin-button--secondary
+                  "
+                  href="/mfa-security.php?id=<?= $userId ?>"
+                >
+
+                  <i
+                    class="fa-solid fa-key"
+                    aria-hidden="true"
+                  ></i>
+
+                  Manage MFA
+
+                </a>
+
+              <?php endif; ?>
+
 
               <a
                 class="
@@ -3440,7 +3589,7 @@ require
               >
 
                 <i
-                  class="fa-solid fa-shield-halved"
+                  class="fa-solid fa-crown"
                   aria-hidden="true"
                 ></i>
 
@@ -3451,6 +3600,7 @@ require
 
               </a>
 
+
             </div>
 
           </div>
@@ -3458,7 +3608,6 @@ require
         </section>
 
       <?php endif; ?>
-
 
         
       <!-- ===============================================
