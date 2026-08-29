@@ -9690,7 +9690,7 @@ details:last-child {
   place-items: center;
 
   padding:
-    34px
+    0px
     18px;
 }
 
@@ -9703,6 +9703,7 @@ details:last-child {
     );
 
   padding:
+     0px
     34px;
 
   background:
