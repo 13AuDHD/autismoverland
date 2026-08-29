@@ -1,0 +1,177 @@
+/* =========================================================
+   PRIVILEGED MFA SECURITY
+   admin/mfa-security.php
+   Append to css/admin.css
+   ========================================================= */
+
+.admin-mfa-security-layout {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, .85fr)
+    minmax(0, 1.15fr);
+
+  gap: 22px;
+
+  align-items: start;
+}
+
+
+.admin-mfa-reset-panel {
+  border-color:
+    color-mix(
+      in srgb,
+      #b55252 30%,
+      var(--line)
+    );
+}
+
+
+.admin-mfa-reset-form {
+  display: grid;
+
+  gap: 18px;
+}
+
+
+.admin-mfa-reset-warning,
+.admin-mfa-lockout-warning,
+.admin-mfa-enrollment-needed {
+  display: grid;
+
+  grid-template-columns:
+    auto
+    minmax(0, 1fr);
+
+  gap: 13px;
+
+  padding: 16px;
+
+  border-radius: 10px;
+}
+
+
+.admin-mfa-reset-warning {
+  background:
+    color-mix(
+      in srgb,
+      #b55252 10%,
+      var(--surface-soft)
+    );
+
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      #b55252 30%,
+      var(--line)
+    );
+}
+
+
+.admin-mfa-lockout-warning {
+  background:
+    color-mix(
+      in srgb,
+      #9a7530 10%,
+      var(--surface-soft)
+    );
+
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      #9a7530 30%,
+      var(--line)
+    );
+}
+
+
+.admin-mfa-enrollment-needed {
+  background:
+    var(--surface-soft);
+
+  border:
+    1px solid
+    var(--line);
+}
+
+
+.admin-mfa-reset-warning > i,
+.admin-mfa-lockout-warning > i,
+.admin-mfa-enrollment-needed > i {
+  margin-top: 2px;
+
+  font-size: 1.1rem;
+}
+
+
+.admin-mfa-reset-warning > i {
+  color:
+    #b55252;
+}
+
+
+.admin-mfa-lockout-warning > i {
+  color:
+    #9a7530;
+}
+
+
+.admin-mfa-reset-warning strong,
+.admin-mfa-lockout-warning strong,
+.admin-mfa-enrollment-needed strong {
+  color:
+    var(--ink);
+}
+
+
+.admin-mfa-reset-warning p,
+.admin-mfa-lockout-warning p,
+.admin-mfa-enrollment-needed p {
+  margin:
+    5px
+    0
+    0;
+
+  color:
+    var(--muted);
+
+  line-height: 1.55;
+}
+
+
+.admin-mfa-reset-ack {
+  margin-top: 2px;
+}
+
+
+.admin-mfa-reset-button {
+  background:
+    #8f3939;
+
+  border-color:
+    #8f3939;
+
+  color:
+    #fff;
+}
+
+
+.admin-mfa-reset-button:hover,
+.admin-mfa-reset-button:focus-visible {
+  background:
+    #6f2b2b;
+
+  border-color:
+    #6f2b2b;
+}
+
+
+@media (max-width: 850px) {
+
+  .admin-mfa-security-layout {
+    grid-template-columns: 1fr;
+  }
+
+}
