@@ -5775,5 +5775,266 @@ input:focus {
 
 
 
+/* =========================================================
+   ADMIN ACCOUNT EDITOR / ACCOUNT CLEANUP
+   Append to css/admin.css
+   ========================================================= */
+
+.admin-form--spaced {
+  margin-top: 20px;
+}
+
+
+.admin-account-cleanup {
+  border-color:
+    color-mix(
+      in srgb,
+      #b0782c 28%,
+      var(--line)
+    );
+}
+
+
+.admin-cleanup-summary {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 12px;
+
+  margin-bottom: 18px;
+}
+
+
+.admin-cleanup-summary > div {
+  min-width: 0;
+
+  padding:
+    13px
+    14px;
+
+  background:
+    var(--surface-soft);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 10px;
+}
+
+
+.admin-cleanup-summary span {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color:
+    var(--muted);
+
+  font-size: .72rem;
+
+  font-weight: 800;
+
+  letter-spacing: .04em;
+
+  text-transform: uppercase;
+}
+
+
+.admin-cleanup-summary strong {
+  color:
+    var(--ink);
+
+  overflow-wrap: anywhere;
+}
+
+
+.admin-cleanup-card {
+  display: grid;
+
+  gap: 16px;
+
+  margin-top: 16px;
+
+  padding: 18px;
+
+  background:
+    var(--surface-soft);
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius: 12px;
+}
+
+
+.admin-cleanup-card h3 {
+  margin:
+    0
+    0
+    7px;
+
+  color:
+    var(--ink);
+}
+
+
+.admin-cleanup-card p {
+  margin:
+    0;
+
+  color:
+    var(--muted);
+
+  line-height: 1.55;
+}
+
+
+.admin-cleanup-card--warning {
+  border-color:
+    color-mix(
+      in srgb,
+      #b0782c 42%,
+      var(--line)
+    );
+}
+
+
+.admin-cleanup-card--danger {
+  border-color:
+    color-mix(
+      in srgb,
+      #b6382e 45%,
+      var(--line)
+    );
+}
+
+
+.admin-cleanup-checks {
+  display: grid;
+
+  gap: 9px;
+}
+
+
+.admin-cleanup-check {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 10px;
+
+  color:
+    var(--ink);
+
+  line-height: 1.5;
+}
+
+
+.admin-cleanup-check input {
+  flex:
+    0
+    0
+    auto;
+
+  width: 18px;
+
+  height: 18px;
+
+  margin-top: 2px;
+
+  accent-color:
+    var(--blue);
+}
+
+
+.admin-cleanup-notice {
+  margin:
+    0;
+}
+
+
+.admin-button--cleanup-warning {
+  background:
+    #8a621f;
+
+  border-color:
+    #8a621f;
+
+  color: #fff;
+}
+
+
+.admin-button--cleanup-warning:hover,
+.admin-button--cleanup-warning:focus-visible {
+  background:
+    #6f4d17;
+
+  border-color:
+    #6f4d17;
+
+  color: #fff;
+}
+
+
+.admin-button--cleanup-danger {
+  background:
+    #9e2f2f;
+
+  border-color:
+    #9e2f2f;
+
+  color: #fff;
+}
+
+
+.admin-button--cleanup-danger:hover,
+.admin-button--cleanup-danger:focus-visible {
+  background:
+    #7f2222;
+
+  border-color:
+    #7f2222;
+
+  color: #fff;
+}
+
+
+.admin-button--cleanup-warning:disabled,
+.admin-button--cleanup-danger:disabled {
+  opacity: .48;
+
+  cursor: not-allowed;
+}
+
+
+@media (max-width: 900px) {
+
+  .admin-cleanup-summary {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+}
+
+
+@media (max-width: 560px) {
+
+  .admin-cleanup-summary {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
 
 
