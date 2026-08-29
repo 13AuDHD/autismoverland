@@ -725,8 +725,14 @@ function current_user(): ?array {
             $userId
         )
         &&
-        !llama_mfa_session_is_verified(
-            $userId
+        (
+            !llama_mfa_is_enabled(
+                $userId
+            )
+            ||
+            !llama_mfa_session_is_verified(
+                $userId
+            )
         )
     ) {
 
