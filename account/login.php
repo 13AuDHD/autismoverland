@@ -3,6 +3,18 @@
 declare(strict_types=1);
 
 
+/* =========================================================
+   LLAMA SCOUT
+   LOGIN
+   account/login.php
+
+   Turnstile begins as the login page loads. The submit
+   button remains unavailable until Cloudflare has issued
+   a valid challenge token. This avoids password-manager
+   autofill racing ahead of Turnstile.
+   ========================================================= */
+
+
 require_once
     dirname(__DIR__)
     . '/app/auth.php';
@@ -41,9 +53,10 @@ if (
 }
 
 
-/* =====================================================
+/* =========================================================
    TURNSTILE CONFIG
-   ===================================================== */
+   ========================================================= */
+
 
 $config =
     llama_config();
@@ -72,14 +85,22 @@ $turnstileSecretKey =
     );
 
 
-$error = '';
-$login = '';
-$remember = true;
+$error =
+    '';
 
 
-/* =====================================================
+$login =
+    '';
+
+
+$remember =
+    true;
+
+
+/* =========================================================
    TURNSTILE VERIFY
-   ===================================================== */
+   ========================================================= */
+
 
 function verify_turnstile(
     string $secretKey,
@@ -216,9 +237,10 @@ function verify_turnstile(
 }
 
 
-/* =====================================================
+/* =========================================================
    POST
-   ===================================================== */
+   ========================================================= */
+
 
 if (
     $_SERVER['REQUEST_METHOD']
@@ -276,7 +298,7 @@ if (
     ) {
 
         $error =
-            'Please complete the security check.';
+            'Security verification was not ready. Please try again.';
 
 
     } elseif (
@@ -348,6 +370,11 @@ if (
 }
 
 
+/* =========================================================
+   OUTPUT ESCAPE
+   ========================================================= */
+
+
 function e(
     string $value
 ): string {
@@ -358,6 +385,7 @@ function e(
         'UTF-8'
     );
 }
+
 
 ?>
 <!doctype html>
@@ -382,6 +410,7 @@ function e(
     content="Log in to your Llama Scout account."
   >
 
+
   <link
     rel="stylesheet"
     href="https://llamascout.com/css/style.css"
@@ -392,15 +421,83 @@ function e(
     href="https://llamascout.com/css/account.css"
   >
 
+
   <script
     src="https://llamascout.com/js/accessibility.js"
   ></script>
 
-  <script
-    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-    async
-    defer
-  ></script>
+
+  <?php if (
+      $turnstileSiteKey !== ''
+  ): ?>
+
+    <script>
+
+      /*
+       * These callbacks are defined before Cloudflare's
+       * script loads so Turnstile can immediately control
+       * the state of the login button.
+       */
+
+      function llamaLoginButton() {
+
+        return document.getElementById(
+          'login-submit'
+        );
+      }
+
+
+      function llamaTurnstileReady() {
+
+        const button =
+          llamaLoginButton();
+
+
+        if (button) {
+
+          button.disabled =
+            false;
+
+          button.removeAttribute(
+            'aria-disabled'
+          );
+        }
+      }
+
+
+      function llamaTurnstileWaiting() {
+
+        const button =
+          llamaLoginButton();
+
+
+        if (button) {
+
+          button.disabled =
+            true;
+
+          button.setAttribute(
+            'aria-disabled',
+            'true'
+          );
+        }
+      }
+
+
+      function llamaTurnstileError() {
+
+        llamaTurnstileWaiting();
+      }
+
+    </script>
+
+
+    <script
+      src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+      defer
+    ></script>
+
+  <?php endif; ?>
 
 </head>
 
@@ -474,6 +571,29 @@ function e(
       <?php endif; ?>
 
 
+      <?php if (
+          $turnstileSiteKey !== ''
+      ): ?>
+
+        <div class="account-login-security">
+
+          <div
+            class="cf-turnstile"
+            data-sitekey="<?= e(
+                $turnstileSiteKey
+            ) ?>"
+            data-theme="auto"
+            data-callback="llamaTurnstileReady"
+            data-expired-callback="llamaTurnstileWaiting"
+            data-timeout-callback="llamaTurnstileWaiting"
+            data-error-callback="llamaTurnstileError"
+          ></div>
+
+        </div>
+
+      <?php endif; ?>
+
+
       <div class="account-field">
 
         <label for="login">
@@ -485,6 +605,8 @@ function e(
           name="login"
           type="text"
           autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
           value="<?= e(
               $login
           ) ?>"
@@ -542,25 +664,16 @@ function e(
       </a>
 
 
-      <?php if (
-          $turnstileSiteKey !== ''
-      ): ?>
-
-        <div
-          class="cf-turnstile"
-          data-sitekey="<?= e(
-              $turnstileSiteKey
-          ) ?>"
-          data-theme="dark"
-          style="margin:18px 0;"
-        ></div>
-
-      <?php endif; ?>
-
-
       <button
+        id="login-submit"
         type="submit"
         class="account-submit"
+        <?php if (
+            $turnstileSiteKey !== ''
+        ): ?>
+          disabled
+          aria-disabled="true"
+        <?php endif; ?>
       >
         Log In
       </button>
