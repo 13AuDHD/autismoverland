@@ -1738,51 +1738,6 @@ require_once
 
         <?php endif; ?>
 
-                  <?php if (
-            $currentAdminIsOwner
-            &&
-            !$managedUserIsOwner
-            &&
-            !$managedUserIsAdmin
-            &&
-            !in_array(
-                'scout',
-                $managedRoleSlugs,
-                true
-            )
-            &&
-            !in_array(
-                'master-scout',
-                $managedRoleSlugs,
-                true
-            )
-            &&
-            !in_array(
-                'master_scout',
-                $managedRoleSlugs,
-                true
-            )
-        ): ?>
-
-          <a
-            class="
-              admin-button
-              admin-button--secondary
-            "
-            href="/user-cleanup.php?id=<?= $userId ?>"
-          >
-
-            <i
-              class="fa-solid fa-flask"
-              aria-hidden="true"
-            ></i>
-
-            Test Account Tools
-
-          </a>
-
-        <?php endif; ?>
-
       </div>
 
     </div>
