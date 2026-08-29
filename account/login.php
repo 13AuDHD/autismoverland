@@ -8,16 +8,23 @@ declare(strict_types=1);
    LOGIN
    account/login.php
 
-   Turnstile begins as the login page loads. The submit
-   button remains unavailable until Cloudflare has issued
-   a valid challenge token. This avoids password-manager
-   autofill racing ahead of Turnstile.
+   Login flow:
+   1. Turnstile completes as the page loads.
+   2. Password is verified.
+   3. Ordinary accounts complete sign-in normally.
+   4. Owner/Admin accounts are routed into MFA before any
+      authenticated user session or Remember Me token is
+      created.
    ========================================================= */
 
 
 require_once
     dirname(__DIR__)
     . '/app/auth.php';
+
+require_once
+    dirname(__DIR__)
+    . '/app/mfa.php';
 
 
 start_llama_session();
@@ -39,15 +46,77 @@ $destination =
     'https://account.llamascout.com/';
 
 
-if (
-    is_logged_in()
-) {
+/* =========================================================
+   EXISTING AUTHENTICATED SESSION
+   ========================================================= */
+
+
+$existingUser =
+    current_user();
+
+
+if ($existingUser) {
+
+    $existingUserId =
+        (int)
+        $existingUser['id'];
+
+
+    /*
+     * Once centralized MFA enforcement is added to auth.php,
+     * privileged sessions will also be checked globally.
+     *
+     * For this page, never send a privileged user forward
+     * merely because a pre-MFA session exists unless this
+     * session has already completed MFA.
+     */
+
+    if (
+        llama_mfa_role_requires_mfa(
+            $existingUserId
+        )
+        &&
+        !llama_mfa_session_is_verified(
+            $existingUserId
+        )
+    ) {
+
+        llama_mfa_begin_login_challenge(
+            $existingUserId,
+            false,
+            $returnUrl
+        );
+
+
+        if (
+            llama_mfa_is_enabled(
+                $existingUserId
+            )
+        ) {
+
+            header(
+                'Location: /mfa-challenge.php'
+            );
+
+
+        } else {
+
+            header(
+                'Location: /mfa-setup.php'
+            );
+        }
+
+
+        exit;
+    }
+
 
     header(
         'Location: '
         .
         $destination
     );
+
 
     exit;
 }
@@ -238,6 +307,73 @@ function verify_turnstile(
 
 
 /* =========================================================
+   CREDENTIAL LOOKUP FOR MFA ROUTING
+   ========================================================= */
+
+
+function login_find_user(
+    string $login
+): ?array {
+
+    $login =
+        strtolower(
+            trim(
+                $login
+            )
+        );
+
+
+    if (
+        $login === ''
+    ) {
+
+        return null;
+    }
+
+
+    $stmt =
+        db()->prepare(
+            '
+            SELECT
+                id,
+                email,
+                username,
+                display_name,
+                password_hash,
+                status
+
+            FROM users
+
+            WHERE LOWER(email) = ?
+               OR LOWER(username) = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $login,
+        $login,
+    ]);
+
+
+    $user =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    return
+        is_array(
+            $user
+        )
+            ? $user
+            : null;
+}
+
+
+/* =========================================================
    POST
    ========================================================= */
 
@@ -329,43 +465,176 @@ if (
 
     } else {
 
-        $loginResult =
-            attempt_login_result(
-                $login,
-                $password,
-                $remember
+        /*
+         * A fresh password submission replaces any abandoned
+         * MFA challenge that may still exist in the session.
+         */
+
+        llama_mfa_clear_session_state();
+
+
+        $candidate =
+            login_find_user(
+                $login
             );
 
 
         if (
-            $loginResult ===
-            'success'
+            !$candidate
+            ||
+            !password_verify(
+                $password,
+                (string) (
+                    $candidate[
+                        'password_hash'
+                    ]
+                    ?? ''
+                )
+            )
         ) {
 
-            header(
-                'Location: '
-                .
-                $destination
-            );
-
-            exit;
-        }
+            $error =
+                'The email, username, or password is incorrect.';
 
 
-        $error =
-            match (
-                $loginResult
+        } else {
+
+            $candidateStatus =
+                (string) (
+                    $candidate[
+                        'status'
+                    ]
+                    ?? ''
+                );
+
+
+            if (
+                $candidateStatus ===
+                'suspended'
             ) {
 
-                'suspended' =>
-                    'This account has been suspended. Please contact Llama Scout if you believe this is an error.',
+                $error =
+                    'This account has been suspended. Please contact Llama Scout if you believe this is an error.';
 
-                'disabled' =>
-                    'This account is currently disabled. Please contact Llama Scout for assistance.',
 
-                default =>
-                    'The email, username, or password is incorrect.',
-            };
+            } elseif (
+                $candidateStatus ===
+                'disabled'
+            ) {
+
+                $error =
+                    'This account is currently disabled. Please contact Llama Scout for assistance.';
+
+
+            } else {
+
+                $candidateUserId =
+                    (int)
+                    $candidate['id'];
+
+
+                if (
+                    llama_mfa_role_requires_mfa(
+                        $candidateUserId
+                    )
+                ) {
+
+                    /*
+                     * Do NOT call attempt_login_result() here.
+                     *
+                     * That function creates the authenticated
+                     * session and may create a Remember Me
+                     * token. Privileged users must complete
+                     * MFA before either happens.
+                     */
+
+                    llama_mfa_begin_login_challenge(
+                        $candidateUserId,
+                        $remember,
+                        $returnUrl
+                    );
+
+
+                    /*
+                     * Remove any older persistent login token
+                     * belonging to this privileged account.
+                     * A new one is created only after MFA
+                     * succeeds.
+                     */
+
+                    llama_mfa_invalidate_remember_tokens(
+                        $candidateUserId
+                    );
+
+
+                    if (
+                        llama_mfa_is_enabled(
+                            $candidateUserId
+                        )
+                    ) {
+
+                        header(
+                            'Location: /mfa-challenge.php'
+                        );
+
+
+                    } else {
+
+                        header(
+                            'Location: /mfa-setup.php'
+                        );
+                    }
+
+
+                    exit;
+                }
+
+
+                /*
+                 * Ordinary member/Scout login keeps using the
+                 * existing authentication implementation.
+                 */
+
+                $loginResult =
+                    attempt_login_result(
+                        $login,
+                        $password,
+                        $remember
+                    );
+
+
+                if (
+                    $loginResult ===
+                    'success'
+                ) {
+
+                    header(
+                        'Location: '
+                        .
+                        $destination
+                    );
+
+
+                    exit;
+                }
+
+
+                $error =
+                    match (
+                        $loginResult
+                    ) {
+
+                        'suspended' =>
+                            'This account has been suspended. Please contact Llama Scout if you believe this is an error.',
+
+                        'disabled' =>
+                            'This account is currently disabled. Please contact Llama Scout for assistance.',
+
+                        default =>
+                            'The email, username, or password is incorrect.',
+                    };
+            }
+        }
     }
 }
 
@@ -432,12 +701,6 @@ function e(
   ): ?>
 
     <script>
-
-      /*
-       * These callbacks are defined before Cloudflare's
-       * script loads so Turnstile can immediately control
-       * the state of the login button.
-       */
 
       function llamaLoginButton() {
 
