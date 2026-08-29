@@ -8684,7 +8684,40 @@ body.account-auth-body {
 }
 
 
+/* =========================================================
+   MFA CHALLENGE
+   ========================================================= */
 
+.mfa-challenge {
+  width:
+    min(
+      560px,
+      calc(100% - 36px)
+    );
+}
+
+
+.mfa-alt-action {
+  margin:
+    20px
+    0
+    0;
+
+  color:
+    var(--muted);
+
+  text-align: center;
+
+  line-height: 1.5;
+}
+
+
+.mfa-alt-action a {
+  color:
+    var(--blue);
+
+  font-weight: 700;
+}
 
 
 
