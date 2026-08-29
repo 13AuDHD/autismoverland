@@ -1901,12 +1901,10 @@ function require_role(
     }
 
 
-    http_response_code(
-        403
+    header(
+        'Location: https://llamascout.com/safety.php?reason=permission'
     );
 
 
-    exit(
-        'You do not have permission to access this page.'
-    );
+    exit;
 }
