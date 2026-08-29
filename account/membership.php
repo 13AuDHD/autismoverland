@@ -2457,7 +2457,7 @@ require_once
     <div class="membership-account-delete-copy">
 
       <h2>
-        Delete Your Account
+        Delete Your Account / Danger Zone
       </h2>
 
       <p>
@@ -2469,8 +2469,8 @@ require_once
 
       <p>
         Account deletion also immediately forfeits memberships,
-        badges, points, Scout status, Master Scout status, and
-        other account access or recognition.
+        badges, points, Scout status, Master Scout status, free
+        llama rides, and other account access or recognition.
       </p>
 
     </div>
@@ -2491,7 +2491,7 @@ require_once
           aria-hidden="true"
         ></i>
 
-        Delete My Account
+        Enter Danger Zone
 
       </a>
 
