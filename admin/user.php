@@ -912,260 +912,305 @@ if (
            Protected roles are NEVER deleted or inserted here.
            ================================================= */
 
-        } elseif (
-            $action ===
-            'update_roles'
+} elseif (
+    $action ===
+    'update_roles'
+) {
+
+    $submittedRoles =
+        $_POST[
+            'roles'
+        ]
+        ?? [];
+
+
+    if (
+        !is_array(
+            $submittedRoles
+        )
+    ) {
+
+        $submittedRoles =
+            [];
+    }
+
+
+    $submittedRoleIds =
+        array_values(
+            array_unique(
+                array_filter(
+                    array_map(
+                        'intval',
+                        $submittedRoles
+                    ),
+                    static fn(
+                        int $id
+                    ): bool =>
+                        $id > 0
+                )
+            )
+        );
+
+
+    foreach (
+        $submittedRoleIds as
+        $roleId
+    ) {
+
+        if (
+            !array_key_exists(
+                $roleId,
+                $roleById
+            )
         ) {
 
-            $submittedRoles =
-                $_POST[
-                    'roles'
-                ]
-                ?? [];
+            $error =
+                'One of the selected access roles is not valid.';
+
+            break;
+        }
+    }
 
 
-            if (
-                !is_array(
-                    $submittedRoles
-                )
-            ) {
-
-                $submittedRoles =
-                    [];
-            }
+    $selectedRoleSlugs =
+        [];
 
 
-            $submittedRoleIds =
-                array_values(
-                    array_unique(
-                        array_filter(
-                            array_map(
-                                'intval',
-                                $submittedRoles
-                            ),
-                            static fn(
-                                int $id
-                            ): bool =>
-                                $id > 0
-                        )
-                    )
+    if (
+        $error === ''
+    ) {
+
+        foreach (
+            $submittedRoleIds as
+            $roleId
+        ) {
+
+            $selectedRoleSlugs[] =
+                $roleById[
+                    $roleId
+                ];
+        }
+    }
+
+
+    /*
+     * Capture the Admin state before anything changes.
+     */
+
+    $adminWasAssigned =
+        $managedUserIsAdmin;
+
+
+    $adminRequested =
+        in_array(
+            'admin',
+            $selectedRoleSlugs,
+            true
+        );
+
+
+    /*
+     * Only an Owner can add or remove Admin.
+     */
+
+    if (
+        $error === ''
+        &&
+        !$currentAdminIsOwner
+        &&
+        $adminWasAssigned !==
+        $adminRequested
+    ) {
+
+        $error =
+            'Only a Llama Scout Owner can add or remove Admin access.';
+    }
+
+
+    if (
+        $error === ''
+    ) {
+
+        try {
+
+            $db->beginTransaction();
+
+
+            /*
+             * Delete ONLY manually managed roles.
+             *
+             * Owner / Scout / Master Scout survive untouched.
+             */
+
+            $deleteRoles =
+                $db->prepare(
+                    '
+                    DELETE ur
+
+                    FROM user_roles ur
+
+                    INNER JOIN roles r
+                      ON r.id =
+                         ur.role_id
+
+                    WHERE ur.user_id = ?
+
+                      AND r.slug NOT IN
+                      (
+                          \'owner\',
+                          \'scout\',
+                          \'master-scout\',
+                          \'master_scout\'
+                      )
+                    '
                 );
 
 
-            foreach (
-                $submittedRoleIds as
-                $roleId
-            ) {
-
-                if (
-                    !array_key_exists(
-                        $roleId,
-                        $roleById
-                    )
-                ) {
-
-                    $error =
-                        'One of the selected access roles is not valid.';
-
-                    break;
-                }
-            }
-
-
-            $selectedRoleSlugs =
-                [];
+            $deleteRoles->execute([
+                $userId,
+            ]);
 
 
             if (
-                $error === ''
+                $submittedRoleIds
             ) {
+
+                $insertRole =
+                    $db->prepare(
+                        '
+                        INSERT INTO user_roles
+                        (
+                            user_id,
+                            role_id
+                        )
+
+                        VALUES
+                        (
+                            ?,
+                            ?
+                        )
+                        '
+                    );
+
 
                 foreach (
                     $submittedRoleIds as
                     $roleId
                 ) {
 
-                    $selectedRoleSlugs[] =
-                        $roleById[
-                            $roleId
-                        ];
+                    $insertRole->execute([
+                        $userId,
+                        $roleId,
+                    ]);
                 }
             }
 
 
             /*
-             * Only an Owner can add or remove Admin.
+             * Any Admin privilege transition revokes
+             * long-lived remembered authentication.
+             *
+             * Most importantly, when a Member becomes an
+             * Admin, an old Remember Me token cannot be used
+             * to bypass the new MFA requirement.
              */
 
             if (
-                $error === ''
-                &&
-                !$currentAdminIsOwner
+                $adminWasAssigned !==
+                $adminRequested
             ) {
 
-                $adminWasAssigned =
-                    $managedUserIsAdmin;
-
-
-                $adminRequested =
-                    in_array(
-                        'admin',
-                        $selectedRoleSlugs,
-                        true
-                    );
-
-
-                if (
-                    $adminWasAssigned !==
-                    $adminRequested
-                ) {
-
-                    $error =
-                        'Only a Llama Scout Owner can add or remove Admin access.';
-                }
+                llama_mfa_invalidate_remember_tokens(
+                    $userId,
+                    $db
+                );
             }
+
+
+            $db->commit();
+
+
+            $managedRoles =
+                load_managed_roles(
+                    $db,
+                    $userId
+                );
+
+
+            $managedRoleSlugs =
+                array_column(
+                    $managedRoles,
+                    'slug'
+                );
+
+
+            $managedUserIsOwner =
+                in_array(
+                    'owner',
+                    $managedRoleSlugs,
+                    true
+                );
+
+
+            $managedUserIsAdmin =
+                in_array(
+                    'admin',
+                    $managedRoleSlugs,
+                    true
+                );
 
 
             if (
-                $error === ''
+                !$adminWasAssigned
+                &&
+                $adminRequested
             ) {
 
-                try {
-
-                    $db->beginTransaction();
-
-
-                    /*
-                     * Delete ONLY manually managed roles.
-                     * Owner / Scout / Master Scout survive untouched.
-                     */
-
-                    $deleteRoles =
-                        $db->prepare(
-                            '
-                            DELETE ur
-
-                            FROM user_roles ur
-
-                            INNER JOIN roles r
-                              ON r.id =
-                                 ur.role_id
-
-                            WHERE ur.user_id = ?
-
-                              AND r.slug NOT IN
-                              (
-                                  \'owner\',
-                                  \'scout\',
-                                  \'master-scout\',
-                                  \'master_scout\'
-                              )
-                            '
-                        );
+                $message =
+                    'Admin access granted. Existing remembered logins were revoked, and MFA is now required for privileged access.';
 
 
-                    $deleteRoles->execute([
-                        $userId,
-                    ]);
+            } elseif (
+                $adminWasAssigned
+                &&
+                !$adminRequested
+            ) {
+
+                $message =
+                    'Admin access removed. Existing remembered logins were revoked.';
 
 
-                    if (
-                        $submittedRoleIds
-                    ) {
+            } else {
 
-                        $insertRole =
-                            $db->prepare(
-                                '
-                                INSERT INTO user_roles
-                                (
-                                    user_id,
-                                    role_id
-                                )
-
-                                VALUES
-                                (
-                                    ?,
-                                    ?
-                                )
-                                '
-                            );
-
-
-                        foreach (
-                            $submittedRoleIds as
-                            $roleId
-                        ) {
-
-                            $insertRole->execute([
-                                $userId,
-                                $roleId,
-                            ]);
-                        }
-                    }
-
-
-                    $db->commit();
-
-
-                    $managedRoles =
-                        load_managed_roles(
-                            $db,
-                            $userId
-                        );
-
-
-                    $managedRoleSlugs =
-                        array_column(
-                            $managedRoles,
-                            'slug'
-                        );
-
-
-                    $managedUserIsOwner =
-                        in_array(
-                            'owner',
-                            $managedRoleSlugs,
-                            true
-                        );
-
-
-                    $managedUserIsAdmin =
-                        in_array(
-                            'admin',
-                            $managedRoleSlugs,
-                            true
-                        );
-
-
-                    $message =
-                        'Access roles updated.';
-
-
-                } catch (
-                    Throwable $exception
-                ) {
-
-                    if (
-                        $db->inTransaction()
-                    ) {
-
-                        $db->rollBack();
-                    }
-
-
-                    error_log(
-                        'Llama Scout admin access role error: '
-                        .
-                        $exception
-                            ->getMessage()
-                    );
-
-
-                    $error =
-                        'The access roles could not be updated.';
-                }
+                $message =
+                    'Access roles updated.';
             }
 
+
+        } catch (
+            Throwable $exception
+        ) {
+
+            if (
+                $db->inTransaction()
+            ) {
+
+                $db->rollBack();
+            }
+
+
+            error_log(
+                'Llama Scout admin access role error: '
+                .
+                $exception
+                    ->getMessage()
+            );
+
+
+            $error =
+                'The access roles could not be updated.';
+        }
+    }
 
         } else {
 
