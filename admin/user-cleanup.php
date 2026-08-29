@@ -6,22 +6,22 @@ declare(strict_types=1);
 /* =========================================================
    LLAMA SCOUT
    ACCOUNT CLEANUP
+   admin/user-cleanup.php
 
    OWNER-ONLY TOOL
 
-   This page handles two separate jobs:
+   Three distinct actions live here:
 
-   1. Membership Test Reset
-      Keeps the account itself but clears reusable membership
-      testing state.
+   1. Reset Membership Test
+      Keeps the account but clears reusable test state.
 
-   2. Permanent Account Deletion
-      Removes disposable account data and the user record when
-      Llama Scout determines that doing so will not erase
-      protected staff identities or published contribution
-      history.
+   2. Anonymize Deleted Account
+      Removes personal account identity while preserving the
+      numeric user ID and historical contribution provenance.
 
-   Permanent deletion is intentionally conservative.
+   3. Permanently Delete Disposable Account
+      Deletes the user row only when doing so will not erase
+      protected historical contribution records.
    ========================================================= */
 
 
@@ -270,6 +270,34 @@ function cleanup_user_roles(
 }
 
 
+function cleanup_user_has_role(
+    array $roles,
+    array $slugs
+): bool {
+
+    foreach (
+        $slugs
+        as
+        $slug
+    ) {
+
+        if (
+            in_array(
+                $slug,
+                $roles,
+                true
+            )
+        ) {
+
+            return true;
+        }
+    }
+
+
+    return false;
+}
+
+
 function cleanup_user_has_scout_profile(
     PDO $db,
     int $userId
@@ -314,42 +342,6 @@ function cleanup_user_has_scout_profile(
     return
         (bool)
         $stmt->fetchColumn();
-}
-
-
-function cleanup_user_is_protected(
-    array $roles
-): bool {
-
-    $protectedRoles = [
-        'owner',
-        'admin',
-        'scout',
-        'master-scout',
-        'master_scout',
-    ];
-
-
-    foreach (
-        $protectedRoles
-        as
-        $role
-    ) {
-
-        if (
-            in_array(
-                $role,
-                $roles,
-                true
-            )
-        ) {
-
-            return true;
-        }
-    }
-
-
-    return false;
 }
 
 
@@ -457,6 +449,140 @@ function cleanup_approved_update_count(
 }
 
 
+function cleanup_deleted_username(
+    int $userId
+): string {
+
+    return
+        'user_'
+        .
+        str_pad(
+            (string) $userId,
+            4,
+            '0',
+            STR_PAD_LEFT
+        );
+}
+
+
+function cleanup_deleted_email(
+    int $userId
+): string {
+
+    return
+        'deleted+'
+        .
+        str_pad(
+            (string) $userId,
+            4,
+            '0',
+            STR_PAD_LEFT
+        )
+        .
+        '@llamascout.invalid';
+}
+
+
+function cleanup_random_password_hash(): string {
+
+    $hash =
+        password_hash(
+            bin2hex(
+                random_bytes(
+                    64
+                )
+            ),
+            PASSWORD_DEFAULT
+        );
+
+
+    if (
+        !is_string(
+            $hash
+        )
+        ||
+        $hash === ''
+    ) {
+
+        throw new RuntimeException(
+            'Unable to replace account credentials.'
+        );
+    }
+
+
+    return
+        $hash;
+}
+
+
+function cleanup_assign_member_role(
+    PDO $db,
+    int $userId
+): void {
+
+    cleanup_delete_by_user_id(
+        $db,
+        'user_roles',
+        $userId
+    );
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT id
+
+            FROM roles
+
+            WHERE slug = \'member\'
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute();
+
+
+    $roleId =
+        (int)
+        $stmt->fetchColumn();
+
+
+    if (
+        $roleId < 1
+    ) {
+
+        throw new RuntimeException(
+            'The Member role is missing.'
+        );
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            INSERT INTO user_roles
+            (
+                user_id,
+                role_id
+            )
+            VALUES
+            (
+                ?,
+                ?
+            )
+            '
+        );
+
+
+    $stmt->execute([
+        $userId,
+        $roleId,
+    ]);
+}
+
+
 function cleanup_stripe_is_test_mode(): bool {
 
     try {
@@ -527,7 +653,7 @@ function cleanup_stripe_test_customer(
     ) {
 
         throw new RuntimeException(
-            'This account contains Stripe billing data. Llama Scout is not currently using a Stripe test secret key, so automatic deletion is blocked to protect live billing data.'
+            'This account contains Stripe billing data. Llama Scout is not currently using a Stripe test secret key, so automatic Stripe deletion is blocked. Resolve live billing first, then return to Account Cleanup.'
         );
     }
 
@@ -730,7 +856,8 @@ function cleanup_reset_membership_columns(
                 '
                 .
                 implode(
-                    ",\n                ",
+                    ",
+                ",
                     $assignments
                 )
                 .
@@ -744,6 +871,558 @@ function cleanup_reset_membership_columns(
     $stmt->execute(
         $params
     );
+}
+
+
+function cleanup_delete_unpublished_content(
+    PDO $db,
+    int $userId
+): void {
+
+    if (
+        cleanup_table_exists(
+            $db,
+            'place_submissions'
+        )
+        &&
+        cleanup_column_exists(
+            $db,
+            'place_submissions',
+            'user_id'
+        )
+        &&
+        cleanup_column_exists(
+            $db,
+            'place_submissions',
+            'place_id'
+        )
+    ) {
+
+        $stmt =
+            $db->prepare(
+                '
+                DELETE FROM place_submissions
+
+                WHERE user_id = ?
+                  AND place_id IS NULL
+                '
+            );
+
+
+        $stmt->execute([
+            $userId
+        ]);
+    }
+
+
+    if (
+        cleanup_table_exists(
+            $db,
+            'place_update_submissions'
+        )
+        &&
+        cleanup_column_exists(
+            $db,
+            'place_update_submissions',
+            'user_id'
+        )
+        &&
+        cleanup_column_exists(
+            $db,
+            'place_update_submissions',
+            'status'
+        )
+    ) {
+
+        $stmt =
+            $db->prepare(
+                '
+                DELETE FROM place_update_submissions
+
+                WHERE user_id = ?
+                  AND (
+                      status IS NULL
+                      OR status <> \'approved\'
+                  )
+                '
+            );
+
+
+        $stmt->execute([
+            $userId
+        ]);
+    }
+}
+
+
+function cleanup_remove_profile_files(
+    PDO $db,
+    int $userId
+): void {
+
+    if (
+        !cleanup_table_exists(
+            $db,
+            'community_profile_images'
+        )
+        ||
+        !cleanup_column_exists(
+            $db,
+            'community_profile_images',
+            'user_id'
+        )
+        ||
+        !cleanup_column_exists(
+            $db,
+            'community_profile_images',
+            'image_src'
+        )
+    ) {
+
+        return;
+    }
+
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT image_src
+
+            FROM community_profile_images
+
+            WHERE user_id = ?
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    $docRoot =
+        realpath(
+            dirname(__DIR__)
+        );
+
+
+    foreach (
+        $stmt->fetchAll(
+            PDO::FETCH_COLUMN
+        )
+        as
+        $imageSrc
+    ) {
+
+        if (
+            !is_string(
+                $imageSrc
+            )
+            ||
+            trim(
+                $imageSrc
+            ) === ''
+        ) {
+
+            continue;
+        }
+
+
+        $path =
+            parse_url(
+                $imageSrc,
+                PHP_URL_PATH
+            );
+
+
+        if (
+            !is_string(
+                $path
+            )
+            ||
+            !str_starts_with(
+                $path,
+                '/uploads/'
+            )
+            ||
+            !is_string(
+                $docRoot
+            )
+        ) {
+
+            continue;
+        }
+
+
+        $candidate =
+            dirname(__DIR__)
+            .
+            '/'
+            .
+            ltrim(
+                $path,
+                '/'
+            );
+
+
+        $realCandidate =
+            realpath(
+                $candidate
+            );
+
+
+        if (
+            $realCandidate !== false
+            &&
+            str_starts_with(
+                $realCandidate,
+                $docRoot
+                .
+                DIRECTORY_SEPARATOR
+                .
+                'uploads'
+                .
+                DIRECTORY_SEPARATOR
+            )
+            &&
+            is_file(
+                $realCandidate
+            )
+        ) {
+
+            @unlink(
+                $realCandidate
+            );
+        }
+    }
+}
+
+
+function cleanup_reset_community_profile(
+    PDO $db,
+    int $userId
+): void {
+
+    cleanup_remove_profile_files(
+        $db,
+        $userId
+    );
+
+
+    cleanup_delete_by_user_id(
+        $db,
+        'community_profile_images',
+        $userId
+    );
+
+
+    if (
+        !cleanup_table_exists(
+            $db,
+            'community_profiles'
+        )
+        ||
+        !cleanup_column_exists(
+            $db,
+            'community_profiles',
+            'user_id'
+        )
+    ) {
+
+        return;
+    }
+
+
+    $values = [
+        'is_public' => 0,
+        'bio' => null,
+        'location' => null,
+        'squad' => null,
+        'website_url' => null,
+        'instagram_url' => null,
+        'facebook_url' => null,
+        'bluesky_url' => null,
+        'youtube_url' => null,
+        'tiktok_url' => null,
+        'other_social_url' => null,
+        'camping_style' => null,
+        'favorite_places' => null,
+        'favorite_camping_music' => null,
+        'primary_image_id' => null,
+    ];
+
+
+    $assignments = [];
+
+    $params = [];
+
+
+    foreach (
+        $values
+        as
+        $column => $value
+    ) {
+
+        if (
+            cleanup_column_exists(
+                $db,
+                'community_profiles',
+                $column
+            )
+        ) {
+
+            $assignments[] =
+                '`'
+                .
+                $column
+                .
+                '` = ?';
+
+            $params[] =
+                $value;
+        }
+    }
+
+
+    if (!$assignments) {
+
+        return;
+    }
+
+
+    $params[] =
+        $userId;
+
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE community_profiles
+
+            SET
+                '
+                .
+                implode(
+                    ",
+                ",
+                    $assignments
+                )
+                .
+            '
+
+            WHERE user_id = ?
+            '
+        );
+
+
+    $stmt->execute(
+        $params
+    );
+}
+
+
+function cleanup_anonymize_user(
+    PDO $db,
+    int $userId
+): string {
+
+    $username =
+        cleanup_deleted_username(
+            $userId
+        );
+
+
+    $email =
+        cleanup_deleted_email(
+            $userId
+        );
+
+
+    $passwordHash =
+        cleanup_random_password_hash();
+
+
+    $values = [
+        'email' => $email,
+        'username' => $username,
+        'display_name' => 'Deleted User',
+        'password_hash' => $passwordHash,
+        'timezone' => 'America/Denver',
+        'status' => 'disabled',
+        'email_verified_at' => null,
+        'last_login_at' => null,
+        'dormancy_notice_sent_at' => null,
+    ];
+
+
+    $assignments = [];
+
+    $params = [];
+
+
+    foreach (
+        $values
+        as
+        $column => $value
+    ) {
+
+        if (
+            cleanup_column_exists(
+                $db,
+                'users',
+                $column
+            )
+        ) {
+
+            $assignments[] =
+                '`'
+                .
+                $column
+                .
+                '` = ?';
+
+            $params[] =
+                $value;
+        }
+    }
+
+
+    if (!$assignments) {
+
+        throw new RuntimeException(
+            'No account identity columns were available to anonymize.'
+        );
+    }
+
+
+    $params[] =
+        $userId;
+
+
+    $stmt =
+        $db->prepare(
+            '
+            UPDATE users
+
+            SET
+                '
+                .
+                implode(
+                    ",
+                ",
+                    $assignments
+                )
+                .
+            '
+
+            WHERE id = ?
+            '
+        );
+
+
+    $stmt->execute(
+        $params
+    );
+
+
+    if (
+        $stmt->rowCount() < 1
+    ) {
+
+        /*
+         * rowCount can be zero only if every stored value was
+         * already identical. Confirm the row still exists.
+         */
+
+        $check =
+            $db->prepare(
+                '
+                SELECT id
+
+                FROM users
+
+                WHERE id = ?
+
+                LIMIT 1
+                '
+            );
+
+
+        $check->execute([
+            $userId
+        ]);
+
+
+        if (
+            !$check->fetchColumn()
+        ) {
+
+            throw new RuntimeException(
+                'The user record could not be anonymized.'
+            );
+        }
+    }
+
+
+    return
+        $username;
+}
+
+
+function cleanup_reload_user(
+    PDO $db,
+    int $userId
+): ?array {
+
+    $stmt =
+        $db->prepare(
+            '
+            SELECT
+                id,
+                email,
+                username,
+                display_name,
+                timezone,
+                status,
+                email_verified_at,
+                created_at,
+                last_login_at,
+
+                stripe_customer_id,
+                stripe_subscription_id,
+                stripe_cancel_at_period_end,
+
+                membership_status,
+                membership_interval,
+                membership_started_at,
+                membership_ends_at
+
+            FROM users
+
+            WHERE id = ?
+
+            LIMIT 1
+            '
+        );
+
+
+    $stmt->execute([
+        $userId
+    ]);
+
+
+    $user =
+        $stmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
+
+    return
+        is_array(
+            $user
+        )
+            ? $user
+            : null;
 }
 
 
@@ -776,45 +1455,10 @@ if (
 }
 
 
-$stmt =
-    $db->prepare(
-        '
-        SELECT
-            id,
-            email,
-            username,
-            display_name,
-            status,
-            email_verified_at,
-            created_at,
-            last_login_at,
-
-            stripe_customer_id,
-            stripe_subscription_id,
-            stripe_cancel_at_period_end,
-
-            membership_status,
-            membership_interval,
-            membership_started_at,
-            membership_ends_at
-
-        FROM users
-
-        WHERE id = ?
-
-        LIMIT 1
-        '
-    );
-
-
-$stmt->execute([
-    $userId
-]);
-
-
 $managedUser =
-    $stmt->fetch(
-        PDO::FETCH_ASSOC
+    cleanup_reload_user(
+        $db,
+        $userId
     );
 
 
@@ -840,7 +1484,7 @@ if (
     );
 
     exit(
-        'Your Owner account cannot be deleted or reset from Account Cleanup.'
+        'Your Owner account cannot be deleted, anonymized, or reset from Account Cleanup.'
     );
 }
 
@@ -852,15 +1496,34 @@ $managedRoles =
     );
 
 
-$protectedUser =
-    cleanup_user_is_protected(
-        $managedRoles
-    )
-    ||
+$hasScoutProfile =
     cleanup_user_has_scout_profile(
         $db,
         $userId
     );
+
+
+$ownerOrAdmin =
+    cleanup_user_has_role(
+        $managedRoles,
+        [
+            'owner',
+            'admin',
+        ]
+    );
+
+
+$scoutIdentity =
+    cleanup_user_has_role(
+        $managedRoles,
+        [
+            'scout',
+            'master-scout',
+            'master_scout',
+        ]
+    )
+    ||
+    $hasScoutProfile;
 
 
 /* =========================================================
@@ -907,6 +1570,22 @@ $error =
 
 $deleted =
     false;
+
+$anonymized =
+    (
+        str_starts_with(
+            (string) (
+                $managedUser['username']
+                ?? ''
+            ),
+            'user_'
+        )
+        &&
+        (
+            $managedUser['status']
+            ?? ''
+        ) === 'disabled'
+    );
 
 
 /* =========================================================
@@ -962,23 +1641,42 @@ if (
             );
 
 
-        $protectedUser =
-            cleanup_user_is_protected(
-                $managedRoles
-            )
-            ||
+        $hasScoutProfile =
             cleanup_user_has_scout_profile(
                 $db,
                 $userId
             );
 
 
+        $ownerOrAdmin =
+            cleanup_user_has_role(
+                $managedRoles,
+                [
+                    'owner',
+                    'admin',
+                ]
+            );
+
+
+        $scoutIdentity =
+            cleanup_user_has_role(
+                $managedRoles,
+                [
+                    'scout',
+                    'master-scout',
+                    'master_scout',
+                ]
+            )
+            ||
+            $hasScoutProfile;
+
+
         if (
-            $protectedUser
+            $ownerOrAdmin
         ) {
 
             $error =
-                'Owner, Admin, Scout, Master Scout, and Scout-onboarding accounts are protected from Account Cleanup.';
+                'Owner and Admin accounts are protected from Account Cleanup. Remove privileged access through the proper administration workflow first.';
 
 
         } elseif (
@@ -1008,12 +1706,14 @@ if (
                         ]
                     );
 
+
                 $clearUnpublishedSubmissions =
                     isset(
                         $_POST[
                             'clear_unpublished_submissions'
                         ]
                     );
+
 
                 $clearPlaceUpdates =
                     isset(
@@ -1048,6 +1748,7 @@ if (
                         'user_saved_places',
                         $userId
                     );
+
 
                     cleanup_delete_by_user_id(
                         $db,
@@ -1143,18 +1844,6 @@ if (
                     'user',
                     $userId,
                     [
-                        'username' =>
-                            $managedUser[
-                                'username'
-                            ]
-                            ?? null,
-
-                        'email' =>
-                            $managedUser[
-                                'email'
-                            ]
-                            ?? null,
-
                         'stripe_test_mode' =>
                             cleanup_stripe_is_test_mode(),
 
@@ -1178,49 +1867,10 @@ if (
                     'Membership test state was reset successfully.';
 
 
-                /*
-                 * Reload user state after reset.
-                 */
-
-                $stmt =
-                    $db->prepare(
-                        '
-                        SELECT
-                            id,
-                            email,
-                            username,
-                            display_name,
-                            status,
-                            email_verified_at,
-                            created_at,
-                            last_login_at,
-
-                            stripe_customer_id,
-                            stripe_subscription_id,
-                            stripe_cancel_at_period_end,
-
-                            membership_status,
-                            membership_interval,
-                            membership_started_at,
-                            membership_ends_at
-
-                        FROM users
-
-                        WHERE id = ?
-
-                        LIMIT 1
-                        '
-                    );
-
-
-                $stmt->execute([
-                    $userId
-                ]);
-
-
                 $managedUser =
-                    $stmt->fetch(
-                        PDO::FETCH_ASSOC
+                    cleanup_reload_user(
+                        $db,
+                        $userId
                     );
 
 
@@ -1254,69 +1904,39 @@ if (
 
         } elseif (
             $action ===
-            'permanently_delete_account'
+            'anonymize_account'
         ) {
 
             try {
 
-                /*
-                 * Re-check important history immediately
-                 * before deletion.
-                 */
-
-                $publishedPlaces =
-                    cleanup_published_place_count(
-                        $db,
-                        $userId
-                    );
-
-
-                $approvedUpdates =
-                    cleanup_approved_update_count(
-                        $db,
-                        $userId
-                    );
-
-
-                if (
-                    $publishedPlaces > 0
-                ) {
-
-                    throw new RuntimeException(
-                        'This account has one or more submissions already published as Places. Permanent deletion is blocked so published provenance is preserved.'
-                    );
-                }
-
-
-                if (
-                    $approvedUpdates > 0
-                ) {
-
-                    throw new RuntimeException(
-                        'This account has approved Place Update history. Permanent deletion is blocked so contribution provenance is preserved.'
-                    );
-                }
-
-
                 if (
                     !isset(
                         $_POST[
-                            'understand_delete'
+                            'understand_anonymize'
                         ]
                     )
                 ) {
 
                     throw new RuntimeException(
-                        'Confirm that you understand permanent deletion cannot be undone.'
+                        'Confirm that you understand anonymization permanently removes the account identity and privileges.'
+                    );
+                }
+
+
+                if (
+                    $anonymized
+                ) {
+
+                    throw new RuntimeException(
+                        'This account has already been anonymized.'
                     );
                 }
 
 
                 /*
-                 * If Stripe test objects are attached, remove
-                 * them before changing the local database.
-                 *
-                 * Live Stripe-linked accounts will be blocked.
+                 * Test Stripe records can be removed
+                 * automatically. Live Stripe-linked accounts
+                 * must have live billing resolved first.
                  */
 
                 cleanup_stripe_test_customer(
@@ -1335,23 +1955,304 @@ if (
 
 
                 /*
-                 * Remove known disposable account-owned data.
-                 *
-                 * If another database table has a restrictive
-                 * foreign key we have not accounted for, the
-                 * final DELETE FROM users will fail and this
-                 * transaction will roll back instead of leaving
-                 * a partially deleted account.
+                 * Remove personal / reusable account state.
                  */
+
+                cleanup_delete_by_user_id(
+                    $db,
+                    'user_remember_tokens',
+                    $userId
+                );
+
+
+                cleanup_delete_by_user_id(
+                    $db,
+                    'email_verifications',
+                    $userId
+                );
+
+
+                cleanup_delete_by_user_id(
+                    $db,
+                    'password_resets',
+                    $userId
+                );
+
+
+                cleanup_delete_by_user_id(
+                    $db,
+                    'membership_grants',
+                    $userId
+                );
+
+
+                cleanup_delete_by_user_id(
+                    $db,
+                    'user_saved_places',
+                    $userId
+                );
+
+
+                cleanup_delete_by_user_id(
+                    $db,
+                    'saved_places',
+                    $userId
+                );
+
+
+                /*
+                 * Badges and Scout privileges are forfeited.
+                 * Historical Scout/place contributions are
+                 * intentionally NOT deleted.
+                 */
+
+                cleanup_delete_by_user_id(
+                    $db,
+                    'user_badges',
+                    $userId
+                );
+
+
+                cleanup_delete_by_user_id(
+                    $db,
+                    'scout_profiles',
+                    $userId
+                );
+
+
+                cleanup_delete_by_user_id(
+                    $db,
+                    'scout_applications',
+                    $userId
+                );
+
+
+                cleanup_reset_community_profile(
+                    $db,
+                    $userId
+                );
+
+
+                /*
+                 * Draft/unapproved contribution material does
+                 * not need to survive account deletion.
+                 * Published and approved history remains tied
+                 * to the stable numeric user ID.
+                 */
+
+                cleanup_delete_unpublished_content(
+                    $db,
+                    $userId
+                );
+
+
+                /*
+                 * Remove all privileged roles and leave only
+                 * the neutral Member role for referential and
+                 * display consistency. The account itself is
+                 * disabled and cannot authenticate.
+                 */
+
+                cleanup_assign_member_role(
+                    $db,
+                    $userId
+                );
+
+
+                cleanup_reset_membership_columns(
+                    $db,
+                    $userId
+                );
+
+
+                $anonymousUsername =
+                    cleanup_anonymize_user(
+                        $db,
+                        $userId
+                    );
+
+
+                /*
+                 * Do not record the old username, display
+                 * name, or email in the audit payload.
+                 */
+
+                llama_membership_audit(
+                    $db,
+                    $ownerId,
+                    'account_anonymized',
+                    'user',
+                    $userId,
+                    [
+                        'replacement_username' =>
+                            $anonymousUsername,
+
+                        'published_places_preserved' =>
+                            cleanup_published_place_count(
+                                $db,
+                                $userId
+                            ),
+
+                        'approved_updates_preserved' =>
+                            cleanup_approved_update_count(
+                                $db,
+                                $userId
+                            ),
+                    ]
+                );
+
+
+                $db->commit();
+
+
+                $anonymized =
+                    true;
+
+
+                $message =
+                    'The account was anonymized. Personal identity, badges, profile data, saved data, membership access, and Scout privileges were removed while historical contribution provenance was preserved.';
+
+
+                $managedUser =
+                    cleanup_reload_user(
+                        $db,
+                        $userId
+                    );
+
+
+                $managedRoles =
+                    cleanup_user_roles(
+                        $db,
+                        $userId
+                    );
+
+
+                $scoutIdentity =
+                    false;
+
+
+            } catch (
+                Throwable $exception
+            ) {
+
+                if (
+                    $db->inTransaction()
+                ) {
+
+                    $db->rollBack();
+                }
+
+
+                error_log(
+                    'Llama Scout account anonymization error for user #'
+                    .
+                    $userId
+                    .
+                    ': '
+                    .
+                    $exception->getMessage()
+                );
+
+
+                $error =
+                    $exception->getMessage();
+            }
+
+
+        } elseif (
+            $action ===
+            'permanently_delete_account'
+        ) {
+
+            try {
+
+                $publishedPlaces =
+                    cleanup_published_place_count(
+                        $db,
+                        $userId
+                    );
+
+
+                $approvedUpdates =
+                    cleanup_approved_update_count(
+                        $db,
+                        $userId
+                    );
+
+
+                if (
+                    $scoutIdentity
+                ) {
+
+                    throw new RuntimeException(
+                        'This account has Scout or Master Scout identity/history. Anonymize it instead of permanently deleting it.'
+                    );
+                }
+
+
+                if (
+                    $publishedPlaces > 0
+                    ||
+                    $approvedUpdates > 0
+                ) {
+
+                    throw new RuntimeException(
+                        'This account has published contribution history. Anonymize it instead so Llama Scout can preserve historical provenance.'
+                    );
+                }
+
+
+                if (
+                    !isset(
+                        $_POST[
+                            'understand_delete'
+                        ]
+                    )
+                ) {
+
+                    throw new RuntimeException(
+                        'Confirm that you understand permanent deletion cannot be undone.'
+                    );
+                }
+
+
+                cleanup_stripe_test_customer(
+                    $managedUser[
+                        'stripe_subscription_id'
+                    ]
+                    ?? null,
+                    $managedUser[
+                        'stripe_customer_id'
+                    ]
+                    ?? null
+                );
+
+
+                $db->beginTransaction();
+
+
+                cleanup_remove_profile_files(
+                    $db,
+                    $userId
+                );
+
 
                 $accountTables = [
 
+                    'user_remember_tokens',
                     'user_saved_places',
                     'saved_places',
                     'membership_grants',
+                    'community_profile_images',
+                    'community_profiles',
+                    'user_badges',
+                    'scout_profiles',
+                    'scout_applications',
                     'place_update_submissions',
                     'email_verifications',
                     'password_resets',
+                    'place_submissions',
+                    'user_roles',
                 ];
 
 
@@ -1368,34 +2269,6 @@ if (
                     );
                 }
 
-
-                /*
-                 * At this point published Place submissions
-                 * have already been ruled out, so remaining
-                 * submission records are disposable.
-                 */
-
-                cleanup_delete_by_user_id(
-                    $db,
-                    'place_submissions',
-                    $userId
-                );
-
-
-                /*
-                 * Roles belong to the account identity.
-                 */
-
-                cleanup_delete_by_user_id(
-                    $db,
-                    'user_roles',
-                    $userId
-                );
-
-
-                /*
-                 * Delete the user last.
-                 */
 
                 $stmt =
                     $db->prepare(
@@ -1431,7 +2304,7 @@ if (
 
 
                 $message =
-                    'The account and its disposable account data were permanently removed from Llama Scout.';
+                    'The disposable account and its account-owned data were permanently removed from Llama Scout.';
 
 
             } catch (
@@ -1498,6 +2371,32 @@ $approvedUpdateCount =
         : 0;
 
 
+if (
+    !$deleted
+    &&
+    is_array(
+        $managedUser
+    )
+) {
+
+    $anonymized =
+        (
+            str_starts_with(
+                (string) (
+                    $managedUser['username']
+                    ?? ''
+                ),
+                'user_'
+            )
+            &&
+            (
+                $managedUser['status']
+                ?? ''
+            ) === 'disabled'
+        );
+}
+
+
 ?>
 <!doctype html>
 
@@ -1537,177 +2436,10 @@ $approvedUpdateCount =
     href="https://llamascout.com/css/admin.css"
   >
 
-
-  <style>
-
-    .cleanup-main {
-      width: min(100%, 980px);
-      margin: 0 auto;
-      padding: 34px 18px 80px;
-    }
-
-
-    .cleanup-back {
-      margin-bottom: 28px;
-    }
-
-
-    .cleanup-section {
-      margin-top: 24px;
-    }
-
-
-    .cleanup-card {
-      padding: 22px;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 16px;
-      background: rgba(18,34,29,.84);
-    }
-
-
-    .cleanup-card h2,
-    .cleanup-card h3 {
-      margin-top: 0;
-    }
-
-
-    .cleanup-card p {
-      line-height: 1.55;
-    }
-
-
-    .cleanup-summary {
-      display: grid;
-      grid-template-columns:
-        repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-
-    .cleanup-summary > div {
-      padding: 12px 14px;
-      border-radius: 10px;
-      background: rgba(255,255,255,.045);
-    }
-
-
-    .cleanup-summary span {
-      display: block;
-      margin-bottom: 3px;
-      font-size: .7rem;
-      opacity: .62;
-    }
-
-
-    .cleanup-summary strong {
-      overflow-wrap: anywhere;
-    }
-
-
-    .cleanup-notice {
-      margin-bottom: 16px;
-      padding: 13px 15px;
-      border-radius: 10px;
-      line-height: 1.5;
-    }
-
-
-    .cleanup-notice--success {
-      border: 1px solid rgba(53,110,78,.38);
-      background: rgba(53,110,78,.18);
-    }
-
-
-    .cleanup-notice--error {
-      border: 1px solid rgba(190,68,56,.45);
-      background: rgba(139,55,55,.18);
-    }
-
-
-    .cleanup-notice--warning {
-      border: 1px solid rgba(175,126,31,.40);
-      background: rgba(175,126,31,.14);
-    }
-
-
-    .cleanup-checks {
-      display: grid;
-      gap: 9px;
-      margin: 16px 0;
-    }
-
-
-    .cleanup-check {
-      display: flex;
-      align-items: flex-start;
-      gap: 9px;
-      line-height: 1.45;
-    }
-
-
-    .cleanup-check input {
-      margin-top: 3px;
-    }
-
-
-    .cleanup-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 9px;
-      margin-top: 16px;
-    }
-
-
-    .cleanup-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      min-height: 42px;
-      padding: 9px 14px;
-      border: 0;
-      border-radius: 8px;
-      background: #172822;
-      color: #fff;
-      text-decoration: none;
-      font: inherit;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-
-    .cleanup-button--danger {
-      background: #b6382e;
-    }
-
-
-    .cleanup-button:disabled {
-      opacity: .45;
-      cursor: not-allowed;
-    }
-
-
-    .cleanup-danger {
-      border-color: rgba(190,68,56,.35);
-      background: rgba(80,25,22,.18);
-    }
-
-
-    code {
-      overflow-wrap: anywhere;
-    }
-
-
-    @media (max-width: 680px) {
-
-      .cleanup-summary {
-        grid-template-columns: 1fr;
-      }
-
-    }
-
-  </style>
+  <link
+    rel="stylesheet"
+    href="https://llamascout.com/css/admin-user-cleanup.css"
+  >
 
 </head>
 
@@ -1754,9 +2486,9 @@ require_once
         </h1>
 
         <p>
-          Review an account, reset reusable membership-test
-          data, or permanently remove a disposable account
-          without erasing protected Llama Scout history.
+          Reset reusable membership-test data, anonymize an
+          account-deletion request while preserving historical
+          provenance, or permanently remove a disposable account.
         </p>
 
       </div>
@@ -1845,12 +2577,16 @@ require_once
         were removed as part of the same transaction.
       </p>
 
-      <a
-        href="users.php"
-        class="cleanup-button"
-      >
-        View Users
-      </a>
+      <div class="cleanup-actions">
+
+        <a
+          href="users.php"
+          class="cleanup-button"
+        >
+          View Users
+        </a>
+
+      </div>
 
     </section>
 
@@ -1881,7 +2617,35 @@ require_once
       </h2>
 
 
+      <?php if (
+          $anonymized
+      ): ?>
+
+        <div
+          class="
+            cleanup-notice
+            cleanup-notice--info
+          "
+        >
+          This user identity has already been anonymized.
+          Historical records can continue to reference user
+          #<?= (int) $userId ?> without exposing the former
+          account identity.
+        </div>
+
+      <?php endif; ?>
+
+
       <div class="cleanup-summary">
+
+        <div>
+          <span>User ID</span>
+
+          <strong>
+            #<?= (int) $userId ?>
+          </strong>
+        </div>
+
 
         <div>
           <span>Username</span>
@@ -1905,6 +2669,20 @@ require_once
                 $managedUser[
                     'email'
                 ]
+            ) ?>
+          </strong>
+        </div>
+
+
+        <div>
+          <span>Time Zone</span>
+
+          <strong>
+            <?= e(
+                $managedUser[
+                    'timezone'
+                ]
+                ?: 'Not set'
             ) ?>
           </strong>
         </div>
@@ -1956,7 +2734,7 @@ require_once
                         'last_login_at'
                     ]
                 )
-                : 'Never'
+                : 'Never / cleared'
             ?>
           </strong>
         </div>
@@ -1972,6 +2750,44 @@ require_once
                 ]
                 ?: 'none'
             ) ?>
+          </strong>
+        </div>
+
+
+        <div>
+          <span>Roles</span>
+
+          <strong>
+            <?= e(
+                $managedRoles
+                    ? implode(
+                        ', ',
+                        $managedRoles
+                    )
+                    : 'None'
+            ) ?>
+          </strong>
+        </div>
+
+
+        <div>
+          <span>Published Places</span>
+
+          <strong>
+            <?= (int)
+                $publishedPlaceCount
+            ?>
+          </strong>
+        </div>
+
+
+        <div>
+          <span>Approved Updates</span>
+
+          <strong>
+            <?= (int)
+                $approvedUpdateCount
+            ?>
           </strong>
         </div>
 
@@ -2025,19 +2841,37 @@ require_once
 
 
     <?php if (
-        $protectedUser
+        $ownerOrAdmin
     ): ?>
 
       <div
         class="
           cleanup-notice
           cleanup-notice--warning
+          cleanup-notice--spaced
         "
-        style="margin-top:18px;"
       >
-        This account has a protected Owner, Admin, Scout,
-        Master Scout, or Scout-onboarding identity.
-        Permanent deletion and membership reset are disabled.
+        This account currently has Owner or Admin privileges.
+        Account Cleanup is disabled until those privileged
+        roles are removed through the proper administration
+        workflow.
+      </div>
+
+    <?php elseif (
+        $scoutIdentity
+    ): ?>
+
+      <div
+        class="
+          cleanup-notice
+          cleanup-notice--info
+          cleanup-notice--spaced
+        "
+      >
+        This account has Scout or Master Scout identity.
+        Anonymization is allowed and will remove those
+        privileges while preserving historical Scout
+        contribution provenance.
       </div>
 
     <?php endif; ?>
@@ -2056,9 +2890,9 @@ require_once
         </h2>
 
         <p>
-          This section is only for reusing an account during
-          membership and Stripe testing. It does not delete
-          the account itself.
+          Use this only for reusing an account during
+          membership and Stripe testing. It keeps the account
+          itself and does not honor an account-deletion request.
         </p>
 
 
@@ -2092,7 +2926,8 @@ require_once
           <?php else: ?>
 
             Accounts containing Stripe billing IDs cannot be
-            automatically reset or deleted through this tool.
+            automatically reset through this tool until live
+            billing has been resolved.
 
           <?php endif; ?>
 
@@ -2180,7 +3015,11 @@ require_once
             <button
               type="submit"
               class="cleanup-button"
-              <?= $protectedUser
+              <?= (
+                  $ownerOrAdmin
+                  ||
+                  $anonymized
+              )
                   ? 'disabled'
                   : ''
               ?>
@@ -2192,6 +3031,200 @@ require_once
               ></i>
 
               Reset Membership Test
+
+            </button>
+
+          </div>
+
+        </form>
+
+      </article>
+
+    </section>
+
+
+    <!-- ===================================================
+         ACCOUNT ANONYMIZATION
+         =================================================== -->
+
+    <section class="cleanup-section">
+
+      <article
+        class="
+          cleanup-card
+          cleanup-anonymize
+        "
+      >
+
+        <h2>
+          Anonymize Deleted Account
+        </h2>
+
+        <p>
+          This is the normal account-deletion workflow when
+          Llama Scout must preserve historical contributions.
+          The stable numeric user ID remains, but the user's
+          personal identity and account privileges are removed.
+        </p>
+
+
+        <div
+          class="
+            cleanup-notice
+            cleanup-notice--warning
+          "
+        >
+          The account will become
+          <strong><?= e(
+              cleanup_deleted_username(
+                  $userId
+              )
+          ) ?></strong>
+          with display name
+          <strong>Deleted User</strong>,
+          Mountain Time, disabled login, no badges, no Scout
+          or Master Scout status, no public profile, no saved
+          places, and no active membership access.
+        </div>
+
+
+        <ul class="cleanup-detail-list">
+          <li>
+            Published Places and approved Place Updates remain
+            tied to user #<?= (int) $userId ?>.
+          </li>
+          <li>
+            Draft and non-approved Place submissions are removed.
+          </li>
+          <li>
+            Profile photos, profile details, social links,
+            badges, saved places, login tokens, and credentials
+            are removed or replaced.
+          </li>
+          <li>
+            The original email, username, and display name are
+            not copied into the anonymization audit payload.
+          </li>
+          <li>
+            Existing order, payment, accounting, security, or
+            other records may remain where Llama Scout has a
+            legitimate retention reason.
+          </li>
+        </ul>
+
+
+        <?php if (
+            !$stripeTestMode
+            &&
+            (
+                !empty(
+                    $managedUser[
+                        'stripe_customer_id'
+                    ]
+                )
+                ||
+                !empty(
+                    $managedUser[
+                        'stripe_subscription_id'
+                    ]
+                )
+            )
+        ): ?>
+
+          <div
+            class="
+              cleanup-notice
+              cleanup-notice--warning
+              cleanup-notice--spaced
+            "
+          >
+            This account still has live Stripe identifiers.
+            Resolve/cancel live billing first. The anonymization
+            action will intentionally refuse to continue while
+            those identifiers remain attached.
+          </div>
+
+        <?php endif; ?>
+
+
+        <form method="post">
+
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= e(
+                $csrfToken
+            ) ?>"
+          >
+
+          <input
+            type="hidden"
+            name="user_id"
+            value="<?= (int)
+                $userId
+            ?>"
+          >
+
+          <input
+            type="hidden"
+            name="action"
+            value="anonymize_account"
+          >
+
+
+          <label
+            class="
+              cleanup-check
+              cleanup-confirm
+            "
+          >
+
+            <input
+              type="checkbox"
+              name="understand_anonymize"
+              value="1"
+              required
+            >
+
+            <span>
+              I understand this permanently removes the
+              user's personal account identity, badges,
+              membership access, and Scout privileges while
+              preserving required historical records.
+            </span>
+
+          </label>
+
+
+          <div class="cleanup-actions">
+
+            <button
+              type="submit"
+              class="
+                cleanup-button
+                cleanup-button--anonymize
+              "
+              onclick="
+                return confirm(
+                  'Anonymize this account? Personal identity and privileges will be permanently removed while historical contribution records are preserved.'
+                );
+              "
+              <?= (
+                  $ownerOrAdmin
+                  ||
+                  $anonymized
+              )
+                  ? 'disabled'
+                  : ''
+              ?>
+            >
+
+              <i
+                class="fa-solid fa-user-shield"
+                aria-hidden="true"
+              ></i>
+
+              Anonymize Account
 
             </button>
 
@@ -2218,13 +3251,13 @@ require_once
       >
 
         <h2>
-          Permanently Delete Account
+          Permanently Delete Disposable Account
         </h2>
 
         <p>
-          This permanently removes the user identity and
-          disposable account-owned database records.
-          It cannot be undone.
+          This removes the user row entirely. Use it only when
+          there is no published contribution history that needs
+          the stable user ID for provenance.
         </p>
 
 
@@ -2266,18 +3299,22 @@ require_once
             $publishedPlaceCount > 0
             ||
             $approvedUpdateCount > 0
+            ||
+            $scoutIdentity
         ): ?>
 
           <div
             class="
               cleanup-notice
               cleanup-notice--warning
+              cleanup-notice--spaced
             "
-            style="margin-top:16px;"
           >
             Permanent deletion is blocked because this
-            account has published contribution history
-            that Llama Scout should preserve.
+            account has historical contribution or Scout
+            provenance. Use
+            <strong>Anonymize Deleted Account</strong>
+            instead.
           </div>
 
         <?php endif; ?>
@@ -2309,8 +3346,10 @@ require_once
 
 
           <label
-            class="cleanup-check"
-            style="margin-top:18px;"
+            class="
+              cleanup-check
+              cleanup-confirm
+            "
           >
 
             <input
@@ -2322,7 +3361,7 @@ require_once
 
             <span>
               I understand this permanently removes this
-              account and cannot be undone.
+              disposable account and cannot be undone.
             </span>
 
           </label>
@@ -2338,11 +3377,13 @@ require_once
               "
               onclick="
                 return confirm(
-                  'Permanently delete this account from Llama Scout? This cannot be undone.'
+                  'Permanently delete this disposable account from Llama Scout? This cannot be undone.'
                 );
               "
               <?= (
-                  $protectedUser
+                  $ownerOrAdmin
+                  ||
+                  $scoutIdentity
                   ||
                   $publishedPlaceCount > 0
                   ||
