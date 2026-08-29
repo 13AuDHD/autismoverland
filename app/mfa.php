@@ -146,18 +146,6 @@ function llama_mfa_encryption_key(): string {
 
     if (
         !function_exists(
-            'sodium_crypto_secretbox'
-        )
-    ) {
-
-        throw new RuntimeException(
-            'The PHP Sodium extension is required for Llama Scout MFA.'
-        );
-    }
-
-
-    if (
-        !function_exists(
             'llama_config'
         )
     ) {
@@ -175,7 +163,11 @@ function llama_mfa_encryption_key(): string {
     $hex =
         trim(
             (string) (
-                $config['mfa']['encryption_key']
+                $config[
+                    'mfa'
+                ][
+                    'encryption_key'
+                ]
                 ?? ''
             )
         );
@@ -208,8 +200,7 @@ function llama_mfa_encryption_key(): string {
         strlen(
             $key
         )
-        !==
-        SODIUM_CRYPTO_SECRETBOX_KEYBYTES
+        !== 32
     ) {
 
         throw new RuntimeException(
@@ -248,26 +239,146 @@ function llama_mfa_encrypt_secret(
     }
 
 
-    $nonce =
-        random_bytes(
-            SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
-        );
+    $key =
+        llama_mfa_encryption_key();
 
 
-    $ciphertext =
-        sodium_crypto_secretbox(
-            $secret,
-            $nonce,
-            llama_mfa_encryption_key()
-        );
+    /*
+     * Prefer Sodium when the server provides it.
+     */
+
+    if (
+        function_exists(
+            'sodium_crypto_secretbox'
+        )
+        &&
+        defined(
+            'SODIUM_CRYPTO_SECRETBOX_NONCEBYTES'
+        )
+    ) {
+
+        $nonce =
+            random_bytes(
+                SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
+            );
 
 
-    return
-        base64_encode(
-            $nonce
+        $ciphertext =
+            sodium_crypto_secretbox(
+                $secret,
+                $nonce,
+                $key
+            );
+
+
+        return
+            'sodium:'
             .
-            $ciphertext
-        );
+            base64_encode(
+                $nonce
+                .
+                $ciphertext
+            );
+    }
+
+
+    /*
+     * Portable fallback for hosts without Sodium.
+     */
+
+    if (
+        function_exists(
+            'openssl_encrypt'
+        )
+        &&
+        function_exists(
+            'openssl_decrypt'
+        )
+    ) {
+
+        $cipher =
+            'aes-256-gcm';
+
+
+        $ivLength =
+            openssl_cipher_iv_length(
+                $cipher
+            );
+
+
+        if (
+            !is_int(
+                $ivLength
+            )
+            ||
+            $ivLength < 1
+        ) {
+
+            throw new RuntimeException(
+                'OpenSSL could not determine a valid MFA encryption IV length.'
+            );
+        }
+
+
+        $iv =
+            random_bytes(
+                $ivLength
+            );
+
+
+        $tag =
+            '';
+
+
+        $ciphertext =
+            openssl_encrypt(
+                $secret,
+                $cipher,
+                $key,
+                OPENSSL_RAW_DATA,
+                $iv,
+                $tag,
+                '',
+                16
+            );
+
+
+        if (
+            !is_string(
+                $ciphertext
+            )
+            ||
+            $ciphertext === ''
+            ||
+            !is_string(
+                $tag
+            )
+            ||
+            $tag === ''
+        ) {
+
+            throw new RuntimeException(
+                'MFA secret could not be encrypted.'
+            );
+        }
+
+
+        return
+            'openssl:'
+            .
+            base64_encode(
+                $iv
+                .
+                $tag
+                .
+                $ciphertext
+            );
+    }
+
+
+    throw new RuntimeException(
+        'This server does not provide Sodium or OpenSSL encryption required for MFA.'
+    );
 }
 
 
@@ -275,23 +386,14 @@ function llama_mfa_decrypt_secret(
     string $encrypted
 ): string {
 
-    $decoded =
-        base64_decode(
-            $encrypted,
-            true
+    $encrypted =
+        trim(
+            $encrypted
         );
 
 
     if (
-        !is_string(
-            $decoded
-        )
-        ||
-        strlen(
-            $decoded
-        )
-        <=
-        SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
+        $encrypted === ''
     ) {
 
         throw new RuntimeException(
@@ -300,42 +402,295 @@ function llama_mfa_decrypt_secret(
     }
 
 
-    $nonce =
-        substr(
-            $decoded,
-            0,
-            SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
-        );
+    $key =
+        llama_mfa_encryption_key();
 
 
-    $ciphertext =
-        substr(
-            $decoded,
-            SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
-        );
-
-
-    $plain =
-        sodium_crypto_secretbox_open(
-            $ciphertext,
-            $nonce,
-            llama_mfa_encryption_key()
-        );
-
+    /*
+     * Current Sodium format.
+     */
 
     if (
-        $plain === false
+        str_starts_with(
+            $encrypted,
+            'sodium:'
+        )
     ) {
 
-        throw new RuntimeException(
-            'Stored MFA secret could not be decrypted.'
-        );
+        if (
+            !function_exists(
+                'sodium_crypto_secretbox_open'
+            )
+            ||
+            !defined(
+                'SODIUM_CRYPTO_SECRETBOX_NONCEBYTES'
+            )
+        ) {
+
+            throw new RuntimeException(
+                'This MFA secret requires PHP Sodium, but Sodium is not available on this server.'
+            );
+        }
+
+
+        $decoded =
+            base64_decode(
+                substr(
+                    $encrypted,
+                    7
+                ),
+                true
+            );
+
+
+        if (
+            !is_string(
+                $decoded
+            )
+            ||
+            strlen(
+                $decoded
+            )
+            <=
+            SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
+        ) {
+
+            throw new RuntimeException(
+                'Stored MFA secret is invalid.'
+            );
+        }
+
+
+        $nonce =
+            substr(
+                $decoded,
+                0,
+                SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
+            );
+
+
+        $ciphertext =
+            substr(
+                $decoded,
+                SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
+            );
+
+
+        $plain =
+            sodium_crypto_secretbox_open(
+                $ciphertext,
+                $nonce,
+                $key
+            );
+
+
+        if (
+            $plain === false
+        ) {
+
+            throw new RuntimeException(
+                'Stored MFA secret could not be decrypted.'
+            );
+        }
+
+
+        return
+            $plain;
     }
 
 
-    return
-        $plain;
+    /*
+     * OpenSSL AES-256-GCM format.
+     */
+
+    if (
+        str_starts_with(
+            $encrypted,
+            'openssl:'
+        )
+    ) {
+
+        if (
+            !function_exists(
+                'openssl_decrypt'
+            )
+        ) {
+
+            throw new RuntimeException(
+                'This MFA secret requires OpenSSL, but OpenSSL is not available on this server.'
+            );
+        }
+
+
+        $cipher =
+            'aes-256-gcm';
+
+
+        $ivLength =
+            openssl_cipher_iv_length(
+                $cipher
+            );
+
+
+        $decoded =
+            base64_decode(
+                substr(
+                    $encrypted,
+                    8
+                ),
+                true
+            );
+
+
+        if (
+            !is_int(
+                $ivLength
+            )
+            ||
+            $ivLength < 1
+            ||
+            !is_string(
+                $decoded
+            )
+            ||
+            strlen(
+                $decoded
+            )
+            <=
+            $ivLength + 16
+        ) {
+
+            throw new RuntimeException(
+                'Stored MFA secret is invalid.'
+            );
+        }
+
+
+        $iv =
+            substr(
+                $decoded,
+                0,
+                $ivLength
+            );
+
+
+        $tag =
+            substr(
+                $decoded,
+                $ivLength,
+                16
+            );
+
+
+        $ciphertext =
+            substr(
+                $decoded,
+                $ivLength + 16
+            );
+
+
+        $plain =
+            openssl_decrypt(
+                $ciphertext,
+                $cipher,
+                $key,
+                OPENSSL_RAW_DATA,
+                $iv,
+                $tag
+            );
+
+
+        if (
+            $plain === false
+        ) {
+
+            throw new RuntimeException(
+                'Stored MFA secret could not be decrypted.'
+            );
+        }
+
+
+        return
+            $plain;
+    }
+
+
+    /*
+     * Legacy pre-prefix Sodium format.
+     *
+     * This preserves compatibility if any MFA record was
+     * successfully created before the storage format gained
+     * an explicit encryption prefix.
+     */
+
+    if (
+        function_exists(
+            'sodium_crypto_secretbox_open'
+        )
+        &&
+        defined(
+            'SODIUM_CRYPTO_SECRETBOX_NONCEBYTES'
+        )
+    ) {
+
+        $decoded =
+            base64_decode(
+                $encrypted,
+                true
+            );
+
+
+        if (
+            is_string(
+                $decoded
+            )
+            &&
+            strlen(
+                $decoded
+            )
+            >
+            SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
+        ) {
+
+            $nonce =
+                substr(
+                    $decoded,
+                    0,
+                    SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
+                );
+
+
+            $ciphertext =
+                substr(
+                    $decoded,
+                    SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
+                );
+
+
+            $plain =
+                sodium_crypto_secretbox_open(
+                    $ciphertext,
+                    $nonce,
+                    $key
+                );
+
+
+            if (
+                $plain !== false
+            ) {
+
+                return
+                    $plain;
+            }
+        }
+    }
+
+
+    throw new RuntimeException(
+        'Stored MFA secret uses an unsupported encryption format.'
+    );
 }
+
 
 
 /* =========================================================
