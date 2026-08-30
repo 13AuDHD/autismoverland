@@ -3889,114 +3889,143 @@ require
       <?php endif; ?>
 
 
-      <!-- ===============================================
-           RESET TEST STATE
-           =============================================== -->
+<!-- ===============================================
+     RESET TEST STATE
+     =============================================== -->
 
-      <article class="admin-cleanup-card">
+<article class="admin-cleanup-card">
 
-        <div>
+  <div>
 
-          <h3>
-            Reset Membership Test
-          </h3>
+    <h3>
+      Reset Test Data
+    </h3>
 
-          <p>
-            Keep the account but remove reusable membership
-            test state so it can go through membership testing
-            again.
-          </p>
+    <p>
+      Keep the user account and choose exactly which test
+      data should be removed.
+    </p>
 
-        </div>
+  </div>
 
 
-        <form
-          method="post"
-          class="admin-form"
+  <form
+    method="post"
+    class="admin-form"
+  >
+
+    <input
+      type="hidden"
+      name="action"
+      value="reset_membership_test"
+    >
+
+    <input
+      type="hidden"
+      name="user_id"
+      value="<?= $userId ?>"
+    >
+
+    <input
+      type="hidden"
+      name="csrf_token"
+      value="<?= e(
+          $csrfToken
+      ) ?>"
+    >
+
+
+    <div class="admin-cleanup-checks">
+
+
+      <label class="admin-cleanup-check">
+
+        <input
+          type="checkbox"
+          name="clear_stripe_test_data"
+          value="1"
         >
 
-          <input
-            type="hidden"
-            name="action"
-            value="reset_membership_test"
-          >
+        <span>
+          <strong>
+            Remove Stripe Test Membership
+          </strong>
+          <br>
+          Cancel the Stripe test subscription, remove the
+          Stripe test customer, and return this account's
+          paid membership state to Free.
+        </span>
 
-          <input
-            type="hidden"
-            name="user_id"
-            value="<?= $userId ?>"
-          >
-
-          <input
-            type="hidden"
-            name="csrf_token"
-            value="<?= e(
-                $csrfToken
-            ) ?>"
-          >
+      </label>
 
 
-          <div class="admin-cleanup-checks">
+      <label class="admin-cleanup-check">
 
-            <label class="admin-cleanup-check">
+        <input
+          type="checkbox"
+          name="clear_saved_places"
+          value="1"
+        >
 
-              <input
-                type="checkbox"
-                name="clear_saved_places"
-                value="1"
-                checked
-              >
+        <span>
+          Clear Saved Places
+        </span>
 
-              <span>
-                Clear Saved Places
-              </span>
-
-            </label>
+      </label>
 
 
-            <label class="admin-cleanup-check">
+      <label class="admin-cleanup-check">
 
-              <input
-                type="checkbox"
-                name="clear_unpublished_submissions"
-                value="1"
-              >
+        <input
+          type="checkbox"
+          name="clear_unpublished_submissions"
+          value="1"
+        >
 
-              <span>
-                Clear draft and non-approved submissions
-              </span>
+        <span>
+          Clear draft and non-approved submissions
+        </span>
 
-            </label>
-
-          </div>
+      </label>
 
 
-          <div class="admin-form-actions">
+    </div>
 
-            <button
-              type="submit"
-              class="admin-button"
-              <?= $isAnonymized
-                  ? 'disabled'
-                  : ''
-              ?>
-            >
 
-              <i
-                class="fa-solid fa-rotate-left"
-                aria-hidden="true"
-              ></i>
+    <p class="admin-field-help">
 
-              Reset Membership Test
+      Complimentary memberships are not removed by Stripe
+      test cleanup. Manage those separately from the user's
+      Membership page.
 
-            </button>
+    </p>
 
-          </div>
 
-        </form>
+    <div class="admin-form-actions">
 
-      </article>
+      <button
+        type="submit"
+        class="admin-button"
+        <?= $isAnonymized
+            ? 'disabled'
+            : ''
+        ?>
+      >
 
+        <i
+          class="fa-solid fa-floppy-disk"
+          aria-hidden="true"
+        ></i>
+
+        Save Cleanup Changes
+
+      </button>
+
+    </div>
+
+  </form>
+
+</article>
 
       <!-- ===============================================
            ANONYMIZE
