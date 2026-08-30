@@ -1714,16 +1714,15 @@ $managedUserIsAdmin =
 
 if (
     $managedUserIsOwner
+    &&
+    $userId !== $currentAdminId
 ) {
 
-    http_response_code(
-        403
+    header(
+        'Location: https://llamascout.com/safety.php?reason=permission'
     );
 
-
-    exit(
-        'Owner accounts are protected and cannot be edited through Basecamp.'
-    );
+    exit;
 }
 
 
