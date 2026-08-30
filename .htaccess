@@ -1,6 +1,13 @@
 RewriteEngine On
 
 # =========================================================
+# PASSWORD MANAGER CHANGE-PASSWORD ROUTE
+# =========================================================
+
+RewriteRule ^\.well-known/change-password/?$ https://account.llamascout.com/change-password.php [R=302,L]
+
+
+# =========================================================
 # COMMUNITY PROFILE ROUTES
 # =========================================================
 
