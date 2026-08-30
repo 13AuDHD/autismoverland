@@ -1424,10 +1424,6 @@ foreach (
   href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
 >
 
-<script
-  src="https://llamascout.com/js/accessibility.js"
-></script>
-
 </head>
 
 
