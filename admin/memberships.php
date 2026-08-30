@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/memberships.php';
+require_once dirname(__DIR__) . '/app/membership-invitation-admin.php';
 require_once dirname(__DIR__) . '/app/timezone.php';
 require_once dirname(__DIR__) . '/app/role-display.php';
 
@@ -214,15 +215,33 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        membership_owner_csrf($csrfToken);
 
-        $action =
-            trim(
-                (string) (
-                    $_POST['action']
-                    ?? ''
-                )
+        $invitationResult =
+            llama_process_complimentary_invitation_admin(
+                $db,
+                $ownerId,
+                $csrfToken
             );
+
+        if ($invitationResult !== null) {
+
+            $success =
+                $invitationResult;
+
+        } else {
+
+            membership_owner_csrf(
+                $csrfToken
+            );
+
+            $action =
+                trim(
+                    (string) (
+                        $_POST['action']
+                        ?? ''
+                    )
+                );
+            
 
         /* -------------------------------------------------
            UPDATE PLAN / CREATE PRICE VERSION
@@ -1138,10 +1157,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'Complimentary access revoked.';
         }
 
-        else {
+                else {
             throw new InvalidArgumentException(
                 'Unknown membership action.'
             );
+        }
+
         }
 
     } catch (Throwable $exception) {
@@ -2666,363 +2687,15 @@ require
   <!-- =====================================================
        COMPLIMENTARY MEMBERSHIPS
        ===================================================== -->
-
-  <section class="membership-owner-section">
-
-    <div class="membership-owner-section-header">
-
-      <h2>
-        Complimentary Memberships
-      </h2>
-
-      <p>
-        Grant temporary full membership access to beta testers,
-        creators, press, influencers, partners, or other people
-        helping Llama Scout.
-      </p>
-
-    </div>
-
-
-    <article class="membership-owner-card">
-
-      <h3>
-        Grant Complimentary Access
-      </h3>
-
-      <p>
-        The recipient must already have a Llama Scout account.
-      </p>
-
-
-      <form method="post">
-
-        <input
-          type="hidden"
-          name="csrf_token"
-          value="<?= e($csrfToken) ?>"
-        >
-
-        <input
-          type="hidden"
-          name="action"
-          value="create_complimentary"
-        >
-
-
-        <div class="owner-form-grid">
-
-          <div class="owner-field">
-
-            <label>
-              Username or Email
-            </label>
-
-            <input
-              type="text"
-              name="member_lookup"
-              placeholder="username or name@example.com"
-              required
-            >
-
-          </div>
-
-
-          <div class="owner-field">
-
-            <label>
-              Access Duration
-            </label>
-
-            <select
-              name="grant_duration"
-              required
-            >
-
-              <?php foreach (
-                  $durationOptions as
-                  $key =>
-                  $option
-              ): ?>
-
-                <option
-                  value="<?= e($key) ?>"
-                  <?= $key === '1m'
-                      ? 'selected'
-                      : ''
-                  ?>
-                >
-                  <?= e($option['label']) ?>
-                </option>
-
-              <?php endforeach; ?>
-
-            </select>
-
-          </div>
-
-
-          <div class="owner-field">
-
-            <label>
-              Reason
-            </label>
-
-            <input
-              type="text"
-              name="grant_reason"
-              placeholder="Beta tester, influencer, press..."
-            >
-
-          </div>
-
-
-          <div
-            class="
-              owner-field
-              owner-field--full
-            "
-          >
-
-            <label>
-              Private Notes
-            </label>
-
-            <textarea
-              name="grant_notes"
-              placeholder="Optional internal notes about this complimentary membership."
-            ></textarea>
-
-          </div>
-
-        </div>
-
-
-        <div class="owner-actions">
-
-          <button
-            type="submit"
-            class="owner-button"
-          >
-            <i
-              class="fa-solid fa-gift"
-              aria-hidden="true"
-            ></i>
-            Grant Access
-          </button>
-
-        </div>
-
-      </form>
-
-    </article>
-
-
-    <?php if (!$grants): ?>
-
-      <div
-        class="owner-empty"
-        style="margin-top:16px;"
-      >
-        No complimentary memberships have been issued yet.
-      </div>
-
-    <?php endif; ?>
-
-
-    <?php foreach ($grants as $grant): ?>
-
-      <?php
-      $grantStart =
-          strtotime(
-              (string)
-              $grant['starts_at']
-          );
-
-      $grantEnd =
-          strtotime(
-              (string)
-              $grant['ends_at']
-          );
-
-      $grantActive =
-          empty($grant['revoked_at'])
-          &&
-          $grantStart !== false
-          &&
-          $grantEnd !== false
-          &&
-          $grantStart <= time()
-          &&
-          $grantEnd > time();
-      ?>
-
-      <article class="grant-card">
-
-        <div class="grant-card-header">
-
-          <div>
-
-            <h3>
-              <?= e(
-                  $grant['display_name']
-                  ?:
-                  $grant['username']
-                  ?:
-                  $grant['email']
-              ) ?>
-            </h3>
-
-            <div class="owner-small">
-              <?= e($grant['email']) ?>
-            </div>
-
-          </div>
-
-
-          <span
-            class="
-              owner-pill
-              <?= $grantActive
-                  ? 'owner-pill--live'
-                  : ''
-              ?>
-            "
-          >
-
-            <?php
-            if (!empty($grant['revoked_at'])) {
-                echo 'Revoked';
-            } elseif (
-                $grantEnd !== false
-                &&
-                $grantEnd <= time()
-            ) {
-                echo 'Expired';
-            } else {
-                echo 'Active';
-            }
-            ?>
-
-          </span>
-
-        </div>
-
-
-        <div class="owner-meta">
-
-          <div>
-            <span>Started</span>
-            <strong>
-              <?= e(
-                  membership_owner_format_datetime(
-                      $grant['starts_at'],
-                      $ownerTimezone
-                  )
-              ) ?>
-            </strong>
-          </div>
-
-          <div>
-            <span>Access Through</span>
-            <strong>
-              <?= e(
-                  membership_owner_format_datetime(
-                      $grant['ends_at'],
-                      $ownerTimezone
-                  )
-              ) ?>
-            </strong>
-          </div>
-
-        </div>
-
-
-        <?php if (!empty($grant['reason'])): ?>
-
-          <p>
-            <strong>Reason:</strong>
-            <?= e($grant['reason']) ?>
-          </p>
-
-        <?php endif; ?>
-
-
-        <?php if (!empty($grant['notes'])): ?>
-
-          <p class="owner-small">
-            <?= nl2br(
-                e($grant['notes'])
-            ) ?>
-          </p>
-
-        <?php endif; ?>
-
-
-        <?php if ($grantActive): ?>
-
-          <form method="post">
-
-            <input
-              type="hidden"
-              name="csrf_token"
-              value="<?= e($csrfToken) ?>"
-            >
-
-            <input
-              type="hidden"
-              name="action"
-              value="revoke_complimentary"
-            >
-
-            <input
-              type="hidden"
-              name="grant_id"
-              value="<?= (int) $grant['id'] ?>"
-            >
-
-
-            <div
-              class="owner-field"
-              style="margin-top:14px;"
-            >
-
-              <label>
-                Revocation Reason
-              </label>
-
-              <input
-                type="text"
-                name="revoke_reason"
-                placeholder="Optional"
-              >
-
-            </div>
-
-
-            <div class="owner-actions">
-
-              <button
-                type="submit"
-                class="
-                  owner-button
-                  owner-button--danger
-                "
-              >
-                Revoke Access
-              </button>
-
-            </div>
-
-          </form>
-
-        <?php endif; ?>
-
-      </article>
-
-    <?php endforeach; ?>
-
-  </section>
+<?php
+
+llama_render_complimentary_invitation_admin(
+    $db,
+    $csrfToken,
+    $ownerTimezone
+);
+
+?>
 
 
 </main>
