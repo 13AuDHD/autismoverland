@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/mail.php';
+require_once dirname(__DIR__) . '/app/membership-invitations.php';
 
 start_llama_session();
 
@@ -25,6 +26,7 @@ $token =
 /* =========================================================
    VERIFY TOKEN
    ========================================================= */
+
 
 if ($token !== '') {
 
@@ -160,6 +162,134 @@ if ($token !== '') {
 
             $success =
                 'Your email has been verified.';
+
+
+            /* =================================================
+               RETURN INVITED USER TO COMPLIMENTARY INVITATION
+
+               The registration flow stores the raw invitation
+               token only in this user's session. It is removed
+               here before redirecting so it does not linger.
+               ================================================= */
+
+
+            $complimentaryInviteToken =
+                trim(
+                    (string) (
+                        $_SESSION[
+                            'complimentary_invite_token'
+                        ]
+                        ?? ''
+                    )
+                );
+
+
+            if (
+                $complimentaryInviteToken !== ''
+            ) {
+
+                $invitation =
+                    llama_find_complimentary_invitation(
+                        db(),
+                        $complimentaryInviteToken
+                    );
+
+
+                $verifiedUserStmt =
+                    db()->prepare(
+                        '
+                        SELECT
+                            id,
+                            email
+
+                        FROM users
+
+                        WHERE id = ?
+
+                        LIMIT 1
+                        '
+                    );
+
+
+                $verifiedUserStmt->execute([
+                    $verification[
+                        'user_id'
+                    ]
+                ]);
+
+
+                $verifiedUser =
+                    $verifiedUserStmt->fetch(
+                        PDO::FETCH_ASSOC
+                    );
+
+
+                $inviteIsUsable =
+                    $invitation
+                    &&
+                    llama_complimentary_invitation_status(
+                        $invitation
+                    )
+                    ===
+                    LLAMA_COMPLIMENTARY_INVITE_STATUS_PENDING;
+
+
+                $inviteEmail =
+                    $invitation
+                        ? strtolower(
+                            trim(
+                                (string)
+                                $invitation['email']
+                            )
+                        )
+                        : '';
+
+
+                $verifiedEmail =
+                    $verifiedUser
+                        ? strtolower(
+                            trim(
+                                (string)
+                                $verifiedUser['email']
+                            )
+                        )
+                        : '';
+
+
+                $emailMatches =
+                    $inviteEmail !== ''
+                    &&
+                    $verifiedEmail !== ''
+                    &&
+                    hash_equals(
+                        $inviteEmail,
+                        $verifiedEmail
+                    );
+
+
+                unset(
+                    $_SESSION[
+                        'complimentary_invite_token'
+                    ]
+                );
+
+
+                if (
+                    $inviteIsUsable
+                    &&
+                    $emailMatches
+                ) {
+
+                    header(
+                        'Location: https://account.llamascout.com/complimentary-invite.php?token='
+                        . rawurlencode(
+                            $complimentaryInviteToken
+                        )
+                    );
+
+                    exit;
+                }
+            }
         }
 
 
@@ -190,6 +320,7 @@ if ($token !== '') {
    CURRENT STATE
    ========================================================= */
 
+
 $user =
     current_user();
 
@@ -201,6 +332,85 @@ $alreadyVerified =
             'email_verified_at'
         ]
     );
+
+
+/* =========================================================
+   PENDING COMPLIMENTARY INVITATION
+
+   If the user lands back here after already being verified,
+   keep the invitation path available rather than losing it.
+   ========================================================= */
+
+
+$pendingInviteToken =
+    trim(
+        (string) (
+            $_SESSION[
+                'complimentary_invite_token'
+            ]
+            ?? ''
+        )
+    );
+
+$pendingInvite = null;
+
+if (
+    $alreadyVerified
+    &&
+    $pendingInviteToken !== ''
+) {
+
+    $candidateInvite =
+        llama_find_complimentary_invitation(
+            db(),
+            $pendingInviteToken
+        );
+
+
+    if (
+        $candidateInvite
+        &&
+        llama_complimentary_invitation_status(
+            $candidateInvite
+        )
+        ===
+        LLAMA_COMPLIMENTARY_INVITE_STATUS_PENDING
+    ) {
+
+        $userEmail =
+            strtolower(
+                trim(
+                    (string) (
+                        $user['email']
+                        ?? ''
+                    )
+                )
+            );
+
+        $candidateEmail =
+            strtolower(
+                trim(
+                    (string)
+                    $candidateInvite['email']
+                )
+            );
+
+
+        if (
+            $userEmail !== ''
+            &&
+            $candidateEmail !== ''
+            &&
+            hash_equals(
+                $candidateEmail,
+                $userEmail
+            )
+        ) {
+            $pendingInvite =
+                $candidateInvite;
+        }
+    }
+}
 
 ?>
 
@@ -236,10 +446,10 @@ $alreadyVerified =
     href="https://llamascout.com/css/account.css"
   >
 
-<script
-  src="https://llamascout.com/js/accessibility.js"
-></script>
-    
+  <script
+    src="https://llamascout.com/js/accessibility.js"
+  ></script>
+
 </head>
 
 
@@ -326,12 +536,35 @@ $alreadyVerified =
       </p>
 
 
-      <a
-        class="primary-button"
-        href="/"
-      >
-        Go to My Account
-      </a>
+      <?php if (
+          $pendingInvite
+      ): ?>
+
+        <p class="account-auth-intro">
+          Your complimentary membership invitation is ready.
+        </p>
+
+
+        <a
+          class="primary-button"
+          href="complimentary-invite.php?token=<?= urlencode(
+              $pendingInviteToken
+          ) ?>"
+        >
+          Continue to Complimentary Membership
+        </a>
+
+
+      <?php else: ?>
+
+        <a
+          class="primary-button"
+          href="/"
+        >
+          Go to My Account
+        </a>
+
+      <?php endif; ?>
 
 
     <?php elseif (
@@ -339,20 +572,20 @@ $alreadyVerified =
     ): ?>
 
 
-    <p class="account-auth-intro">
-      Check your inbox for the verification
-      link we sent you.
-    </p>
-    
-    <p class="account-auth-intro">
-      <strong>
-        If you do not see the email within a few minutes,
-        check your Spam, Junk, or Promotions folder.
-      </strong>
-      Verification emails can occasionally be filtered there
-      by your email provider. Add "hi@llamascout.com" to your 
-      address book to help prevent future bounced messages.
-    </p>
+      <p class="account-auth-intro">
+        Check your inbox for the verification
+        link we sent you.
+      </p>
+
+      <p class="account-auth-intro">
+        <strong>
+          If you do not see the email within a few minutes,
+          check your Spam, Junk, or Promotions folder.
+        </strong>
+        Verification emails can occasionally be filtered there
+        by your email provider. Add "hi@llamascout.com" to your
+        address book to help prevent future bounced messages.
+      </p>
 
 
       <a
