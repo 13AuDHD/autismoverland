@@ -6,22 +6,85 @@ require_once dirname(__DIR__) . '/app/auth.php';
 require_once dirname(__DIR__) . '/app/mail.php';
 require_once dirname(__DIR__) . '/app/username-policy.php';
 require_once dirname(__DIR__) . '/app/timezone.php';
+require_once dirname(__DIR__) . '/app/membership-invitations.php';
 
 start_llama_session();
 
+
+/* =====================================================
+   COMPLIMENTARY INVITATION CONTEXT
+   ===================================================== */
+
+
+$inviteToken =
+    trim(
+        (string) (
+            $_GET['invite']
+            ?? $_POST['invite']
+            ?? ''
+        )
+    );
+
+$invite = null;
+$inviteStatus = null;
+
+if ($inviteToken !== '') {
+    $invite =
+        llama_find_complimentary_invitation(
+            db(),
+            $inviteToken
+        );
+
+    if ($invite) {
+        $inviteStatus =
+            llama_complimentary_invitation_status(
+                $invite
+            );
+    }
+
+    if (
+        !$invite
+        ||
+        $inviteStatus !==
+            LLAMA_COMPLIMENTARY_INVITE_STATUS_PENDING
+    ) {
+        $inviteToken = '';
+        $invite = null;
+        $inviteStatus = null;
+    }
+}
+
+
 if (is_logged_in()) {
+
+    if ($inviteToken !== '') {
+        header(
+            'Location: https://account.llamascout.com/complimentary-invite.php?token='
+            . rawurlencode($inviteToken)
+        );
+        exit;
+    }
+
     header(
         'Location: https://account.llamascout.com/'
     );
     exit;
 }
 
+
 $errors = [];
 
 $values = [
     'username' => '',
     'display_name' => '',
-    'email' => '',
+    'email' =>
+        $invite
+            ? strtolower(
+                trim(
+                    (string)$invite['email']
+                )
+            )
+            : '',
     'timezone' =>
         llama_default_timezone(),
 ];
@@ -30,6 +93,7 @@ $values = [
 /* =====================================================
    TURNSTILE CONFIG
    ===================================================== */
+
 
 $config =
     llama_config();
@@ -58,6 +122,7 @@ $turnstileSecretKey =
 /* =====================================================
    POST
    ===================================================== */
+
 
 if (
     $_SERVER['REQUEST_METHOD']
@@ -143,8 +208,61 @@ if (
 
 
     /* =====================================================
+       INVITATION EMAIL BINDING
+       ===================================================== */
+
+
+    if ($inviteToken !== '') {
+
+        $submittedInvite =
+            llama_find_complimentary_invitation(
+                db(),
+                $inviteToken
+            );
+
+        if (
+            !$submittedInvite
+            ||
+            llama_complimentary_invitation_status(
+                $submittedInvite
+            )
+            !==
+            LLAMA_COMPLIMENTARY_INVITE_STATUS_PENDING
+        ) {
+
+            $errors[] =
+                'That complimentary membership invitation is no longer available.';
+
+        } else {
+
+            $invitedEmail =
+                strtolower(
+                    trim(
+                        (string)$submittedInvite['email']
+                    )
+                );
+
+            if (
+                $email === ''
+                ||
+                !hash_equals(
+                    $invitedEmail,
+                    $email
+                )
+            ) {
+                $errors[] =
+                    'This invitation is reserved for '
+                    . $invitedEmail
+                    . '. Create the account using that email address.';
+            }
+        }
+    }
+
+
+    /* =====================================================
        HONEYPOT
        ===================================================== */
+
 
     if ($honeypot !== '') {
 
@@ -160,6 +278,7 @@ if (
     /* =====================================================
        TURNSTILE
        ===================================================== */
+
 
     if (
         $turnstileSiteKey === ''
@@ -348,6 +467,7 @@ if (
        NORMAL VALIDATION
        ===================================================== */
 
+
     $usernamePolicy =
         username_policy_check(
             $username
@@ -436,6 +556,7 @@ if (
        CHECK EXISTING ACCOUNT
        ===================================================== */
 
+
     if (!$errors) {
 
         $stmt =
@@ -495,7 +616,9 @@ if (
             ) {
 
                 $errors[] =
-                    'An account already exists with that email address.';
+                    $inviteToken !== ''
+                        ? 'An account already exists with this invited email address. Sign in to accept the invitation.'
+                        : 'An account already exists with that email address.';
             }
         }
     }
@@ -504,6 +627,7 @@ if (
     /* =====================================================
        CREATE ACCOUNT
        ===================================================== */
+
 
     if (!$errors) {
 
@@ -699,6 +823,21 @@ if (
                 time();
 
 
+            /*
+             * Preserve the secure invitation token only long
+             * enough to return the newly registered user to the
+             * acceptance page after email verification.
+             */
+            if ($inviteToken !== '') {
+                $_SESSION['complimentary_invite_token'] =
+                    $inviteToken;
+            } else {
+                unset(
+                    $_SESSION['complimentary_invite_token']
+                );
+            }
+
+
             header(
                 'Location: https://account.llamascout.com/verify-email.php?sent=1'
             );
@@ -734,6 +873,7 @@ if (
 /* =====================================================
    ESCAPE OUTPUT
    ===================================================== */
+
 
 function e(
     string $value
@@ -812,14 +952,36 @@ function e(
       Create your account
     </h1>
 
-    <p class="account-auth-intro">
 
-      Create a Llama Scout account to
-      start building your profile, save
-      places, earn badges, and manage 
+    <?php if ($invite): ?>
+
+      <p class="account-auth-intro">
+
+        You have been invited to receive
+
+        <strong>
+          <?= (int)$invite['grant_duration_days'] ?>
+          days
+        </strong>
+
+        of complimentary Llama Scout membership.
+        Create your account with the invited email below,
+        verify it, then accept your membership.
+
+      </p>
+
+    <?php else: ?>
+
+      <p class="account-auth-intro">
+
+        Create a Llama Scout account to
+        start building your profile, save
+        places, earn badges, and manage
         your membership.
 
-    </p>
+      </p>
+
+    <?php endif; ?>
 
 
     <?php if ($errors): ?>
@@ -847,6 +1009,19 @@ function e(
       method="post"
       novalidate
     >
+
+      <?php if ($inviteToken !== ''): ?>
+
+        <input
+          type="hidden"
+          name="invite"
+          value="<?= e(
+              $inviteToken
+          ) ?>"
+        >
+
+      <?php endif; ?>
+
 
       <div class="account-field">
 
@@ -917,10 +1092,25 @@ function e(
           value="<?= e(
               $values['email']
           ) ?>"
+          <?= $invite
+              ? 'readonly'
+              : ''
+          ?>
           required
         >
 
       </div>
+
+
+      <?php if ($invite): ?>
+
+        <p class="account-field-note">
+          This complimentary invitation is secured to this
+          email address and cannot be transferred to another
+          account.
+        </p>
+
+      <?php endif; ?>
 
 
       <div class="account-field">
@@ -1062,7 +1252,16 @@ function e(
 
       Already have an account?
 
-      <a href="login.php">
+      <a
+        href="<?= $inviteToken !== ''
+            ? 'login.php?return='
+              . urlencode(
+                  'https://account.llamascout.com/complimentary-invite.php?token='
+                  . $inviteToken
+              )
+            : 'login.php'
+        ?>"
+      >
         Log in
       </a>
 
