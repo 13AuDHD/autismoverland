@@ -2295,24 +2295,81 @@ if (
            OWNER ONLY
            ================================================= */
 
-        } elseif (
-            $action ===
-            'reset_membership_test'
+} elseif (
+    $action ===
+    'reset_membership_test'
+) {
+
+    if (
+        !$currentAdminIsOwner
+        ||
+        $managedUserIsAdmin
+    ) {
+
+        $error =
+            'Only an Owner can use Account Cleanup on this account.';
+
+
+    } else {
+
+        $clearStripeTest =
+            isset(
+                $_POST[
+                    'clear_stripe_test_data'
+                ]
+            );
+
+        $clearSavedPlaces =
+            isset(
+                $_POST[
+                    'clear_saved_places'
+                ]
+            );
+
+        $clearUnpublished =
+            isset(
+                $_POST[
+                    'clear_unpublished_submissions'
+                ]
+            );
+
+
+        if (
+            !$clearStripeTest
+            &&
+            !$clearSavedPlaces
+            &&
+            !$clearUnpublished
         ) {
 
-            if (
-                !$currentAdminIsOwner
-                ||
-                $managedUserIsAdmin
-            ) {
-
-                $error =
-                    'Only an Owner can use Account Cleanup on this account.';
+            $error =
+                'Choose at least one item to reset.';
 
 
-            } else {
+        } else {
 
-                try {
+            try {
+
+                $stripeResult = [
+                    'subscription_canceled' =>
+                        false,
+
+                    'customer_deleted' =>
+                        false,
+                ];
+
+
+                /*
+                 * Stripe cleanup is now explicit.
+                 *
+                 * This removes only Stripe test billing state
+                 * and the user's paid subscription columns.
+                 * It does NOT remove legitimate complimentary
+                 * membership grants.
+                 */
+                if (
+                    $clearStripeTest
+                ) {
 
                     $stripeResult =
                         admin_cleanup_stripe_test_customer(
@@ -2325,123 +2382,124 @@ if (
                             ]
                             ?? null
                         );
+                }
 
 
-                    $db->beginTransaction();
+                $db->beginTransaction();
 
+
+                if (
+                    $clearStripeTest
+                ) {
 
                     admin_cleanup_reset_membership_columns(
                         $db,
+                        $userId
+                    );
+                }
+
+
+                if (
+                    $clearSavedPlaces
+                ) {
+
+                    admin_cleanup_delete_by_user_id(
+                        $db,
+                        'user_saved_places',
                         $userId
                     );
 
 
                     admin_cleanup_delete_by_user_id(
                         $db,
-                        'membership_grants',
+                        'saved_places',
                         $userId
                     );
+                }
 
 
-                    if (
-                        isset(
-                            $_POST[
-                                'clear_saved_places'
-                            ]
-                        )
-                    ) {
-
-                        admin_cleanup_delete_by_user_id(
-                            $db,
-                            'user_saved_places',
-                            $userId
-                        );
-
-
-                        admin_cleanup_delete_by_user_id(
-                            $db,
-                            'saved_places',
-                            $userId
-                        );
-                    }
-
-
-                    if (
-                        isset(
-                            $_POST[
-                                'clear_unpublished_submissions'
-                            ]
-                        )
-                    ) {
-
-                        admin_cleanup_delete_unpublished_content(
-                            $db,
-                            $userId
-                        );
-                    }
-
-
-                    llama_membership_audit(
-                        $db,
-                        $currentAdminId,
-                        'membership_test_reset',
-                        'user',
-                        $userId,
-                        [
-                            'stripe_test_mode' =>
-                                admin_cleanup_stripe_is_test_mode(),
-
-                            'stripe_subscription_canceled' =>
-                                $stripeResult[
-                                    'subscription_canceled'
-                                ],
-
-                            'stripe_customer_deleted' =>
-                                $stripeResult[
-                                    'customer_deleted'
-                                ],
-                        ]
-                    );
-
-
-                    $db->commit();
-
-
-                    $message =
-                        'Membership test state was reset successfully.';
-
-
-                } catch (
-                    Throwable $exception
+                if (
+                    $clearUnpublished
                 ) {
 
-                    if (
-                        $db->inTransaction()
-                    ) {
-
-                        $db->rollBack();
-                    }
-
-
-                    error_log(
-                        'Llama Scout membership reset error for user #'
-                        .
+                    admin_cleanup_delete_unpublished_content(
+                        $db,
                         $userId
-                        .
-                        ': '
-                        .
-                        $exception
-                            ->getMessage()
                     );
-
-
-                    $error =
-                        $exception
-                            ->getMessage();
                 }
+
+
+                llama_membership_audit(
+                    $db,
+                    $currentAdminId,
+                    'membership_test_reset',
+                    'user',
+                    $userId,
+                    [
+                        'stripe_test_data_cleared' =>
+                            $clearStripeTest,
+
+                        'stripe_test_mode' =>
+                            admin_cleanup_stripe_is_test_mode(),
+
+                        'stripe_subscription_canceled' =>
+                            $stripeResult[
+                                'subscription_canceled'
+                            ],
+
+                        'stripe_customer_deleted' =>
+                            $stripeResult[
+                                'customer_deleted'
+                            ],
+
+                        'saved_places_cleared' =>
+                            $clearSavedPlaces,
+
+                        'unpublished_submissions_cleared' =>
+                            $clearUnpublished,
+                    ]
+                );
+
+
+                $db->commit();
+
+
+                $message =
+                    'Selected account test data was cleared successfully.';
+
+
+            } catch (
+                Throwable $exception
+            ) {
+
+                if (
+                    $db->inTransaction()
+                ) {
+
+                    $db->rollBack();
+                }
+
+
+                error_log(
+                    'Llama Scout membership reset error for user #'
+                    .
+                    $userId
+                    .
+                    ': '
+                    .
+                    $exception
+                        ->getMessage()
+                );
+
+
+                $error =
+                    $exception
+                        ->getMessage();
             }
+        }
+    }
 
-
+           
         /* =================================================
            ANONYMIZE ACCOUNT
            OWNER ONLY
