@@ -755,6 +755,32 @@ require_once
 
 
       <a
+        href="change-password.php"
+        class="account-dashboard-card"
+      >
+
+        <span class="card-icon">
+
+          <i
+            class="fa-solid fa-key"
+            aria-hidden="true"
+          ></i>
+
+        </span>
+
+        <h3>
+          Change Password
+        </h3>
+
+        <p>
+          Update your password securely using your current
+          password and a new password.
+        </p>
+
+      </a>
+        
+
+      <a
         href="membership.php"
         class="account-dashboard-card"
       >
