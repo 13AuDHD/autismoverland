@@ -594,70 +594,6 @@ $scoutStep =
         : 0;
 
 
-/* =========================================================
-   MANUALLY MANAGED ROLES
-
-   Owner:
-     System controlled. Never shown or edited here.
-
-   Scout / Master Scout:
-     Controlled by the Scout system. Never manually assigned
-     through generic user-role controls.
-
-   Admin:
-     May only be changed by an Owner.
-   ========================================================= */
-
-$availableRoles =
-    fetch_all(
-        $db,
-        '
-        SELECT
-            id,
-            slug
-
-        FROM roles
-
-        WHERE slug NOT IN
-        (
-            \'owner\',
-            \'scout\',
-            \'master-scout\',
-            \'master_scout\'
-        )
-
-        ORDER BY
-            CASE slug
-                WHEN \'admin\' THEN 1
-                WHEN \'member\' THEN 2
-                ELSE 10
-            END,
-            slug ASC
-        '
-    );
-
-
-$roleById =
-    [];
-
-
-foreach (
-    $availableRoles as
-    $role
-) {
-
-    $roleById[
-        (int)
-        $role[
-            'id'
-        ]
-    ] =
-        (string)
-        $role[
-            'slug'
-        ];
-}
-
 
 /* =========================================================
    POST ACTIONS
@@ -906,312 +842,6 @@ if (
             }
 
 
-        /* =================================================
-           ACCESS ROLES
-
-           Protected roles are NEVER deleted or inserted here.
-           ================================================= */
-
-} elseif (
-    $action ===
-    'update_roles'
-) {
-
-    $submittedRoles =
-        $_POST[
-            'roles'
-        ]
-        ?? [];
-
-
-    if (
-        !is_array(
-            $submittedRoles
-        )
-    ) {
-
-        $submittedRoles =
-            [];
-    }
-
-
-    $submittedRoleIds =
-        array_values(
-            array_unique(
-                array_filter(
-                    array_map(
-                        'intval',
-                        $submittedRoles
-                    ),
-                    static fn(
-                        int $id
-                    ): bool =>
-                        $id > 0
-                )
-            )
-        );
-
-
-    foreach (
-        $submittedRoleIds as
-        $roleId
-    ) {
-
-        if (
-            !array_key_exists(
-                $roleId,
-                $roleById
-            )
-        ) {
-
-            $error =
-                'One of the selected access roles is not valid.';
-
-            break;
-        }
-    }
-
-
-    $selectedRoleSlugs =
-        [];
-
-
-    if (
-        $error === ''
-    ) {
-
-        foreach (
-            $submittedRoleIds as
-            $roleId
-        ) {
-
-            $selectedRoleSlugs[] =
-                $roleById[
-                    $roleId
-                ];
-        }
-    }
-
-
-    /*
-     * Capture the Admin state before anything changes.
-     */
-
-    $adminWasAssigned =
-        $managedUserIsAdmin;
-
-
-    $adminRequested =
-        in_array(
-            'admin',
-            $selectedRoleSlugs,
-            true
-        );
-
-
-    /*
-     * Only an Owner can add or remove Admin.
-     */
-
-    if (
-        $error === ''
-        &&
-        !$currentAdminIsOwner
-        &&
-        $adminWasAssigned !==
-        $adminRequested
-    ) {
-
-        $error =
-            'Only a Llama Scout Owner can add or remove Admin access.';
-    }
-
-
-    if (
-        $error === ''
-    ) {
-
-        try {
-
-            $db->beginTransaction();
-
-
-            /*
-             * Delete ONLY manually managed roles.
-             *
-             * Owner / Scout / Master Scout survive untouched.
-             */
-
-            $deleteRoles =
-                $db->prepare(
-                    '
-                    DELETE ur
-
-                    FROM user_roles ur
-
-                    INNER JOIN roles r
-                      ON r.id =
-                         ur.role_id
-
-                    WHERE ur.user_id = ?
-
-                      AND r.slug NOT IN
-                      (
-                          \'owner\',
-                          \'scout\',
-                          \'master-scout\',
-                          \'master_scout\'
-                      )
-                    '
-                );
-
-
-            $deleteRoles->execute([
-                $userId,
-            ]);
-
-
-            if (
-                $submittedRoleIds
-            ) {
-
-                $insertRole =
-                    $db->prepare(
-                        '
-                        INSERT INTO user_roles
-                        (
-                            user_id,
-                            role_id
-                        )
-
-                        VALUES
-                        (
-                            ?,
-                            ?
-                        )
-                        '
-                    );
-
-
-                foreach (
-                    $submittedRoleIds as
-                    $roleId
-                ) {
-
-                    $insertRole->execute([
-                        $userId,
-                        $roleId,
-                    ]);
-                }
-            }
-
-
-            /*
-             * Any Admin privilege transition revokes
-             * long-lived remembered authentication.
-             *
-             * Most importantly, when a Member becomes an
-             * Admin, an old Remember Me token cannot be used
-             * to bypass the new MFA requirement.
-             */
-
-            if (
-                $adminWasAssigned !==
-                $adminRequested
-            ) {
-
-                llama_mfa_invalidate_remember_tokens(
-                    $userId,
-                    $db
-                );
-            }
-
-
-            $db->commit();
-
-
-            $managedRoles =
-                load_managed_roles(
-                    $db,
-                    $userId
-                );
-
-
-            $managedRoleSlugs =
-                array_column(
-                    $managedRoles,
-                    'slug'
-                );
-
-
-            $managedUserIsOwner =
-                in_array(
-                    'owner',
-                    $managedRoleSlugs,
-                    true
-                );
-
-
-            $managedUserIsAdmin =
-                in_array(
-                    'admin',
-                    $managedRoleSlugs,
-                    true
-                );
-
-
-            if (
-                !$adminWasAssigned
-                &&
-                $adminRequested
-            ) {
-
-                $message =
-                    'Admin access granted. Existing remembered logins were revoked, and MFA is now required for privileged access.';
-
-
-            } elseif (
-                $adminWasAssigned
-                &&
-                !$adminRequested
-            ) {
-
-                $message =
-                    'Admin access removed. Existing remembered logins were revoked.';
-
-
-            } else {
-
-                $message =
-                    'Access roles updated.';
-            }
-
-
-        } catch (
-            Throwable $exception
-        ) {
-
-            if (
-                $db->inTransaction()
-            ) {
-
-                $db->rollBack();
-            }
-
-
-            error_log(
-                'Llama Scout admin access role error: '
-                .
-                $exception
-                    ->getMessage()
-            );
-
-
-            $error =
-                'The access roles could not be updated.';
-        }
-    }
-
         } else {
 
             $error =
@@ -1391,18 +1021,6 @@ $verifications =
 /* =========================================================
    UI VALUES
    ========================================================= */
-
-$managedRoleIds =
-    array_map(
-        static fn(
-            array $role
-        ): int =>
-            (int)
-            $role[
-                'id'
-            ],
-        $managedRoles
-    );
 
 
 $displayName =
@@ -3195,218 +2813,12 @@ require
       </section>
 
 
-      <!-- ===============================================
-           ACCESS ROLES
-           =============================================== -->
-
-      <section class="admin-panel">
-
-        <div class="admin-panel-header">
-
-          <div>
-
-            <h2>
-              Access Roles
-            </h2>
-
-            <p>
-              Manage ordinary account permissions.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <form
-          method="post"
-          class="admin-form"
-        >
-
-          <input
-            type="hidden"
-            name="action"
-            value="update_roles"
-          >
-
-          <input
-            type="hidden"
-            name="user_id"
-            value="<?= $userId ?>"
-          >
-
-          <input
-            type="hidden"
-            name="csrf_token"
-            value="<?= e(
-                $csrfToken
-            ) ?>"
-          >
-
-
-          <div class="admin-field">
-
-            <label>
-              Assigned Access
-            </label>
-
-
-            <?php
-
-            $visibleRoleCount =
-                0;
-
-            ?>
-
-
-            <?php foreach (
-                $availableRoles as
-                $role
-            ): ?>
-
-              <?php
-
-              $roleSlug =
-                  (string)
-                  $role[
-                      'slug'
-                  ];
-
-
-              /*
-               * Only an Owner gets an Admin checkbox.
-               */
-
-              if (
-                  $roleSlug ===
-                  'admin'
-                  &&
-                  !$currentAdminIsOwner
-              ) {
-
-                  continue;
-              }
-
-
-              $visibleRoleCount++;
-
-              ?>
-
-
-              <label
-                class="admin-checkbox"
-                style="margin-bottom: 10px;"
-              >
-
-                <input
-                  type="checkbox"
-                  name="roles[]"
-                  value="<?= (int)
-                      $role[
-                          'id'
-                      ]
-                  ?>"
-                  <?= in_array(
-                      (int)
-                      $role[
-                          'id'
-                      ],
-                      $managedRoleIds,
-                      true
-                  )
-                      ? 'checked'
-                      : ''
-                  ?>
-                >
-
-                <span>
-
-                  <?= e(
-                      role_label(
-                          $roleSlug
-                      )
-                  ) ?>
-
-                  <?php if (
-                      $roleSlug ===
-                      'admin'
-                  ): ?>
-
-                    <small>
-                      Owner controlled
-                    </small>
-
-                  <?php endif; ?>
-
-                </span>
-
-              </label>
-
-            <?php endforeach; ?>
-
-
-            <?php if (
-                $visibleRoleCount ===
-                0
-            ): ?>
-
-              <p class="admin-field-help">
-
-                There are no manually managed access roles
-                available for this account.
-
-              </p>
-
-            <?php endif; ?>
-
-
-            <p class="admin-field-help admin-role-note">
-
-              Scout and Master Scout access are managed through
-              the Scout system.
-
-              <?php if (
-                  $currentAdminIsOwner
-              ): ?>
-
-                Admin access is controlled by an Owner.
-
-              <?php endif; ?>
-
-            </p>
-
-          </div>
-
-
-          <?php if (
-              $visibleRoleCount > 0
-          ): ?>
-
-            <div class="admin-form-actions">
-
-              <button
-                type="submit"
-                class="admin-button"
-              >
-                Save Access Roles
-              </button>
-
-            </div>
-
-          <?php endif; ?>
-
-
-        </form>
-
-      </section>
-
-
       <?php if (
           $currentAdminIsOwner
       ): ?>
 
         <!-- ===============================================
-             OWNER SECURITY
+             PRIVILEGED SECURITY
              =============================================== -->
 
         <section class="admin-panel">
@@ -3420,7 +2832,7 @@ require
               </h2>
 
               <p>
-                Owner access and MFA security for this account.
+                Admin, Owner, and MFA security for this account.
               </p>
 
             </div>
@@ -3441,33 +2853,57 @@ require
                 <div class="admin-detail-row">
 
                   <div class="admin-detail-label">
-                    Privileged Role
+                    Privileged Access
                   </div>
 
                   <div class="admin-detail-value">
 
-                    <span
-                      class="
-                        admin-user-badge
-                        admin-user-role
-                        admin-user-role--admin
-                      "
-                    >
+                    <?php if (
+                        $managedUserIsOwner
+                    ): ?>
 
-                      <i
-                        class="<?= $managedUserIsOwner
-                            ? 'fa-solid fa-crown'
-                            : 'fa-solid fa-shield-halved'
-                        ?>"
-                        aria-hidden="true"
-                      ></i>
+                      <span
+                        class="
+                          admin-user-badge
+                          admin-user-role
+                          admin-user-role--admin
+                        "
+                      >
 
-                      <?= $managedUserIsOwner
-                          ? 'Owner'
-                          : 'Admin'
-                      ?>
+                        <i
+                          class="fa-solid fa-crown"
+                          aria-hidden="true"
+                        ></i>
 
-                    </span>
+                        Owner
+
+                      </span>
+
+                    <?php endif; ?>
+
+
+                    <?php if (
+                        $managedUserIsAdmin
+                    ): ?>
+
+                      <span
+                        class="
+                          admin-user-badge
+                          admin-user-role
+                          admin-user-role--admin
+                        "
+                      >
+
+                        <i
+                          class="fa-solid fa-shield-halved"
+                          aria-hidden="true"
+                        ></i>
+
+                        Admin
+
+                      </span>
+
+                    <?php endif; ?>
 
                   </div>
 
@@ -3541,12 +2977,13 @@ require
 
               </div>
 
+
             <?php else: ?>
 
               <p class="admin-field-help">
 
-                This account does not currently have Admin or
-                Owner access, so privileged MFA is not required.
+                This account currently has no privileged
+                Basecamp access. MFA is not required.
 
               </p>
 
@@ -3578,6 +3015,27 @@ require
                 </a>
 
               <?php endif; ?>
+
+
+              <a
+                class="
+                  admin-button
+                  admin-button--secondary
+                "
+                href="/admin-access.php?id=<?= $userId ?>"
+              >
+
+                <i
+                  class="fa-solid fa-shield-halved"
+                  aria-hidden="true"
+                ></i>
+
+                <?= $managedUserIsAdmin
+                    ? 'Manage Admin Access'
+                    : 'Admin Security'
+                ?>
+
+              </a>
 
 
               <a
