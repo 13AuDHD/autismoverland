@@ -361,7 +361,6 @@ $hasStripeSubscription = trim((string) ($targetUser['stripe_subscription_id'] ??
   <link rel="stylesheet" href="https://llamascout.com/css/style.css">
   <link rel="stylesheet" href="https://llamascout.com/css/admin.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-  <script src="https://llamascout.com/js/accessibility.js"></script>
 </head>
 <body class="admin-page">
 
