@@ -1820,19 +1820,18 @@ if (
         );
 
 
-    if (
-        $managedUserIsOwner
-    ) {
-
-        http_response_code(
-            403
-        );
-
-
-        exit(
-            'Owner accounts are protected and cannot be edited through Basecamp.'
-        );
-    }
+   if (
+       $managedUserIsOwner
+       &&
+       $userId !== $currentAdminId
+   ) {
+   
+       header(
+           'Location: https://llamascout.com/safety.php?reason=permission'
+       );
+   
+       exit;
+   }
 
 
     if (
