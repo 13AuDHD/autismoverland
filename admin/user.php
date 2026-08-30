@@ -3107,6 +3107,29 @@ require
           <?php endif; ?>
 
 
+            <?php if (
+                $currentAdminIsOwner
+            ): ?>
+            
+              <a
+                class="
+                  admin-button
+                  admin-button--secondary
+                "
+                href="/user-membership.php?id=<?= $userId ?>"
+              >
+            
+                <i
+                  class="fa-solid fa-gift"
+                  aria-hidden="true"
+                ></i>
+            
+                Manage Membership
+            
+              </a>
+            
+            <?php endif; ?>
+
           <a
             class="
               admin-button
