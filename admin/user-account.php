@@ -1834,21 +1834,18 @@ if (
    }
 
 
-    if (
-        $managedUserIsAdmin
-        &&
-        !$currentAdminIsOwner
-    ) {
-
-        http_response_code(
-            403
-        );
-
-
-        exit(
-            'Administrator accounts are managed by a Llama Scout Owner.'
-        );
-    }
+   if (
+       $managedUserIsAdmin
+       &&
+       !$currentAdminIsOwner
+   ) {
+   
+       header(
+           'Location: https://llamascout.com/safety.php?reason=permission'
+       );
+   
+       exit;
+   }
 
 
     $submittedToken =
