@@ -6,7 +6,7 @@ require_once dirname(__DIR__) . '/app/bootstrap.php';
 $adminUser = moderation_require_admin();
 $db = db();
 $csrfToken = moderation_csrf_token();
-$pageTitle = 'New Place Submissions | Llama Scout Admin';
+$pageTitle = 'Problem Reports | Llama Scout Admin';
 $pageRobots = 'noindex,nofollow';
 
 require dirname(__DIR__) . '/partials/header.php';
@@ -17,7 +17,7 @@ require dirname(__DIR__) . '/partials/header.php';
     <header class="admin-moderation-header">
         <div>
             <p class="admin-moderation-eyebrow">Llama Scout Admin</p>
-            <h1>New Place Submissions</h1>
+            <h1>Problem Reports</h1>
         </div>
         <a class="admin-moderation-button" href="https://account.llamascout.com/">
             <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
@@ -32,10 +32,10 @@ require dirname(__DIR__) . '/partials/header.php';
         <a href="/reports.php"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Reports</a>
     </nav>
 
-<?php $items = moderation_new_place_queue($db); ?>
+<?php $items = moderation_report_queue($db); ?>
 
 <?php if (!$items): ?>
-    <div class="admin-moderation-empty">There are no new Place submissions waiting for review.</div>
+    <div class="admin-moderation-empty">There are no open Place reports.</div>
 <?php else: ?>
     <div class="admin-moderation-list">
         <?php foreach ($items as $item): ?>
@@ -43,14 +43,14 @@ require dirname(__DIR__) . '/partials/header.php';
                 <div>
                     <h2><?= moderation_e($item['place_name']) ?></h2>
                     <p>
-                        <?= moderation_e($item['display_name'] ?: $item['username']) ?>
-                        · submitted <?= moderation_e($item['submitted_at']) ?>
-                        · <?= moderation_e($item['role_at_submission'] ?: 'user') ?>
+                        <?= moderation_e(ucwords(str_replace(['-','_'], ' ', (string) $item['problem_type']))) ?>
+                        · <?= moderation_e($item['display_name'] ?: $item['username']) ?>
+                        · <?= (int) $item['image_count'] ?> photo<?= (int) $item['image_count'] === 1 ? '' : 's' ?>
                     </p>
                 </div>
                 <div>
                     <span class="admin-moderation-status"><?= moderation_e(moderation_status_label((string) $item['status'])) ?></span>
-                    <a class="admin-moderation-button" href="/moderate-submission.php?id=<?= (int) $item['id'] ?>">Review</a>
+                    <a class="admin-moderation-button" href="/moderate-report.php?id=<?= (int) $item['id'] ?>">Review</a>
                 </div>
             </article>
         <?php endforeach; ?>
